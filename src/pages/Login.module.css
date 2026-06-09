@@ -1,31 +1,15 @@
 .container {
-  align-items: stretch;
   background:
     radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.72), transparent 28%),
     linear-gradient(135deg, #eeeeed 0%, #e4e2e0 100%);
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  justify-content: center;
-  min-height: 100vh;
-  overflow: hidden;
   padding: clamp(18px, 5vw, 58px);
-  position: relative;
 }
 
 .leftPanel,
 .rightPanel {
-  align-items: center;
   animation-duration: 760ms;
   animation-fill-mode: forwards;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  box-sizing: border-box;
-  display: flex;
-  justify-content: center;
-  opacity: 0;
-  overflow: hidden;
-  width: 100%;
 }
 
 .leftPanel {
@@ -34,13 +18,9 @@
   background-color: #fb7f6e;
   background-clip: padding-box;
   border-radius: 22px 22px 0 0;
-  color: #ffffff;
-  flex: none;
   min-height: clamp(240px, 34vh, 360px);
   padding: 20px;
-  position: relative;
   transform-origin: 50% 100%;
-  touch-action: none;
 }
 
 .leftPanel::before {
@@ -77,40 +57,22 @@
   box-shadow:
     0 34px 90px rgba(27, 24, 22, 0.1),
     0 2px 10px rgba(27, 24, 22, 0.03);
-  flex: 1;
   min-height: clamp(420px, 52vh, 560px);
   padding: clamp(30px, 8vw, 76px) clamp(24px, 7vw, 72px);
 }
 
 .glassScene {
   border-radius: inherit;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  position: absolute;
-  z-index: 0;
 }
 
-.matterLayer {
-  inset: 0;
-  opacity: 1;
-  position: absolute;
-}
-
-.matterLayer canvas {
+.glassScene canvas {
   display: block;
   height: 100%;
   width: 100%;
 }
 
 .formPanel {
-  align-items: center;
   animation: contentFadeIn 620ms cubic-bezier(0.16, 1, 0.3, 1) 900ms forwards;
-  display: flex;
-  flex-direction: column;
-  max-width: 360px;
-  opacity: 0;
-  width: 100%;
 }
 
 .brandMark {
@@ -150,20 +112,12 @@
   font-weight: 560;
   letter-spacing: 0;
   line-height: 1.1;
-  margin-bottom: 8px;
-  text-align: center;
 }
 
 .subtitle {
   color: #9d9a98;
   font-size: 13px;
   line-height: 1.5;
-  margin-bottom: 34px;
-  text-align: center;
-}
-
-.form {
-  width: 100%;
 }
 
 .fieldGroup {
@@ -173,10 +127,6 @@
   --shake-dur-b: 60ms;
   --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --shake-overshoot: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 24px;
 }
 
 .textField {
@@ -270,7 +220,6 @@
   line-height: 1.35;
   margin: -4px 0 0;
   opacity: 0;
-  padding-left: 2px;
   transition:
     opacity var(--revert-dur) ease-out,
     visibility 0s linear var(--revert-dur);
@@ -291,14 +240,10 @@
   box-shadow: none;
   font-size: 14px;
   font-weight: 560;
-  height: 50px;
-  margin-bottom: 24px;
-  padding: 0 22px;
   text-transform: none;
   transition:
     background-color 160ms ease-out,
     transform 100ms ease-out;
-  width: 100%;
 }
 
 .submitButton:hover {
@@ -317,9 +262,7 @@
 
 .forgotPassword {
   color: #f16f5d;
-  cursor: pointer;
   font-size: 13px;
-  text-align: center;
 }
 
 @media (min-width: 900px) {

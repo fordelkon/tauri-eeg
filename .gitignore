@@ -43,6 +43,9 @@ Desktop.ini
 
 # Claude Flow runtime data
 .claude-flow/
+.claude/
+.swarm/
+ruvector.db
 
 # Environment variables
 .env

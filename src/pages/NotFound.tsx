@@ -310,10 +310,10 @@ export default function NotFound() {
   ];
 
   return (
-    <main className={styles.page}>
-      <section className={styles.panel} aria-labelledby="not-found-title">
+    <main className={`${styles.page} box-border flex min-h-screen items-center justify-center overflow-hidden`}>
+      <section className={`${styles.panel} relative box-border flex w-[min(100%,980px)] flex-col items-center opacity-0`} aria-labelledby="not-found-title">
         <div
-          className={`${styles.scene} ${pointer.active ? styles.isPulling : ''}`}
+          className={`${styles.scene} relative z-1 ${pointer.active ? styles.isPulling : ''}`}
           onPointerDown={handlePointerDown}
           onPointerMove={updatePointer}
           onPointerUp={handlePointerUp}
@@ -329,7 +329,7 @@ export default function NotFound() {
           } as CSSProperties}
           aria-hidden="true"
         >
-          <svg className={styles.drawing} viewBox="0 0 520 280" role="img">
+          <svg className="block h-full w-full overflow-visible" viewBox="0 0 520 280" role="img">
             <g className={styles.magnetHandle}>
               <path className={styles.guide} d={leftInnerHandle} />
               <path className={styles.guide} d={rightInnerHandle} />
@@ -359,14 +359,14 @@ export default function NotFound() {
           </svg>
         </div>
 
-        <div className={styles.content}>
+        <div className={`${styles.content} relative z-1 flex flex-col items-center text-center opacity-0`}>
           <p className={styles.eyebrow}>404</p>
           <h1 id="not-found-title" className={styles.title}>Page Not Found</h1>
           <p className={styles.description}>
             This EEG Ecosystem route has not been implemented yet.
           </p>
           <Button
-            className={styles.backButton}
+            className={`${styles.backButton} h-48px px-24px text-white`}
             startIcon={<ArrowBackRoundedIcon />}
             onClick={() => navigate('/login')}
             variant="contained"

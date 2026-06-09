@@ -600,34 +600,34 @@ export default function Login() {
   };
 
   return (
-    <Box className={styles.container}>
+    <Box className={`${styles.container} relative box-border flex min-h-screen flex-col items-stretch justify-center gap-0 overflow-hidden`}>
       <Box
         ref={leftPanelRef}
-        className={styles.leftPanel}
+        className={`${styles.leftPanel} relative box-border flex w-full flex-none touch-none items-center justify-center overflow-hidden text-white opacity-0`}
         onPointerMove={handleLeftPanelPointerMove}
         onPointerLeave={handleLeftPanelPointerLeave}
         aria-label="EEG Ecosystem animated scene"
       >
         <div
-          className={styles.glassScene}
+          className={`${styles.glassScene} pointer-events-none absolute inset-0 z-0 overflow-hidden`}
           aria-hidden="true"
         >
-          <div ref={matterHostRef} className={styles.matterLayer} />
+          <div ref={matterHostRef} className="absolute inset-0 opacity-100" />
         </div>
       </Box>
 
-      <Box className={styles.rightPanel}>
-        <Box className={styles.formPanel}>
+      <Box className={`${styles.rightPanel} box-border flex w-full flex-1 items-center justify-center overflow-hidden opacity-0`}>
+        <Box className={`${styles.formPanel} flex w-full max-w-360px flex-col items-center opacity-0`}>
           <span className={styles.brandMark} aria-hidden="true" />
-          <Typography variant="h4" component="h1" className={styles.title}>
+          <Typography variant="h4" component="h1" className={`${styles.title} mb-8px text-center`}>
             EEG Ecosystem
           </Typography>
-          <Typography variant="body2" className={styles.subtitle}>
+          <Typography variant="body2" className={`${styles.subtitle} mb-34px text-center`}>
             Sign in to continue.
           </Typography>
 
-          <form onSubmit={handleLogin} className={styles.form}>
-            <Box className={`${styles.fieldGroup} ${hasError ? styles.isError : ''}`}>
+          <form onSubmit={handleLogin} className="w-full">
+            <Box className={`${styles.fieldGroup} mb-24px flex flex-col gap-16px ${hasError ? styles.isError : ''}`}>
               <TextField
                 className={`${styles.textField} ${isShaking ? styles.isShaking : ''}`}
                 value={account}
@@ -687,19 +687,19 @@ export default function Login() {
                 }}
               />
 
-              <p className={styles.errorMsg}>Account or password is incorrect.</p>
+              <p className={`${styles.errorMsg} pl-2px`}>Account or password is incorrect.</p>
             </Box>
 
             <Button
               type="submit"
-              className={styles.submitButton}
+              className={`${styles.submitButton} mb-24px h-50px w-full px-22px`}
               fullWidth
               variant="contained"
             >
               Sign In
             </Button>
 
-            <Typography variant="body1" className={styles.forgotPassword}>
+            <Typography variant="body1" className={`${styles.forgotPassword} cursor-pointer text-center`}>
               Forgotten your password?
             </Typography>
           </form>
