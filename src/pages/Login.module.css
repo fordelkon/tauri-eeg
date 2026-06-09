@@ -1,0 +1,487 @@
+.container {
+  align-items: stretch;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.72), transparent 28%),
+    linear-gradient(135deg, #eeeeed 0%, #e4e2e0 100%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  justify-content: center;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: clamp(18px, 5vw, 58px);
+  position: relative;
+}
+
+.leftPanel,
+.rightPanel {
+  align-items: center;
+  animation-duration: 760ms;
+  animation-fill-mode: forwards;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.leftPanel {
+  animation-delay: 310ms;
+  animation-name: visualPanelInMobile;
+  background-color: #fb7f6e;
+  background-clip: padding-box;
+  border-radius: 22px 22px 0 0;
+  color: #ffffff;
+  flex: none;
+  min-height: clamp(240px, 34vh, 360px);
+  padding: 20px;
+  position: relative;
+  transform-origin: 50% 100%;
+  touch-action: none;
+}
+
+.leftPanel::before {
+  background:
+    radial-gradient(circle at 6% 86%, rgba(255, 255, 255, 0.2), transparent 34%),
+    radial-gradient(circle at 94% 4%, rgba(255, 255, 255, 0.18), transparent 24%),
+    linear-gradient(145deg, #ff8f7d 0%, #fb7f6e 48%, #f46b59 100%);
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.leftPanel::after {
+  background-image:
+    radial-gradient(circle at 5% 84%, transparent 0 31%, rgba(255, 255, 255, 0.3) 31.5%, transparent 32.3%),
+    radial-gradient(circle at 94% 2%, transparent 0 20%, rgba(255, 255, 255, 0.34) 20.6%, transparent 21.4%);
+  background-size: 100% 100%;
+  border-radius: inherit;
+  content: "";
+  inset: 0;
+  opacity: 0.9;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.rightPanel {
+  animation-name: shellIn;
+  background-color: rgba(255, 255, 255, 0.96);
+  border-radius: 0 0 22px 22px;
+  box-shadow:
+    0 34px 90px rgba(27, 24, 22, 0.1),
+    0 2px 10px rgba(27, 24, 22, 0.03);
+  flex: 1;
+  min-height: clamp(420px, 52vh, 560px);
+  padding: clamp(30px, 8vw, 76px) clamp(24px, 7vw, 72px);
+}
+
+.glassScene {
+  border-radius: inherit;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+
+.matterLayer {
+  inset: 0;
+  opacity: 1;
+  position: absolute;
+}
+
+.matterLayer canvas {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.formPanel {
+  align-items: center;
+  animation: contentFadeIn 620ms cubic-bezier(0.16, 1, 0.3, 1) 900ms forwards;
+  display: flex;
+  flex-direction: column;
+  max-width: 360px;
+  opacity: 0;
+  width: 100%;
+}
+
+.brandMark {
+  height: 30px;
+  margin-bottom: 18px;
+  position: relative;
+  width: 30px;
+}
+
+.brandMark::before,
+.brandMark::after {
+  background: #fb7a68;
+  border-radius: 999px;
+  content: "";
+  height: 2px;
+  left: 4px;
+  position: absolute;
+  top: 14px;
+  width: 22px;
+}
+
+.brandMark::after {
+  transform: rotate(90deg);
+}
+
+.brandMark {
+  background:
+    linear-gradient(#fb7a68, #fb7a68) center / 2px 24px no-repeat,
+    linear-gradient(45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px no-repeat,
+    linear-gradient(-45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px no-repeat;
+}
+
+.title {
+  color: #141414;
+  font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+  font-size: clamp(25px, 3vw, 34px);
+  font-weight: 560;
+  letter-spacing: 0;
+  line-height: 1.1;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.subtitle {
+  color: #9d9a98;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 34px;
+  text-align: center;
+}
+
+.form {
+  width: 100%;
+}
+
+.fieldGroup {
+  --revert-dur: 280ms;
+  --shake-distance: 6px;
+  --shake-dur-a: 80ms;
+  --shake-dur-b: 60ms;
+  --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --shake-overshoot: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.textField {
+  will-change: transform;
+}
+
+.textField.isShaking {
+  animation: inputShake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
+}
+
+.textField :global(.MuiInputLabel-root) {
+  color: #67615e;
+  font-size: 13px;
+  font-weight: 520;
+}
+
+.textField :global(.MuiInputLabel-root.Mui-focused) {
+  color: #f16f5d;
+}
+
+.textField :global(.MuiInputLabel-root.Mui-error) {
+  color: #d70015;
+}
+
+.textField :global(.MuiOutlinedInput-root) {
+  background: #f7f5f4;
+  border-radius: 8px;
+  box-shadow: none;
+  color: #171717;
+  font-size: 14px;
+  min-height: 52px;
+  transition:
+    background-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+
+.textField :global(.MuiOutlinedInput-notchedOutline) {
+  border-color: transparent;
+  transition: border-color 150ms ease-out;
+}
+
+.textField :global(.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline) {
+  border-color: rgba(251, 127, 110, 0.28);
+}
+
+.textField :global(.MuiOutlinedInput-root.Mui-focused) {
+  box-shadow:
+    0 0 0 4px rgba(251, 127, 110, 0.13),
+    0 1px 2px rgba(27, 24, 22, 0.03);
+}
+
+.textField :global(.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline) {
+  border-color: rgba(251, 127, 110, 0.68);
+  border-width: 1px;
+}
+
+.textField :global(.MuiOutlinedInput-root.Mui-error) {
+  box-shadow:
+    0 0 0 4px rgba(215, 0, 21, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.textField :global(.MuiOutlinedInput-root.Mui-error .MuiOutlinedInput-notchedOutline) {
+  border-color: #d70015;
+}
+
+.textField :global(.MuiInputAdornment-root) {
+  color: #a29d9a;
+}
+
+.textField :global(.MuiIconButton-root) {
+  color: #a29d9a;
+  transition:
+    background-color 140ms ease-out,
+    color 140ms ease-out;
+}
+
+.textField :global(.MuiIconButton-root:hover) {
+  background-color: rgba(251, 127, 110, 0.1);
+  color: #f16f5d;
+}
+
+.textField :global(.MuiInputBase-input::placeholder) {
+  color: #9a9aa0;
+  opacity: 1;
+}
+
+.errorMsg {
+  color: #d70015;
+  font-size: 13px;
+  line-height: 1.35;
+  margin: -4px 0 0;
+  opacity: 0;
+  padding-left: 2px;
+  transition:
+    opacity var(--revert-dur) ease-out,
+    visibility 0s linear var(--revert-dur);
+  visibility: hidden;
+}
+
+.fieldGroup.isError .errorMsg {
+  opacity: 1;
+  transition:
+    opacity var(--revert-dur) ease-out,
+    visibility 0s linear 0s;
+  visibility: visible;
+}
+
+.submitButton {
+  background: linear-gradient(180deg, #ff9b8d 0%, #f36d5a 100%);
+  border-radius: 8px;
+  box-shadow: none;
+  font-size: 14px;
+  font-weight: 560;
+  height: 50px;
+  margin-bottom: 24px;
+  padding: 0 22px;
+  text-transform: none;
+  transition:
+    background-color 160ms ease-out,
+    transform 100ms ease-out;
+  width: 100%;
+}
+
+.submitButton:hover {
+  background: linear-gradient(180deg, #ff8c7b 0%, #ec5f4c 100%);
+  box-shadow: 0 12px 26px rgba(243, 109, 90, 0.2);
+}
+
+.submitButton:active {
+  transform: scale(0.98);
+}
+
+.submitButton:focus-visible {
+  outline: 3px solid rgba(251, 127, 110, 0.24);
+  outline-offset: 3px;
+}
+
+.forgotPassword {
+  color: #f16f5d;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: center;
+}
+
+@media (min-width: 900px) {
+  .container {
+    flex-direction: row;
+    padding: clamp(42px, 6vh, 72px) clamp(58px, 7vw, 112px);
+  }
+
+  .leftPanel {
+    animation-name: visualPanelIn;
+    border-radius: 18px 0 0 18px;
+    flex: 0 0 min(43%, 500px);
+    min-height: min(760px, calc(100vh - 112px));
+    padding: 28px;
+  }
+
+  .rightPanel {
+    animation-name: shellIn;
+    border-radius: 0 18px 18px 0;
+    flex: 1 1 auto;
+    min-height: min(760px, calc(100vh - 112px));
+    padding: clamp(48px, 7vw, 96px);
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leftPanel,
+  .rightPanel,
+  .formPanel {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .textField,
+  .textField.isShaking,
+  .submitButton {
+    animation: none;
+    transform: none;
+    transition: none;
+  }
+}
+
+@keyframes fadeInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-48px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shellIn {
+  from {
+    opacity: 0;
+    transform: scale(0.965);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes visualPanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(-42px) scaleX(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scaleX(1);
+  }
+}
+
+@keyframes visualPanelInMobile {
+  from {
+    opacity: 0;
+    transform: translateY(-28px) scaleY(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@keyframes fadeInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(48px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-36px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(36px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes inputShake {
+  0% {
+    animation-timing-function: var(--shake-ease);
+    transform: translateX(0);
+  }
+
+  28.57% {
+    animation-timing-function: var(--shake-ease);
+    transform: translateX(var(--shake-distance));
+  }
+
+  57.14% {
+    animation-timing-function: var(--shake-ease);
+    transform: translateX(calc(var(--shake-distance) * -1));
+  }
+
+  78.57% {
+    animation-timing-function: var(--shake-ease);
+    transform: translateX(var(--shake-overshoot));
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
