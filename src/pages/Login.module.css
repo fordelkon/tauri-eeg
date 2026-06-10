@@ -260,6 +260,28 @@
   outline-offset: 3px;
 }
 
+.modeSwitchButton {
+  color: #f16f5d;
+  font-size: 13px;
+  font-weight: 560;
+  text-transform: none;
+  transition:
+    background-color 160ms ease-out,
+    color 160ms ease-out;
+}
+
+.modeSwitchButton:hover {
+  background-color: transparent;
+  color: #df5a48;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.modeSwitchButton:focus-visible {
+  outline: 3px solid rgba(251, 127, 110, 0.18);
+  outline-offset: 3px;
+}
+
 .forgotPassword {
   color: #f16f5d;
   font-size: 13px;

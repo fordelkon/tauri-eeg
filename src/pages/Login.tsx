@@ -1,4 +1,5 @@
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
+import MailRoundedIcon from '@mui/icons-material/MailRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
@@ -70,10 +71,15 @@ export default function Login() {
     y: 0.5,
   });
   const [account, setAccount] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [hasError, setHasError] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+
+  const isSignup = authMode === 'signup';
 
   useEffect(() => {
     const host = matterHostRef.current;
@@ -563,8 +569,13 @@ export default function Login() {
     return () => window.clearTimeout(timer);
   }, [hasError]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isSignup) {
+      setHasError(false);
+      return;
+    }
 
     if (account.trim() === 'admin' && password === '123456') {
       setHasError(false);
@@ -580,6 +591,13 @@ export default function Login() {
         setIsShaking(true);
       });
     });
+  };
+
+  const handleModeChange = (mode: 'signin' | 'signup') => {
+    setAuthMode(mode);
+    setHasError(false);
+    setIsShaking(false);
+    setShowPassword(false);
   };
 
   const handleLeftPanelPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -623,10 +641,10 @@ export default function Login() {
             EEG Ecosystem
           </Typography>
           <Typography variant="body2" className={`${styles.subtitle} mb-34px text-center`}>
-            Sign in to continue.
+            {isSignup ? 'Create your account.' : 'Sign in to continue.'}
           </Typography>
 
-          <form onSubmit={handleLogin} className="w-full">
+          <form onSubmit={handleAuthSubmit} className="w-full">
             <Box className={`${styles.fieldGroup} mb-24px flex flex-col gap-16px ${hasError ? styles.isError : ''}`}>
               <TextField
                 className={`${styles.textField} ${isShaking ? styles.isShaking : ''}`}
@@ -648,6 +666,29 @@ export default function Login() {
                   },
                 }}
               />
+
+              {isSignup ? (
+                <TextField
+                  className={styles.textField}
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  label="Email"
+                  placeholder="name@example.com"
+                  autoComplete="email"
+                  fullWidth
+                  type="email"
+                  variant="outlined"
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <MailRoundedIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              ) : null}
 
               <TextField
                 className={`${styles.textField} ${isShaking ? styles.isShaking : ''}`}
@@ -687,7 +728,32 @@ export default function Login() {
                 }}
               />
 
-              <p className={`${styles.errorMsg} pl-2px`}>Account or password is incorrect.</p>
+              {isSignup ? (
+                <TextField
+                  className={styles.textField}
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  label="Confirm Password"
+                  placeholder="Confirm password"
+                  autoComplete="new-password"
+                  fullWidth
+                  type="password"
+                  variant="outlined"
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LockRoundedIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              ) : null}
+
+              {!isSignup ? (
+                <p className={`${styles.errorMsg} pl-2px`}>Account or password is incorrect.</p>
+              ) : null}
             </Box>
 
             <Button
@@ -696,12 +762,24 @@ export default function Login() {
               fullWidth
               variant="contained"
             >
-              Sign In
+              {isSignup ? 'Sign Up' : 'Sign In'}
             </Button>
 
-            <Typography variant="body1" className={`${styles.forgotPassword} cursor-pointer text-center`}>
-              Forgotten your password?
-            </Typography>
+            <Button
+              type="button"
+              className={`${styles.modeSwitchButton} mb-18px w-full px-0`}
+              fullWidth
+              variant="text"
+              onClick={() => handleModeChange(isSignup ? 'signin' : 'signup')}
+            >
+              {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+            </Button>
+
+            {!isSignup ? (
+              <Typography variant="body1" className={`${styles.forgotPassword} cursor-pointer text-center`}>
+                Forgotten your password?
+              </Typography>
+            ) : null}
           </form>
         </Box>
       </Box>
