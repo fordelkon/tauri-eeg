@@ -1,7 +1,11 @@
 .container {
+  box-sizing: border-box;
+  align-items: stretch;
+  flex-direction: column;
   background:
     radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.72), transparent 28%),
     linear-gradient(135deg, #eeeeed 0%, #e4e2e0 100%);
+  min-height: 100dvh;
   padding: clamp(18px, 5vw, 58px);
 }
 
@@ -21,6 +25,29 @@
   min-height: clamp(240px, 34vh, 360px);
   padding: 20px;
   transform-origin: 50% 100%;
+}
+
+.container.isExiting {
+  pointer-events: none;
+}
+
+.container.isExiting .leftPanel {
+  animation: loginSceneExpand 940ms cubic-bezier(0.76, 0, 0.24, 1) forwards;
+  border-radius: 0;
+  box-shadow: none;
+  height: var(--exit-height, 100vh);
+  left: var(--exit-left, 0);
+  min-height: 0;
+  position: fixed;
+  top: var(--exit-top, 0);
+  transform-origin: 50% 50%;
+  width: var(--exit-width, 100vw);
+  will-change: inset, width, height, border-radius;
+  z-index: 4;
+}
+
+.container.isExiting .rightPanel {
+  animation: loginFormExit 520ms ease-out forwards;
 }
 
 .leftPanel::before {
@@ -214,6 +241,11 @@
   opacity: 1;
 }
 
+.textField :global(input[type="password"]::-ms-reveal),
+.textField :global(input[type="password"]::-ms-clear) {
+  display: none;
+}
+
 .errorMsg {
   color: #d70015;
   font-size: 13px;
@@ -289,24 +321,31 @@
 
 @media (min-width: 900px) {
   .container {
+    align-items: center;
     flex-direction: row;
+    height: 100dvh;
+    min-height: 0;
     padding: clamp(42px, 6vh, 72px) clamp(58px, 7vw, 112px);
   }
 
   .leftPanel {
     animation-name: visualPanelIn;
     border-radius: 18px 0 0 18px;
-    flex: 0 0 min(43%, 500px);
-    min-height: min(760px, calc(100vh - 112px));
+    flex: 0 0 33.333%;
+    height: min(760px, 100%);
+    min-height: 0;
     padding: 28px;
+    width: auto;
   }
 
   .rightPanel {
     animation-name: shellIn;
     border-radius: 0 18px 18px 0;
     flex: 1 1 auto;
-    min-height: min(760px, calc(100vh - 112px));
+    height: min(760px, 100%);
+    min-height: 0;
     padding: clamp(48px, 7vw, 96px);
+    width: auto;
   }
 
 }
@@ -448,5 +487,39 @@
 
   100% {
     transform: translateX(0);
+  }
+}
+
+@keyframes loginSceneExpand {
+  0% {
+    border-radius: 18px;
+    height: var(--exit-height, 100vh);
+    left: var(--exit-left, 0);
+    opacity: 1;
+    top: var(--exit-top, 0);
+    transform: scale(1);
+    width: var(--exit-width, 100vw);
+  }
+
+  58% {
+    opacity: 1;
+    transform: scale(1.035);
+  }
+
+  100% {
+    border-radius: 0;
+    height: 100vh;
+    left: 0;
+    opacity: 1;
+    top: 0;
+    transform: scale(1);
+    width: 100vw;
+  }
+}
+
+@keyframes loginFormExit {
+  to {
+    opacity: 0;
+    transform: translateX(28px) scale(0.98);
   }
 }

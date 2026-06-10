@@ -20,7 +20,7 @@ import {
   Render,
   Runner,
 } from 'matter-js';
-import { useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './Login.module.css';
 
@@ -78,6 +78,8 @@ export default function Login() {
   const [isShaking, setIsShaking] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [isExiting, setIsExiting] = useState(false);
+  const [exitStyle, setExitStyle] = useState<CSSProperties>({});
 
   const isSignup = authMode === 'signup';
 
@@ -578,8 +580,22 @@ export default function Login() {
     }
 
     if (account.trim() === 'admin' && password === '123456') {
+      const bounds = leftPanelRef.current?.getBoundingClientRect();
+
+      if (bounds) {
+        setExitStyle({
+          '--exit-height': `${bounds.height}px`,
+          '--exit-left': `${bounds.left}px`,
+          '--exit-top': `${bounds.top}px`,
+          '--exit-width': `${bounds.width}px`,
+        } as CSSProperties);
+      }
+
       setHasError(false);
-      navigate('/home');
+      setIsExiting(true);
+      window.setTimeout(() => {
+        navigate('/home', { state: { fromLogin: true } });
+      }, 940);
       return;
     }
 
@@ -618,10 +634,13 @@ export default function Login() {
   };
 
   return (
-    <Box className={`${styles.container} relative box-border flex min-h-screen flex-col items-stretch justify-center gap-0 overflow-hidden`}>
+    <Box
+      className={`${styles.container} ${isExiting ? styles.isExiting : ''} relative box-border flex justify-center gap-0 overflow-hidden`}
+      style={exitStyle}
+    >
       <Box
         ref={leftPanelRef}
-        className={`${styles.leftPanel} relative box-border flex w-full flex-none touch-none items-center justify-center overflow-hidden text-white opacity-0`}
+        className={`${styles.leftPanel} relative box-border flex touch-none items-center justify-center overflow-hidden text-white opacity-0`}
         onPointerMove={handleLeftPanelPointerMove}
         onPointerLeave={handleLeftPanelPointerLeave}
         aria-label="EEG Ecosystem animated scene"
@@ -634,7 +653,7 @@ export default function Login() {
         </div>
       </Box>
 
-      <Box className={`${styles.rightPanel} box-border flex w-full flex-1 items-center justify-center overflow-hidden opacity-0`}>
+      <Box className={`${styles.rightPanel} box-border flex flex-1 items-center justify-center overflow-hidden opacity-0`}>
         <Box className={`${styles.formPanel} flex w-full max-w-360px flex-col items-center opacity-0`}>
           <span className={styles.brandMark} aria-hidden="true" />
           <Typography variant="h4" component="h1" className={`${styles.title} mb-8px text-center`}>
