@@ -1,6 +1,7 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import NorthEastRoundedIcon from '@mui/icons-material/NorthEastRounded';
@@ -14,6 +15,7 @@ import {
 } from '@mui/material';
 import { type CSSProperties, type ElementType, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
 import styles from './Home.module.css';
 
@@ -48,6 +50,7 @@ const renderRollingText = (text: string, className?: string) => (
 export default function Home() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { currentUser, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const activeItem = navigationItems.find((item) => (
     item.path === '/home'
@@ -72,6 +75,11 @@ export default function Home() {
 
   const handleNextClick = () => {
     navigate(nextItem.path);
+  };
+
+  const handleSignOut = () => {
+    signOut();
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -142,6 +150,24 @@ export default function Home() {
               );
             })}
           </List>
+
+          <div className={styles.userFooter}>
+            <div className={styles.userAvatar} aria-hidden="true">
+              {currentUser?.username.charAt(0).toUpperCase() ?? 'U'}
+            </div>
+            <div className={styles.userMeta}>
+              <span className={styles.userLabel}>Signed in</span>
+              <span className={styles.userName}>{currentUser?.username ?? 'User'}</span>
+            </div>
+            <IconButton
+              className={styles.signOutButton}
+              aria-label="Sign out"
+              size="small"
+              onClick={handleSignOut}
+            >
+              <LogoutRoundedIcon fontSize="small" />
+            </IconButton>
+          </div>
         </aside>
 
         <section className={styles.menuVisual} aria-hidden="true">

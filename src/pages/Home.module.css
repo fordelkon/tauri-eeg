@@ -209,6 +209,70 @@
   padding: 0;
 }
 
+.userFooter {
+  align-items: center;
+  border-top: 1px solid rgba(44, 34, 24, 0.1);
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  min-height: 64px;
+  padding-top: 16px;
+}
+
+.userAvatar {
+  align-items: center;
+  background: #2c2218;
+  border-radius: 999px;
+  color: #f5f0eb;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 14px;
+  font-weight: 760;
+  height: 38px;
+  justify-content: center;
+  text-transform: uppercase;
+  width: 38px;
+}
+
+.userMeta {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.userLabel {
+  color: rgba(44, 34, 24, 0.5);
+  font-size: 11px;
+  font-weight: 680;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.userName {
+  color: #2c2218;
+  font-size: 14px;
+  font-weight: 720;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signOutButton {
+  border-radius: 8px;
+  color: rgba(44, 34, 24, 0.7);
+  flex: 0 0 auto;
+  height: 36px;
+  width: 36px;
+}
+
+.signOutButton:hover {
+  background: rgba(44, 34, 24, 0.08);
+  color: #2c2218;
+}
+
 .navItem {
   animation: navItemIn 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: calc(360ms + var(--item-index, 0) * 72ms);

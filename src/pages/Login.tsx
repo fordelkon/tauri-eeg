@@ -22,6 +22,7 @@ import {
 } from 'matter-js';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 import styles from './Login.module.css';
 
 type SceneBody = Body & {
@@ -63,6 +64,7 @@ type PopParticle = {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { resetPassword, signIn, signUp } = useAuth();
   const leftPanelRef = useRef<HTMLDivElement>(null);
   const matterHostRef = useRef<HTMLDivElement>(null);
   const pointerTargetRef = useRef<{ active: boolean; x: number; y: number }>({
@@ -74,14 +76,18 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetCode, setResetCode] = useState('');
   const [hasError, setHasError] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin');
+  const [errorMessage, setErrorMessage] = useState('Account or password is incorrect.');
   const [isExiting, setIsExiting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [exitStyle, setExitStyle] = useState<CSSProperties>({});
 
   const isSignup = authMode === 'signup';
+  const isReset = authMode === 'reset';
 
   useEffect(() => {
     const host = matterHostRef.current;
@@ -571,15 +577,53 @@ export default function Login() {
     return () => window.clearTimeout(timer);
   }, [hasError]);
 
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isSignup) {
-      setHasError(false);
+    if (isSubmitting) {
       return;
     }
 
-    if (account.trim() === 'admin' && password === '123456') {
+    const username = account.trim();
+
+    if (!username || !password || (isSignup || isReset) && password !== confirmPassword) {
+      setErrorMessage(
+        (isSignup || isReset) && password !== confirmPassword
+          ? 'Passwords do not match.'
+          : 'Username and password are required.',
+      );
+      setHasError(true);
+      return;
+    }
+
+    if (isReset && !resetCode.trim()) {
+      setErrorMessage('Reset code is required.');
+      setHasError(true);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      if (isSignup) {
+        await signUp(username, password);
+      } else if (isReset) {
+        await resetPassword(username, resetCode, password);
+      } else {
+        await signIn(username, password);
+      }
+
+      if (isReset) {
+        setAuthMode('signin');
+        setPassword('');
+        setConfirmPassword('');
+        setResetCode('');
+        setShowPassword(false);
+        setErrorMessage('Password reset successfully. Sign in with your new password.');
+        setHasError(true);
+        return;
+      }
+
       const bounds = leftPanelRef.current?.getBoundingClientRect();
 
       if (bounds) {
@@ -596,21 +640,24 @@ export default function Login() {
       window.setTimeout(() => {
         navigate('/home');
       }, 940);
-      return;
-    }
+    } catch (error) {
+      setErrorMessage(typeof error === 'string' ? error : 'Account or password is incorrect.');
+      setHasError(true);
+      setIsShaking(false);
 
-    setHasError(true);
-    setIsShaking(false);
-
-    window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        setIsShaking(true);
+        window.requestAnimationFrame(() => {
+          setIsShaking(true);
+        });
       });
-    });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleModeChange = (mode: 'signin' | 'signup') => {
+  const handleModeChange = (mode: 'signin' | 'signup' | 'reset') => {
     setAuthMode(mode);
+    setErrorMessage('Account or password is incorrect.');
     setHasError(false);
     setIsShaking(false);
     setShowPassword(false);
@@ -660,7 +707,7 @@ export default function Login() {
             EEG Ecosystem
           </Typography>
           <Typography variant="body2" className={`${styles.subtitle} mb-34px text-center`}>
-            {isSignup ? 'Create your account.' : 'Sign in to continue.'}
+            {isSignup ? 'Create your account.' : isReset ? 'Reset your password.' : 'Sign in to continue.'}
           </Typography>
 
           <form onSubmit={handleAuthSubmit} className="w-full">
@@ -709,13 +756,36 @@ export default function Login() {
                 />
               ) : null}
 
+              {isReset ? (
+                <TextField
+                  className={styles.textField}
+                  value={resetCode}
+                  onChange={(event) => setResetCode(event.target.value)}
+                  label="Reset Code"
+                  placeholder="Admin reset code"
+                  autoComplete="off"
+                  fullWidth
+                  type="password"
+                  variant="outlined"
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LockRoundedIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              ) : null}
+
               <TextField
                 className={`${styles.textField} ${isShaking ? styles.isShaking : ''}`}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                label="Password"
-                placeholder="Password"
-                autoComplete="current-password"
+                label={isReset ? 'New Password' : 'Password'}
+                placeholder={isReset ? 'New password' : 'Password'}
+                autoComplete={isSignup || isReset ? 'new-password' : 'current-password'}
                 error={hasError}
                 fullWidth
                 type={showPassword ? 'text' : 'password'}
@@ -733,7 +803,9 @@ export default function Login() {
                           edge="end"
                           size="small"
                           onClick={() => setShowPassword((value) => !value)}
-                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          aria-label={showPassword
+                            ? (isSignup || isReset) ? 'Hide passwords' : 'Hide password'
+                            : (isSignup || isReset) ? 'Show passwords' : 'Show password'}
                         >
                           {showPassword ? (
                             <VisibilityOffRoundedIcon fontSize="small" />
@@ -747,7 +819,7 @@ export default function Login() {
                 }}
               />
 
-              {isSignup ? (
+              {isSignup || isReset ? (
                 <TextField
                   className={styles.textField}
                   value={confirmPassword}
@@ -756,7 +828,7 @@ export default function Login() {
                   placeholder="Confirm password"
                   autoComplete="new-password"
                   fullWidth
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   variant="outlined"
                   slotProps={{
                     input: {
@@ -770,18 +842,17 @@ export default function Login() {
                 />
               ) : null}
 
-              {!isSignup ? (
-                <p className={`${styles.errorMsg} pl-2px`}>Account or password is incorrect.</p>
-              ) : null}
+              <p className={`${styles.errorMsg} pl-2px`}>{errorMessage}</p>
             </Box>
 
             <Button
               type="submit"
               className={`${styles.submitButton} mb-24px h-50px w-full px-22px`}
+              disabled={isSubmitting}
               fullWidth
               variant="contained"
             >
-              {isSignup ? 'Sign Up' : 'Sign In'}
+              {isSubmitting ? 'Please wait...' : isSignup ? 'Sign Up' : isReset ? 'Reset Password' : 'Sign In'}
             </Button>
 
             <Button
@@ -789,13 +860,17 @@ export default function Login() {
               className={`${styles.modeSwitchButton} mb-18px w-full px-0`}
               fullWidth
               variant="text"
-              onClick={() => handleModeChange(isSignup ? 'signin' : 'signup')}
+              onClick={() => handleModeChange(isSignup || isReset ? 'signin' : 'signup')}
             >
-              {isSignup ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+              {isSignup || isReset ? 'Back to sign in' : "Don't have an account? Sign up"}
             </Button>
 
-            {!isSignup ? (
-              <Typography variant="body1" className={`${styles.forgotPassword} cursor-pointer text-center`}>
+            {!isSignup && !isReset ? (
+              <Typography
+                variant="body1"
+                className={`${styles.forgotPassword} cursor-pointer text-center`}
+                onClick={() => handleModeChange('reset')}
+              >
                 Forgotten your password?
               </Typography>
             ) : null}
