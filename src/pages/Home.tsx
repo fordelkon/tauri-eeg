@@ -14,7 +14,6 @@ import {
   Typography,
 } from '@mui/material';
 import { type CSSProperties, type ElementType, useState } from 'react';
-import { useLocation } from 'react-router-dom';
 import MatterScene from '../components/MatterScene';
 import styles from './Home.module.css';
 
@@ -46,11 +45,9 @@ const renderRollingText = (text: string, className?: string) => (
 );
 
 export default function Home() {
-  const location = useLocation();
   const [activeItem, setActiveItem] = useState(navigationItems[0].label);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isContentVisible, setIsContentVisible] = useState(true);
-  const cameFromLogin = Boolean(location.state && typeof location.state === 'object' && 'fromLogin' in location.state);
 
   const handleNavClick = (label: string) => {
     if (label === activeItem) {
@@ -69,20 +66,7 @@ export default function Home() {
   };
 
   return (
-    <main className={`${styles.page} ${cameFromLogin ? styles.fromLogin : ''} box-border flex min-h-screen overflow-hidden relative`}>
-      {cameFromLogin ? (
-        <div className={styles.loginEcho} aria-hidden="true">
-          <div className={styles.echoScene}>
-            <span className={styles.echoOrbit} />
-            <span className={styles.echoBall} />
-            <span className={styles.echoBall} />
-            <span className={styles.echoBall} />
-            <span className={styles.echoBall} />
-            <span className={styles.echoTitle}>EEG Ecosystem</span>
-          </div>
-        </div>
-      ) : null}
-
+    <main className={`${styles.page} box-border flex min-h-screen overflow-hidden relative`}>
       <div className={styles.heroBloom} aria-hidden="true">
         <span className={styles.heroCore} />
       </div>

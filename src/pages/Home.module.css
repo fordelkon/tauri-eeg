@@ -8,87 +8,6 @@
   position: relative;
 }
 
-.loginEcho {
-  animation: echoExit 1180ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  background:
-    radial-gradient(circle at 8% 82%, rgba(255, 255, 255, 0.2), transparent 34%),
-    radial-gradient(circle at 94% 4%, rgba(255, 255, 255, 0.18), transparent 24%),
-    linear-gradient(145deg, #ff8f7d 0%, #fb7f6e 48%, #f46b59 100%);
-  inset: 0;
-  pointer-events: none;
-  position: fixed;
-  z-index: 5;
-}
-
-.echoScene {
-  animation: echoSceneSettle 1180ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  background: #3b272b;
-  border-radius: 999px;
-  height: min(64vw, 680px);
-  left: 50%;
-  overflow: hidden;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(64vw, 680px);
-}
-
-.echoOrbit {
-  border: 10px solid rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-  height: 82%;
-  left: 9%;
-  position: absolute;
-  top: 9%;
-  width: 82%;
-}
-
-.echoBall {
-  animation: echoBallFloat 760ms cubic-bezier(0.76, 0, 0.24, 1) infinite alternate;
-  background: #ffc321;
-  border: 2px solid #7edfff;
-  border-radius: 999px;
-  height: 22px;
-  left: 24%;
-  position: absolute;
-  top: 28%;
-  width: 22px;
-}
-
-.echoBall:nth-child(3) {
-  animation-delay: -180ms;
-  background: #ff3d1f;
-  left: 67%;
-  top: 34%;
-}
-
-.echoBall:nth-child(4) {
-  animation-delay: -320ms;
-  background: #a238ff;
-  left: 38%;
-  top: 68%;
-}
-
-.echoBall:nth-child(5) {
-  animation-delay: -460ms;
-  background: #c3e9f1;
-  left: 74%;
-  top: 62%;
-}
-
-.echoTitle {
-  color: #fff;
-  font-family: "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif;
-  font-size: clamp(22px, 4vw, 42px);
-  font-weight: 560;
-  left: 50%;
-  line-height: 1;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  white-space: nowrap;
-}
-
 .heroBloom {
   inset: 0;
   overflow: hidden;
@@ -111,10 +30,6 @@
   top: 48%;
   transform: translate(-50%, -50%) scale(1);
   width: min(72vw, 760px);
-}
-
-.fromLogin .heroCore {
-  animation: homeBloomIn 960ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .menuLayer {
@@ -463,10 +378,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fromLogin .heroCore,
-  .loginEcho,
-  .echoScene,
-  .echoBall,
   .menuLayer,
   .sidebar,
   .menuVisual,
@@ -480,65 +391,6 @@
 
   .rollingText span {
     transition: none;
-  }
-}
-
-@keyframes echoExit {
-  0% {
-    opacity: 1;
-  }
-
-  62% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-    visibility: hidden;
-  }
-}
-
-@keyframes echoSceneSettle {
-  0% {
-    border-radius: 0;
-    height: 100vh;
-    width: 100vw;
-  }
-
-  58% {
-    border-radius: 999px;
-    height: min(72vw, 760px);
-    width: min(72vw, 760px);
-  }
-
-  100% {
-    border-radius: 999px;
-    height: min(72vw, 760px);
-    opacity: 0.22;
-    transform: translate(-62%, -52%) scale(1);
-    width: min(72vw, 760px);
-  }
-}
-
-@keyframes echoBallFloat {
-  from {
-    transform: translate3d(-8px, -5px, 0);
-  }
-
-  to {
-    transform: translate3d(10px, 7px, 0);
-  }
-}
-
-@keyframes homeBloomIn {
-  from {
-    opacity: 0.42;
-    transform: translate(-50%, -50%) scale(2.7);
-  }
-
-  to {
-    opacity: 0.13;
-    transform: translate(-50%, -50%) scale(1);
   }
 }
 

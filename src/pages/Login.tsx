@@ -594,7 +594,7 @@ export default function Login() {
       setHasError(false);
       setIsExiting(true);
       window.setTimeout(() => {
-        navigate('/home', { state: { fromLogin: true } });
+        navigate('/home');
       }, 940);
       return;
     }
