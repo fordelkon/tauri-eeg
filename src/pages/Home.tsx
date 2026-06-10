@@ -6,28 +6,28 @@ import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded';
 import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded';
 import {
-  Box,
   IconButton,
   List,
   ListItemButton,
   ListItemIcon,
-  Typography,
 } from '@mui/material';
 import { type CSSProperties, type ElementType, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import MatterScene from '../components/MatterScene';
 import styles from './Home.module.css';
 
 type NavigationItem = {
   icon: ElementType;
   label: string;
+  path: string;
 };
 
 const navigationItems: NavigationItem[] = [
-  { icon: HomeRoundedIcon, label: 'Home' },
-  { icon: GraphicEqRoundedIcon, label: 'EEG Acquisition' },
-  { icon: VideocamRoundedIcon, label: 'Video Regulation' },
-  { icon: SportsEsportsRoundedIcon, label: 'Game Regulation' },
-  { icon: MusicNoteRoundedIcon, label: 'Music Regulation' },
+  { icon: HomeRoundedIcon, label: 'Home', path: '/home' },
+  { icon: GraphicEqRoundedIcon, label: 'EEG Acquisition', path: '/home/eeg-acquisition' },
+  { icon: VideocamRoundedIcon, label: 'Video Regulation', path: '/home/video-regulation' },
+  { icon: SportsEsportsRoundedIcon, label: 'Game Regulation', path: '/home/game-regulation' },
+  { icon: MusicNoteRoundedIcon, label: 'Music Regulation', path: '/home/music-regulation' },
 ];
 
 const renderRollingText = (text: string, className?: string) => (
@@ -45,20 +45,17 @@ const renderRollingText = (text: string, className?: string) => (
 );
 
 export default function Home() {
-  const [activeItem, setActiveItem] = useState(navigationItems[0].label);
+  const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isContentVisible, setIsContentVisible] = useState(true);
+  const activeItem = navigationItems.find((item) => item.path === location.pathname) ?? navigationItems[0];
 
-  const handleNavClick = (label: string) => {
-    if (label === activeItem) {
-      setIsContentVisible(true);
-      setIsSidebarOpen(false);
-      return;
+  const handleNavClick = (item: NavigationItem) => {
+    if (item.path !== location.pathname) {
+      navigate(item.path);
     }
 
-    setActiveItem(label);
     setIsSidebarOpen(false);
-    setTimeout(() => setIsContentVisible(true), 100);
   };
 
   const handleMenuOpen = () => {
@@ -114,15 +111,16 @@ export default function Home() {
           <List className={`${styles.navList} flex flex-col gap-8px`} disablePadding>
             {navigationItems.map((item, index) => {
               const Icon = item.icon;
-              const isActive = activeItem === item.label;
+              const isActive = activeItem.path === item.path;
 
               return (
                 <ListItemButton
                   key={item.label}
                   className={`${styles.navItem} ${isActive ? styles.isActive : ''}`}
-                  onClick={() => handleNavClick(item.label)}
+                  onClick={() => handleNavClick(item)}
                   selected={isActive}
                   style={{ '--item-index': index } as CSSProperties}
+                  aria-current={isActive ? 'page' : undefined}
                 >
                   <ListItemIcon className={styles.navIcon}>
                     <Icon fontSize="small" />
@@ -140,29 +138,13 @@ export default function Home() {
             initialBallCount={10}
             maxBallCount={18}
             scale={1}
-            title={activeItem}
+            title={activeItem.label}
           />
         </section>
       </div>
 
-      <section className={`${styles.content} ${isContentVisible ? styles.isVisible : ''} box-border flex flex-col`}>
-        <Box key={`header-${activeItem}`} className={`${styles.contentHeader} flex flex-col`}>
-            <Typography className={styles.eyebrow}>Control Center</Typography>
-            <Typography variant="h3" component="h1" className={styles.title}>
-              {renderRollingText(activeItem, styles.titleText)}
-            </Typography>
-            <Typography className={styles.description}>
-              A calm workspace for EEG-driven acquisition and adaptive regulation workflows.
-            </Typography>
-          </Box>
-
-        <Box key={`surface-${activeItem}`} className={`${styles.surface} box-border flex flex-col`}>
-          <Typography className={styles.surfaceTitle}>Session Overview</Typography>
-          <Typography className={styles.surfaceText}>
-            Select a module from the sidebar to continue. The dashboard shell is ready for acquisition,
-            video, game, and music regulation pages.
-          </Typography>
-        </Box>
+      <section key={location.pathname} className={`${styles.content} ${styles.isVisible} box-border flex flex-col`}>
+        <Outlet />
       </section>
     </main>
   );
