@@ -49,11 +49,12 @@ export default function Home() {
   const location = useLocation();
   const [activeItem, setActiveItem] = useState(navigationItems[0].label);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isContentVisible, setIsContentVisible] = useState(false);
+  const [isContentVisible, setIsContentVisible] = useState(true);
   const cameFromLogin = Boolean(location.state && typeof location.state === 'object' && 'fromLogin' in location.state);
 
   const handleNavClick = (label: string) => {
     if (label === activeItem) {
+      setIsContentVisible(true);
       setIsSidebarOpen(false);
       return;
     }
