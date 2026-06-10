@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
+import { EegProvider } from './eeg/EegSessionContext';
 import Login from './pages/Login';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
@@ -26,7 +27,13 @@ function AppRoutes() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginRoute />} />
       <Route element={<ProtectedRoute />}>
-        <Route element={<Home />}>
+        <Route
+          element={(
+            <EegProvider>
+              <Home />
+            </EegProvider>
+          )}
+        >
           <Route path="/home" element={<HomeOverview />} />
           <Route path="/eeg-acquisition" element={<EegAcquisition />} />
           <Route path="/video-regulation" element={<VideoRegulation />} />

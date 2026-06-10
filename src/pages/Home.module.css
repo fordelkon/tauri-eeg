@@ -12,7 +12,7 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  position: absolute;
+  position: fixed;
   z-index: 0;
 }
 
@@ -354,16 +354,20 @@
 }
 
 .content {
+  bottom: 0;
+  height: 100dvh;
   justify-content: center;
-  min-height: 100vh;
   min-width: 0;
+  overscroll-behavior: contain;
   padding: clamp(36px, 6vw, 86px);
+  padding-bottom: max(112px, clamp(36px, 6vw, 86px));
   padding-top: 86px;
   position: fixed;
   right: 0;
   top: 0;
   opacity: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   transform: translateX(48px) scaleX(0.98);
   transform-origin: 100% 50%;
   transition:
@@ -376,6 +380,10 @@
 .content.isVisible {
   opacity: 1;
   transform: translateX(0) scaleX(1);
+}
+
+.content.isWorkspace {
+  align-items: center;
 }
 
 .nextPageButton {
@@ -435,14 +443,19 @@
 }
 
 @media (min-width: 861px) {
-  .content.isVisible {
+  .content.isVisible:not(.isWorkspace) {
     width: calc(100% - min(380px, 28vw));
   }
 }
 
 @media (max-width: 640px) {
+  .content {
+    justify-content: flex-start;
+    padding: 82px 18px 92px;
+  }
+
   .nextPageButton {
-    bottom: 18px;
+    bottom: max(18px, env(safe-area-inset-bottom));
     font-size: 11px;
     height: 40px;
     max-width: calc(100vw - 36px);

@@ -57,6 +57,7 @@ export default function Home() {
       ? location.pathname === item.path
       : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
   )) ?? navigationItems[0];
+  const isWorkspaceRoute = location.pathname !== '/home';
   const activeIndex = navigationItems.findIndex((item) => item.path === activeItem.path);
   const nextItem = navigationItems[(activeIndex + 1) % navigationItems.length];
   const nextLabel = nextItem.label.toUpperCase();
@@ -181,19 +182,21 @@ export default function Home() {
         </section>
       </div>
 
-      <section key={location.pathname} className={`${styles.content} ${styles.isVisible} box-border flex flex-col`}>
+      <section
+        className={`${styles.content} ${styles.isVisible} ${isWorkspaceRoute ? styles.isWorkspace : ''} box-border flex flex-col`}
+      >
         <Outlet />
-
-        <button
-          type="button"
-          className={styles.nextPageButton}
-          aria-label={`Go to ${nextItem.label}`}
-          onClick={handleNextClick}
-        >
-          <span>{nextLabel}</span>
-          <NorthEastRoundedIcon className={styles.nextPageIcon} fontSize="small" aria-hidden="true" />
-        </button>
       </section>
+
+      <button
+        type="button"
+        className={styles.nextPageButton}
+        aria-label={`Go to ${nextItem.label}`}
+        onClick={handleNextClick}
+      >
+        <span>{nextLabel}</span>
+        <NorthEastRoundedIcon className={styles.nextPageIcon} fontSize="small" aria-hidden="true" />
+      </button>
     </main>
   );
 }
