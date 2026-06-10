@@ -48,11 +48,32 @@ type TitleMotion = {
 
 type Props = {
   className?: string;
+  initialBallCount?: number;
+  maxBallCount?: number;
   scale?: number;
   title?: string;
 };
 
-export default function MatterScene({ className = '', scale = 1, title = 'EEG Ecosystem' }: Props) {
+export const getBallCountConfig = (
+  width: number,
+  initialBallCount?: number,
+  maxBallCount?: number,
+) => {
+  const fallbackInitial = width > 420 ? 5 : 3;
+  const fallbackMax = width > 420 ? 10 : 6;
+  const initial = Math.max(0, Math.floor(initialBallCount ?? fallbackInitial));
+  const max = Math.max(initial, Math.floor(maxBallCount ?? fallbackMax));
+
+  return { initial, max };
+};
+
+export default function MatterScene({
+  className = '',
+  initialBallCount,
+  maxBallCount,
+  scale = 1,
+  title = 'EEG Ecosystem',
+}: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef({ active: false, x: 0.5, y: 0.5 });
 
@@ -184,13 +205,13 @@ export default function MatterScene({ className = '', scale = 1, title = 'EEG Ec
 
       Composite.add(engine.world, [...walls, titleBarrier]);
 
-      const initialBallCount = width > 420 ? 5 : 3;
-      for (let i = 0; i < initialBallCount; i++) spawnBall(performance.now());
+      const ballCounts = getBallCountConfig(width, initialBallCount, maxBallCount);
+      for (let i = 0; i < ballCounts.initial; i++) spawnBall(performance.now());
     };
 
     const spawnBall = (time: number) => {
-      const maxBalls = host.clientWidth > 420 ? 10 : 6;
-      if (balls.length >= maxBalls || worldRadius === 0) return;
+      const { max } = getBallCountConfig(host.clientWidth, initialBallCount, maxBallCount);
+      if (balls.length >= max || worldRadius === 0) return;
 
       const palette = [
         { color: '#ff3d1f', ringColor: '#7edfff' },
@@ -464,7 +485,7 @@ export default function MatterScene({ className = '', scale = 1, title = 'EEG Ec
       render.canvas.remove();
       render.textures = {};
     };
-  }, [scale, title]);
+  }, [initialBallCount, maxBallCount, scale, title]);
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const bounds = e.currentTarget.getBoundingClientRect();

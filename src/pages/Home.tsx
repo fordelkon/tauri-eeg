@@ -135,7 +135,13 @@ export default function Home() {
         </aside>
 
         <section className={styles.menuVisual} aria-hidden="true">
-          <MatterScene className="absolute inset-0" scale={1} title={activeItem} />
+          <MatterScene
+            className="absolute inset-0"
+            initialBallCount={10}
+            maxBallCount={18}
+            scale={1}
+            title={activeItem}
+          />
         </section>
       </div>
 
