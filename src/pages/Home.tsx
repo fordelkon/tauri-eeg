@@ -3,6 +3,7 @@ import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
+import NorthEastRoundedIcon from '@mui/icons-material/NorthEastRounded';
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded';
 import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded';
 import {
@@ -24,10 +25,10 @@ type NavigationItem = {
 
 const navigationItems: NavigationItem[] = [
   { icon: HomeRoundedIcon, label: 'Home', path: '/home' },
-  { icon: GraphicEqRoundedIcon, label: 'EEG Acquisition', path: '/home/eeg-acquisition' },
-  { icon: VideocamRoundedIcon, label: 'Video Regulation', path: '/home/video-regulation' },
-  { icon: SportsEsportsRoundedIcon, label: 'Game Regulation', path: '/home/game-regulation' },
-  { icon: MusicNoteRoundedIcon, label: 'Music Regulation', path: '/home/music-regulation' },
+  { icon: GraphicEqRoundedIcon, label: 'EEG Acquisition', path: '/eeg-acquisition' },
+  { icon: VideocamRoundedIcon, label: 'Video Regulation', path: '/video-regulation' },
+  { icon: SportsEsportsRoundedIcon, label: 'Game Regulation', path: '/game-regulation' },
+  { icon: MusicNoteRoundedIcon, label: 'Music Regulation', path: '/music-regulation' },
 ];
 
 const renderRollingText = (text: string, className?: string) => (
@@ -48,7 +49,14 @@ export default function Home() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const activeItem = navigationItems.find((item) => item.path === location.pathname) ?? navigationItems[0];
+  const activeItem = navigationItems.find((item) => (
+    item.path === '/home'
+      ? location.pathname === item.path
+      : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
+  )) ?? navigationItems[0];
+  const activeIndex = navigationItems.findIndex((item) => item.path === activeItem.path);
+  const nextItem = navigationItems[(activeIndex + 1) % navigationItems.length];
+  const nextLabel = nextItem.label.toUpperCase();
 
   const handleNavClick = (item: NavigationItem) => {
     if (item.path !== location.pathname) {
@@ -60,6 +68,10 @@ export default function Home() {
 
   const handleMenuOpen = () => {
     setIsSidebarOpen(true);
+  };
+
+  const handleNextClick = () => {
+    navigate(nextItem.path);
   };
 
   return (
@@ -145,6 +157,16 @@ export default function Home() {
 
       <section key={location.pathname} className={`${styles.content} ${styles.isVisible} box-border flex flex-col`}>
         <Outlet />
+
+        <button
+          type="button"
+          className={styles.nextPageButton}
+          aria-label={`Go to ${nextItem.label}`}
+          onClick={handleNextClick}
+        >
+          <span>{nextLabel}</span>
+          <NorthEastRoundedIcon className={styles.nextPageIcon} fontSize="small" aria-hidden="true" />
+        </button>
       </section>
     </main>
   );
