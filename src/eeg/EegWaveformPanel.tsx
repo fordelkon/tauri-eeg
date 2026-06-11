@@ -2,14 +2,16 @@ import { useEffect, useMemo, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import styles from '../pages/home/EegAcquisition.module.css';
+import { toSweepDisplayData } from './eegSweepDisplay';
 import type { EegDisplaySnapshot, EegTriggerCode } from './types';
 
 type Props = {
   amplitudeUvPerDiv: number;
   snapshot: EegDisplaySnapshot;
+  timeWindowSeconds?: number;
 };
 
-type UplotData = [number[], ...number[][]];
+type UplotData = [number[], ...Array<Array<number | null>>];
 
 const MARKER_LANE_LABEL = 'TRG';
 const TRACE_COLORS = [
@@ -77,26 +79,49 @@ function drawTriggerMarker(
   ctx.restore();
 }
 
-export default function EegWaveformPanel({ amplitudeUvPerDiv, snapshot }: Props) {
+export default function EegWaveformPanel({
+  amplitudeUvPerDiv,
+  snapshot,
+  timeWindowSeconds = 10,
+}: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<uPlot | null>(null);
   const snapshotRef = useRef(snapshot);
+  const sweepOriginRef = useRef<number | null>(snapshot.x[0] ?? null);
+  const sweepRef = useRef(toSweepDisplayData(
+    snapshot,
+    timeWindowSeconds,
+    sweepOriginRef.current ?? undefined,
+  ));
   const visibleChannelKey = snapshot.visibleChannels.map((channel) => channel.id).join('|');
   const visibleChannels = snapshot.visibleChannels;
+  const safeTimeWindowSeconds = Math.max(0.1, timeWindowSeconds);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
 
   const data = useMemo<UplotData>(() => {
+    if (snapshot.x.length === 0) {
+      sweepOriginRef.current = null;
+    } else if (sweepOriginRef.current === null) {
+      sweepOriginRef.current = snapshot.x[0];
+    }
+
+    const sweepOrigin = sweepOriginRef.current ?? 0;
+    const sweep = toSweepDisplayData(snapshot, safeTimeWindowSeconds, sweepOrigin);
     const laneHeight = getLaneHeight(amplitudeUvPerDiv);
     const series = snapshot.visibleChannels.map((channel, channelIndex) => {
       const laneOffset = -channelIndex * laneHeight;
-      return (snapshot.seriesByChannel[channel.id] ?? []).map((value) => value + laneOffset);
+      return (sweep.seriesByChannel[channel.id] ?? []).map((value) => (
+        value === null ? null : value + laneOffset
+      ));
     });
 
-    return [snapshot.x, ...series];
-  }, [amplitudeUvPerDiv, snapshot]);
+    sweepRef.current = sweep;
+
+    return [sweep.x, ...series];
+  }, [amplitudeUvPerDiv, safeTimeWindowSeconds, snapshot]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -111,7 +136,11 @@ export default function EegWaveformPanel({ amplitudeUvPerDiv, snapshot }: Props)
       cursor: { show: false },
       legend: { show: false },
       scales: {
-        x: { time: false },
+        x: {
+          time: false,
+          auto: false,
+          range: () => [0, safeTimeWindowSeconds],
+        },
         y: {
           auto: false,
           range: () => [
@@ -137,12 +166,26 @@ export default function EegWaveformPanel({ amplitudeUvPerDiv, snapshot }: Props)
         draw: [
           (plot) => {
             const { ctx, bbox } = plot;
-            const markers = snapshotRef.current.markers;
+            const sweep = sweepRef.current;
+            const markers = sweep.markers;
             const triggerCenterY = plot.valToPos(
               getTriggerLaneValue(snapshotRef.current.visibleChannels.length, amplitudeUvPerDiv),
               'y',
               true,
             );
+            const cursorX = plot.valToPos(sweep.cursorX, 'x', true);
+            const cursorBandWidth = 10 * uPlot.pxRatio;
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(16, 23, 28, 0.86)';
+            ctx.fillRect(cursorX, bbox.top, cursorBandWidth, bbox.height);
+            ctx.strokeStyle = 'rgba(248, 251, 252, 0.5)';
+            ctx.lineWidth = uPlot.pxRatio;
+            ctx.beginPath();
+            ctx.moveTo(cursorX, bbox.top);
+            ctx.lineTo(cursorX, bbox.top + bbox.height);
+            ctx.stroke();
+            ctx.restore();
 
             markers.forEach((marker) => {
               const x = plot.valToPos(marker.timeSeconds, 'x', true);
@@ -180,7 +223,7 @@ export default function EegWaveformPanel({ amplitudeUvPerDiv, snapshot }: Props)
       plot.destroy();
       plotRef.current = null;
     };
-  }, [amplitudeUvPerDiv, visibleChannelKey]);
+  }, [amplitudeUvPerDiv, safeTimeWindowSeconds, visibleChannelKey]);
 
   useEffect(() => {
     plotRef.current?.setData(data);

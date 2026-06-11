@@ -53,6 +53,7 @@ export default function EegAcquisition() {
         <EegWaveformPanel
           amplitudeUvPerDiv={eeg.settings.amplitudeUvPerDiv}
           snapshot={eeg.snapshot}
+          timeWindowSeconds={eeg.settings.timeWindowSeconds}
         />
         <EegChannelList
           channels={eeg.channels}
