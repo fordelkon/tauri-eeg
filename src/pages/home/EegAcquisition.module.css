@@ -123,8 +123,9 @@
 }
 
 .waveformPanel {
-  background: #10171c;
-  border: 1px solid rgba(23, 32, 38, 0.18);
+  background: #202722;
+  border: 1px solid rgba(44, 34, 24, 0.16);
+  box-shadow: inset 0 1px 0 rgba(245, 240, 235, 0.06);
   border-radius: 8px;
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
@@ -134,8 +135,8 @@
 }
 
 .channelRail {
-  background: #162027;
-  color: rgba(235, 243, 247, 0.78);
+  background: #222b26;
+  color: rgba(239, 235, 228, 0.76);
   display: grid;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
@@ -158,7 +159,7 @@
 }
 
 .plotHost :global(.uplot) {
-  background: #10171c;
+  background: #18211f;
 }
 
 .channelPanel {

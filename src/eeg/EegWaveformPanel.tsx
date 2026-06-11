@@ -177,9 +177,9 @@ export default function EegWaveformPanel({
             const cursorBandWidth = 10 * uPlot.pxRatio;
 
             ctx.save();
-            ctx.fillStyle = 'rgba(16, 23, 28, 0.86)';
+            ctx.fillStyle = 'rgba(24, 33, 31, 0.82)';
             ctx.fillRect(cursorX, bbox.top, cursorBandWidth, bbox.height);
-            ctx.strokeStyle = 'rgba(248, 251, 252, 0.5)';
+            ctx.strokeStyle = 'rgba(239, 235, 228, 0.42)';
             ctx.lineWidth = uPlot.pxRatio;
             ctx.beginPath();
             ctx.moveTo(cursorX, bbox.top);
