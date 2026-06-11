@@ -1,12 +1,9 @@
 .workspace {
   animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
   color: #172026;
-  display: flex;
-  flex-direction: column;
   gap: 14px;
   margin: 0 auto;
   max-width: 1180px;
-  width: 100%;
 }
 
 @keyframes workspaceEnter {
@@ -22,10 +19,7 @@
 }
 
 .header {
-  align-items: flex-start;
-  display: flex;
   gap: 18px;
-  justify-content: space-between;
 }
 
 .eyebrow {
@@ -46,20 +40,14 @@
 }
 
 .statusBar {
-  align-items: center;
   color: rgba(23, 32, 38, 0.68);
-  display: flex;
-  flex-wrap: wrap;
   font-size: 13px;
   font-weight: 650;
   gap: 10px;
-  justify-content: flex-end;
 }
 
 .statusPill {
-  align-items: center;
   border-radius: 8px;
-  display: inline-flex;
   gap: 6px;
   min-height: 32px;
   padding: 0 10px;
@@ -88,7 +76,6 @@
 }
 
 .contentGrid {
-  display: grid;
   gap: 12px;
 }
 
@@ -97,18 +84,12 @@
   border: 1px solid rgba(23, 32, 38, 0.12);
   border-radius: 8px;
   box-shadow: 0 10px 24px rgba(23, 32, 38, 0.06);
-  display: flex;
-  flex-direction: column;
   gap: 9px;
   max-width: 760px;
-  min-width: 0;
   padding: 12px;
-  width: 100%;
 }
 
 .promptHeader {
-  display: flex;
-  flex-direction: column;
   gap: 3px;
 }
 
@@ -131,16 +112,12 @@
 }
 
 .layeredFields {
-  display: grid;
   gap: 8px;
 }
 
 .promptField,
 .durationField {
-  display: flex;
-  flex-direction: column;
   gap: 5px;
-  min-width: 0;
 }
 
 .promptField input,
@@ -173,7 +150,6 @@
 
 .instrumentChoiceGrid,
 .promptChoiceGrid {
-  display: grid;
   gap: 6px;
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -251,8 +227,6 @@
 }
 
 .promptActions {
-  align-items: end;
-  display: grid;
   gap: 8px;
   grid-template-columns: 120px minmax(0, 1fr);
 }
@@ -279,14 +253,7 @@
 }
 
 .generationProgress {
-  display: grid;
   gap: 7px;
-}
-
-.generationProgressHeader {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
 }
 
 .generationProgressHeader strong {
@@ -312,14 +279,11 @@
 }
 
 .lowerGrid {
-  align-items: start;
-  display: grid;
   gap: 14px;
   grid-template-columns: minmax(0, 760px);
 }
 
 .playbackColumn {
-  min-width: 0;
 }
 
 .playerCard {
@@ -572,14 +536,9 @@
 }
 
 .historyOverlay {
-  align-items: center;
   background: rgba(7, 10, 12, 0.46);
-  display: flex;
-  inset: 0;
   justify-content: center;
   padding: 24px;
-  position: fixed;
-  z-index: 20;
 }
 
 .historyModal {
@@ -587,21 +546,14 @@
   border: 1px solid rgba(23, 32, 38, 0.12);
   border-radius: 8px;
   box-shadow: 0 24px 70px rgba(23, 32, 38, 0.28);
-  display: flex;
-  flex-direction: column;
   gap: 12px;
   max-height: min(520px, calc(100vh - 48px));
   max-width: 520px;
-  min-height: 0;
   padding: 16px;
-  width: 100%;
 }
 
 .historyHeader {
-  align-items: center;
   flex: 0 0 auto;
-  display: flex;
-  justify-content: space-between;
 }
 
 .historyHeader div {
@@ -628,10 +580,7 @@
 }
 
 .queueList {
-  display: grid;
   gap: 8px;
-  min-height: 0;
-  overflow: auto;
   overscroll-behavior: contain;
 }
 
@@ -647,12 +596,10 @@
 }
 
 .queueItem {
-  align-items: center;
   background: rgba(23, 32, 38, 0.04);
   border: 1px solid transparent;
   border-radius: 8px;
   color: rgba(23, 32, 38, 0.72);
-  display: grid;
   font: inherit;
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) 34px;
@@ -674,19 +621,14 @@
 }
 
 .queueSelectButton {
-  align-items: center;
   background: transparent;
-  border: 0;
   color: inherit;
   cursor: pointer;
-  display: grid;
   font: inherit;
   gap: 10px;
   grid-template-columns: 34px minmax(0, 1fr) auto;
   min-height: 36px;
-  min-width: 0;
   padding: 0;
-  text-align: left;
 }
 
 .queueSelectButton span {

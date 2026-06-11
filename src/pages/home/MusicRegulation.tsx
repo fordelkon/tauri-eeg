@@ -439,14 +439,14 @@ export default function MusicRegulation() {
   };
 
   return (
-    <section className={styles.workspace} aria-label="Music regulation workspace">
-      <header className={styles.header}>
+    <section className={`${styles.workspace} mx-auto flex w-full flex-col`} aria-label="Music regulation workspace">
+      <header className={`${styles.header} flex items-start justify-between`}>
         <div>
           <div className={styles.eyebrow}>Regulation Player</div>
           <h1 className={styles.title}>WAV Music Generation</h1>
         </div>
-        <div className={styles.statusBar}>
-          <span className={`${styles.statusPill} ${isPlaying ? styles.playing : styles.idle}`}>
+        <div className={`${styles.statusBar} flex flex-wrap items-center justify-end`}>
+          <span className={`${styles.statusPill} inline-flex items-center ${isPlaying ? styles.playing : styles.idle}`}>
             <GraphicEqRoundedIcon fontSize="small" />
             {isGenerating ? 'Generating' : isPlaying ? 'Playing' : 'Ready'}
           </span>
@@ -456,23 +456,23 @@ export default function MusicRegulation() {
 
       {error ? <div className={styles.errorBanner}>{error}</div> : null}
 
-      <div className={styles.contentGrid}>
+      <div className={`${styles.contentGrid} grid`}>
         <form
-          className={styles.promptPanel}
+          className={`${styles.promptPanel} flex w-full min-w-0 flex-col`}
           onSubmit={(event) => {
             event.preventDefault();
             void handleGenerate();
           }}
         >
-          <div className={styles.promptHeader}>
+          <div className={`${styles.promptHeader} flex flex-col`}>
             <span>Music Generation</span>
             <strong>Prompt Builder</strong>
           </div>
 
-          <div className={styles.layeredFields}>
-            <label className={styles.promptField}>
+          <div className={`${styles.layeredFields} grid`}>
+            <label className={`${styles.promptField} flex min-w-0 flex-col`}>
               <span>Layer 1 · Instrument</span>
-              <div className={styles.instrumentChoiceGrid}>
+              <div className={`${styles.instrumentChoiceGrid} grid`}>
                 {instrumentOptions.map((option) => (
                   <label key={option.value} className={styles.instrumentChoice}>
                     <input
@@ -488,7 +488,7 @@ export default function MusicRegulation() {
             </label>
 
             {instruments.includes('custom') ? (
-              <label className={styles.promptField}>
+              <label className={`${styles.promptField} flex min-w-0 flex-col`}>
                 <span>Custom instrument</span>
                 <input
                   value={customInstrument}
@@ -499,9 +499,9 @@ export default function MusicRegulation() {
               </label>
             ) : null}
 
-            <label className={styles.promptField}>
+            <label className={`${styles.promptField} flex min-w-0 flex-col`}>
               <span>Layer 2 · Style</span>
-              <div className={styles.promptChoiceGrid}>
+              <div className={`${styles.promptChoiceGrid} grid`}>
                 {styleOptions.map((option) => (
                   <label key={option.value} className={styles.promptChoice}>
                     <input
@@ -517,7 +517,7 @@ export default function MusicRegulation() {
             </label>
 
             {selectedStyles.includes('custom') ? (
-              <label className={styles.promptField}>
+              <label className={`${styles.promptField} flex min-w-0 flex-col`}>
                 <span>Custom style</span>
                 <input
                   value={customStyle}
@@ -528,9 +528,9 @@ export default function MusicRegulation() {
               </label>
             ) : null}
 
-            <label className={styles.promptField}>
+            <label className={`${styles.promptField} flex min-w-0 flex-col`}>
               <span>Layer 3 · Details optional</span>
-              <div className={styles.promptChoiceGrid}>
+              <div className={`${styles.promptChoiceGrid} grid`}>
                 {detailTemplateOptions.map((option) => (
                   <label key={option.value} className={styles.promptChoice}>
                     <input
@@ -558,8 +558,8 @@ export default function MusicRegulation() {
           </div>
 
           {isGenerating ? (
-            <div className={styles.generationProgress} aria-live="polite">
-              <div className={styles.generationProgressHeader}>
+            <div className={`${styles.generationProgress} grid`} aria-live="polite">
+              <div className={`${styles.generationProgressHeader} flex items-center justify-between`}>
                 <span>{generationStage} - {generationDeviceLabel}</span>
                 <strong>{Math.round(generationProgress)}%</strong>
               </div>
@@ -569,8 +569,8 @@ export default function MusicRegulation() {
             </div>
           ) : null}
 
-          <div className={styles.promptActions}>
-            <label className={styles.durationField}>
+          <div className={`${styles.promptActions} grid items-end`}>
+            <label className={`${styles.durationField} flex min-w-0 flex-col`}>
               <span>Length</span>
               <select
                 value={generationDuration}
@@ -593,8 +593,8 @@ export default function MusicRegulation() {
           </div>
         </form>
 
-        <div className={styles.lowerGrid}>
-          <div className={styles.playbackColumn}>
+        <div className={`${styles.lowerGrid} grid items-start`}>
+          <div className="min-w-0">
             <div className={styles.playerCard} style={coverStyle}>
               <button
                 className={styles.coverButton}
@@ -690,7 +690,7 @@ export default function MusicRegulation() {
 
       {isHistoryOpen ? (
         <div
-          className={styles.historyOverlay}
+          className={`${styles.historyOverlay} fixed inset-0 z-20 flex items-center`}
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) {
@@ -698,8 +698,8 @@ export default function MusicRegulation() {
             }
           }}
         >
-          <section className={styles.historyModal} aria-label="Generated WAV history">
-            <div className={styles.historyHeader}>
+          <section className={`${styles.historyModal} flex min-h-0 w-full flex-col`} aria-label="Generated WAV history">
+            <div className={`${styles.historyHeader} flex items-center justify-between`}>
               <div>
                 <span>History</span>
                 <strong>Generated WAV</strong>
@@ -712,16 +712,16 @@ export default function MusicRegulation() {
                 <CloseRoundedIcon />
               </IconButton>
             </div>
-            <div className={styles.queueList}>
+            <div className={`${styles.queueList} grid min-h-0 overflow-auto`}>
               {assets.length === 0 ? (
                 <div className={styles.emptyQueue}>Generate a WAV track to start playback.</div>
               ) : assets.map((asset, index) => (
                 <div
                   key={asset.id}
-                  className={`${styles.queueItem} ${index === activeIndex ? styles.activeQueueItem : ''}`}
+                  className={`${styles.queueItem} grid items-center ${index === activeIndex ? styles.activeQueueItem : ''}`}
                 >
                   <button
-                    className={styles.queueSelectButton}
+                    className={`${styles.queueSelectButton} grid min-w-0 items-center border-0 bg-transparent text-left`}
                     type="button"
                     onClick={() => {
                       setIsHistoryOpen(false);

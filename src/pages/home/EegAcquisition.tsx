@@ -10,18 +10,18 @@ export default function EegAcquisition() {
   const visibleCount = eeg.settings.visibleChannelIds.size;
 
   return (
-    <section className={styles.workspace} aria-label="EEG acquisition workspace">
-      <header className={styles.header}>
+    <section className={`${styles.workspace} mx-auto flex w-full min-h-0 flex-col`} aria-label="EEG acquisition workspace">
+      <header className={`${styles.header} flex items-start justify-between`}>
         <div>
           <div className={styles.eyebrow}>Acquisition Monitor</div>
           <h1 className={styles.title}>Realtime EEG</h1>
         </div>
-        <div className={styles.statusBar}>
-          <span className={`${styles.statusPill} ${styles[eeg.deviceStatus]}`}>
+        <div className={`${styles.statusBar} flex flex-wrap items-center justify-end`}>
+          <span className={`${styles.statusPill} inline-flex items-center ${styles[eeg.deviceStatus]}`}>
             <ActivityRoundedIcon fontSize="small" />
             Device {eeg.deviceStatus}
           </span>
-          <span className={`${styles.statusPill} ${styles[eeg.recordStatus]}`}>
+          <span className={`${styles.statusPill} inline-flex items-center ${styles[eeg.recordStatus]}`}>
             Record {eeg.recordStatus}
           </span>
           <span>{eeg.sampleRateHz} Hz</span>
@@ -49,7 +49,7 @@ export default function EegAcquisition() {
 
       {eeg.errorMessage ? <div className={styles.errorMessage}>{eeg.errorMessage}</div> : null}
 
-      <div className={styles.monitorGrid}>
+      <div className={`${styles.monitorGrid} grid min-h-[520px]`}>
         <EegWaveformPanel
           amplitudeUvPerDiv={eeg.settings.amplitudeUvPerDiv}
           snapshot={eeg.snapshot}
@@ -62,7 +62,7 @@ export default function EegAcquisition() {
         />
       </div>
 
-      <footer className={styles.footer}>
+      <footer className={`${styles.footer} flex flex-wrap`}>
         <span>Window {eeg.settings.timeWindowSeconds}s</span>
         <span>Scale {eeg.settings.amplitudeUvPerDiv} uV/div</span>
         <span>Buffered {eeg.snapshot.retainedSampleCount} samples</span>
