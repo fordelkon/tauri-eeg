@@ -384,6 +384,8 @@
 
 .content.isWorkspace {
   align-items: center;
+  padding-bottom: 76px;
+  padding-top: 64px;
 }
 
 .nextPageButton {

@@ -18,10 +18,10 @@ import {
   toPlayableFileUrl,
 } from '../../music/musicGenerationApi';
 import { createBundledMusicAssets, createGeneratedMusicAsset } from '../../music/musicAssets';
+import { buildMusicPrompt } from '../../music/musicPrompt';
 import styles from './MusicRegulation.module.css';
 
 const bundledMusicFiles = [] as const;
-const noVocalsConstraint = 'no vocals';
 const instrumentOptions = [
   {
     label: 'Piano',
@@ -32,19 +32,35 @@ const instrumentOptions = [
     value: 'violin',
   },
   {
-    label: 'Piano + Violin',
-    value: 'piano and violin',
-  },
-  {
     label: 'Guitar',
     value: 'guitar',
   },
   {
-    label: 'Synth Pad',
-    value: 'soft synth pad',
+    label: 'Cello',
+    value: 'cello',
   },
   {
-    label: 'Custom',
+    label: 'Flute',
+    value: 'flute',
+  },
+  {
+    label: 'Drums',
+    value: 'drums',
+  },
+  {
+    label: 'Bass',
+    value: 'bass',
+  },
+  {
+    label: 'Synth',
+    value: 'synthesizer',
+  },
+  {
+    label: 'Saxophone',
+    value: 'saxophone',
+  },
+  {
+    label: 'Other',
     value: 'custom',
   },
 ] as const;
@@ -70,8 +86,54 @@ const styleOptions = [
     value: 'meditation music',
   },
   {
-    label: 'Custom',
+    label: 'Lo-fi',
+    value: 'lo-fi instrumental',
+  },
+  {
+    label: 'Jazz',
+    value: 'jazz instrumental',
+  },
+  {
+    label: 'Cinematic',
+    value: 'cinematic instrumental',
+  },
+  {
+    label: 'Other',
     value: 'custom',
+  },
+] as const;
+const detailTemplateOptions = [
+  {
+    label: 'Slow tempo',
+    value: 'slow tempo',
+  },
+  {
+    label: 'Warm tone',
+    value: 'warm tone',
+  },
+  {
+    label: 'Soft rhythm',
+    value: 'soft rhythm',
+  },
+  {
+    label: 'Calm texture',
+    value: 'calm therapeutic texture',
+  },
+  {
+    label: 'Light reverb',
+    value: 'light reverb',
+  },
+  {
+    label: 'Gentle dynamics',
+    value: 'gentle dynamics',
+  },
+  {
+    label: 'Deep bass',
+    value: 'deep bass',
+  },
+  {
+    label: 'Bright melody',
+    value: 'bright melody',
   },
 ] as const;
 
@@ -84,15 +146,6 @@ function formatTime(seconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
   const remainingSeconds = totalSeconds % 60;
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-}
-
-function buildPrompt(instrument: string, customInstrument: string, style: string, customStyle: string, details: string) {
-  const selectedInstrument = instrument === 'custom' ? customInstrument.trim() : instrument;
-  const selectedStyle = style === 'custom' ? customStyle.trim() : style;
-  const parts = [selectedInstrument, selectedStyle, details.trim(), noVocalsConstraint]
-    .filter((part) => part.length > 0);
-
-  return Array.from(new Set(parts)).join(', ');
 }
 
 export default function MusicRegulation() {
@@ -111,11 +164,12 @@ export default function MusicRegulation() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [generationDuration, setGenerationDuration] = useState(30);
-  const [instrument, setInstrument] = useState('piano');
+  const [instruments, setInstruments] = useState<string[]>(['piano']);
   const [customInstrument, setCustomInstrument] = useState('');
-  const [style, setStyle] = useState('ambient instrumental');
+  const [selectedStyles, setSelectedStyles] = useState<string[]>(['ambient instrumental']);
   const [customStyle, setCustomStyle] = useState('');
-  const [details, setDetails] = useState('soft strings, calm therapeutic texture');
+  const [detailTemplates, setDetailTemplates] = useState<string[]>(['calm therapeutic texture']);
+  const [details, setDetails] = useState('soft strings');
   const [error, setError] = useState<string | null>(null);
   const generatedAssets = useMemo(
     () => generatedItems.map((item) => createGeneratedMusicAsset(item, toPlayableFileUrl)),
@@ -127,11 +181,17 @@ export default function MusicRegulation() {
   );
   const activeAsset = assets[activeIndex];
   const generatedPrompt = useMemo(
-    () => buildPrompt(instrument, customInstrument, style, customStyle, details),
-    [customInstrument, customStyle, details, instrument, style],
+    () => buildMusicPrompt(instruments, customInstrument, selectedStyles, customStyle, detailTemplates, details),
+    [customInstrument, customStyle, detailTemplates, details, instruments, selectedStyles],
   );
-  const hasPromptCore = (instrument !== 'custom' || customInstrument.trim().length > 0)
-    && (style !== 'custom' || customStyle.trim().length > 0);
+  const hasSelectedInstrument = instruments.some((selectedInstrument) => (
+    selectedInstrument === 'custom' ? customInstrument.trim().length > 0 : true
+  ));
+  const hasSelectedStyle = selectedStyles.some((selectedStyle) => (
+    selectedStyle === 'custom' ? customStyle.trim().length > 0 : true
+  ));
+  const hasPromptCore = hasSelectedInstrument
+    && hasSelectedStyle;
   const canGenerate = generatedPrompt.trim().length > 0 && hasPromptCore;
   const generationDeviceLabel = generationDevice ? generationDevice.toUpperCase() : 'Detecting device';
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
@@ -271,6 +331,36 @@ export default function MusicRegulation() {
     audio.currentTime = (value / 100) * duration;
   };
 
+  const handleInstrumentToggle = (value: string) => {
+    setInstruments((selectedInstruments) => {
+      if (selectedInstruments.includes(value)) {
+        return selectedInstruments.filter((instrumentValue) => instrumentValue !== value);
+      }
+
+      return [...selectedInstruments, value];
+    });
+  };
+
+  const handleStyleToggle = (value: string) => {
+    setSelectedStyles((styles) => {
+      if (styles.includes(value)) {
+        return styles.filter((styleValue) => styleValue !== value);
+      }
+
+      return [...styles, value];
+    });
+  };
+
+  const handleDetailTemplateToggle = (value: string) => {
+    setDetailTemplates((templates) => {
+      if (templates.includes(value)) {
+        return templates.filter((templateValue) => templateValue !== value);
+      }
+
+      return [...templates, value];
+    });
+  };
+
   const handleGenerate = async () => {
     if (!currentUser || isGenerating) {
       return;
@@ -382,16 +472,22 @@ export default function MusicRegulation() {
           <div className={styles.layeredFields}>
             <label className={styles.promptField}>
               <span>Layer 1 · Instrument</span>
-              <select value={instrument} onChange={(event) => setInstrument(event.currentTarget.value)}>
+              <div className={styles.instrumentChoiceGrid}>
                 {instrumentOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
+                  <label key={option.value} className={styles.instrumentChoice}>
+                    <input
+                      checked={instruments.includes(option.value)}
+                      type="checkbox"
+                      value={option.value}
+                      onChange={() => handleInstrumentToggle(option.value)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </label>
 
-            {instrument === 'custom' ? (
+            {instruments.includes('custom') ? (
               <label className={styles.promptField}>
                 <span>Custom instrument</span>
                 <input
@@ -405,16 +501,22 @@ export default function MusicRegulation() {
 
             <label className={styles.promptField}>
               <span>Layer 2 · Style</span>
-              <select value={style} onChange={(event) => setStyle(event.currentTarget.value)}>
+              <div className={styles.promptChoiceGrid}>
                 {styleOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
+                  <label key={option.value} className={styles.promptChoice}>
+                    <input
+                      checked={selectedStyles.includes(option.value)}
+                      type="checkbox"
+                      value={option.value}
+                      onChange={() => handleStyleToggle(option.value)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </label>
 
-            {style === 'custom' ? (
+            {selectedStyles.includes('custom') ? (
               <label className={styles.promptField}>
                 <span>Custom style</span>
                 <input
@@ -428,6 +530,19 @@ export default function MusicRegulation() {
 
             <label className={styles.promptField}>
               <span>Layer 3 · Details optional</span>
+              <div className={styles.promptChoiceGrid}>
+                {detailTemplateOptions.map((option) => (
+                  <label key={option.value} className={styles.promptChoice}>
+                    <input
+                      checked={detailTemplates.includes(option.value)}
+                      type="checkbox"
+                      value={option.value}
+                      onChange={() => handleDetailTemplateToggle(option.value)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
               <textarea
                 value={details}
                 maxLength={260}
@@ -570,10 +685,6 @@ export default function MusicRegulation() {
               </div>
             </div>
           </div>
-
-          <aside className={styles.futurePanel} aria-label="Reserved music workspace">
-            Reserved workspace
-          </aside>
         </div>
       </div>
 
