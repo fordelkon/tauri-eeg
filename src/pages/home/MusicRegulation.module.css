@@ -445,21 +445,40 @@
 }
 
 .controlButton {
-  color: #f7f4ef;
+  background: rgba(5, 5, 5, 0.32);
+  box-shadow: inset 0 0 0 1px rgba(255, 250, 243, 0.14);
+  color: #fffaf3;
   height: 30px;
   width: 30px;
 }
 
+.controlButton:global(.Mui-disabled) {
+  background: rgba(5, 5, 5, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 250, 243, 0.08);
+  color: rgba(255, 250, 243, 0.48);
+}
+
 .controlButton:hover {
-  background: rgba(247, 244, 239, 0.1);
+  background: rgba(5, 5, 5, 0.46);
+  color: #fffaf3;
+}
+
+.controlButton:focus-visible {
+  outline: 2px solid rgba(255, 250, 243, 0.72);
+  outline-offset: 2px;
 }
 
 .controlButton svg {
+  color: #fffaf3;
+  fill: currentColor;
   font-size: 21px;
 }
 
 .primaryButton {
-  background: #f7f4ef;
+  background: #fffaf3;
+  box-shadow:
+    0 8px 18px rgba(5, 5, 5, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.72);
   color: #050505;
   height: 38px;
   width: 38px;
@@ -467,9 +486,18 @@
 
 .primaryButton:hover {
   background: #ffffff;
+  color: #050505;
+}
+
+.primaryButton:global(.Mui-disabled) {
+  background: rgba(255, 250, 243, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(255, 250, 243, 0.14);
+  color: rgba(5, 5, 5, 0.48);
 }
 
 .primaryButton svg {
+  color: #050505;
+  fill: currentColor;
   font-size: 28px;
 }
 
@@ -536,6 +564,11 @@
   width: 34px;
 }
 
+.closeButton:hover {
+  background: rgba(23, 32, 38, 0.08);
+  color: #0b1115;
+}
+
 .queueList {
   display: grid;
   gap: 8px;
@@ -571,6 +604,15 @@
 
 .queueItem:hover {
   background: rgba(23, 32, 38, 0.07);
+  color: #172026;
+}
+
+.queueItem:hover .queueSelectButton span {
+  color: rgba(23, 32, 38, 0.52);
+}
+
+.queueItem:hover .queueSelectButton em {
+  color: rgba(23, 32, 38, 0.58);
 }
 
 .queueSelectButton {
@@ -611,7 +653,8 @@
 }
 
 .deleteQueueButton {
-  color: rgba(23, 32, 38, 0.52);
+  background: rgba(23, 32, 38, 0.04);
+  color: rgba(23, 32, 38, 0.74);
   height: 30px;
   justify-self: end;
   width: 30px;
@@ -620,6 +663,11 @@
 .deleteQueueButton:hover {
   background: rgba(196, 58, 48, 0.1);
   color: #8d2d25;
+}
+
+.deleteQueueButton:global(.Mui-disabled) {
+  background: rgba(23, 32, 38, 0.03);
+  color: rgba(23, 32, 38, 0.28);
 }
 
 .deleteQueueButton svg {
@@ -637,13 +685,34 @@
   color: #f7f4ef;
 }
 
+.activeQueueItem:hover {
+  background: rgba(23, 32, 38, 0.92);
+  color: #f7f4ef;
+}
+
 .activeQueueItem .queueSelectButton span,
 .activeQueueItem .queueSelectButton em {
   color: rgba(247, 244, 239, 0.58);
 }
 
+.activeQueueItem:hover .queueSelectButton span,
+.activeQueueItem:hover .queueSelectButton em {
+  color: rgba(247, 244, 239, 0.62);
+}
+
 .activeQueueItem .deleteQueueButton {
-  color: rgba(247, 244, 239, 0.68);
+  background: rgba(247, 244, 239, 0.1);
+  color: rgba(255, 250, 243, 0.88);
+}
+
+.activeQueueItem .deleteQueueButton:hover {
+  background: rgba(255, 250, 243, 0.18);
+  color: #fffaf3;
+}
+
+.activeQueueItem .deleteQueueButton:global(.Mui-disabled) {
+  background: rgba(247, 244, 239, 0.06);
+  color: rgba(247, 244, 239, 0.34);
 }
 
 @media (max-width: 940px) {
