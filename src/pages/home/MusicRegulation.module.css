@@ -1,4 +1,5 @@
 .workspace {
+  animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
   color: #172026;
   display: flex;
   flex-direction: column;
@@ -6,6 +7,18 @@
   margin: 0 auto;
   max-width: 1180px;
   width: 100%;
+}
+
+@keyframes workspaceEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 .header {
@@ -798,5 +811,11 @@
   .queueSpacer {
     height: 30px;
     width: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace {
+    animation: none;
   }
 }
