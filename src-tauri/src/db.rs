@@ -1,9 +1,5 @@
 use rusqlite::Connection;
-use std::{
-    fs,
-    path::PathBuf,
-    sync::Mutex,
-};
+use std::{fs, path::PathBuf, sync::Mutex};
 
 pub struct AppDb {
     pub conn: Mutex<Connection>,
@@ -46,6 +42,8 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|_| "Failed to initialize database schema.".to_string())?;
 
+    crate::music_history::init_music_history_schema(conn)?;
+
     Ok(())
 }
 
@@ -63,6 +61,23 @@ mod tests {
         let count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'users'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("query sqlite schema");
+
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn creates_music_history_table() {
+        let conn = Connection::open_in_memory().expect("open in-memory sqlite");
+
+        init_schema(&conn).expect("init schema");
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'music_history'",
                 [],
                 |row| row.get(0),
             )

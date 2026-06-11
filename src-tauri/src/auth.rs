@@ -246,7 +246,8 @@ mod tests {
         reset_user_password_record(&conn, "alice", "reset-code", "654321", "reset-code")
             .expect("reset password");
 
-        let logged_in = login_user_record(&conn, "alice", "654321").expect("login with new password");
+        let logged_in =
+            login_user_record(&conn, "alice", "654321").expect("login with new password");
 
         assert_eq!(logged_in.username, "alice");
         assert_eq!(
@@ -260,7 +261,8 @@ mod tests {
         let conn = setup_conn();
         register_user_record(&conn, "alice", "123456").expect("register alice");
 
-        let result = reset_user_password_record(&conn, "alice", "wrong-code", "654321", "reset-code");
+        let result =
+            reset_user_password_record(&conn, "alice", "wrong-code", "654321", "reset-code");
 
         assert_eq!(result.unwrap_err(), "Reset code is incorrect.");
         assert!(login_user_record(&conn, "alice", "123456").is_ok());
