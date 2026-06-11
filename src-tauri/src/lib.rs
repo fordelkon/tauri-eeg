@@ -87,6 +87,13 @@ struct MusicGenerationInput {
     duration: u32,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteMusicHistoryInput {
+    user_id: String,
+    item_id: String,
+}
+
 #[tauri::command]
 async fn generate_music(
     app: tauri::AppHandle,
@@ -166,6 +173,24 @@ fn list_music_history(
     music_history::list_music_history_items(&conn, &user_id, limit.unwrap_or(50))
 }
 
+#[tauri::command]
+fn delete_music_history(
+    app: tauri::AppHandle,
+    db: State<'_, AppDb>,
+    input: DeleteMusicHistoryInput,
+) -> Result<MusicHistoryItem, String> {
+    let output_dir = music_output_dir(&app)?;
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|_| "Database is unavailable.".to_string())?;
+    let deleted = music_history::delete_music_history_item(&conn, &input.user_id, &input.item_id)?;
+
+    delete_music_file_in_output_dir(&output_dir, &deleted.file_path)?;
+
+    Ok(deleted)
+}
+
 fn music_output_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     let base = app
         .path()
@@ -177,6 +202,34 @@ fn music_output_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String
         .map_err(|_| "Failed to create music output directory.".to_string())?;
 
     Ok(music_dir)
+}
+
+fn delete_music_file_in_output_dir(
+    output_dir: &std::path::Path,
+    file_path: &str,
+) -> Result<(), String> {
+    let output_dir = output_dir
+        .canonicalize()
+        .map_err(|_| "Failed to resolve music output directory.".to_string())?;
+    let file_path = std::path::PathBuf::from(file_path);
+
+    if !file_path.exists() {
+        return Ok(());
+    }
+
+    let file_path = file_path
+        .canonicalize()
+        .map_err(|_| "Failed to resolve music file path.".to_string())?;
+
+    if file_path.parent() != Some(output_dir.as_path()) {
+        return Err("Refusing to delete a file outside the music output directory.".to_string());
+    }
+
+    if file_path.extension().and_then(|value| value.to_str()) != Some("wav") {
+        return Err("Refusing to delete a non-WAV music file.".to_string());
+    }
+
+    std::fs::remove_file(&file_path).map_err(|_| "Failed to delete music file.".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -196,7 +249,8 @@ pub fn run() {
             stop_eeg_stream,
             generate_music,
             get_music_service_health,
-            list_music_history
+            list_music_history,
+            delete_music_history
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

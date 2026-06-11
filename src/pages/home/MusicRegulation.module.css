@@ -506,12 +506,14 @@
   gap: 12px;
   max-height: min(520px, calc(100vh - 48px));
   max-width: 520px;
+  min-height: 0;
   padding: 16px;
   width: 100%;
 }
 
 .historyHeader {
   align-items: center;
+  flex: 0 0 auto;
   display: flex;
   justify-content: space-between;
 }
@@ -537,7 +539,9 @@
 .queueList {
   display: grid;
   gap: 8px;
+  min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .emptyQueue {
@@ -557,27 +561,41 @@
   border: 1px solid transparent;
   border-radius: 8px;
   color: rgba(23, 32, 38, 0.72);
-  cursor: pointer;
   display: grid;
   font: inherit;
-  gap: 10px;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 34px;
   min-height: 48px;
-  padding: 8px 10px;
-  text-align: left;
+  padding: 6px 8px 6px 10px;
 }
 
 .queueItem:hover {
   background: rgba(23, 32, 38, 0.07);
 }
 
-.queueItem span {
+.queueSelectButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 10px;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  min-height: 36px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.queueSelectButton span {
   color: rgba(23, 32, 38, 0.42);
   font-size: 12px;
   font-weight: 760;
 }
 
-.queueItem strong {
+.queueSelectButton strong {
   font-size: 13px;
   font-weight: 720;
   overflow: hidden;
@@ -585,11 +603,32 @@
   white-space: nowrap;
 }
 
-.queueItem em {
+.queueSelectButton em {
   color: rgba(23, 32, 38, 0.46);
   font-size: 12px;
   font-style: normal;
   font-weight: 700;
+}
+
+.deleteQueueButton {
+  color: rgba(23, 32, 38, 0.52);
+  height: 30px;
+  justify-self: end;
+  width: 30px;
+}
+
+.deleteQueueButton:hover {
+  background: rgba(196, 58, 48, 0.1);
+  color: #8d2d25;
+}
+
+.deleteQueueButton svg {
+  font-size: 19px;
+}
+
+.queueSpacer {
+  height: 30px;
+  width: 30px;
 }
 
 .activeQueueItem {
@@ -598,9 +637,13 @@
   color: #f7f4ef;
 }
 
-.activeQueueItem span,
-.activeQueueItem em {
+.activeQueueItem .queueSelectButton span,
+.activeQueueItem .queueSelectButton em {
   color: rgba(247, 244, 239, 0.58);
+}
+
+.activeQueueItem .deleteQueueButton {
+  color: rgba(247, 244, 239, 0.68);
 }
 
 @media (max-width: 940px) {
@@ -647,5 +690,44 @@
 
   .futurePanel {
     min-height: 84px;
+  }
+
+  .historyOverlay {
+    align-items: flex-end;
+    padding: 10px;
+  }
+
+  .historyModal {
+    border-radius: 14px 14px 8px 8px;
+    max-height: calc(100dvh - 20px);
+    max-width: none;
+    padding: 12px;
+    width: 100%;
+  }
+
+  .queueList {
+    max-height: calc(100dvh - 116px);
+  }
+
+  .queueItem {
+    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) 32px;
+    min-height: 46px;
+    padding: 6px 6px 6px 8px;
+  }
+
+  .queueSelectButton {
+    gap: 8px;
+    grid-template-columns: 28px minmax(0, 1fr);
+  }
+
+  .queueSelectButton em {
+    display: none;
+  }
+
+  .deleteQueueButton,
+  .queueSpacer {
+    height: 30px;
+    width: 30px;
   }
 }

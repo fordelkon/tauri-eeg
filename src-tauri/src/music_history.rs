@@ -118,6 +118,42 @@ pub fn list_music_history_items(
         .map_err(|_| "Failed to load music history.".to_string())
 }
 
+pub fn delete_music_history_item(
+    conn: &Connection,
+    user_id: &str,
+    item_id: &str,
+) -> Result<MusicHistoryItem, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, user_id, prompt, file_path, duration_seconds, created_at, model_version
+                FROM music_history
+                WHERE user_id = ?1 AND id = ?2",
+        )
+        .map_err(|_| "Failed to load music history item.".to_string())?;
+
+    let item = stmt
+        .query_row(params![user_id, item_id], |row| {
+            Ok(MusicHistoryItem {
+                id: row.get(0)?,
+                user_id: row.get(1)?,
+                prompt: row.get(2)?,
+                file_path: row.get(3)?,
+                duration_seconds: row.get(4)?,
+                created_at: row.get(5)?,
+                model_version: row.get(6)?,
+            })
+        })
+        .map_err(|_| "Music history item not found.".to_string())?;
+
+    conn.execute(
+        "DELETE FROM music_history WHERE user_id = ?1 AND id = ?2",
+        params![user_id, item_id],
+    )
+    .map_err(|_| "Failed to delete music history item.".to_string())?;
+
+    Ok(item)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,5 +211,54 @@ mod tests {
         let result = save_music_history_item(&conn, "job-1", "user-1", " ", "out.wav", Some(30.0));
 
         assert_eq!(result.unwrap_err(), "Prompt is required.");
+    }
+
+    #[test]
+    fn deletes_music_history_item_by_user() {
+        let conn = setup_conn();
+        save_music_history_item(
+            &conn,
+            "job-1",
+            "user-1",
+            "calm piano",
+            "C:/Users/name/AppData/Local/tauri-eeg/music/gen_job.wav",
+            Some(30.0),
+        )
+        .expect("save history");
+
+        let deleted = delete_music_history_item(&conn, "user-1", "job-1").expect("delete history");
+        let items = list_music_history_items(&conn, "user-1", 20).expect("list history");
+
+        assert_eq!(
+            deleted.file_path,
+            "C:/Users/name/AppData/Local/tauri-eeg/music/gen_job.wav"
+        );
+        assert!(items.is_empty());
+    }
+
+    #[test]
+    fn does_not_delete_other_users_music_history_item() {
+        let conn = setup_conn();
+        conn.execute(
+            "INSERT INTO users (id, username, password_hash, created_at, updated_at)
+                VALUES ('user-2', 'bob', 'hash', 'now', 'now')",
+            [],
+        )
+        .expect("insert second user");
+        save_music_history_item(
+            &conn,
+            "job-1",
+            "user-1",
+            "calm piano",
+            "C:/Users/name/AppData/Local/tauri-eeg/music/gen_job.wav",
+            Some(30.0),
+        )
+        .expect("save history");
+
+        let result = delete_music_history_item(&conn, "user-2", "job-1");
+        let items = list_music_history_items(&conn, "user-1", 20).expect("list history");
+
+        assert_eq!(result.unwrap_err(), "Music history item not found.");
+        assert_eq!(items.len(), 1);
     }
 }

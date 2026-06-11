@@ -31,6 +31,18 @@ export async function listMusicHistory(
   return invoke<GeneratedMusicHistoryItem[]>('list_music_history', { userId, limit });
 }
 
+export async function deleteMusicHistoryItem(
+  userId: string,
+  itemId: string,
+): Promise<GeneratedMusicHistoryItem> {
+  return invoke<GeneratedMusicHistoryItem>('delete_music_history', {
+    input: {
+      itemId,
+      userId,
+    },
+  });
+}
+
 export function toPlayableFileUrl(filePath: string) {
   return convertFileSrc(filePath);
 }

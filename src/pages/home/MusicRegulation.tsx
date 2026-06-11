@@ -1,4 +1,5 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
@@ -10,6 +11,7 @@ import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import {
+  deleteMusicHistoryItem,
   generateMusic,
   getMusicServiceHealth,
   listMusicHistory,
@@ -102,6 +104,7 @@ export default function MusicRegulation() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState('Ready');
   const [generationDevice, setGenerationDevice] = useState<string | null>(null);
@@ -306,6 +309,42 @@ export default function MusicRegulation() {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleDeleteHistoryItem = async (itemId: string, index: number) => {
+    if (!currentUser || deletingItemId) {
+      return;
+    }
+
+    const audio = audioRef.current;
+    const deletingActiveAsset = index === activeIndex;
+
+    if (deletingActiveAsset) {
+      audio?.pause();
+    }
+
+    setError(null);
+    setDeletingItemId(itemId);
+
+    try {
+      await deleteMusicHistoryItem(currentUser.id, itemId);
+      setGeneratedItems((items) => items.filter((item) => item.id !== itemId));
+      setActiveIndex((currentIndex) => {
+        if (index < currentIndex) {
+          return currentIndex - 1;
+        }
+
+        if (index === currentIndex) {
+          return Math.max(0, currentIndex - 1);
+        }
+
+        return currentIndex;
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setDeletingItemId(null);
     }
   };
 
@@ -566,19 +605,38 @@ export default function MusicRegulation() {
               {assets.length === 0 ? (
                 <div className={styles.emptyQueue}>Generate a WAV track to start playback.</div>
               ) : assets.map((asset, index) => (
-                <button
+                <div
                   key={asset.id}
                   className={`${styles.queueItem} ${index === activeIndex ? styles.activeQueueItem : ''}`}
-                  type="button"
-                  onClick={() => {
-                    setIsHistoryOpen(false);
-                    void handleTrackChange(index);
-                  }}
                 >
-                  <span>{String(index + 1).padStart(2, '0')}</span>
-                  <strong>{asset.title}</strong>
-                  <em>{asset.source === 'generated' ? 'Generated' : 'Bundled'}</em>
-                </button>
+                  <button
+                    className={styles.queueSelectButton}
+                    type="button"
+                    onClick={() => {
+                      setIsHistoryOpen(false);
+                      void handleTrackChange(index);
+                    }}
+                  >
+                    <span>{String(index + 1).padStart(2, '0')}</span>
+                    <strong>{asset.title}</strong>
+                    <em>{asset.source === 'generated' ? 'Generated' : 'Bundled'}</em>
+                  </button>
+                  {asset.source === 'generated' ? (
+                    <IconButton
+                      className={styles.deleteQueueButton}
+                      aria-label={`Delete ${asset.title}`}
+                      disabled={deletingItemId === asset.id}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        void handleDeleteHistoryItem(asset.id, index);
+                      }}
+                    >
+                      <DeleteOutlineRoundedIcon />
+                    </IconButton>
+                  ) : (
+                    <span className={styles.queueSpacer} aria-hidden="true" />
+                  )}
+                </div>
               ))}
             </div>
           </section>
