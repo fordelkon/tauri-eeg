@@ -19,6 +19,11 @@ import {
 } from '../../music/musicGenerationApi';
 import { createBundledMusicAssets, createGeneratedMusicAsset } from '../../music/musicAssets';
 import { buildMusicPrompt } from '../../music/musicPrompt';
+import {
+  getCompactTagSummary,
+  getNextOpenTagSelector,
+  type CompactTagOption,
+} from '../../music/musicRegulationTags';
 import styles from './MusicRegulation.module.css';
 
 const bundledMusicFiles = [] as const;
@@ -136,6 +141,9 @@ const detailTemplateOptions = [
     value: 'bright melody',
   },
 ] as const;
+const instrumentTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f', '#d7a86e', '#9aa2a9'] as const;
+const styleTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f', '#d7a86e'] as const;
+const detailTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f'] as const;
 
 function formatTime(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) {
@@ -148,6 +156,155 @@ function formatTime(seconds: number) {
   return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
+type CompactTagSelectorProps = {
+  id: string;
+  label: string;
+  options: readonly CompactTagOption[];
+  isOpen: boolean;
+  selectedValues: string[];
+  colors: readonly string[];
+  customValue?: string;
+  onOpenChange: (id: string) => void;
+};
+
+function CompactTagSelector({
+  id,
+  label,
+  options,
+  isOpen,
+  selectedValues,
+  colors,
+  customValue,
+  onOpenChange,
+}: CompactTagSelectorProps) {
+  const summary = getCompactTagSummary(
+    options,
+    selectedValues,
+    customValue ? { custom: customValue } : undefined,
+  );
+
+  return (
+    <div className={styles.tagSelector}>
+      <button
+        className={styles.tagTrigger}
+        type="button"
+        aria-expanded={isOpen}
+        onClick={() => onOpenChange(id)}
+      >
+        <span className={styles.tagDotStack} aria-hidden="true">
+          {options.map((option, index) => (
+            <span
+              key={option.value}
+              className={selectedValues.includes(option.value) ? styles.activeTagDot : ''}
+              style={{ '--tag-color': colors[index % colors.length] } as CSSProperties}
+            />
+          ))}
+        </span>
+        <span className={styles.tagTriggerText}>{label}</span>
+        <span className={styles.tagCount}>{summary.countLabel}</span>
+        <span className={`${styles.tagChevron} ${isOpen ? styles.tagChevronOpen : ''}`} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+type TagEditorSheetProps = {
+  title: string;
+  options: readonly CompactTagOption[];
+  selectedValues: string[];
+  colors: readonly string[];
+  customPlaceholder?: string;
+  customValue?: string;
+  onClose: () => void;
+  onCustomChange?: (value: string) => void;
+  onOnly: (value: string) => void;
+  onToggle: (value: string) => void;
+};
+
+function TagEditorSheet({
+  title,
+  options,
+  selectedValues,
+  colors,
+  customPlaceholder,
+  customValue,
+  onClose,
+  onCustomChange,
+  onOnly,
+  onToggle,
+}: TagEditorSheetProps) {
+  const summary = getCompactTagSummary(
+    options,
+    selectedValues,
+    customValue ? { custom: customValue } : undefined,
+  );
+
+  return (
+    <div className={`${styles.tagSheetOverlay} fixed inset-0 z-20 flex`} role="presentation" onMouseDown={(event) => {
+      if (event.target === event.currentTarget) {
+        onClose();
+      }
+    }}>
+      <section className={styles.tagSheet} aria-label={`${title} tags`}>
+        <div className={styles.tagSheetHeader}>
+          <div>
+            <span>{title}</span>
+            <strong>{summary.label}</strong>
+          </div>
+          <button className={styles.tagSheetClose} type="button" aria-label="Close tag editor" onClick={onClose}>
+            <CloseRoundedIcon fontSize="small" />
+          </button>
+        </div>
+
+        <div className={styles.tagSheetList}>
+          {options.map((option, index) => {
+            const isSelected = selectedValues.includes(option.value);
+
+            return (
+              <div key={option.value} className={styles.tagMenuItem}>
+                <label className={styles.tagMenuToggle}>
+                  <input
+                    checked={isSelected}
+                    type="checkbox"
+                    value={option.value}
+                    onChange={() => onToggle(option.value)}
+                  />
+                  <span className={styles.tagCheck} aria-hidden="true" />
+                  <span
+                    className={`${styles.tagOptionDot} ${isSelected ? styles.activeTagOptionDot : ''}`}
+                    style={{ '--tag-color': colors[index % colors.length] } as CSSProperties}
+                    aria-hidden="true"
+                  />
+                  <span className={styles.tagOptionLabel}>{option.label}</span>
+                </label>
+                <button
+                  className={styles.tagOnlyButton}
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onOnly(option.value);
+                  }}
+                >
+                  Only
+                </button>
+                {option.value === 'custom' && isSelected ? (
+                  <input
+                    className={styles.tagCustomInput}
+                    value={customValue || ''}
+                    maxLength={80}
+                    onChange={(event) => onCustomChange?.(event.currentTarget.value)}
+                    placeholder={customPlaceholder}
+                  />
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function MusicRegulation() {
   const { currentUser } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -157,6 +314,7 @@ export default function MusicRegulation() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [openTagSelectorId, setOpenTagSelectorId] = useState<string | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState('Ready');
@@ -360,6 +518,46 @@ export default function MusicRegulation() {
       return [...templates, value];
     });
   };
+  const handleInstrumentOnly = (value: string) => setInstruments([value]);
+  const handleStyleOnly = (value: string) => setSelectedStyles([value]);
+  const handleDetailTemplateOnly = (value: string) => setDetailTemplates([value]);
+  const handleTagSelectorOpenChange = (id: string) => {
+    setOpenTagSelectorId((currentId) => getNextOpenTagSelector(currentId, id));
+  };
+  const openTagEditor = openTagSelectorId === 'instrument'
+    ? {
+      colors: instrumentTagColors,
+      customPlaceholder: 'erhu, hang drum, duduk...',
+      customValue: customInstrument,
+      onCustomChange: setCustomInstrument,
+      onOnly: handleInstrumentOnly,
+      onToggle: handleInstrumentToggle,
+      options: instrumentOptions,
+      selectedValues: instruments,
+      title: 'Instrument',
+    }
+    : openTagSelectorId === 'style'
+      ? {
+        colors: styleTagColors,
+        customPlaceholder: 'post-rock, lo-fi jazz, cinematic...',
+        customValue: customStyle,
+        onCustomChange: setCustomStyle,
+        onOnly: handleStyleOnly,
+        onToggle: handleStyleToggle,
+        options: styleOptions,
+        selectedValues: selectedStyles,
+        title: 'Style',
+      }
+      : openTagSelectorId === 'details'
+        ? {
+          colors: detailTagColors,
+          onOnly: handleDetailTemplateOnly,
+          onToggle: handleDetailTemplateToggle,
+          options: detailTemplateOptions,
+          selectedValues: detailTemplates,
+          title: 'Details',
+        }
+        : null;
 
   const handleGenerate = async () => {
     if (!currentUser || isGenerating) {
@@ -470,79 +668,45 @@ export default function MusicRegulation() {
           </div>
 
           <div className={`${styles.layeredFields} grid`}>
-            <label className={`${styles.promptField} flex min-w-0 flex-col`}>
+            <div className={`${styles.promptField} flex min-w-0 flex-col`}>
               <span>Layer 1 · Instrument</span>
-              <div className={`${styles.instrumentChoiceGrid} grid`}>
-                {instrumentOptions.map((option) => (
-                  <label key={option.value} className={styles.instrumentChoice}>
-                    <input
-                      checked={instruments.includes(option.value)}
-                      type="checkbox"
-                      value={option.value}
-                      onChange={() => handleInstrumentToggle(option.value)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
-            </label>
+              <CompactTagSelector
+                id="instrument"
+                label="Instrument"
+                options={instrumentOptions}
+                isOpen={openTagSelectorId === 'instrument'}
+                selectedValues={instruments}
+                colors={instrumentTagColors}
+                customValue={customInstrument}
+                onOpenChange={handleTagSelectorOpenChange}
+              />
+            </div>
 
-            {instruments.includes('custom') ? (
-              <label className={`${styles.promptField} flex min-w-0 flex-col`}>
-                <span>Custom instrument</span>
-                <input
-                  value={customInstrument}
-                  maxLength={80}
-                  onChange={(event) => setCustomInstrument(event.currentTarget.value)}
-                  placeholder="erhu, hang drum, duduk..."
-                />
-              </label>
-            ) : null}
-
-            <label className={`${styles.promptField} flex min-w-0 flex-col`}>
+            <div className={`${styles.promptField} flex min-w-0 flex-col`}>
               <span>Layer 2 · Style</span>
-              <div className={`${styles.promptChoiceGrid} grid`}>
-                {styleOptions.map((option) => (
-                  <label key={option.value} className={styles.promptChoice}>
-                    <input
-                      checked={selectedStyles.includes(option.value)}
-                      type="checkbox"
-                      value={option.value}
-                      onChange={() => handleStyleToggle(option.value)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
-            </label>
+              <CompactTagSelector
+                id="style"
+                label="Style"
+                options={styleOptions}
+                isOpen={openTagSelectorId === 'style'}
+                selectedValues={selectedStyles}
+                colors={styleTagColors}
+                customValue={customStyle}
+                onOpenChange={handleTagSelectorOpenChange}
+              />
+            </div>
 
-            {selectedStyles.includes('custom') ? (
-              <label className={`${styles.promptField} flex min-w-0 flex-col`}>
-                <span>Custom style</span>
-                <input
-                  value={customStyle}
-                  maxLength={80}
-                  onChange={(event) => setCustomStyle(event.currentTarget.value)}
-                  placeholder="post-rock, lo-fi jazz, cinematic..."
-                />
-              </label>
-            ) : null}
-
-            <label className={`${styles.promptField} flex min-w-0 flex-col`}>
+            <div className={`${styles.promptField} flex min-w-0 flex-col`}>
               <span>Layer 3 · Details optional</span>
-              <div className={`${styles.promptChoiceGrid} grid`}>
-                {detailTemplateOptions.map((option) => (
-                  <label key={option.value} className={styles.promptChoice}>
-                    <input
-                      checked={detailTemplates.includes(option.value)}
-                      type="checkbox"
-                      value={option.value}
-                      onChange={() => handleDetailTemplateToggle(option.value)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
-              </div>
+              <CompactTagSelector
+                id="details"
+                label="Details"
+                options={detailTemplateOptions}
+                isOpen={openTagSelectorId === 'details'}
+                selectedValues={detailTemplates}
+                colors={detailTagColors}
+                onOpenChange={handleTagSelectorOpenChange}
+              />
               <textarea
                 value={details}
                 maxLength={260}
@@ -550,7 +714,7 @@ export default function MusicRegulation() {
                 onChange={(event) => setDetails(event.currentTarget.value)}
                 placeholder="soft rhythm, warm tone, slow tempo..."
               />
-            </label>
+            </div>
           </div>
 
           <div className={styles.promptPreview} title={generatedPrompt}>
@@ -752,6 +916,21 @@ export default function MusicRegulation() {
             </div>
           </section>
         </div>
+      ) : null}
+
+      {openTagEditor ? (
+        <TagEditorSheet
+          title={openTagEditor.title}
+          options={openTagEditor.options}
+          selectedValues={openTagEditor.selectedValues}
+          colors={openTagEditor.colors}
+          customValue={openTagEditor.customValue}
+          customPlaceholder={openTagEditor.customPlaceholder}
+          onToggle={openTagEditor.onToggle}
+          onOnly={openTagEditor.onOnly}
+          onCustomChange={openTagEditor.onCustomChange}
+          onClose={() => setOpenTagSelectorId(null)}
+        />
       ) : null}
 
       {activeAsset ? (
