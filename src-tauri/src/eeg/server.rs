@@ -143,7 +143,6 @@ fn handle_stream(
     kind: ClientKind,
     mut stream: TcpStream,
 ) {
-    set_connection_state(&runtime, kind, true);
     let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
     let mut parser = ProtocolParser::new();
     let mut aggregator =
@@ -167,8 +166,11 @@ fn handle_stream(
                             value,
                         } if kind == ClientKind::Trigger => {
                             if trigger_tracker.observe(packet_index) != PacketContinuity::Duplicate
-                                && value != 0
                             {
+                                confirm_client_data(&runtime, kind);
+                                if value == 0 {
+                                    continue;
+                                }
                                 set_latest_trigger(&runtime, value);
                             }
                         }
@@ -192,6 +194,7 @@ fn handle_stream(
                                 | PacketContinuity::Sequential
                                 | PacketContinuity::Reset => {}
                             }
+                            confirm_client_data(&runtime, kind);
                             last_sample = samples_uv;
                             process_eeg_sample(&app, &runtime, &mut aggregator, samples_uv);
                         }
@@ -209,6 +212,20 @@ fn handle_stream(
         }
     }
     set_connection_state(&runtime, kind, false);
+}
+
+fn confirm_client_data(runtime: &Arc<Mutex<EegRuntime>>, kind: ClientKind) {
+    let is_connected = runtime
+        .lock()
+        .map(|runtime| match kind {
+            ClientKind::Eeg => runtime.eeg_connected,
+            ClientKind::Trigger => runtime.trigger_connected,
+        })
+        .unwrap_or(false);
+
+    if !is_connected {
+        set_connection_state(runtime, kind, true);
+    }
 }
 
 fn process_eeg_sample(
@@ -310,5 +327,32 @@ mod tests {
     #[test]
     fn derives_broadcast_from_fixed_host_ip() {
         assert_eq!(subnet_broadcast("192.168.1.101"), "192.168.1.255");
+    }
+
+    #[test]
+    fn confirms_connection_only_after_client_data() {
+        let runtime = Arc::new(Mutex::new(EegRuntime::default()));
+
+        {
+            let runtime = runtime.lock().expect("runtime");
+            assert!(!runtime.eeg_connected);
+            assert!(!runtime.trigger_connected);
+        }
+
+        confirm_client_data(&runtime, ClientKind::Eeg);
+
+        {
+            let runtime = runtime.lock().expect("runtime");
+            assert!(runtime.eeg_connected);
+            assert!(!runtime.trigger_connected);
+        }
+
+        confirm_client_data(&runtime, ClientKind::Trigger);
+
+        {
+            let runtime = runtime.lock().expect("runtime");
+            assert!(runtime.eeg_connected);
+            assert!(runtime.trigger_connected);
+        }
     }
 }

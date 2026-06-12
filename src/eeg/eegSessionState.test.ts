@@ -67,6 +67,22 @@ describe('eegSessionReducer', () => {
     expect(canStopDevice(disconnected)).toBe(false);
   });
 
+  it('can stop the TCP server while waiting for the first EEG frame', () => {
+    const starting = {
+      ...initialEegSessionState,
+      deviceStatus: 'starting' as const,
+    };
+    const stopping = eegSessionReducer(starting, { type: 'stop_device_requested' });
+
+    expect(canStartDevice(starting)).toBe(true);
+    expect(canStopDevice(starting)).toBe(true);
+    expect(stopping).toMatchObject({
+      deviceStatus: 'stopping',
+      recordStatus: 'idle',
+      errorMessage: null,
+    });
+  });
+
   it('pauses and resumes recording while the device keeps streaming', () => {
     const recording = {
       ...initialEegSessionState,
@@ -92,6 +108,7 @@ describe('eegSessionReducer', () => {
     expect(canStartDevice(disconnected)).toBe(true);
     expect(canStartDevice(starting)).toBe(true);
     expect(canStartDevice(stopping)).toBe(false);
+    expect(canStopDevice(starting)).toBe(true);
     expect(canStopDevice(streamingIdle)).toBe(true);
     expect(canStopDevice(stopping)).toBe(false);
     expect(canStartRecord(disconnected)).toBe(false);

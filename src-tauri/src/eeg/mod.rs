@@ -193,12 +193,11 @@ pub fn start_recording(
             .inner
             .lock()
             .map_err(|_| "EEG stream state is unavailable.".to_string())?;
-        if runtime.worker.is_none() {
-            return Err("Start EEG stream before recording.".to_string());
-        }
-        if runtime.recording.is_some() {
-            return Err("EEG recording is already active.".to_string());
-        }
+        validate_recording_ready(
+            runtime.worker.is_some(),
+            runtime.eeg_connected,
+            runtime.recording.is_some(),
+        )?;
         runtime.config.clone().unwrap_or_default()
     };
 
@@ -242,4 +241,43 @@ pub fn stop_recording(
 
 pub fn list_sessions(conn: &Connection, user_id: &str) -> Result<Vec<EegRecordingSession>, String> {
     storage::list_eeg_sessions(conn, user_id)
+}
+
+fn validate_recording_ready(
+    is_streaming: bool,
+    eeg_connected: bool,
+    is_recording: bool,
+) -> Result<(), String> {
+    if !is_streaming {
+        return Err("Start EEG stream before recording.".to_string());
+    }
+    if !eeg_connected {
+        return Err("Wait for valid EEG data before recording.".to_string());
+    }
+    if is_recording {
+        return Err("EEG recording is already active.".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recording_requires_valid_eeg_data_after_stream_start() {
+        assert_eq!(
+            validate_recording_ready(false, false, false),
+            Err("Start EEG stream before recording.".to_string())
+        );
+        assert_eq!(
+            validate_recording_ready(true, false, false),
+            Err("Wait for valid EEG data before recording.".to_string())
+        );
+        assert_eq!(
+            validate_recording_ready(true, true, true),
+            Err("EEG recording is already active.".to_string())
+        );
+        assert_eq!(validate_recording_ready(true, true, false), Ok(()));
+    }
 }

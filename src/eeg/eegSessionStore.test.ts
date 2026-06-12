@@ -28,6 +28,7 @@ describe('eegSessionStore', () => {
     const settings = createInitialEegDisplaySettings();
 
     expect(settings.timeWindowSeconds).toBe(DEFAULT_TIME_WINDOW_SECONDS);
+    expect(settings.timeWindowSeconds).toBe(10);
     expect(settings.amplitudeUvPerDiv).toBe(DEFAULT_AMPLITUDE_UV_PER_DIV);
     expect([...settings.visibleChannelIds]).toEqual(DEFAULT_VISIBLE_EEG_CHANNEL_IDS);
     expect(settings.visibleChannelIds.has('ch04')).toBe(true);

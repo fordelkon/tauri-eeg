@@ -41,7 +41,7 @@ export function canStartRecord(state: EegSessionState) {
 }
 
 export function canStopDevice(state: EegSessionState) {
-  return state.deviceStatus === 'streaming';
+  return state.deviceStatus === 'starting' || state.deviceStatus === 'streaming';
 }
 
 export function canPauseRecord(state: EegSessionState) {

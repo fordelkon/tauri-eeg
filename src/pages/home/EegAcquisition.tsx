@@ -8,6 +8,7 @@ import styles from './EegAcquisition.module.css';
 export default function EegAcquisition() {
   const eeg = useRealtimeEeg();
   const visibleCount = eeg.settings.visibleChannelIds.size;
+  const deviceStatusLabel = eeg.deviceStatus === 'starting' ? 'waiting for EEG' : eeg.deviceStatus;
 
   return (
     <section className={`${styles.workspace} mx-auto flex w-full min-h-0 flex-col`} aria-label="EEG acquisition workspace">
@@ -19,7 +20,7 @@ export default function EegAcquisition() {
         <div className={`${styles.statusBar} flex flex-wrap items-center justify-end`}>
           <span className={`${styles.statusPill} inline-flex items-center ${styles[eeg.deviceStatus]}`}>
             <ActivityRoundedIcon fontSize="small" />
-            Device {eeg.deviceStatus}
+            Device {deviceStatusLabel}
           </span>
           <span className={`${styles.statusPill} inline-flex items-center ${styles[eeg.recordStatus]}`}>
             Record {eeg.recordStatus}
@@ -37,6 +38,7 @@ export default function EegAcquisition() {
         canStartRecord={eeg.canStartRecord}
         canStopDevice={eeg.canStopDevice}
         canStopRecord={eeg.canStopRecord}
+        deviceStatus={eeg.deviceStatus}
         timeWindowSeconds={eeg.settings.timeWindowSeconds}
         onAmplitudeChange={eeg.setAmplitudeUvPerDiv}
         onPauseRecord={eeg.pauseRecord}

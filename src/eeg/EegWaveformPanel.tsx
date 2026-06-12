@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import styles from '../pages/home/EegAcquisition.module.css';
+import { processEegDisplayData } from './eegDisplayProcessing';
 import { toSweepDisplayData } from './eegSweepDisplay';
 import type { EegDisplaySnapshot, EegTriggerCode } from './types';
 
@@ -16,6 +17,7 @@ type UplotData = [number[], ...Array<Array<number | null>>];
 const MARKER_LANE_LABEL = 'TRG';
 const MIN_PLOT_WIDTH = 320;
 const MIN_PLOT_HEIGHT = 240;
+const MAX_DISPLAY_POINTS_PER_CHANNEL = 2000;
 const TRACE_COLORS = [
   '#ff6f61',
   '#2f9e74',
@@ -112,17 +114,29 @@ export default function EegWaveformPanel({
 
     const sweepOrigin = sweepOriginRef.current ?? 0;
     const sweep = toSweepDisplayData(snapshot, safeTimeWindowSeconds, sweepOrigin);
+    const plotWidth = Math.max(MIN_PLOT_WIDTH, hostRef.current?.clientWidth ?? MIN_PLOT_WIDTH);
+    const processed = processEegDisplayData({
+      x: sweep.x,
+      seriesByChannel: sweep.seriesByChannel,
+    }, {
+      clipUv: amplitudeUvPerDiv * 5,
+      targetPointCount: Math.min(MAX_DISPLAY_POINTS_PER_CHANNEL, plotWidth * 2),
+    });
     const laneHeight = getLaneHeight(amplitudeUvPerDiv);
     const series = snapshot.visibleChannels.map((channel, channelIndex) => {
       const laneOffset = -channelIndex * laneHeight;
-      return (sweep.seriesByChannel[channel.id] ?? []).map((value) => (
+      return (processed.seriesByChannel[channel.id] ?? []).map((value) => (
         value === null ? null : value + laneOffset
       ));
     });
 
-    sweepRef.current = sweep;
+    sweepRef.current = {
+      ...sweep,
+      x: processed.x,
+      seriesByChannel: processed.seriesByChannel,
+    };
 
-    return [sweep.x, ...series];
+    return [processed.x, ...series];
   }, [amplitudeUvPerDiv, safeTimeWindowSeconds, snapshot]);
 
   useEffect(() => {

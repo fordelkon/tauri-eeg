@@ -6,6 +6,7 @@ import {
 import type { EegDisplaySettings, EegDisplaySnapshot } from './types';
 
 export const DEFAULT_SAMPLE_RATE_HZ = 500;
+export const EEG_TIME_WINDOW_OPTIONS_SECONDS = [5, 10, 30] as const;
 export const DEFAULT_TIME_WINDOW_SECONDS = 10;
 export const DEFAULT_AMPLITUDE_UV_PER_DIV = 100;
 

@@ -5,6 +5,8 @@ import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import StopRoundedIcon from '@mui/icons-material/StopRounded';
 import { Button, MenuItem, TextField } from '@mui/material';
 import styles from '../pages/home/EegAcquisition.module.css';
+import type { EegDeviceStatus } from './eegSessionState';
+import { EEG_TIME_WINDOW_OPTIONS_SECONDS } from './eegSessionStore';
 
 type Props = {
   amplitudeUvPerDiv: number;
@@ -14,6 +16,7 @@ type Props = {
   canStartRecord: boolean;
   canStopDevice: boolean;
   canStopRecord: boolean;
+  deviceStatus: EegDeviceStatus;
   timeWindowSeconds: number;
   onAmplitudeChange: (value: number) => void;
   onPauseRecord: () => void;
@@ -34,6 +37,7 @@ export default function EegControls({
   canStartRecord,
   canStopDevice,
   canStopRecord,
+  deviceStatus,
   timeWindowSeconds,
   onAmplitudeChange,
   onPauseRecord,
@@ -54,7 +58,7 @@ export default function EegControls({
         disabled={!canStartDevice}
         onClick={onStartDevice}
       >
-        Start Device
+        {deviceStatus === 'starting' ? 'Retry Start' : 'Start Device'}
       </Button>
       <Button
         className={styles.controlButton}
@@ -103,7 +107,7 @@ export default function EegControls({
         value={timeWindowSeconds}
         onChange={(event) => onTimeWindowChange(Number(event.target.value))}
       >
-        {[5, 10, 30].map((value) => (
+        {EEG_TIME_WINDOW_OPTIONS_SECONDS.map((value) => (
           <MenuItem key={value} value={value}>{value}s</MenuItem>
         ))}
       </TextField>
