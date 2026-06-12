@@ -21,20 +21,24 @@ const snapshot: EegDisplaySnapshot = {
 };
 
 describe('toSweepDisplayData', () => {
-  it('maps absolute sample times into a fixed sweep window', () => {
+  it('maps absolute sample times into a fixed monotonic plot window', () => {
     const sweep = toSweepDisplayData(snapshot, 10, 0);
 
-    expect(sweep.x).toEqual([8, 9, 0, 0, 1, 2]);
-    expect(sweep.seriesByChannel.fp1).toEqual([80, 90, null, 100, 110, 120]);
-    expect(sweep.seriesByChannel.fp2).toEqual([8, 9, null, 10, 11, 12]);
+    expect(sweep.x).toEqual([8, 9, 10, 11, 12]);
+    expect(sweep.seriesByChannel.fp1).toEqual([80, 90, 100, 110, 120]);
+    expect(sweep.seriesByChannel.fp2).toEqual([8, 9, 10, 11, 12]);
     expect(sweep.currentCycle).toBe(1);
-    expect(sweep.cursorX).toBe(2);
+    expect(sweep.cursorX).toBe(12);
+    expect(sweep.x.every((x, index, values) => index === 0 || x > values[index - 1])).toBe(true);
   });
 
   it('keeps trigger markers only from the currently written sweep cycle', () => {
     const sweep = toSweepDisplayData(snapshot, 10, 0);
 
-    expect(sweep.markers).toEqual([{ timeSeconds: 1, classId: 2 }]);
+    expect(sweep.markers).toEqual([
+      { timeSeconds: 9, classId: 1 },
+      { timeSeconds: 11, classId: 2 },
+    ]);
   });
 
   it('starts the first displayed sweep at the left edge even when source time is absolute', () => {

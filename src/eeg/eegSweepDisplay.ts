@@ -4,7 +4,7 @@ export type SweepDisplayData = {
   currentCycle: number;
   cursorX: number;
   markers: EegMarker[];
-  seriesByChannel: Record<string, Array<number | null>>;
+  seriesByChannel: Record<string, number[]>;
   x: number[];
 };
 
@@ -17,35 +17,12 @@ export function toSweepDisplayData(
   const latestTimeSeconds = snapshot.x[snapshot.x.length - 1] ?? sweepOriginSeconds;
   const latestRelativeSeconds = Math.max(0, latestTimeSeconds - sweepOriginSeconds);
   const currentCycle = Math.floor(latestRelativeSeconds / safeWindowSeconds);
-  const cursorX = latestRelativeSeconds % safeWindowSeconds;
+  const cursorX = latestRelativeSeconds;
 
-  const x: number[] = [];
+  const x = snapshot.x.map((timeSeconds) => Math.max(0, timeSeconds - sweepOriginSeconds));
   const seriesByChannel = Object.fromEntries(
-    Object.entries(snapshot.seriesByChannel).map(([channelId]) => [channelId, [] as Array<number | null>]),
+    Object.entries(snapshot.seriesByChannel).map(([channelId, values]) => [channelId, values]),
   );
-
-  snapshot.x.forEach((timeSeconds, sampleIndex) => {
-    const relativeSeconds = Math.max(0, timeSeconds - sweepOriginSeconds);
-    const sweepX = relativeSeconds % safeWindowSeconds;
-
-    if (sampleIndex > 0) {
-      const previousRelativeSeconds = Math.max(0, snapshot.x[sampleIndex - 1] - sweepOriginSeconds);
-      const previousCycle = Math.floor(previousRelativeSeconds / safeWindowSeconds);
-      const sampleCycle = Math.floor(relativeSeconds / safeWindowSeconds);
-
-      if (sampleCycle !== previousCycle) {
-        x.push(sweepX);
-        Object.keys(seriesByChannel).forEach((channelId) => {
-          seriesByChannel[channelId].push(null);
-        });
-      }
-    }
-
-    x.push(sweepX);
-    Object.entries(snapshot.seriesByChannel).forEach(([channelId, values]) => {
-      seriesByChannel[channelId].push(values[sampleIndex] ?? null);
-    });
-  });
 
   return {
     currentCycle,
@@ -54,11 +31,6 @@ export function toSweepDisplayData(
       .map((marker) => ({
         ...marker,
         timeSeconds: Math.max(0, marker.timeSeconds - sweepOriginSeconds),
-      }))
-      .filter((marker) => Math.floor(marker.timeSeconds / safeWindowSeconds) === currentCycle)
-      .map((marker) => ({
-        ...marker,
-        timeSeconds: marker.timeSeconds % safeWindowSeconds,
       })),
     seriesByChannel,
     x,

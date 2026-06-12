@@ -25,7 +25,7 @@ pub struct RealtimeBlockAggregator {
     sample_rate_hz: u32,
     block_interval_ms: u64,
     sequence: u64,
-    started_at_ms: Option<i64>,
+    stream_started_at_ms: Option<i64>,
     pending_samples: Vec<[f32; EEG_CHANNEL_COUNT]>,
     pending_trigger: Option<u8>,
 }
@@ -42,7 +42,7 @@ impl RealtimeBlockAggregator {
             sample_rate_hz,
             block_interval_ms,
             sequence: 0,
-            started_at_ms: None,
+            stream_started_at_ms: None,
             pending_samples: Vec::new(),
             pending_trigger: None,
         })
@@ -54,8 +54,8 @@ impl RealtimeBlockAggregator {
         trigger: Option<u8>,
         sample_time_ms: i64,
     ) -> Option<EegSampleBlockPayload> {
-        if self.started_at_ms.is_none() {
-            self.started_at_ms = Some(sample_time_ms);
+        if self.stream_started_at_ms.is_none() {
+            self.stream_started_at_ms = Some(sample_time_ms);
         }
         if let Some(trigger) = trigger.filter(|value| *value != 0) {
             self.pending_trigger = Some(trigger);
@@ -77,13 +77,21 @@ impl RealtimeBlockAggregator {
         let payload = EegSampleBlockPayload {
             sequence: self.sequence,
             sample_rate_hz: self.sample_rate_hz,
-            started_at_ms: self.started_at_ms.take().unwrap_or(sample_time_ms),
+            started_at_ms: self.block_started_at_ms(sample_time_ms),
             channel_ids: default_channel_ids(),
             samples,
             trigger_class: self.pending_trigger.take(),
         };
         self.sequence += 1;
         Some(payload)
+    }
+
+    fn block_started_at_ms(&self, fallback_time_ms: i64) -> i64 {
+        let stream_started_at_ms = self.stream_started_at_ms.unwrap_or(fallback_time_ms);
+        let emitted_sample_count = self.sequence * self.samples_per_block() as u64;
+        let elapsed_ms =
+            (emitted_sample_count as f64 * 1_000.0 / self.sample_rate_hz as f64).round() as i64;
+        stream_started_at_ms + elapsed_ms
     }
 
     fn samples_per_block(&self) -> usize {
@@ -149,5 +157,29 @@ mod tests {
         assert_eq!(second.sequence, 1);
         assert_eq!(second.trigger_class, None);
         assert_eq!(second.started_at_ms, 510);
+    }
+
+    #[test]
+    fn starts_consecutive_blocks_from_sample_rate_when_reads_are_bursty() {
+        let mut aggregator = RealtimeBlockAggregator::new(1000, 50).expect("aggregator");
+
+        for index in 0..50 {
+            assert_eq!(
+                aggregator
+                    .push_sample(sample(index as f32), None, 1_000)
+                    .map(|block| block.started_at_ms),
+                if index == 49 { Some(1_000) } else { None }
+            );
+        }
+
+        let mut second_started_at = None;
+        for index in 0..50 {
+            second_started_at = aggregator
+                .push_sample(sample(index as f32), None, 1_001)
+                .map(|block| block.started_at_ms)
+                .or(second_started_at);
+        }
+
+        assert_eq!(second_started_at, Some(1_050));
     }
 }

@@ -58,6 +58,7 @@ export default function Home() {
       : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
   )) ?? navigationItems[0];
   const isWorkspaceRoute = location.pathname !== '/home';
+  const isEegWorkspaceRoute = location.pathname === '/eeg-acquisition';
   const activeIndex = navigationItems.findIndex((item) => item.path === activeItem.path);
   const nextItem = navigationItems[(activeIndex + 1) % navigationItems.length];
   const nextLabel = nextItem.label.toUpperCase();
@@ -183,7 +184,7 @@ export default function Home() {
       </div>
 
       <section
-        className={`${styles.content} ${styles.isVisible} ${isWorkspaceRoute ? styles.isWorkspace : ''} box-border flex flex-col`}
+        className={`${styles.content} ${styles.isVisible} ${isWorkspaceRoute ? styles.isWorkspace : ''} ${isEegWorkspaceRoute ? styles.isEegWorkspace : ''} box-border flex flex-col`}
       >
         <Outlet />
       </section>

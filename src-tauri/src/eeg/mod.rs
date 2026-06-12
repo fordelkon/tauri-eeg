@@ -106,12 +106,10 @@ pub fn start_stream(
     config: Option<EegStreamConfig>,
 ) -> Result<EegStreamInfo, String> {
     let config = config.unwrap_or_default();
-    let mut runtime = state
-        .inner
-        .lock()
-        .map_err(|_| "EEG stream state is unavailable.".to_string())?;
-    if let Some(existing) = &runtime.config {
-        return Ok(stream_info_from_config(existing));
+    let mut runtime = state.inner.lock().map_err(eeg_state_unavailable)?;
+    if let Some(existing) = runtime.config.clone() {
+        server::send_start_instruction(&existing)?;
+        return Ok(stream_info_from_config(&existing));
     }
 
     let worker = server::start_server(app, config.clone(), Arc::clone(&state.inner))?;
@@ -122,6 +120,12 @@ pub fn start_stream(
     runtime.config = Some(config.clone());
     runtime.worker = Some(worker);
     Ok(stream_info_from_config(&config))
+}
+
+fn eeg_state_unavailable(
+    _: std::sync::PoisonError<std::sync::MutexGuard<'_, EegRuntime>>,
+) -> String {
+    "EEG stream state is unavailable.".to_string()
 }
 
 pub fn stop_stream(state: &EegStreamState, conn: &Connection) -> Result<(), String> {

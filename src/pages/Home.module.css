@@ -388,6 +388,10 @@
   padding-top: 64px;
 }
 
+.content.isEegWorkspace {
+  overflow-y: hidden;
+}
+
 .nextPageButton {
   align-items: center;
   background: rgba(44, 34, 24, 0.94);
@@ -465,6 +469,12 @@
     padding: 0 13px;
     right: 18px;
     text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 860px), (max-height: 760px) {
+  .content.isEegWorkspace {
+    overflow-y: auto;
   }
 }
 

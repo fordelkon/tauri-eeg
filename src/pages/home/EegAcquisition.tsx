@@ -49,16 +49,16 @@ export default function EegAcquisition() {
 
       {eeg.errorMessage ? <div className={styles.errorMessage}>{eeg.errorMessage}</div> : null}
 
-      <div className={`${styles.monitorGrid} grid min-h-[520px]`}>
-        <EegWaveformPanel
-          amplitudeUvPerDiv={eeg.settings.amplitudeUvPerDiv}
-          snapshot={eeg.snapshot}
-          timeWindowSeconds={eeg.settings.timeWindowSeconds}
-        />
+      <div className={styles.monitorGrid}>
         <EegChannelList
           channels={eeg.channels}
           visibleChannelIds={eeg.settings.visibleChannelIds}
           onToggleChannel={eeg.toggleChannel}
+        />
+        <EegWaveformPanel
+          amplitudeUvPerDiv={eeg.settings.amplitudeUvPerDiv}
+          snapshot={eeg.snapshot}
+          timeWindowSeconds={eeg.settings.timeWindowSeconds}
         />
       </div>
 

@@ -59,10 +59,12 @@ describe('eegSessionReducer', () => {
 
   it('exposes button guards for each state', () => {
     const disconnected = initialEegSessionState;
+    const starting = { ...initialEegSessionState, deviceStatus: 'starting' as const };
     const streamingIdle = { ...initialEegSessionState, deviceStatus: 'streaming' as const };
     const recording = { ...streamingIdle, recordStatus: 'recording' as const };
 
     expect(canStartDevice(disconnected)).toBe(true);
+    expect(canStartDevice(starting)).toBe(true);
     expect(canStartRecord(disconnected)).toBe(false);
     expect(canStartRecord(streamingIdle)).toBe(true);
     expect(canPauseRecord(recording)).toBe(true);

@@ -26,7 +26,11 @@ export const initialEegSessionState: EegSessionState = {
 };
 
 export function canStartDevice(state: EegSessionState) {
-  return state.deviceStatus === 'disconnected' || state.deviceStatus === 'error';
+  return (
+    state.deviceStatus === 'disconnected' ||
+    state.deviceStatus === 'starting' ||
+    state.deviceStatus === 'error'
+  );
 }
 
 export function canStartRecord(state: EegSessionState) {

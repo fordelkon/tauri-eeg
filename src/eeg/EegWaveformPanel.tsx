@@ -14,6 +14,8 @@ type Props = {
 type UplotData = [number[], ...Array<Array<number | null>>];
 
 const MARKER_LANE_LABEL = 'TRG';
+const MIN_PLOT_WIDTH = 320;
+const MIN_PLOT_HEIGHT = 240;
 const TRACE_COLORS = [
   '#ff6f61',
   '#2f9e74',
@@ -131,15 +133,21 @@ export default function EegWaveformPanel({
     }
 
     const plot = new uPlot({
-      width: Math.max(320, host.clientWidth),
-      height: Math.max(360, host.clientHeight),
+      width: Math.max(MIN_PLOT_WIDTH, host.clientWidth),
+      height: Math.max(MIN_PLOT_HEIGHT, host.clientHeight),
       cursor: { show: false },
       legend: { show: false },
       scales: {
         x: {
           time: false,
           auto: false,
-          range: () => [0, safeTimeWindowSeconds],
+          range: () => {
+            const cursorX = sweepRef.current.cursorX;
+            return [
+              Math.max(0, cursorX - safeTimeWindowSeconds),
+              Math.max(safeTimeWindowSeconds, cursorX),
+            ];
+          },
         },
         y: {
           auto: false,
@@ -212,8 +220,8 @@ export default function EegWaveformPanel({
 
     const observer = new ResizeObserver(() => {
       plot.setSize({
-        width: Math.max(320, host.clientWidth),
-        height: Math.max(360, host.clientHeight),
+        width: Math.max(MIN_PLOT_WIDTH, host.clientWidth),
+        height: Math.max(MIN_PLOT_HEIGHT, host.clientHeight),
       });
     });
     observer.observe(host);

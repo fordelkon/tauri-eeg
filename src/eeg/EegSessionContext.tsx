@@ -14,6 +14,7 @@ import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_EEG_CHANNELS } from './channels';
 import { EegRingBuffer } from './eegRingBuffer';
 import {
+  getEegStatus,
   listenToEegSampleBlocks,
   startEegRecording,
   startEegStream,
@@ -113,7 +114,10 @@ export function EegProvider({ children }: { children: ReactNode }) {
     try {
       const info = await startEegStream();
       setStreamInfo(info);
-      dispatchSession({ type: 'start_device_succeeded' });
+      const status = await getEegStatus();
+      if (status.eegConnected) {
+        dispatchSession({ type: 'start_device_succeeded' });
+      }
     } catch (error) {
       dispatchSession({
         type: 'start_device_failed',
@@ -121,6 +125,33 @@ export function EegProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [sessionState]);
+
+  useEffect(() => {
+    if (sessionState.deviceStatus !== 'starting') {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const interval = window.setInterval(() => {
+      getEegStatus()
+        .then((status) => {
+          if (cancelled) {
+            return;
+          }
+          if (status.eegConnected) {
+            dispatchSession({ type: 'start_device_succeeded' });
+          }
+        })
+        .catch(() => {
+          // Keep the device start button available for another explicit attempt.
+        });
+    }, 1000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [sessionState.deviceStatus]);
 
   const startRecord = useCallback(async () => {
     if (!canStartRecord(sessionState)) {
