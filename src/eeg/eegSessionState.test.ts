@@ -4,6 +4,7 @@ import {
   getEegStatus,
   listEegSessions,
   startEegRecording,
+  stopEegStream,
   stopEegRecording,
 } from './eegApi';
 import {
@@ -11,6 +12,7 @@ import {
   canResumeRecord,
   canStartDevice,
   canStartRecord,
+  canStopDevice,
   canStopRecord,
   eegSessionReducer,
   initialEegSessionState,
@@ -42,6 +44,29 @@ describe('eegSessionReducer', () => {
     expect(canStartRecord(stopped)).toBe(true);
   });
 
+  it('stops the device stream by disconnecting the TCP server', () => {
+    const streaming = {
+      ...initialEegSessionState,
+      deviceStatus: 'streaming' as const,
+      recordStatus: 'recording' as const,
+    };
+    const stopping = eegSessionReducer(streaming, { type: 'stop_device_requested' });
+    const disconnected = eegSessionReducer(stopping, { type: 'stop_device_succeeded' });
+
+    expect(stopping).toMatchObject({
+      deviceStatus: 'stopping',
+      recordStatus: 'recording',
+      errorMessage: null,
+    });
+    expect(disconnected).toMatchObject({
+      deviceStatus: 'disconnected',
+      recordStatus: 'idle',
+      errorMessage: null,
+    });
+    expect(canStartDevice(disconnected)).toBe(true);
+    expect(canStopDevice(disconnected)).toBe(false);
+  });
+
   it('pauses and resumes recording while the device keeps streaming', () => {
     const recording = {
       ...initialEegSessionState,
@@ -61,10 +86,14 @@ describe('eegSessionReducer', () => {
     const disconnected = initialEegSessionState;
     const starting = { ...initialEegSessionState, deviceStatus: 'starting' as const };
     const streamingIdle = { ...initialEegSessionState, deviceStatus: 'streaming' as const };
+    const stopping = { ...initialEegSessionState, deviceStatus: 'stopping' as const };
     const recording = { ...streamingIdle, recordStatus: 'recording' as const };
 
     expect(canStartDevice(disconnected)).toBe(true);
     expect(canStartDevice(starting)).toBe(true);
+    expect(canStartDevice(stopping)).toBe(false);
+    expect(canStopDevice(streamingIdle)).toBe(true);
+    expect(canStopDevice(stopping)).toBe(false);
     expect(canStartRecord(disconnected)).toBe(false);
     expect(canStartRecord(streamingIdle)).toBe(true);
     expect(canPauseRecord(recording)).toBe(true);
@@ -114,9 +143,11 @@ describe('eegApi recording commands', () => {
     await stopEegRecording();
     await getEegStatus();
     await listEegSessions('user-1');
+    await stopEegStream();
 
     expect(invoke).toHaveBeenNthCalledWith(1, 'stop_eeg_recording');
     expect(invoke).toHaveBeenNthCalledWith(2, 'get_eeg_status');
     expect(invoke).toHaveBeenNthCalledWith(3, 'list_eeg_sessions', { userId: 'user-1' });
+    expect(invoke).toHaveBeenNthCalledWith(4, 'stop_eeg_stream');
   });
 });

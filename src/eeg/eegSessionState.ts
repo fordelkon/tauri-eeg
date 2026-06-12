@@ -1,4 +1,4 @@
-export type EegDeviceStatus = 'disconnected' | 'starting' | 'streaming' | 'error';
+export type EegDeviceStatus = 'disconnected' | 'starting' | 'streaming' | 'stopping' | 'error';
 
 export type EegRecordStatus = 'idle' | 'recording' | 'paused' | 'stopped';
 
@@ -12,6 +12,9 @@ export type EegSessionAction =
   | { type: 'start_device_requested' }
   | { type: 'start_device_succeeded' }
   | { type: 'start_device_failed'; message: string }
+  | { type: 'stop_device_requested' }
+  | { type: 'stop_device_succeeded' }
+  | { type: 'stop_device_failed'; message: string }
   | { type: 'start_record' }
   | { type: 'start_record_failed'; message: string }
   | { type: 'pause_record' }
@@ -35,6 +38,10 @@ export function canStartDevice(state: EegSessionState) {
 
 export function canStartRecord(state: EegSessionState) {
   return state.deviceStatus === 'streaming' && state.recordStatus !== 'recording';
+}
+
+export function canStopDevice(state: EegSessionState) {
+  return state.deviceStatus === 'streaming';
 }
 
 export function canPauseRecord(state: EegSessionState) {
@@ -68,6 +75,19 @@ export function eegSessionReducer(
       return { ...state, deviceStatus: 'streaming', recordStatus: 'idle', errorMessage: null };
 
     case 'start_device_failed':
+      return { ...state, deviceStatus: 'error', errorMessage: action.message };
+
+    case 'stop_device_requested':
+      if (!canStopDevice(state)) {
+        return state;
+      }
+
+      return { ...state, deviceStatus: 'stopping', errorMessage: null };
+
+    case 'stop_device_succeeded':
+      return { ...state, deviceStatus: 'disconnected', recordStatus: 'idle', errorMessage: null };
+
+    case 'stop_device_failed':
       return { ...state, deviceStatus: 'error', errorMessage: action.message };
 
     case 'start_record':

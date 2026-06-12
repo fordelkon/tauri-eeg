@@ -35,6 +35,7 @@ export default function EegAcquisition() {
         canResumeRecord={eeg.canResumeRecord}
         canStartDevice={eeg.canStartDevice}
         canStartRecord={eeg.canStartRecord}
+        canStopDevice={eeg.canStopDevice}
         canStopRecord={eeg.canStopRecord}
         timeWindowSeconds={eeg.settings.timeWindowSeconds}
         onAmplitudeChange={eeg.setAmplitudeUvPerDiv}
@@ -43,6 +44,7 @@ export default function EegAcquisition() {
         onResumeRecord={eeg.resumeRecord}
         onStartDevice={eeg.startDevice}
         onStartRecord={eeg.startRecord}
+        onStopDevice={eeg.stopDevice}
         onStopRecord={eeg.stopRecord}
         onTimeWindowChange={eeg.setTimeWindowSeconds}
       />

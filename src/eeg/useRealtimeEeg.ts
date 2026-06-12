@@ -42,6 +42,7 @@ export function useRealtimeEeg() {
     canResumeRecord: eegSession.canResumeRecord,
     canStartDevice: eegSession.canStartDevice,
     canStartRecord: eegSession.canStartRecord,
+    canStopDevice: eegSession.canStopDevice,
     canStopRecord: eegSession.canStopRecord,
     channels: eegSession.channels,
     deviceStatus: eegSession.deviceStatus,
@@ -57,6 +58,7 @@ export function useRealtimeEeg() {
     setTimeWindowSeconds: eegSession.setTimeWindowSeconds,
     startDevice: eegSession.startDevice,
     startRecord: eegSession.startRecord,
+    stopDevice: eegSession.stopDevice,
     stopRecord: eegSession.stopRecord,
     toggleChannel: eegSession.toggleChannel,
   }), [eegSession, reset, snapshot]);

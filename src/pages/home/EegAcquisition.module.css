@@ -65,7 +65,8 @@
 }
 
 .connecting,
-.starting {
+.starting,
+.stopping {
   background: rgba(45, 113, 184, 0.12);
   border: 1px solid rgba(45, 113, 184, 0.24);
   color: #245f9d;

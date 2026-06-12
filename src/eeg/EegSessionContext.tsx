@@ -18,6 +18,7 @@ import {
   listenToEegSampleBlocks,
   startEegRecording,
   startEegStream,
+  stopEegStream,
   stopEegRecording,
 } from './eegApi';
 import {
@@ -25,6 +26,7 @@ import {
   canResumeRecord,
   canStartDevice,
   canStartRecord,
+  canStopDevice,
   canStopRecord,
   eegSessionReducer,
   initialEegSessionState,
@@ -46,6 +48,7 @@ type EegSessionContextValue = {
   canResumeRecord: boolean;
   canStartDevice: boolean;
   canStartRecord: boolean;
+  canStopDevice: boolean;
   canStopRecord: boolean;
   channels: typeof DEFAULT_EEG_CHANNELS;
   deviceStatus: typeof initialEegSessionState.deviceStatus;
@@ -60,6 +63,7 @@ type EegSessionContextValue = {
   setTimeWindowSeconds: (timeWindowSeconds: number) => void;
   startDevice: () => Promise<void>;
   startRecord: () => Promise<void>;
+  stopDevice: () => Promise<void>;
   stopRecord: () => Promise<void>;
   takeSnapshot: () => EegDisplaySnapshot;
   toggleChannel: (channelId: string) => void;
@@ -153,6 +157,26 @@ export function EegProvider({ children }: { children: ReactNode }) {
     };
   }, [sessionState.deviceStatus]);
 
+  const stopDevice = useCallback(async () => {
+    if (!canStopDevice(sessionState)) {
+      return;
+    }
+
+    dispatchSession({ type: 'stop_device_requested' });
+
+    try {
+      await stopEegStream();
+      setStreamInfo(null);
+      bufferRef.current.reset();
+      dispatchSession({ type: 'stop_device_succeeded' });
+    } catch (error) {
+      dispatchSession({
+        type: 'stop_device_failed',
+        message: typeof error === 'string' ? error : 'Failed to stop EEG stream.',
+      });
+    }
+  }, [sessionState]);
+
   const startRecord = useCallback(async () => {
     if (!canStartRecord(sessionState)) {
       return;
@@ -237,6 +261,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
     canResumeRecord: canResumeRecord(sessionState),
     canStartDevice: canStartDevice(sessionState),
     canStartRecord: canStartRecord(sessionState),
+    canStopDevice: canStopDevice(sessionState),
     canStopRecord: canStopRecord(sessionState),
     channels,
     deviceStatus: sessionState.deviceStatus,
@@ -251,6 +276,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
     setTimeWindowSeconds,
     startDevice,
     startRecord,
+    stopDevice,
     stopRecord,
     takeSnapshot,
     toggleChannel,
@@ -265,6 +291,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
     setTimeWindowSeconds,
     startDevice,
     startRecord,
+    stopDevice,
     stopRecord,
     streamInfo?.sampleRateHz,
     takeSnapshot,

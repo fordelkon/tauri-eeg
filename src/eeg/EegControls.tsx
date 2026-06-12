@@ -12,6 +12,7 @@ type Props = {
   canResumeRecord: boolean;
   canStartDevice: boolean;
   canStartRecord: boolean;
+  canStopDevice: boolean;
   canStopRecord: boolean;
   timeWindowSeconds: number;
   onAmplitudeChange: (value: number) => void;
@@ -20,6 +21,7 @@ type Props = {
   onResumeRecord: () => void;
   onStartDevice: () => void;
   onStartRecord: () => void;
+  onStopDevice: () => void;
   onStopRecord: () => void;
   onTimeWindowChange: (value: number) => void;
 };
@@ -30,6 +32,7 @@ export default function EegControls({
   canResumeRecord,
   canStartDevice,
   canStartRecord,
+  canStopDevice,
   canStopRecord,
   timeWindowSeconds,
   onAmplitudeChange,
@@ -38,6 +41,7 @@ export default function EegControls({
   onResumeRecord,
   onStartDevice,
   onStartRecord,
+  onStopDevice,
   onStopRecord,
   onTimeWindowChange,
 }: Props) {
@@ -51,6 +55,15 @@ export default function EegControls({
         onClick={onStartDevice}
       >
         Start Device
+      </Button>
+      <Button
+        className={styles.controlButton}
+        variant="outlined"
+        startIcon={<PowerSettingsNewRoundedIcon />}
+        disabled={!canStopDevice}
+        onClick={onStopDevice}
+      >
+        Stop Device
       </Button>
       <Button
         className={styles.controlButton}
