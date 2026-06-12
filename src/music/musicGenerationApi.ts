@@ -24,6 +24,14 @@ export async function getMusicServiceHealth(): Promise<MusicServiceHealth> {
   return invoke<MusicServiceHealth>('get_music_service_health');
 }
 
+export async function preloadMusicService(): Promise<MusicServiceHealth | null> {
+  try {
+    return await getMusicServiceHealth();
+  } catch {
+    return null;
+  }
+}
+
 export async function listMusicHistory(
   userId: string,
   limit = 50,

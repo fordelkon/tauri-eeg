@@ -13,10 +13,11 @@ import {
   ListItemButton,
   ListItemIcon,
 } from '@mui/material';
-import { type CSSProperties, type ElementType, useState } from 'react';
+import { type CSSProperties, type ElementType, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
+import { preloadMusicServiceForUser } from '../music/musicServicePreload';
 import styles from './Home.module.css';
 
 type NavigationItem = {
@@ -62,6 +63,10 @@ export default function Home() {
   const activeIndex = navigationItems.findIndex((item) => item.path === activeItem.path);
   const nextItem = navigationItems[(activeIndex + 1) % navigationItems.length];
   const nextLabel = nextItem.label.toUpperCase();
+
+  useEffect(() => {
+    void preloadMusicServiceForUser({ userId: currentUser?.id });
+  }, [currentUser?.id]);
 
   const handleNavClick = (item: NavigationItem) => {
     if (item.path !== location.pathname) {
