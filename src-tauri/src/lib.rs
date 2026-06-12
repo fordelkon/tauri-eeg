@@ -8,7 +8,10 @@ mod python_service;
 
 use auth::UserProfile;
 use db::AppDb;
-use eeg::{EegStreamInfo, EegStreamState};
+use eeg::{
+    EegRecordingSession, EegStatus, EegStreamConfig, EegStreamInfo, EegStreamState,
+    StartEegRecordingInput,
+};
 use music_history::MusicHistoryItem;
 use python_client::{GenerateRequest, HealthResponse, PythonClient};
 use python_service::PythonServiceManager;
@@ -70,13 +73,65 @@ fn reset_user_password(
 fn start_eeg_stream(
     app: tauri::AppHandle,
     state: State<'_, EegStreamState>,
+    config: Option<EegStreamConfig>,
 ) -> Result<EegStreamInfo, String> {
-    eeg::start_stream(app, &state)
+    eeg::start_stream(app, &state, config)
 }
 
 #[tauri::command]
-fn stop_eeg_stream(state: State<'_, EegStreamState>) -> Result<(), String> {
-    eeg::stop_stream(&state)
+fn stop_eeg_stream(db: State<'_, AppDb>, state: State<'_, EegStreamState>) -> Result<(), String> {
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|_| "Database is unavailable.".to_string())?;
+
+    eeg::stop_stream(&state, &conn)
+}
+
+#[tauri::command]
+fn get_eeg_status(state: State<'_, EegStreamState>) -> Result<EegStatus, String> {
+    eeg::get_status(&state)
+}
+
+#[tauri::command]
+fn start_eeg_recording(
+    app: tauri::AppHandle,
+    db: State<'_, AppDb>,
+    state: State<'_, EegStreamState>,
+    input: StartEegRecordingInput,
+) -> Result<EegRecordingSession, String> {
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|_| "Database is unavailable.".to_string())?;
+
+    eeg::start_recording(&app, &conn, &state, input)
+}
+
+#[tauri::command]
+fn stop_eeg_recording(
+    db: State<'_, AppDb>,
+    state: State<'_, EegStreamState>,
+) -> Result<EegRecordingSession, String> {
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|_| "Database is unavailable.".to_string())?;
+
+    eeg::stop_recording(&conn, &state)
+}
+
+#[tauri::command]
+fn list_eeg_sessions(
+    db: State<'_, AppDb>,
+    user_id: String,
+) -> Result<Vec<EegRecordingSession>, String> {
+    let conn = db
+        .conn
+        .lock()
+        .map_err(|_| "Database is unavailable.".to_string())?;
+
+    eeg::list_sessions(&conn, &user_id)
 }
 
 #[derive(Debug, Deserialize)]
@@ -247,6 +302,10 @@ pub fn run() {
             reset_user_password,
             start_eeg_stream,
             stop_eeg_stream,
+            get_eeg_status,
+            start_eeg_recording,
+            stop_eeg_recording,
+            list_eeg_sessions,
             generate_music,
             get_music_service_health,
             list_music_history,

@@ -5,9 +5,55 @@ export type EegChannel = {
 };
 
 export type EegStreamInfo = {
+  bindHost: string;
+  tcpPort: number;
   sampleRateHz: number;
   blockIntervalMs: number;
   channelIds: string[];
+};
+
+export type EegStreamConfig = {
+  bindHost: string;
+  tcpPort: number;
+  deviceHost: string;
+  deviceUdpPort: number;
+  eegDeviceIp: string;
+  triggerDeviceIp: string;
+  sampleRateHz: number;
+  blockIntervalMs: number;
+};
+
+export type StartEegRecordingRequest = {
+  userId: string;
+  username: string;
+};
+
+export type EegRecordingSession = {
+  id: string;
+  userId: string;
+  username: string;
+  sessionDir: string;
+  eegFile: string;
+  triggerFile: string;
+  metadataFile: string;
+  sampleRateHz: number;
+  channelCount: number;
+  sampleCount: number;
+  durationSeconds: number | null;
+  startedAt: string;
+  endedAt: string | null;
+};
+
+export type EegStatus = {
+  isStreaming: boolean;
+  isRecording: boolean;
+  eegConnected: boolean;
+  triggerConnected: boolean;
+  lastError: string | null;
+  sampleRateHz: number;
+  blockIntervalMs: number;
+  channelIds: string[];
+  activeRecording: EegRecordingSession | null;
 };
 
 export type EegSampleBlockPayload = {

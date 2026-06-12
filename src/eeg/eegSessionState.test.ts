@@ -1,4 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { invoke } from '@tauri-apps/api/core';
+import {
+  getEegStatus,
+  listEegSessions,
+  startEegRecording,
+  stopEegRecording,
+} from './eegApi';
 import {
   canPauseRecord,
   canResumeRecord,
@@ -8,6 +15,10 @@ import {
   eegSessionReducer,
   initialEegSessionState,
 } from './eegSessionState';
+
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn(),
+}));
 
 describe('eegSessionReducer', () => {
   it('starts the device once and enters previewing without recording', () => {
@@ -56,5 +67,54 @@ describe('eegSessionReducer', () => {
     expect(canStartRecord(streamingIdle)).toBe(true);
     expect(canPauseRecord(recording)).toBe(true);
     expect(canStopRecord(recording)).toBe(true);
+  });
+
+  it('keeps streaming idle and exposes an error when recording fails to start', () => {
+    const streaming = { ...initialEegSessionState, deviceStatus: 'streaming' as const };
+    const failed = eegSessionReducer(streaming, {
+      type: 'start_record_failed',
+      message: 'Sign in before recording EEG.',
+    });
+
+    expect(failed).toMatchObject({
+      deviceStatus: 'streaming',
+      recordStatus: 'idle',
+      errorMessage: 'Sign in before recording EEG.',
+    });
+    expect(canStartRecord(failed)).toBe(true);
+  });
+});
+
+describe('eegApi recording commands', () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockReset();
+  });
+
+  it('starts recording with the current user identity', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
+    await startEegRecording({ userId: 'user-1', username: 'alice' });
+
+    expect(invoke).toHaveBeenCalledWith('start_eeg_recording', {
+      input: {
+        userId: 'user-1',
+        username: 'alice',
+      },
+    });
+  });
+
+  it('wraps recording status and session list commands', async () => {
+    vi.mocked(invoke)
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ isRecording: false })
+      .mockResolvedValueOnce([]);
+
+    await stopEegRecording();
+    await getEegStatus();
+    await listEegSessions('user-1');
+
+    expect(invoke).toHaveBeenNthCalledWith(1, 'stop_eeg_recording');
+    expect(invoke).toHaveBeenNthCalledWith(2, 'get_eeg_status');
+    expect(invoke).toHaveBeenNthCalledWith(3, 'list_eeg_sessions', { userId: 'user-1' });
   });
 });

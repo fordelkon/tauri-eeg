@@ -10,9 +10,15 @@ import {
   useState,
   useEffect,
 } from 'react';
+import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_EEG_CHANNELS } from './channels';
 import { EegRingBuffer } from './eegRingBuffer';
-import { listenToEegSampleBlocks, startEegStream } from './eegApi';
+import {
+  listenToEegSampleBlocks,
+  startEegRecording,
+  startEegStream,
+  stopEegRecording,
+} from './eegApi';
 import {
   canPauseRecord,
   canResumeRecord,
@@ -25,6 +31,7 @@ import {
 import {
   DEFAULT_SAMPLE_RATE_HZ,
   createInitialEegDisplaySettings,
+  toggleEegChannelVisibility,
 } from './eegSessionStore';
 import type {
   EegDisplaySettings,
@@ -51,8 +58,8 @@ type EegSessionContextValue = {
   setAmplitudeUvPerDiv: (amplitudeUvPerDiv: number) => void;
   setTimeWindowSeconds: (timeWindowSeconds: number) => void;
   startDevice: () => Promise<void>;
-  startRecord: () => void;
-  stopRecord: () => void;
+  startRecord: () => Promise<void>;
+  stopRecord: () => Promise<void>;
   takeSnapshot: () => EegDisplaySnapshot;
   toggleChannel: (channelId: string) => void;
 };
@@ -60,6 +67,7 @@ type EegSessionContextValue = {
 const EegSessionContext = createContext<EegSessionContextValue | null>(null);
 
 export function EegProvider({ children }: { children: ReactNode }) {
+  const { currentUser } = useAuth();
   const channels = DEFAULT_EEG_CHANNELS;
   const bufferRef = useRef(new EegRingBuffer(channels, DEFAULT_SAMPLE_RATE_HZ));
 
@@ -114,11 +122,32 @@ export function EegProvider({ children }: { children: ReactNode }) {
     }
   }, [sessionState]);
 
-  const startRecord = useCallback(() => {
-    if (canStartRecord(sessionState)) {
-      dispatchSession({ type: 'start_record' });
+  const startRecord = useCallback(async () => {
+    if (!canStartRecord(sessionState)) {
+      return;
     }
-  }, [sessionState]);
+
+    if (!currentUser) {
+      dispatchSession({
+        type: 'start_record_failed',
+        message: 'Sign in before recording EEG.',
+      });
+      return;
+    }
+
+    try {
+      await startEegRecording({
+        userId: currentUser.id,
+        username: currentUser.username,
+      });
+      dispatchSession({ type: 'start_record' });
+    } catch (error) {
+      dispatchSession({
+        type: 'start_record_failed',
+        message: typeof error === 'string' ? error : 'Failed to start EEG recording.',
+      });
+    }
+  }, [currentUser, sessionState]);
 
   const pauseRecord = useCallback(() => {
     if (canPauseRecord(sessionState)) {
@@ -132,8 +161,14 @@ export function EegProvider({ children }: { children: ReactNode }) {
     }
   }, [sessionState]);
 
-  const stopRecord = useCallback(() => {
-    if (canStopRecord(sessionState)) {
+  const stopRecord = useCallback(async () => {
+    if (!canStopRecord(sessionState)) {
+      return;
+    }
+
+    try {
+      await stopEegRecording();
+    } finally {
       dispatchSession({ type: 'stop_record' });
     }
   }, [sessionState]);
@@ -152,15 +187,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
 
   const toggleChannel = useCallback((channelId: string) => {
     setSettings((current) => {
-      const visibleChannelIds = new Set(current.visibleChannelIds);
-
-      if (visibleChannelIds.has(channelId)) {
-        if (visibleChannelIds.size > 1) {
-          visibleChannelIds.delete(channelId);
-        }
-      } else {
-        visibleChannelIds.add(channelId);
-      }
+      const visibleChannelIds = toggleEegChannelVisibility(current.visibleChannelIds, channelId);
 
       return { ...current, visibleChannelIds };
     });
