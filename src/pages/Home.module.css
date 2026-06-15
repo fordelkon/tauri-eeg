@@ -490,6 +490,11 @@
   .content {
     height: auto;
     min-height: 0;
+    transform: none;
+  }
+
+  .content.isVisible {
+    transform: none;
   }
 
   .nextPageButton {
