@@ -17,6 +17,7 @@ import { type CSSProperties, type ElementType, useEffect, useState } from 'react
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
+import GlobalEegStatusPanel from '../eeg/GlobalEegStatusPanel';
 import { preloadMusicServiceForUser } from '../music/musicServicePreload';
 import styles from './Home.module.css';
 
@@ -188,21 +189,25 @@ export default function Home() {
         </section>
       </div>
 
-      <section
-        className={`${styles.content} ${styles.isVisible} ${isWorkspaceRoute ? styles.isWorkspace : ''} ${isEegWorkspaceRoute ? styles.isEegWorkspace : ''} box-border flex flex-col`}
-      >
-        <Outlet />
-      </section>
+      <div className={styles.shell}>
+        <section
+          className={`${styles.content} ${styles.isVisible} ${isWorkspaceRoute ? styles.isWorkspace : ''} ${isEegWorkspaceRoute ? styles.isEegWorkspace : ''} box-border flex flex-col`}
+        >
+          <Outlet />
 
-      <button
-        type="button"
-        className={styles.nextPageButton}
-        aria-label={`Go to ${nextItem.label}`}
-        onClick={handleNextClick}
-      >
-        <span>{nextLabel}</span>
-        <NorthEastRoundedIcon className={styles.nextPageIcon} fontSize="small" aria-hidden="true" />
-      </button>
+          <button
+            type="button"
+            className={styles.nextPageButton}
+            aria-label={`Go to ${nextItem.label}`}
+            onClick={handleNextClick}
+          >
+            <span>{nextLabel}</span>
+            <NorthEastRoundedIcon className={styles.nextPageIcon} fontSize="small" aria-hidden="true" />
+          </button>
+        </section>
+
+        <GlobalEegStatusPanel />
+      </div>
     </main>
   );
 }
