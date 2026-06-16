@@ -19,6 +19,14 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
 import GlobalEegStatusPanel from '../eeg/GlobalEegStatusPanel';
+import {
+  getMentalScaleForPath,
+  isMentalScaleComplete,
+  mentalScaleAnswerOptions,
+  type MentalScaleAnswers,
+  type MentalScaleDefinition,
+  type MentalScaleAnswerValue,
+} from '../mentalScale/mentalScaleGate';
 import { preloadMusicServiceForUser } from '../music/musicServicePreload';
 import { chooseStorageRoot } from '../storage/storageDirectoryPicker';
 import { getStorageLocation, setStorageRoot, type StorageLocation } from '../storage/storageApi';
@@ -61,6 +69,8 @@ export default function Home() {
   const [storageLocation, setStorageLocation] = useState<StorageLocation | null>(null);
   const [storageInput, setStorageInput] = useState('');
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [pendingScale, setPendingScale] = useState<MentalScaleDefinition | null>(null);
+  const [scaleAnswers, setScaleAnswers] = useState<MentalScaleAnswers>({});
   const activeItem = navigationItems.find((item) => (
     item.path === '/home'
       ? location.pathname === item.path
@@ -97,11 +107,25 @@ export default function Home() {
     };
   }, []);
 
-  const handleNavClick = (item: NavigationItem) => {
-    if (item.path !== location.pathname) {
-      navigate(item.path);
+  const requestNavigation = (path: string) => {
+    if (path === location.pathname) {
+      return;
     }
 
+    const scale = getMentalScaleForPath(path);
+
+    if (scale) {
+      setPendingScale(scale);
+      setScaleAnswers({});
+      setIsSidebarOpen(false);
+      return;
+    }
+
+    navigate(path);
+  };
+
+  const handleNavClick = (item: NavigationItem) => {
+    requestNavigation(item.path);
     setIsSidebarOpen(false);
   };
 
@@ -110,7 +134,7 @@ export default function Home() {
   };
 
   const handleNextClick = () => {
-    navigate(nextItem.path);
+    requestNavigation(nextItem.path);
   };
 
   const handleSignOut = () => {
@@ -156,6 +180,31 @@ export default function Home() {
       setStorageError(reason instanceof Error ? reason.message : String(reason));
     }
   };
+
+  const handleScaleAnswer = (questionId: string, value: MentalScaleAnswerValue) => {
+    setScaleAnswers((answers) => ({
+      ...answers,
+      [questionId]: value,
+    }));
+  };
+
+  const handleCloseScale = () => {
+    setPendingScale(null);
+    setScaleAnswers({});
+  };
+
+  const handleCompleteScale = () => {
+    if (!pendingScale || !isMentalScaleComplete(pendingScale, scaleAnswers)) {
+      return;
+    }
+
+    const nextPath = pendingScale.path;
+    setPendingScale(null);
+    setScaleAnswers({});
+    navigate(nextPath);
+  };
+
+  const isScaleReady = pendingScale ? isMentalScaleComplete(pendingScale, scaleAnswers) : false;
 
   return (
     <main className={`${styles.page} box-border flex min-h-screen overflow-hidden relative`}>
@@ -317,6 +366,75 @@ export default function Home() {
 
         <GlobalEegStatusPanel />
       </div>
+
+      {pendingScale ? (
+        <div className={styles.scaleOverlay} role="presentation">
+          <section
+            className={styles.scaleDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mental-scale-title"
+          >
+            <div className={styles.scaleHeader}>
+              <div>
+                <p className={styles.scaleEyebrow}>Psychological Scale</p>
+                <h2 id="mental-scale-title">{pendingScale.title}</h2>
+                <p>{pendingScale.subtitle}</p>
+              </div>
+              <IconButton
+                className={styles.scaleCloseButton}
+                aria-label="Close psychological scale"
+                size="small"
+                onClick={handleCloseScale}
+              >
+                <CloseRoundedIcon fontSize="small" />
+              </IconButton>
+            </div>
+
+            <div className={styles.scaleQuestions}>
+              {pendingScale.questions.map((question, questionIndex) => (
+                <fieldset className={styles.scaleQuestion} key={question.id}>
+                  <legend>
+                    <span>{questionIndex + 1}</span>
+                    {question.prompt}
+                  </legend>
+                  <div className={styles.scaleOptions}>
+                    {mentalScaleAnswerOptions.map((option) => {
+                      const isSelected = scaleAnswers[question.id] === option.value;
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          className={isSelected ? styles.isScaleOptionSelected : ''}
+                          aria-pressed={isSelected}
+                          onClick={() => handleScaleAnswer(question.id, option.value)}
+                        >
+                          <strong>{option.value}</strong>
+                          <span>{option.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              ))}
+            </div>
+
+            <div className={styles.scaleFooter}>
+              <span>
+                {isScaleReady ? '已完成，可以进入调节页面。' : '请完成所有题目后继续。'}
+              </span>
+              <button
+                type="button"
+                disabled={!isScaleReady}
+                onClick={handleCompleteScale}
+              >
+                Enter
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }

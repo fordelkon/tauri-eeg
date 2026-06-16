@@ -583,6 +583,204 @@
   outline-offset: 4px;
 }
 
+.scaleOverlay {
+  align-items: center;
+  background: rgba(44, 34, 24, 0.34);
+  backdrop-filter: blur(10px);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 22px;
+  position: fixed;
+  z-index: 10;
+}
+
+.scaleDialog {
+  background: #f5f0eb;
+  border: 1px solid rgba(44, 34, 24, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 28px 72px rgba(44, 34, 24, 0.28);
+  color: #2c2218;
+  display: grid;
+  gap: 20px;
+  max-height: min(760px, calc(100dvh - 44px));
+  max-width: 720px;
+  overflow-y: auto;
+  padding: clamp(18px, 3vw, 28px);
+  width: min(720px, 100%);
+}
+
+.scaleHeader {
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(44, 34, 24, 0.1);
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  padding-bottom: 18px;
+}
+
+.scaleHeader h2 {
+  color: #2c2218;
+  font-size: clamp(24px, 4vw, 38px);
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0 0 10px;
+}
+
+.scaleHeader p {
+  color: rgba(44, 34, 24, 0.66);
+  font-size: 14px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.scaleEyebrow {
+  color: rgba(223, 2, 3, 0.76) !important;
+  font-size: 11px !important;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  margin-bottom: 9px !important;
+  text-transform: uppercase;
+}
+
+.scaleCloseButton {
+  border-radius: 8px;
+  color: rgba(44, 34, 24, 0.72);
+  flex: 0 0 auto;
+  height: 36px;
+  width: 36px;
+}
+
+.scaleCloseButton:hover {
+  background: rgba(44, 34, 24, 0.08);
+  color: #2c2218;
+}
+
+.scaleQuestions {
+  display: grid;
+  gap: 14px;
+}
+
+.scaleQuestion {
+  border: 1px solid rgba(44, 34, 24, 0.1);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 16px;
+}
+
+.scaleQuestion legend {
+  align-items: center;
+  color: #2c2218;
+  display: flex;
+  font-size: 15px;
+  font-weight: 720;
+  gap: 10px;
+  line-height: 1.45;
+  padding: 0;
+}
+
+.scaleQuestion legend span {
+  align-items: center;
+  background: #2c2218;
+  border-radius: 999px;
+  color: #f5f0eb;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.scaleOptions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.scaleOptions button {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(44, 34, 24, 0.12);
+  border-radius: 8px;
+  color: rgba(44, 34, 24, 0.74);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 4px;
+  min-height: 62px;
+  padding: 9px 8px;
+  transition:
+    background-color 160ms ease-out,
+    border-color 160ms ease-out,
+    color 160ms ease-out,
+    transform 160ms ease-out;
+}
+
+.scaleOptions button:hover {
+  background: rgba(44, 34, 24, 0.08);
+  color: #2c2218;
+  transform: translateY(-1px);
+}
+
+.scaleOptions button strong {
+  font-size: 16px;
+  font-weight: 780;
+  line-height: 1;
+}
+
+.scaleOptions button span {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.scaleOptions button.isScaleOptionSelected {
+  background: #2c2218;
+  border-color: #2c2218;
+  color: #f5f0eb;
+}
+
+.scaleFooter {
+  align-items: center;
+  border-top: 1px solid rgba(44, 34, 24, 0.1);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding-top: 18px;
+}
+
+.scaleFooter span {
+  color: rgba(44, 34, 24, 0.62);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.scaleFooter button {
+  background: #2c2218;
+  border: 1px solid #2c2218;
+  border-radius: 8px;
+  color: #f5f0eb;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  height: 40px;
+  min-width: 112px;
+  padding: 0 18px;
+}
+
+.scaleFooter button:disabled {
+  background: rgba(44, 34, 24, 0.08);
+  border-color: rgba(44, 34, 24, 0.1);
+  color: rgba(44, 34, 24, 0.38);
+  cursor: not-allowed;
+}
+
 @media (max-width: 980px) {
   .shell {
     grid-template-columns: 1fr;
@@ -606,6 +804,10 @@
   .nextPageButton {
     position: fixed;
   }
+
+  .scaleOptions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -623,6 +825,25 @@
     padding: 0 13px;
     right: 18px;
     text-overflow: ellipsis;
+  }
+
+  .scaleOverlay {
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .scaleDialog {
+    max-height: calc(100dvh - 24px);
+  }
+
+  .scaleHeader,
+  .scaleFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .scaleFooter button {
+    width: 100%;
   }
 }
 
