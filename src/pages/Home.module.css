@@ -273,6 +273,112 @@
   color: #2c2218;
 }
 
+.storageButton {
+  border-radius: 8px;
+  color: rgba(44, 34, 24, 0.7);
+  flex: 0 0 auto;
+  height: 36px;
+  width: 36px;
+}
+
+.storageButton:hover {
+  background: rgba(44, 34, 24, 0.08);
+  color: #2c2218;
+}
+
+.storagePanel {
+  background: rgba(255, 255, 255, 0.42);
+  border: 1px solid rgba(44, 34, 24, 0.1);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+}
+
+.storageField {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.storageField span {
+  color: rgba(44, 34, 24, 0.58);
+  font-size: 11px;
+  font-weight: 720;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.storageField input {
+  background: rgba(245, 240, 235, 0.9);
+  border: 1px solid rgba(44, 34, 24, 0.14);
+  border-radius: 8px;
+  box-sizing: border-box;
+  color: #2c2218;
+  font: inherit;
+  font-size: 13px;
+  height: 38px;
+  min-width: 0;
+  padding: 0 10px;
+  width: 100%;
+}
+
+.storageField input:focus {
+  border-color: rgba(223, 2, 3, 0.52);
+  outline: 2px solid rgba(223, 2, 3, 0.14);
+}
+
+.storagePreview {
+  color: rgba(44, 34, 24, 0.58);
+  display: grid;
+  font-size: 12px;
+  gap: 4px;
+  line-height: 1.35;
+  min-width: 0;
+}
+
+.storagePreview span,
+.storagePreview strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storagePreview strong {
+  color: #2c2218;
+  font-weight: 700;
+}
+
+.storageError {
+  color: #b42318;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.storageActions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.storageActions button {
+  background: rgba(44, 34, 24, 0.08);
+  border: 1px solid rgba(44, 34, 24, 0.1);
+  border-radius: 8px;
+  color: #2c2218;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 720;
+  height: 34px;
+}
+
+.storageActions button:hover {
+  background: #2c2218;
+  color: #f5f0eb;
+}
+
 .navItem {
   animation: navItemIn 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: calc(360ms + var(--item-index, 0) * 72ms);

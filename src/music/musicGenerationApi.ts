@@ -5,6 +5,7 @@ export type GenerateMusicInput = {
   duration: number;
   prompt: string;
   userId: string;
+  username: string;
 };
 
 export type MusicServiceHealth = {

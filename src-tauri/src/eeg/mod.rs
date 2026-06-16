@@ -7,7 +7,7 @@ pub mod storage;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 pub const DEFAULT_SAMPLE_RATE_HZ: u32 = 1000;
 pub const DEFAULT_BLOCK_INTERVAL_MS: u64 = 50;
@@ -201,11 +201,7 @@ pub fn start_recording(
         runtime.config.clone().unwrap_or_default()
     };
 
-    let base_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|_| "Failed to resolve app data directory.".to_string())?
-        .join("eeg-recordings");
+    let base_dir = crate::storage_paths::eeg_recordings_root(app)?;
     let writer = RecordingWriter::start(conn, &base_dir, input, &config)?;
     let session = writer.session();
 

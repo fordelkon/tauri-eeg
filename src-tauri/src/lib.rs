@@ -5,6 +5,7 @@ mod eeg;
 mod music_history;
 mod python_client;
 mod python_service;
+mod storage_paths;
 
 use auth::UserProfile;
 use db::AppDb;
@@ -16,7 +17,7 @@ use music_history::MusicHistoryItem;
 use python_client::{GenerateRequest, HealthResponse, PythonClient};
 use python_service::PythonServiceManager;
 use serde::Deserialize;
-use tauri::{Manager, State};
+use tauri::State;
 use uuid::Uuid;
 
 #[tauri::command]
@@ -138,6 +139,7 @@ fn list_eeg_sessions(
 #[serde(rename_all = "camelCase")]
 struct MusicGenerationInput {
     user_id: String,
+    username: String,
     prompt: String,
     duration: u32,
 }
@@ -163,7 +165,7 @@ async fn generate_music(
 
     let duration = input.duration.clamp(5, 120);
     let job_id = Uuid::new_v4().to_string();
-    let output_dir = music_output_dir(&app)?;
+    let output_dir = storage_paths::music_user_dir(&app, &input.username)?;
 
     service.ensure_running().await?;
 
@@ -234,36 +236,42 @@ fn delete_music_history(
     db: State<'_, AppDb>,
     input: DeleteMusicHistoryInput,
 ) -> Result<MusicHistoryItem, String> {
-    let output_dir = music_output_dir(&app)?;
     let conn = db
         .conn
         .lock()
         .map_err(|_| "Database is unavailable.".to_string())?;
     let deleted = music_history::delete_music_history_item(&conn, &input.user_id, &input.item_id)?;
 
-    delete_music_file_in_output_dir(&output_dir, &deleted.file_path)?;
+    delete_music_file_in_storage_root(&storage_paths::music_root(&app)?, &deleted.file_path)?;
 
     Ok(deleted)
 }
 
-fn music_output_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    let base = app
-        .path()
-        .app_data_dir()
-        .map_err(|_| "Failed to resolve app data directory.".to_string())?;
-    let music_dir = base.join("music");
-
-    std::fs::create_dir_all(&music_dir)
-        .map_err(|_| "Failed to create music output directory.".to_string())?;
-
-    Ok(music_dir)
+#[tauri::command]
+fn get_storage_location(app: tauri::AppHandle) -> Result<storage_paths::StorageLocation, String> {
+    storage_paths::storage_location(&app)
 }
 
-fn delete_music_file_in_output_dir(
-    output_dir: &std::path::Path,
+#[tauri::command]
+fn set_storage_root(
+    app: tauri::AppHandle,
+    custom_root: Option<String>,
+) -> Result<storage_paths::StorageLocation, String> {
+    storage_paths::save_storage_settings(
+        &app,
+        storage_paths::StorageSettings {
+            custom_root: custom_root
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty()),
+        },
+    )
+}
+
+fn delete_music_file_in_storage_root(
+    storage_root: &std::path::Path,
     file_path: &str,
 ) -> Result<(), String> {
-    let output_dir = output_dir
+    let storage_root = storage_root
         .canonicalize()
         .map_err(|_| "Failed to resolve music output directory.".to_string())?;
     let file_path = std::path::PathBuf::from(file_path);
@@ -276,7 +284,7 @@ fn delete_music_file_in_output_dir(
         .canonicalize()
         .map_err(|_| "Failed to resolve music file path.".to_string())?;
 
-    if file_path.parent() != Some(output_dir.as_path()) {
+    if !file_path.starts_with(&storage_root) {
         return Err("Refusing to delete a file outside the music output directory.".to_string());
     }
 
@@ -309,7 +317,9 @@ pub fn run() {
             generate_music,
             get_music_service_health,
             list_music_history,
-            delete_music_history
+            delete_music_history,
+            get_storage_location,
+            set_storage_root
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

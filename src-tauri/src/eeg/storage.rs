@@ -59,8 +59,8 @@ impl RecordingWriter {
         let user_id = validate_user(conn, input)?;
         let started_at = Utc::now();
         let session_id = started_at.format("session_%Y%m%d_%H%M%S").to_string();
-        let user_dir = safe_user_dir_segment(&user_id.user_id)?;
-        let session_dir = unique_session_dir(&base_dir.join(user_dir), &session_id)?;
+        let roots = crate::storage_paths::user_storage_roots(base_dir, &user_id.username)?;
+        let session_dir = unique_session_dir(&roots.eeg_recordings_dir, &session_id)?;
         fs::create_dir_all(&session_dir)
             .map_err(|_| "Failed to create EEG session directory.".to_string())?;
 
@@ -245,17 +245,6 @@ fn validate_user(conn: &Connection, input: StartEegRecordingInput) -> Result<Val
         Err(SqlError::QueryReturnedNoRows) => Err("User not found.".to_string()),
         Err(_) => Err("Failed to validate user.".to_string()),
     }
-}
-
-fn safe_user_dir_segment(user_id: &str) -> Result<String, String> {
-    if user_id
-        .bytes()
-        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
-    {
-        return Ok(user_id.to_string());
-    }
-
-    Err("User id contains unsupported path characters.".to_string())
 }
 
 fn unique_session_dir(user_base_dir: &Path, session_id: &str) -> Result<PathBuf, String> {
@@ -449,6 +438,11 @@ mod tests {
         assert_eq!(sessions.len(), 1);
         assert_eq!(sessions[0].user_id, "user-1");
         assert_eq!(sessions[0].sample_count, 1);
+        assert!(Path::new(&session.session_dir).ends_with(
+            Path::new("alice")
+                .join("eeg_recordings")
+                .join(&session.id)
+        ));
 
         let _ = fs::remove_dir_all(base_dir);
     }

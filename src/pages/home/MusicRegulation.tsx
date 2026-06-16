@@ -583,6 +583,7 @@ export default function MusicRegulation() {
         duration: generationDuration,
         prompt: generatedPrompt,
         userId: currentUser.id,
+        username: currentUser.username,
       });
 
       setGeneratedItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)]);

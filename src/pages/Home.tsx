@@ -5,6 +5,7 @@ import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import NorthEastRoundedIcon from '@mui/icons-material/NorthEastRounded';
+import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded';
 import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded';
 import {
@@ -19,6 +20,7 @@ import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
 import GlobalEegStatusPanel from '../eeg/GlobalEegStatusPanel';
 import { preloadMusicServiceForUser } from '../music/musicServicePreload';
+import { getStorageLocation, setStorageRoot, type StorageLocation } from '../storage/storageApi';
 import styles from './Home.module.css';
 
 type NavigationItem = {
@@ -54,6 +56,10 @@ export default function Home() {
   const navigate = useNavigate();
   const { currentUser, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isStorageOpen, setIsStorageOpen] = useState(false);
+  const [storageLocation, setStorageLocation] = useState<StorageLocation | null>(null);
+  const [storageInput, setStorageInput] = useState('');
+  const [storageError, setStorageError] = useState<string | null>(null);
   const activeItem = navigationItems.find((item) => (
     item.path === '/home'
       ? location.pathname === item.path
@@ -68,6 +74,27 @@ export default function Home() {
   useEffect(() => {
     void preloadMusicServiceForUser({ userId: currentUser?.id });
   }, [currentUser?.id]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getStorageLocation()
+      .then((location) => {
+        if (isMounted) {
+          setStorageLocation(location);
+          setStorageInput(location.root);
+        }
+      })
+      .catch((reason: unknown) => {
+        if (isMounted) {
+          setStorageError(reason instanceof Error ? reason.message : String(reason));
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleNavClick = (item: NavigationItem) => {
     if (item.path !== location.pathname) {
@@ -88,6 +115,31 @@ export default function Home() {
   const handleSignOut = () => {
     signOut();
     navigate('/login', { replace: true });
+  };
+
+  const handleSaveStorageRoot = async () => {
+    setStorageError(null);
+
+    try {
+      const location = await setStorageRoot(storageInput);
+      setStorageLocation(location);
+      setStorageInput(location.root);
+      setIsStorageOpen(false);
+    } catch (reason) {
+      setStorageError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const handleResetStorageRoot = async () => {
+    setStorageError(null);
+
+    try {
+      const location = await setStorageRoot(null);
+      setStorageLocation(location);
+      setStorageInput(location.root);
+    } catch (reason) {
+      setStorageError(reason instanceof Error ? reason.message : String(reason));
+    }
   };
 
   return (
@@ -168,6 +220,15 @@ export default function Home() {
               <span className={styles.userName}>{currentUser?.username ?? 'User'}</span>
             </div>
             <IconButton
+              className={styles.storageButton}
+              aria-label="Set storage path"
+              aria-expanded={isStorageOpen}
+              size="small"
+              onClick={() => setIsStorageOpen((isOpen) => !isOpen)}
+            >
+              <FolderRoundedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
               className={styles.signOutButton}
               aria-label="Sign out"
               size="small"
@@ -176,6 +237,36 @@ export default function Home() {
               <LogoutRoundedIcon fontSize="small" />
             </IconButton>
           </div>
+
+          {isStorageOpen ? (
+            <section className={styles.storagePanel} aria-label="Storage path settings">
+              <label className={styles.storageField}>
+                <span>Storage root</span>
+                <input
+                  value={storageInput}
+                  onChange={(event) => setStorageInput(event.currentTarget.value)}
+                  placeholder="D:\\ExperimentData"
+                />
+              </label>
+              <div className={styles.storagePreview}>
+                <span>{storageLocation?.root ?? 'Default app data'}</span>
+                <strong>
+                  {currentUser
+                    ? `${currentUser.username}\\eeg_recordings | ${currentUser.username}\\music`
+                    : 'username\\eeg_recordings | username\\music'}
+                </strong>
+              </div>
+              {storageError ? <div className={styles.storageError}>{storageError}</div> : null}
+              <div className={styles.storageActions}>
+                <button type="button" onClick={() => void handleResetStorageRoot()}>
+                  Default
+                </button>
+                <button type="button" onClick={() => void handleSaveStorageRoot()}>
+                  Save
+                </button>
+              </div>
+            </section>
+          ) : null}
         </aside>
 
         <section className={styles.menuVisual} aria-hidden="true">
