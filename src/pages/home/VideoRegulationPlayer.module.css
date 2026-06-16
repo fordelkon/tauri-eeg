@@ -1,0 +1,106 @@
+.videoOverlay {
+  background: rgba(5, 8, 10, 0.78);
+  padding: 24px;
+}
+
+.videoModal {
+  background: #101619;
+  border: 1px solid rgba(255, 250, 243, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  color: #fffaf3;
+  gap: 12px;
+  max-height: min(86vh, 820px);
+  max-width: min(92vw, 1280px);
+  padding: 14px;
+}
+
+.videoModalHeader {
+  gap: 14px;
+}
+
+.videoModalHeader div {
+  display: grid;
+  gap: 3px;
+}
+
+.videoModalHeader span {
+  color: rgba(255, 250, 243, 0.58);
+}
+
+.videoModalHeader strong {
+  color: #fffaf3;
+  font-size: 17px;
+  font-weight: 760;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.videoModalHeader code {
+  color: rgba(255, 250, 243, 0.58);
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.closeButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: #fffaf3;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 36px;
+  justify-content: center;
+  padding: 0;
+  width: 36px;
+}
+
+.closeButton:hover, .closeButton:focus-visible {
+  background: rgba(255, 250, 243, 0.12);
+  color: #fffaf3;
+  outline: none;
+}
+
+.closeButton svg {
+  font-size: 22px;
+}
+
+.videoFrame {
+  background: #000;
+  border-radius: 8px;
+  display: grid;
+  min-height: min(66vh, 620px);
+  overflow: hidden;
+}
+
+.videoFrame video {
+  background: #000;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+@media (max-width: 620px) {
+  .videoOverlay {
+    padding: 10px;
+  }
+
+  .videoModal {
+    max-height: calc(100dvh - 20px);
+    max-width: calc(100vw - 20px);
+    padding: 10px;
+  }
+
+  .videoFrame {
+    min-height: 58vh;
+  }
+
+}

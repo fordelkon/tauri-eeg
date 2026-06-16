@@ -1,1 +1,3 @@
-export const videoAssetProtocolScopes = ['C:\\mp4_videos\\**'] as const;
+export const videoAssetProtocolScopes = [
+  'D:\\spider_youtube\\mp4_videos\\video_library\\**',
+] as const;
