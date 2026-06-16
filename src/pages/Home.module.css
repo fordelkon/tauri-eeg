@@ -584,14 +584,8 @@
 }
 
 .scaleOverlay {
-  align-items: center;
   background: rgba(44, 34, 24, 0.34);
   backdrop-filter: blur(10px);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  padding: 22px;
-  position: fixed;
   z-index: 10;
 }
 
@@ -601,21 +595,12 @@
   border-radius: 8px;
   box-shadow: 0 28px 72px rgba(44, 34, 24, 0.28);
   color: #2c2218;
-  display: grid;
-  gap: 20px;
   max-height: min(760px, calc(100dvh - 44px));
-  max-width: 720px;
-  overflow-y: auto;
   padding: clamp(18px, 3vw, 28px);
-  width: min(720px, 100%);
 }
 
 .scaleHeader {
-  align-items: flex-start;
   border-bottom: 1px solid rgba(44, 34, 24, 0.1);
-  display: flex;
-  gap: 18px;
-  justify-content: space-between;
   padding-bottom: 18px;
 }
 
@@ -657,47 +642,26 @@
   color: #2c2218;
 }
 
-.scaleQuestions {
-  display: grid;
-  gap: 14px;
-}
-
 .scaleQuestion {
   border: 1px solid rgba(44, 34, 24, 0.1);
   border-radius: 8px;
-  display: grid;
-  gap: 14px;
-  margin: 0;
-  padding: 16px;
 }
 
 .scaleQuestion legend {
-  align-items: center;
   color: #2c2218;
-  display: flex;
   font-size: 15px;
   font-weight: 720;
-  gap: 10px;
   line-height: 1.45;
-  padding: 0;
 }
 
 .scaleQuestion legend span {
-  align-items: center;
   background: #2c2218;
   border-radius: 999px;
   color: #f5f0eb;
-  display: inline-flex;
-  flex: 0 0 auto;
   font-size: 12px;
-  height: 24px;
-  justify-content: center;
-  width: 24px;
 }
 
 .scaleOptions {
-  display: grid;
-  gap: 8px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -708,11 +672,7 @@
   border-radius: 8px;
   color: rgba(44, 34, 24, 0.74);
   cursor: pointer;
-  display: grid;
   font: inherit;
-  gap: 4px;
-  min-height: 62px;
-  padding: 9px 8px;
   transition:
     background-color 160ms ease-out,
     border-color 160ms ease-out,
@@ -745,11 +705,7 @@
 }
 
 .scaleFooter {
-  align-items: center;
   border-top: 1px solid rgba(44, 34, 24, 0.1);
-  display: flex;
-  gap: 14px;
-  justify-content: space-between;
   padding-top: 18px;
 }
 
@@ -765,13 +721,9 @@
   border-radius: 8px;
   color: #f5f0eb;
   cursor: pointer;
-  flex: 0 0 auto;
   font: inherit;
   font-size: 13px;
   font-weight: 760;
-  height: 40px;
-  min-width: 112px;
-  padding: 0 18px;
 }
 
 .scaleFooter button:disabled {

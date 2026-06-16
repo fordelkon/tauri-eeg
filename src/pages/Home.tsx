@@ -368,14 +368,17 @@ export default function Home() {
       </div>
 
       {pendingScale ? (
-        <div className={styles.scaleOverlay} role="presentation">
+        <div
+          className={`${styles.scaleOverlay} fixed inset-0 flex items-center justify-center p-22px`}
+          role="presentation"
+        >
           <section
-            className={styles.scaleDialog}
+            className={`${styles.scaleDialog} grid gap-20px overflow-y-auto w-full max-w-720px`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="mental-scale-title"
           >
-            <div className={styles.scaleHeader}>
+            <div className={`${styles.scaleHeader} flex items-start justify-between gap-18px`}>
               <div>
                 <p className={styles.scaleEyebrow}>Psychological Scale</p>
                 <h2 id="mental-scale-title">{pendingScale.title}</h2>
@@ -391,14 +394,14 @@ export default function Home() {
               </IconButton>
             </div>
 
-            <div className={styles.scaleQuestions}>
+            <div className={`${styles.scaleQuestions} grid gap-14px`}>
               {pendingScale.questions.map((question, questionIndex) => (
-                <fieldset className={styles.scaleQuestion} key={question.id}>
-                  <legend>
-                    <span>{questionIndex + 1}</span>
+                <fieldset className={`${styles.scaleQuestion} grid gap-14px m-0 p-16px`} key={question.id}>
+                  <legend className="flex items-center gap-10px p-0">
+                    <span className="inline-flex flex-none items-center justify-center h-24px w-24px">{questionIndex + 1}</span>
                     {question.prompt}
                   </legend>
-                  <div className={styles.scaleOptions}>
+                  <div className={`${styles.scaleOptions} grid gap-8px`}>
                     {mentalScaleAnswerOptions.map((option) => {
                       const isSelected = scaleAnswers[question.id] === option.value;
 
@@ -406,7 +409,7 @@ export default function Home() {
                         <button
                           key={option.value}
                           type="button"
-                          className={isSelected ? styles.isScaleOptionSelected : ''}
+                          className={`${isSelected ? styles.isScaleOptionSelected : ''} grid items-center gap-4px min-h-62px px-8px py-9px`}
                           aria-pressed={isSelected}
                           onClick={() => handleScaleAnswer(question.id, option.value)}
                         >
@@ -420,12 +423,13 @@ export default function Home() {
               ))}
             </div>
 
-            <div className={styles.scaleFooter}>
+            <div className={`${styles.scaleFooter} flex items-center justify-between gap-14px`}>
               <span>
-                {isScaleReady ? '已完成，可以进入调节页面。' : '请完成所有题目后继续。'}
+                {isScaleReady ? 'Completed. You can enter the regulation page.' : 'Complete all questions to continue.'}
               </span>
               <button
                 type="button"
+                className="flex-none h-40px min-w-112px px-18px"
                 disabled={!isScaleReady}
                 onClick={handleCompleteScale}
               >
