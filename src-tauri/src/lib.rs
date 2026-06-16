@@ -300,6 +300,7 @@ pub fn run() {
     let app_db = db::init_app_db().expect("failed to initialize app database");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(app_db)
         .manage(EegStreamState::default())

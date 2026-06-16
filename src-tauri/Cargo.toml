@@ -30,3 +30,4 @@ serde_json = "1"
 tokio = { version = "1", features = ["time"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 reqwest = { version = "0.12", features = ["json"] }
+tauri-plugin-dialog = "2.7.1"

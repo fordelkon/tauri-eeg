@@ -20,6 +20,7 @@ import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
 import GlobalEegStatusPanel from '../eeg/GlobalEegStatusPanel';
 import { preloadMusicServiceForUser } from '../music/musicServicePreload';
+import { chooseStorageRoot } from '../storage/storageDirectoryPicker';
 import { getStorageLocation, setStorageRoot, type StorageLocation } from '../storage/storageApi';
 import styles from './Home.module.css';
 
@@ -142,6 +143,21 @@ export default function Home() {
     }
   };
 
+  const handleChooseStorageRoot = async () => {
+    setStorageError(null);
+    setIsStorageOpen(true);
+
+    try {
+      const location = await chooseStorageRoot();
+      if (location) {
+        setStorageLocation(location);
+        setStorageInput(location.root);
+      }
+    } catch (reason) {
+      setStorageError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
   return (
     <main className={`${styles.page} box-border flex min-h-screen overflow-hidden relative`}>
       <div className={styles.heroBloom} aria-hidden="true">
@@ -221,10 +237,10 @@ export default function Home() {
             </div>
             <IconButton
               className={styles.storageButton}
-              aria-label="Set storage path"
+              aria-label="Choose storage folder"
               aria-expanded={isStorageOpen}
               size="small"
-              onClick={() => setIsStorageOpen((isOpen) => !isOpen)}
+              onClick={() => void handleChooseStorageRoot()}
             >
               <FolderRoundedIcon fontSize="small" />
             </IconButton>

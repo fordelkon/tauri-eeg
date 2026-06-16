@@ -16,6 +16,7 @@
     "@mui/icons-material": "^9.1.0",
     "@mui/material": "^9.1.0",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
     "@tauri-apps/plugin-opener": "^2",
     "@types/matter-js": "^0.20.2",
     "matter-js": "^0.20.0",
