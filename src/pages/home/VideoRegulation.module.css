@@ -1,0 +1,381 @@
+.workspace {
+  animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  color: #172026;
+  gap: 14px;
+  max-width: 1180px;
+}
+
+@keyframes workspaceEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.header {
+  gap: 18px;
+}
+
+.eyebrow,
+.panelHeader span,
+.tagGroupHeader span,
+.videoMeta span,
+.videoModalHeader span {
+  color: rgba(23, 32, 38, 0.56);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  color: #172026;
+  font-size: 28px;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.05;
+  margin: 4px 0 0;
+}
+
+.description {
+  color: rgba(23, 32, 38, 0.64);
+  font-size: 14px;
+  font-weight: 560;
+  line-height: 1.45;
+  margin: 8px 0 0;
+  max-width: 640px;
+}
+
+.statusBar {
+  color: rgba(23, 32, 38, 0.68);
+  font-size: 13px;
+  font-weight: 650;
+  gap: 10px;
+}
+
+.statusPill {
+  border-radius: 8px;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.idle {
+  background: rgba(84, 96, 104, 0.12);
+  border: 1px solid rgba(84, 96, 104, 0.24);
+  color: #46525a;
+}
+
+.playing {
+  background: rgba(34, 139, 94, 0.12);
+  border: 1px solid rgba(34, 139, 94, 0.24);
+  color: #17633f;
+}
+
+.contentGrid {
+  gap: 14px;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+}
+
+.selectorPanel,
+.libraryPanel {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(23, 32, 38, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(23, 32, 38, 0.06);
+  gap: 14px;
+  padding: 14px;
+}
+
+.panelHeader {
+  gap: 3px;
+}
+
+.panelHeader strong {
+  color: #172026;
+  font-size: 16px;
+  font-weight: 760;
+}
+
+.tagGroup {
+  gap: 8px;
+}
+
+.tagGroupHeader strong {
+  color: rgba(23, 32, 38, 0.62);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+}
+
+.tagList {
+  gap: 7px;
+}
+
+.tagButton {
+  --tag-color: #48a868;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(23, 32, 38, 0.14);
+  border-radius: 999px;
+  color: rgba(23, 32, 38, 0.72);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 11px;
+}
+
+.tagButton span {
+  background: rgba(23, 32, 38, 0.14);
+  border-radius: 999px;
+  display: block;
+  height: 9px;
+  width: 9px;
+}
+
+.tagButton:hover,
+.tagButton:focus-visible {
+  border-color: rgba(23, 32, 38, 0.32);
+  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.06);
+  outline: none;
+}
+
+.activeTagButton {
+  background: color-mix(in srgb, var(--tag-color) 14%, #fff);
+  border-color: color-mix(in srgb, var(--tag-color) 54%, rgba(23, 32, 38, 0.16));
+  color: #172026;
+}
+
+.activeTagButton span {
+  background: var(--tag-color);
+}
+
+.videoList {
+  gap: 10px;
+}
+
+.videoCard {
+  align-items: center;
+  background: rgba(23, 32, 38, 0.04);
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 8px;
+  gap: 12px;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.thumbnail {
+  aspect-ratio: 16 / 10;
+  background:
+    linear-gradient(145deg, rgba(72, 168, 104, 0.78), rgba(77, 127, 200, 0.78)),
+    #172026;
+  border-radius: 8px;
+  color: #fffaf3;
+}
+
+.thumbnail svg {
+  font-size: 38px;
+}
+
+.videoMeta {
+  gap: 4px;
+}
+
+.videoMeta h2 {
+  color: #172026;
+  font-size: 17px;
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.videoMeta p {
+  color: rgba(23, 32, 38, 0.62);
+  font-size: 13px;
+  font-weight: 580;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.videoMeta code {
+  color: rgba(23, 32, 38, 0.52);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.startButton,
+.endButton {
+  background: #172026;
+  border: 1px solid #172026;
+  border-radius: 8px;
+  color: #fffaf3;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  min-height: 36px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.startButton:hover,
+.startButton:focus-visible,
+.endButton:hover,
+.endButton:focus-visible {
+  background: #0b1115;
+  outline: none;
+}
+
+.videoOverlay {
+  background: rgba(5, 8, 10, 0.78);
+  padding: 24px;
+}
+
+.videoModal {
+  background: #101619;
+  border: 1px solid rgba(255, 250, 243, 0.14);
+  border-radius: 10px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  color: #fffaf3;
+  gap: 12px;
+  max-height: min(86vh, 820px);
+  max-width: min(92vw, 1280px);
+  padding: 14px;
+}
+
+.videoModalHeader {
+  gap: 14px;
+}
+
+.videoModalHeader div {
+  display: grid;
+  gap: 3px;
+}
+
+.videoModalHeader span {
+  color: rgba(255, 250, 243, 0.58);
+}
+
+.videoModalHeader strong {
+  color: #fffaf3;
+  font-size: 17px;
+  font-weight: 760;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.closeButton {
+  color: #fffaf3;
+  height: 36px;
+  width: 36px;
+}
+
+.closeButton:hover {
+  background: rgba(255, 250, 243, 0.12);
+  color: #fffaf3;
+}
+
+.videoFrame {
+  background: #000;
+  border-radius: 8px;
+  display: grid;
+  min-height: min(66vh, 620px);
+  overflow: hidden;
+}
+
+.videoFrame video {
+  background: #000;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.videoModalFooter {
+  color: rgba(255, 250, 243, 0.62);
+  font-size: 12px;
+  font-weight: 650;
+  gap: 12px;
+}
+
+.videoModalFooter span {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.endButton {
+  background: #fffaf3;
+  border-color: #fffaf3;
+  color: #0b1115;
+}
+
+.endButton:hover,
+.endButton:focus-visible {
+  background: #ffffff;
+}
+
+@media (max-width: 900px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .videoCard {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+
+  .startButton {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .videoOverlay {
+    padding: 10px;
+  }
+
+  .videoModal {
+    max-height: calc(100dvh - 20px);
+    max-width: calc(100vw - 20px);
+    padding: 10px;
+  }
+
+  .videoFrame {
+    min-height: 58vh;
+  }
+
+  .videoModalFooter {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .endButton {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace {
+    animation: none;
+  }
+}
