@@ -145,7 +145,6 @@ export default function Home() {
 
   const handleChooseStorageRoot = async () => {
     setStorageError(null);
-    setIsStorageOpen(true);
 
     try {
       const location = await chooseStorageRoot();
@@ -237,10 +236,10 @@ export default function Home() {
             </div>
             <IconButton
               className={styles.storageButton}
-              aria-label="Choose storage folder"
+              aria-label="Storage path settings"
               aria-expanded={isStorageOpen}
               size="small"
-              onClick={() => void handleChooseStorageRoot()}
+              onClick={() => setIsStorageOpen((isOpen) => !isOpen)}
             >
               <FolderRoundedIcon fontSize="small" />
             </IconButton>
@@ -274,6 +273,9 @@ export default function Home() {
               </div>
               {storageError ? <div className={styles.storageError}>{storageError}</div> : null}
               <div className={styles.storageActions}>
+                <button type="button" onClick={() => void handleChooseStorageRoot()}>
+                  Browse
+                </button>
                 <button type="button" onClick={() => void handleResetStorageRoot()}>
                   Default
                 </button>
