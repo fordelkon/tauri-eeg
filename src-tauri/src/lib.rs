@@ -6,6 +6,7 @@ mod music_history;
 mod python_client;
 mod python_service;
 mod storage_paths;
+mod video_library;
 
 use auth::UserProfile;
 use db::AppDb;
@@ -267,6 +268,11 @@ fn set_storage_root(
     )
 }
 
+#[tauri::command]
+fn load_video_library(folder_path: String) -> Result<video_library::VideoLibrary, String> {
+    video_library::load_video_library(&folder_path)
+}
+
 fn delete_music_file_in_storage_root(
     storage_root: &std::path::Path,
     file_path: &str,
@@ -320,7 +326,8 @@ pub fn run() {
             list_music_history,
             delete_music_history,
             get_storage_location,
-            set_storage_root
+            set_storage_root,
+            load_video_library
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

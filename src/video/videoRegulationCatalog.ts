@@ -27,7 +27,7 @@ type LibrarySegment = {
   weather: string;
 };
 
-export const videoLibraryPath = 'D:\\spider_youtube\\mp4_videos\\video_library';
+export const videoLibraryPath = 'D:\\tauri-eeg\\video_database';
 
 export const videoSelectionSteps = ['tag', 'atmosphere', 'scene'] as const;
 
@@ -332,8 +332,12 @@ function getStepValue(video: VideoRegulationAsset, step: VideoSelectionStep) {
   return video.segment[step];
 }
 
-function getOptionSourceVideos(selections: VideoRegulationSelections, step: VideoSelectionStep) {
-  return assets.filter((video) =>
+function getOptionSourceVideos(
+  selections: VideoRegulationSelections,
+  step: VideoSelectionStep,
+  libraryAssets: readonly VideoRegulationAsset[] = assets,
+) {
+  return libraryAssets.filter((video) =>
     videoSelectionSteps.every((candidateStep) => {
       if (candidateStep === step) {
         return true;
@@ -360,12 +364,13 @@ export function getDefaultVideoSelections(): VideoRegulationSelections {
 
 export function getVideoRegulationCatalog(
   selections: VideoRegulationSelections = getDefaultVideoSelections(),
+  libraryAssets: readonly VideoRegulationAsset[] = assets,
 ): VideoRegulationAsset[] {
   if (videoSelectionSteps.every((step) => selections[step].trim().length === 0)) {
     return [];
   }
 
-  return assets.filter((video) =>
+  return libraryAssets.filter((video) =>
     videoSelectionSteps.every((step) => {
       const selectedValue = selections[step];
 
@@ -382,8 +387,9 @@ export function getVideoRegulationCatalog(
 export function getVideoSelectionOptions(
   selections: VideoRegulationSelections,
   step: VideoSelectionStep,
+  libraryAssets: readonly VideoRegulationAsset[] = assets,
 ): CompactTagOption[] {
-  const values = getOptionSourceVideos(selections, step).flatMap((video) => {
+  const values = getOptionSourceVideos(selections, step, libraryAssets).flatMap((video) => {
     const value = getStepValue(video, step);
     return Array.isArray(value) ? value : [value];
   });
@@ -395,8 +401,11 @@ export function getNextVideoSelectionStep(selections: VideoRegulationSelections)
   return videoSelectionSteps.find((step) => selections[step].trim().length === 0) ?? null;
 }
 
-export function selectFirstMatchedVideo(selections: VideoRegulationSelections) {
-  return getVideoRegulationCatalog(selections)[0] ?? null;
+export function selectFirstMatchedVideo(
+  selections: VideoRegulationSelections,
+  libraryAssets: readonly VideoRegulationAsset[] = assets,
+) {
+  return getVideoRegulationCatalog(selections, libraryAssets)[0] ?? null;
 }
 
 export function toPlayableVideoUrl(sourcePath: string, convertFileSrc?: (sourcePath: string) => string) {

@@ -65,6 +65,61 @@
   padding: 0 10px;
 }
 
+.libraryButton {
+  background: #fffaf3;
+  border: 1px solid rgba(23, 32, 38, 0.18);
+  border-radius: 8px;
+  color: #172026;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  min-height: 32px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.libraryButton:hover,
+.libraryButton:focus-visible {
+  background: #ffffff;
+  border-color: rgba(23, 32, 38, 0.3);
+  outline: none;
+}
+
+.libraryButton:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+
+.libraryNotice {
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 8px;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.libraryNotice span {
+  color: rgba(23, 32, 38, 0.56);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.libraryNotice code {
+  color: #172026;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.libraryNotice strong {
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 760;
+}
+
 .idle {
   background: rgba(84, 96, 104, 0.12);
   border: 1px solid rgba(84, 96, 104, 0.24);

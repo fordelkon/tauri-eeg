@@ -3,6 +3,8 @@ import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import SlideshowRoundedIcon from '@mui/icons-material/SlideshowRounded';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { chooseVideoLibraryFolder } from '../../video/videoDirectoryPicker';
+import type { VideoLibrary } from '../../video/videoLibraryApi';
 import {
   getDefaultVideoSelections,
   getNextVideoSelectionStep,
@@ -82,14 +84,19 @@ function clearFollowingSelections(selections: VideoRegulationSelections, step: V
 export default function VideoRegulation() {
   const [selections, setSelections] = useState<VideoRegulationSelections>(() => getDefaultVideoSelections());
   const [activeVideo, setActiveVideo] = useState<VideoRegulationAsset | null>(null);
-  const videos = useMemo(() => getVideoRegulationCatalog(selections), [selections]);
+  const [videoLibrary, setVideoLibrary] = useState<VideoLibrary | null>(null);
+  const [libraryError, setLibraryError] = useState('');
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
+  const libraryAssets = videoLibrary?.assets;
+  const videos = useMemo(() => getVideoRegulationCatalog(selections, libraryAssets), [libraryAssets, selections]);
   const currentStep = getNextVideoSelectionStep(selections);
   const hasStartedSelection = videoSelectionSteps.some((step) => selections[step].trim().length > 0);
   const currentOptions = useMemo(
-    () => (currentStep ? getVideoSelectionOptions(selections, currentStep) : []),
-    [currentStep, selections],
+    () => (currentStep ? getVideoSelectionOptions(selections, currentStep, libraryAssets) : []),
+    [currentStep, libraryAssets, selections],
   );
   const isPlaying = activeVideo !== null;
+  const libraryRoot = videoLibrary?.root ?? videoLibraryPath;
 
   useEffect(() => {
     if (!activeVideo) {
@@ -120,11 +127,29 @@ export default function VideoRegulation() {
       };
 
       if (getNextVideoSelectionStep(nextSelections) === null) {
-        setActiveVideo(selectFirstMatchedVideo(nextSelections));
+        setActiveVideo(selectFirstMatchedVideo(nextSelections, libraryAssets));
       }
 
       return nextSelections;
     });
+  };
+
+  const chooseLibraryFolder = async () => {
+    setLoadingLibrary(true);
+    setLibraryError('');
+
+    try {
+      const selectedLibrary = await chooseVideoLibraryFolder();
+      if (selectedLibrary) {
+        setVideoLibrary(selectedLibrary);
+        setSelections(getDefaultVideoSelections());
+        setActiveVideo(null);
+      }
+    } catch (error) {
+      setLibraryError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoadingLibrary(false);
+    }
   };
 
   return (
@@ -143,8 +168,17 @@ export default function VideoRegulation() {
             {isPlaying ? '播放中' : '就绪'}
           </span>
           <span>{hasStartedSelection ? `${videos.length} 个候选视频` : '等待选择'}</span>
+          <button className={styles.libraryButton} type="button" onClick={chooseLibraryFolder} disabled={loadingLibrary}>
+            {loadingLibrary ? '加载中' : '选择视频库'}
+          </button>
         </div>
       </header>
+
+      <div className={`${styles.libraryNotice} grid`}>
+        <span>{videoLibrary ? '当前视频库' : '默认视频库'}</span>
+        <code>{libraryRoot}</code>
+        {libraryError ? <strong>{libraryError}</strong> : null}
+      </div>
 
       <div className={`${styles.contentGrid} ${hasStartedSelection ? styles.withResults : ''} grid`}>
         <main className={`${styles.selectorPanel} grid`} aria-label="Video tag selectors">
@@ -226,7 +260,7 @@ export default function VideoRegulation() {
             <div className={`${styles.previewState} grid`}>
               <PlayArrowRoundedIcon />
               <strong>选择标签后弹出视频</strong>
-              <span>{videoLibraryPath}</span>
+              <span>{libraryRoot}</span>
             </div>
           )}
         </aside>

@@ -22,7 +22,7 @@
         "enable": true,
         "scope": [
           "$APPDATA/music/**",
-          "D:\\spider_youtube\\mp4_videos\\video_library\\**"
+          "**"
         ]
       },
       "csp": null

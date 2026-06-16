@@ -19,13 +19,44 @@ describe('videoRegulationCatalog', () => {
     expect(videos).toHaveLength(1);
     expect(videos[0]).toMatchObject({
       id: '14_seg000',
-      sourcePath: 'D:\\spider_youtube\\mp4_videos\\video_library\\14_seg000.mp4',
+      sourcePath: 'D:\\tauri-eeg\\video_database\\14_seg000.mp4',
       title: '密林深处',
     });
   });
 
   it('does not show videos before a tag selection starts', () => {
     expect(getVideoRegulationCatalog(getDefaultVideoSelections())).toEqual([]);
+  });
+
+  it('filters a caller supplied video library', () => {
+    const customAsset = {
+      durationLabel: 'custom.mp4 / custom_seg000',
+      hasWater: false,
+      id: 'custom_seg000',
+      indexedTags: ['自定义标签', '自定义氛围', '自定义场景'],
+      segment: {
+        atmosphere: '自定义氛围',
+        colorTone: '自定义色调',
+        hasWater: false,
+        scene: '自定义场景',
+        tags: ['自定义标签'],
+        weather: '自定义天气',
+      },
+      sourcePath: 'E:\\custom\\custom_seg000.mp4',
+      summary: '自定义场景，自定义天气，自定义氛围，自定义色调',
+      tags: ['自定义标签'],
+      title: '自定义场景',
+    };
+
+    expect(getVideoSelectionOptions(getDefaultVideoSelections(), 'tag', [customAsset])).toEqual([
+      { label: '自定义标签', value: '自定义标签' },
+    ]);
+    expect(
+      getVideoRegulationCatalog(
+        { ...getDefaultVideoSelections(), tag: '自定义标签', atmosphere: '自定义氛围', scene: '自定义场景' },
+        [customAsset],
+      ),
+    ).toEqual([customAsset]);
   });
 
   it('exposes step options from existing video_library_tags metadata', () => {
@@ -80,7 +111,7 @@ describe('videoRegulationCatalog', () => {
 
     expect(getVideoRegulationCatalog(selections).map((video) => video.id)).toEqual(['9_seg016']);
     expect(selectFirstMatchedVideo(selections)?.sourcePath).toBe(
-      'D:\\spider_youtube\\mp4_videos\\video_library\\9_seg016.mp4',
+      'D:\\tauri-eeg\\video_database\\9_seg016.mp4',
     );
     expect(getNextVideoSelectionStep(selections)).toBeNull();
   });
@@ -93,14 +124,14 @@ describe('videoRegulationCatalog', () => {
   });
 
   it('converts a Windows path into a playable local video URL', () => {
-    expect(toPlayableVideoUrl('D:\\spider_youtube\\mp4_videos\\video_library\\14_seg000.mp4')).toBe(
-      'file:///D:/spider_youtube/mp4_videos/video_library/14_seg000.mp4',
+    expect(toPlayableVideoUrl('D:\\tauri-eeg\\video_database\\14_seg000.mp4')).toBe(
+      'file:///D:/tauri-eeg/video_database/14_seg000.mp4',
     );
   });
 
   it('uses an injected Tauri file converter when one is provided', () => {
-    expect(toPlayableVideoUrl('D:\\spider_youtube\\mp4_videos\\video_library\\14_seg000.mp4', (path) => `asset://${path}`)).toBe(
-      'asset://D:\\spider_youtube\\mp4_videos\\video_library\\14_seg000.mp4',
+    expect(toPlayableVideoUrl('D:\\tauri-eeg\\video_database\\14_seg000.mp4', (path) => `asset://${path}`)).toBe(
+      'asset://D:\\tauri-eeg\\video_database\\14_seg000.mp4',
     );
   });
 });
