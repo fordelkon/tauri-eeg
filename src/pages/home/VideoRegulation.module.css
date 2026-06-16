@@ -279,14 +279,29 @@
 }
 
 .closeButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
   color: #fffaf3;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
   height: 36px;
+  justify-content: center;
+  padding: 0;
   width: 36px;
 }
 
-.closeButton:hover {
+.closeButton:hover,
+.closeButton:focus-visible {
   background: rgba(255, 250, 243, 0.12);
   color: #fffaf3;
+  outline: none;
+}
+
+.closeButton svg {
+  font-size: 22px;
 }
 
 .videoFrame {

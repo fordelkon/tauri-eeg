@@ -1,7 +1,6 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import SlideshowRoundedIcon from '@mui/icons-material/SlideshowRounded';
-import { IconButton } from '@mui/material';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { type CSSProperties, useEffect, useMemo, useState } from 'react';
 import {
@@ -176,25 +175,30 @@ export default function VideoRegulation() {
         <div
           className={`${styles.videoOverlay} fixed inset-0 z-30 flex items-center justify-center`}
           role="presentation"
-          onMouseDown={(event) => {
+          onClick={(event) => {
             if (event.target === event.currentTarget) {
               setActiveVideo(null);
             }
           }}
         >
-          <section className={`${styles.videoModal} grid w-full`} aria-label="Regulation video player">
+          <section
+            className={`${styles.videoModal} grid w-full`}
+            aria-label="Regulation video player"
+            onClick={(event) => event.stopPropagation()}
+          >
             <header className={`${styles.videoModalHeader} flex items-center justify-between`}>
               <div className="min-w-0">
                 <span>Regulation Mode</span>
                 <strong>{activeVideo.title}</strong>
               </div>
-              <IconButton
+              <button
+                type="button"
                 className={styles.closeButton}
                 aria-label="Close regulation video"
                 onClick={() => setActiveVideo(null)}
               >
                 <CloseRoundedIcon />
-              </IconButton>
+              </button>
             </header>
             <div className={styles.videoFrame}>
               <video

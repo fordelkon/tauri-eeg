@@ -20,7 +20,7 @@
     "security": {
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPDATA/music/**"]
+        "scope": ["$APPDATA/music/**", "C:\\mp4_videos\\**"]
       },
       "csp": null
     }
