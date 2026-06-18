@@ -18,7 +18,7 @@ import { type CSSProperties, type ElementType, useEffect, useState } from 'react
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
-import GlobalEegStatusPanel from '../eeg/GlobalEegStatusPanel';
+import GlobalMentalScalePanel from '../mentalScale/GlobalMentalScalePanel';
 import {
   getMentalScaleForPath,
   isMentalScaleComplete,
@@ -27,6 +27,7 @@ import {
   type MentalScaleDefinition,
   type MentalScaleAnswerValue,
 } from '../mentalScale/mentalScaleGate';
+import { buildMentalScaleStatus, updateMentalScaleStatus } from '../mentalScale/mentalScaleStatus';
 import { preloadMusicServiceForUser } from '../music/musicServicePreload';
 import { chooseStorageRoot } from '../storage/storageDirectoryPicker';
 import { getStorageLocation, setStorageRoot, type StorageLocation } from '../storage/storageApi';
@@ -199,6 +200,7 @@ export default function Home() {
     }
 
     const nextPath = pendingScale.path;
+    updateMentalScaleStatus(buildMentalScaleStatus(pendingScale, scaleAnswers));
     setPendingScale(null);
     setScaleAnswers({});
     navigate(nextPath);
@@ -364,7 +366,7 @@ export default function Home() {
           </button>
         </section>
 
-        <GlobalEegStatusPanel />
+        <GlobalMentalScalePanel />
       </div>
 
       {pendingScale ? (
