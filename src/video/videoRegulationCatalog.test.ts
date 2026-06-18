@@ -6,8 +6,11 @@ import {
   getVideoSelectionOptions,
   selectFirstMatchedVideo,
   toPlayableVideoUrl,
+  videoLibraryPath,
   videoSelectionSteps,
 } from './videoRegulationCatalog';
+
+const projectVideoLibraryPath = `${__TAURI_EEG_PROJECT_ROOT__.replace(/\//g, '\\')}\\video_database`;
 
 describe('videoRegulationCatalog', () => {
   it('loads local segment videos from the video library tags index', () => {
@@ -19,9 +22,14 @@ describe('videoRegulationCatalog', () => {
     expect(videos).toHaveLength(1);
     expect(videos[0]).toMatchObject({
       id: '14_seg000',
-      sourcePath: 'D:\\tauri-eeg\\video_database\\14_seg000.mp4',
+      sourcePath: `${projectVideoLibraryPath}\\14_seg000.mp4`,
       title: '密林深处',
     });
+  });
+
+  it('uses the current project video library folder without a hard-coded drive path', () => {
+    expect(videoLibraryPath).toBe(projectVideoLibraryPath);
+    expect(videoLibraryPath).toContain('\\video_database');
   });
 
   it('does not show videos before a tag selection starts', () => {
@@ -111,7 +119,7 @@ describe('videoRegulationCatalog', () => {
 
     expect(getVideoRegulationCatalog(selections).map((video) => video.id)).toEqual(['9_seg016']);
     expect(selectFirstMatchedVideo(selections)?.sourcePath).toBe(
-      'D:\\tauri-eeg\\video_database\\9_seg016.mp4',
+      `${projectVideoLibraryPath}\\9_seg016.mp4`,
     );
     expect(getNextVideoSelectionStep(selections)).toBeNull();
   });

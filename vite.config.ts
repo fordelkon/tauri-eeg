@@ -11,6 +11,9 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), UnoCSS({ presets: [presetUno()] })],
+  define: {
+    __TAURI_EEG_PROJECT_ROOT__: JSON.stringify(process.cwd()),
+  },
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],

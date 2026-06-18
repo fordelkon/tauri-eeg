@@ -27,7 +27,11 @@ type LibrarySegment = {
   weather: string;
 };
 
-export const videoLibraryPath = 'D:\\tauri-eeg\\video_database';
+function toWindowsPath(path: string) {
+  return path.replace(/\//g, '\\');
+}
+
+export const videoLibraryPath = `${toWindowsPath(__TAURI_EEG_PROJECT_ROOT__)}\\video_database`;
 
 export const videoSelectionSteps = ['tag', 'atmosphere', 'scene'] as const;
 
@@ -292,6 +296,10 @@ const librarySegments: readonly LibrarySegment[] = [
 
 const assets = librarySegments.map(toVideoAsset);
 
+function joinVideoLibraryPath(file: string) {
+  return `${videoLibraryPath}\\${file}`;
+}
+
 function toVideoAsset(segment: LibrarySegment): VideoRegulationAsset {
   const id = segment.file.replace(/\.mp4$/i, '');
   const indexedTags = [
@@ -317,7 +325,7 @@ function toVideoAsset(segment: LibrarySegment): VideoRegulationAsset {
       tags: segment.tags,
       weather: segment.weather,
     },
-    sourcePath: `${videoLibraryPath}\\${segment.file}`,
+    sourcePath: joinVideoLibraryPath(segment.file),
     summary: `${segment.scene}，${segment.weather}，${segment.atmosphere}，${segment.colorTone}`,
     tags: segment.tags,
     title: segment.scene,
