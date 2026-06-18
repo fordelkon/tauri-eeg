@@ -1,0 +1,86 @@
+.overlay {
+  align-items: center;
+  animation: overlayIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.72), transparent 23%),
+    radial-gradient(circle at 50% 48%, rgba(184, 31, 31, 0.06), transparent 34%),
+    linear-gradient(135deg, #f5f0eb 0%, #e7ded6 100%);
+  color: #2c2218;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  overflow: hidden;
+  pointer-events: none;
+  position: fixed;
+  z-index: 30;
+}
+
+.overlay::before {
+  background:
+    linear-gradient(90deg, rgba(44, 34, 24, 0.08) 1px, transparent 1px),
+    linear-gradient(rgba(44, 34, 24, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+  content: "";
+  inset: -42px;
+  mask-image: radial-gradient(circle at 50% 50%, #000 0 36%, transparent 68%);
+  opacity: 0.4;
+  position: absolute;
+  transform: rotate(-8deg);
+}
+
+.isLeaving {
+  animation: overlayOut 620ms cubic-bezier(0.7, 0, 0.84, 0) both;
+}
+
+.logoStage {
+  align-items: center;
+  display: grid;
+  justify-items: center;
+  position: relative;
+  width: min(520px, calc(100vw - 44px));
+  z-index: 1;
+}
+
+.logoMark {
+  animation: logoIn 860ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  filter: drop-shadow(0 22px 38px rgba(44, 34, 24, 0.16));
+  width: clamp(220px, 36vw, 360px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .isLeaving,
+  .logoMark {
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+  }
+}
+
+@keyframes overlayIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlayOut {
+  to {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+@keyframes logoIn {
+  from {
+    opacity: 0;
+    transform: scale(0.82) rotate(-18deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}

@@ -1,12 +1,11 @@
-import HomeSection from './HomeSection';
+import { Box } from '@mui/material';
+import LottieEegLogo from '../../homeIntro/LottieEegLogo';
+import styles from '../Home.module.css';
 
 export default function HomeOverview() {
   return (
-    <HomeSection
-      title="Home"
-      description="A calm workspace for EEG-driven acquisition and adaptive regulation workflows."
-      surfaceTitle="Session Overview"
-      surfaceText="Select a module from the sidebar to continue. The dashboard shell is ready for acquisition, video, game, and music regulation pages."
-    />
+    <Box className={styles.homeLogoCenter} aria-label="EEG emotion regulation home logo">
+      <LottieEegLogo className={styles.homeLogoMark} />
+    </Box>
   );
 }

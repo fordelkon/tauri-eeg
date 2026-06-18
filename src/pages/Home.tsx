@@ -18,6 +18,8 @@ import { type CSSProperties, type ElementType, useEffect, useState } from 'react
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
+import HomeIntroLogo from '../homeIntro/HomeIntroLogo';
+import { homeIntroPlayback } from '../homeIntro/homeIntroPlayback';
 import GlobalMentalScalePanel from '../mentalScale/GlobalMentalScalePanel';
 import {
   getMentalScaleForPath,
@@ -72,6 +74,7 @@ export default function Home() {
   const [storageError, setStorageError] = useState<string | null>(null);
   const [pendingScale, setPendingScale] = useState<MentalScaleDefinition | null>(null);
   const [scaleAnswers, setScaleAnswers] = useState<MentalScaleAnswers>({});
+  const [showHomeIntro, setShowHomeIntro] = useState(false);
   const activeItem = navigationItems.find((item) => (
     item.path === '/home'
       ? location.pathname === item.path
@@ -85,6 +88,12 @@ export default function Home() {
 
   useEffect(() => {
     void preloadMusicServiceForUser({ userId: currentUser?.id });
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    if (homeIntroPlayback.shouldPlay(currentUser?.id)) {
+      setShowHomeIntro(true);
+    }
   }, [currentUser?.id]);
 
   useEffect(() => {
@@ -441,6 +450,8 @@ export default function Home() {
           </section>
         </div>
       ) : null}
+
+      {showHomeIntro ? <HomeIntroLogo onComplete={() => setShowHomeIntro(false)} /> : null}
     </main>
   );
 }
