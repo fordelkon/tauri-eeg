@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import asyncio
 import unittest
@@ -23,7 +23,7 @@ def base_request(**overrides):
     data = {
         "phase": "music_regulation",
         "currentRoute": "/music-regulation",
-        "userInput": "我现在有点紧张，生成舒缓音乐",
+        "userInput": "generate relaxing music",
         "scaleStatus": {
             "dimensions": [
                 {"key": "anxiety", "label": "Anxiety", "description": "Tension", "value": 85},
@@ -36,7 +36,7 @@ def base_request(**overrides):
         },
         "availableResources": {
             "videos": [
-                {"id": "9_seg016", "title": "暮色海岸", "tags": ["海岸", "黄昏", "温柔"]},
+                {"id": "9_seg016", "title": "鏆壊娴峰哺", "tags": ["娴峰哺", "榛勬槒", "娓╂煍"]},
             ],
             "musicGeneration": True,
             "gameAvailable": False,
@@ -172,6 +172,7 @@ class AgentPlannerTests(unittest.TestCase):
 
         self.assertEqual(output.thinking, ["Converted user tags into a music prompt."])
 
+
     def test_recommends_video_from_finite_resources(self) -> None:
         with patch("agent_planner.complete_json_with_lm_studio") as complete_json:
             complete_json.return_value.available = False
@@ -180,7 +181,7 @@ class AgentPlannerTests(unittest.TestCase):
             response = plan_agent_action(base_request(
                 phase="video_regulation",
                 currentRoute="/video-regulation",
-                userInput="推荐一个放松视频",
+                userInput="recommend a relaxing video",
             ))
 
         self.assertEqual(response.action, "play_video")
@@ -310,7 +311,7 @@ class AgentPlannerTests(unittest.TestCase):
         response = plan_agent_action(base_request(
             phase="game_regulation",
             currentRoute="/game-regulation",
-            userInput="继续实验",
+            userInput="缁х画瀹為獙",
         ))
 
         self.assertEqual(response.action, "skip_game")
@@ -320,14 +321,14 @@ class AgentPlannerTests(unittest.TestCase):
         response = plan_agent_action(base_request(
             phase="finish",
             currentRoute="/home",
-            userInput="生成总结",
+            userInput="summary",
         ))
 
         self.assertEqual(response.action, "generate_summary")
         self.assertNotIn("EEG", response.reason)
 
     def test_returns_unavailable_when_lm_studio_is_down_for_open_query(self) -> None:
-        response = plan_agent_action(base_request(userInput="请个性化推荐"))
+        response = plan_agent_action(base_request(userInput="personalized recommendation"))
 
         self.assertEqual(response.status, "unavailable")
         self.assertEqual(response.action, "no_op")

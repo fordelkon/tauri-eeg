@@ -163,6 +163,19 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(hookTs).toContain('duration: plannerDuration ?? preview.params.duration');
   });
 
+  test('orders quick prompts with next step last and uses local regulation tags without planner inference', () => {
+    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
+
+    expect(hookTs).toContain('getLocalRegulationPromptExamples(phase)');
+    expect(hookTs).not.toContain('setVideoPromptSuggestions');
+    expect(hookTs).not.toContain('setMusicPromptSuggestions');
+    expect(hookTs).not.toContain("suggest_video_prompts");
+    expect(hookTs).not.toContain("suggest_music_prompts");
+    expect(hookTs).not.toContain('getVideoRegulationPromptExamples');
+    expect(hookTs).toContain('nextStepPrompt');
+    expect(hookTs).toMatch(/\.\.\.generatedPrompts,[\s\S]*\.\.\.\(nextStepPrompt \? \[nextStepPrompt\] : \[\]\)/);
+  });
+
   test('keeps backend video actions aligned with frontend playback', () => {
     const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
     const apiTs = readText(new URL('./agentPlannerApi.ts', import.meta.url));

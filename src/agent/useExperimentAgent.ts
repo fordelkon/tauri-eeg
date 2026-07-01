@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useEegSession } from '../eeg/EegSessionContext';
 import { getMentalScaleStatusSnapshot } from '../mentalScale/mentalScaleStatus';
@@ -24,6 +24,7 @@ import {
   type AgentPhase,
   getAgentPromptExamplesForPhase,
   getAgentPhaseForRoute,
+  getLocalRegulationPromptExamples,
   getNextAgentPhase,
   getRecommendedPrompt,
   getRouteForAgentPhase,
@@ -102,10 +103,18 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   }, [pathname]);
 
   const recommendedPrompt = useMemo(() => getRecommendedPrompt(phase), [phase]);
-  const quickPrompts = useMemo(() => [
-    recommendedPrompt,
-    ...getAgentPromptExamplesForPhase(phase),
-  ], [phase, recommendedPrompt]);
+  const quickPrompts = useMemo(() => {
+    const nextStepPrompt = getAgentPromptExamplesForPhase(phase).find((prompt) => prompt === '下一步');
+    const phasePrompts = getAgentPromptExamplesForPhase(phase).filter((prompt) => prompt !== nextStepPrompt);
+    const generatedPrompts = getLocalRegulationPromptExamples(phase);
+
+    return [
+      recommendedPrompt,
+      ...phasePrompts,
+      ...generatedPrompts,
+      ...(nextStepPrompt ? [nextStepPrompt] : []),
+    ];
+  }, [phase, recommendedPrompt]);
 
   const pushTimeline = useCallback((type: AgentTimelineEntry['type'], text: string) => {
     setTimeline((entries) => addAgentTimelineEntry(entries, {
@@ -329,23 +338,22 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
     const planningStartedAt = Date.now();
 
     try {
-    pushTimeline('message', trimmed);
-    const localIntent = classifyAgentIntent(trimmed);
-    if (isLocalFirstAction(localIntent)) {
-      setIsPlannerAvailable(true);
-      await queueOrExecute(localIntent);
-      return;
-    }
+      pushTimeline('message', trimmed);
+      const localIntent = classifyAgentIntent(trimmed);
+      if (isLocalFirstAction(localIntent)) {
+        setIsPlannerAvailable(true);
+        await queueOrExecute(localIntent);
+        return;
+      }
 
-    const plannerHandled = await requestPlannerRecommendation(trimmed);
-    if (plannerHandled) {
-      return;
-    }
+      const plannerHandled = await requestPlannerRecommendation(trimmed);
+      if (plannerHandled) {
+        return;
+      }
 
-    if (localIntent === 'unknown') {
-      setMessage('没有识别该请求，请使用面板中的示例表达。');
-      return;
-    }
+      if (localIntent === 'unknown') {
+        setMessage('没有识别该请求，请使用面板中的示例表达。');
+      }
     } finally {
       setThinkingDurationMs(Date.now() - planningStartedAt);
       setIsPlanning(false);

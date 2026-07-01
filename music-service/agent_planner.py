@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any, Literal, TypedDict
 
@@ -141,6 +141,8 @@ class LmMusicPlannerOutput(BaseModel):
         return value
 
 
+
+
 def _dimension_value(request: AgentPlannerRequest, key: str) -> int:
     for dimension in request.scaleStatus.dimensions:
         if dimension.key == key:
@@ -150,7 +152,7 @@ def _dimension_value(request: AgentPlannerRequest, key: str) -> int:
 
 def _is_next_step_input(user_input: str) -> bool:
     normalized = user_input.strip().lower().replace(" ", "")
-    return normalized in {"next", "下一�?, "继续", "continue"}
+    return normalized in {"next", "\u4e0b\u4e00\u6b65", "\u7ee7\u7eed", "continue"}
 
 
 def _recent_recommended_video_ids(request: AgentPlannerRequest) -> set[str]:
@@ -232,14 +234,14 @@ def _video_score(request: AgentPlannerRequest, video: VideoSummary) -> int:
     score = 0
 
     if anxiety >= 60:
-        score += sum(token in terms for token in ["calm", "quiet", "soft", "green", "forest", "自然", "安静", "清幽", "�?])
-        score -= sum(token in terms for token in ["storm", "rain", "dark", "壮阔", "风雨", "深沉"])
+        score += sum(token in terms for token in ["calm", "quiet", "soft", "green", "forest", "nature", "peaceful", "clear"])
+        score -= sum(token in terms for token in ["storm", "rain", "dark", "intense", "wind", "thunder"])
 
     if mood <= 45:
-        score += sum(token in terms for token in ["warm", "dusk", "sun", "温暖", "�?, "暮色", "黄昏"])
+        score += sum(token in terms for token in ["warm", "dusk", "sun", "sunset", "golden", "gentle"])
 
     if energy <= 45:
-        score += sum(token in terms for token in ["open", "coast", "sky", "开�?, "�?, "天空"])
+        score += sum(token in terms for token in ["open", "coast", "sky", "sea", "valley", "horizon"])
 
     return score
 
@@ -311,6 +313,7 @@ def _select_video_with_lm_studio(request: AgentPlannerRequest) -> AgentPlannerRe
     )
 
 
+
 def _select_music_with_lm_studio(request: AgentPlannerRequest) -> AgentPlannerResponse | None:
     lm_result = complete_json_with_lm_studio(
         [
@@ -355,6 +358,7 @@ def _select_music_with_lm_studio(request: AgentPlannerRequest) -> AgentPlannerRe
     )
 
 
+
 def _thinking_steps(request: AgentPlannerRequest, decision: str) -> list[str]:
     return [
         f"Phase: {request.phase}; route: {request.currentRoute}",
@@ -372,7 +376,7 @@ def _plan_by_phase(state: PlannerState) -> PlannerState:
     if _is_next_step_input(user_input):
         state["response"] = AgentPlannerResponse(
             action="go_next_page",
-            reason="收到下一步指令，进入后续实验阶段�?,
+            reason="Received next-step instruction; continue to the next experiment phase.",
             requiresConfirmation=False,
         )
         return state
@@ -380,7 +384,7 @@ def _plan_by_phase(state: PlannerState) -> PlannerState:
     if request.phase == "game_regulation" and not request.availableResources.gameAvailable:
         state["response"] = AgentPlannerResponse(
             action="skip_game",
-            reason="游戏调控暂不可用，建议跳过该环节并进入音乐调控�?,
+            reason="Game regulation is unavailable; skip this phase and continue to music regulation.",
             requiresConfirmation=False,
         )
         return state
@@ -394,12 +398,20 @@ def _plan_by_phase(state: PlannerState) -> PlannerState:
         state["response"] = AgentPlannerResponse(
             action="play_video",
             params={"videoId": video.id, "title": video.title},
-            reason=f"本地模型未返回可用视频选择，已按量表状态兜底推荐低刺激视频素材：{video.title}�?,
+            reason=f"LM Studio did not return a valid video selection; local fallback selected low-stimulation video: {video.title}.",
             requiresConfirmation=True,
         )
         return state
 
-    if request.phase == "music_regulation" and request.availableResources.musicGeneration and "个性化" not in user_input:
+    music_generation_terms = [
+        "generate",
+        "music",
+        "\u751f\u6210",
+        "\u97f3\u4e50",
+    ]
+    wants_music_generation = any(term in user_input.lower() for term in music_generation_terms)
+
+    if request.phase == "music_regulation" and request.availableResources.musicGeneration and wants_music_generation:
         state["response"] = _select_music_with_lm_studio(request)
         if state["response"] is not None:
             return state
@@ -418,16 +430,22 @@ def _plan_by_phase(state: PlannerState) -> PlannerState:
         )
         return state
 
-    if request.phase == "finish" or "总结" in user_input:
+    if request.phase == "finish" or "summary" in user_input.lower():
         state["response"] = AgentPlannerResponse(
             action="generate_summary",
             params={"source": "scale_and_resource_history"},
-            reason="可基于量表结果和调控资源选择生成实验总结；当前版本不包含脑电分析结论�?,
+            reason="Generate an experiment summary from scale status and regulation choices; biosignal analysis is not included in this version.",
             requiresConfirmation=False,
         )
         return state
 
-    if "个性化" in user_input or "追问" in user_input:
+    lowered_user_input = user_input.lower()
+    if (
+        "personalized" in lowered_user_input
+        or "followup" in lowered_user_input
+        or "\u4e2a\u6027\u5316" in user_input
+        or "\u8ffd\u95ee" in user_input
+    ):
         lm_result = complete_json_with_lm_studio(
             [
                 {"role": "system", "content": "Return JSON with action and reason only."},
@@ -439,7 +457,7 @@ def _plan_by_phase(state: PlannerState) -> PlannerState:
             state["response"] = AgentPlannerResponse(
                 status="unavailable",
                 action="no_op",
-                reason="智能助手暂不可用，请使用页面手动操作�?,
+                reason="The intelligent assistant is unavailable; please use manual page controls.",
                 requiresConfirmation=False,
             )
             return state
@@ -452,7 +470,7 @@ def _plan_by_phase(state: PlannerState) -> PlannerState:
 
     state["response"] = AgentPlannerResponse(
         action="go_next_page",
-        reason="当前阶段没有额外推荐，建议继续下一步�?,
+        reason="No extra recommendation is needed in the current phase; continue to the next step.",
         requiresConfirmation=False,
     )
     return state
@@ -481,7 +499,7 @@ def plan_agent_action(request: AgentPlannerRequest) -> AgentPlannerResponse:
     if response is None:
         return AgentPlannerResponse(
             action="no_op",
-            reason="当前阶段没有可执行建议�?,
+            reason="No executable recommendation is available for the current phase.",
             requiresConfirmation=False,
         )
     if not response.thinking:

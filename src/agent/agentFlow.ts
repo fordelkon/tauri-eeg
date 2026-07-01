@@ -1,4 +1,4 @@
-export type AgentPhase =
+﻿export type AgentPhase =
   | 'intro'
   | 'baseline'
   | 'video_regulation'
@@ -74,6 +74,45 @@ const phasePromptExamples = {
   finish: [agentPromptExamples[1], agentPromptExamples[5]],
 } as const satisfies Record<AgentPhase, readonly string[]>;
 
+const localRegulationPromptPools: Partial<Record<AgentPhase, readonly string[]>> = {
+  video_regulation: [
+    '播放森林放松视频',
+    '播放海岸舒缓视频',
+    '播放山谷静心视频',
+    '播放天空呼吸视频',
+    '播放湖面安定视频',
+    '播放日落放松视频',
+    '播放焦虑缓解视频',
+    '播放疲惫恢复视频',
+    '播放低落提振视频',
+    '播放压力舒展视频',
+    '播放烦躁降噪视频',
+    '播放睡前安定视频',
+    '播放紧张放松视频',
+    '播放情绪稳定视频',
+    '播放专注恢复视频',
+    '播放呼吸引导视频',
+  ],
+  music_regulation: [
+    '生成钢琴雨声音乐',
+    '生成低频呼吸音乐',
+    '生成森林环境音乐',
+    '生成海浪舒缓音乐',
+    '生成冥想放松音乐',
+    '生成轻柔白噪音乐',
+    '生成焦虑缓解音乐',
+    '生成疲惫恢复音乐',
+    '生成低落提振音乐',
+    '生成压力释放音乐',
+    '生成烦躁安抚音乐',
+    '生成睡眠准备音乐',
+    '生成紧张放松音乐',
+    '生成情绪稳定音乐',
+    '生成专注恢复音乐',
+    '生成呼吸同步音乐',
+  ],
+};
+
 export function isAgentPhase(value: string): value is AgentPhase {
   return agentPhases.includes(value as AgentPhase);
 }
@@ -92,6 +131,22 @@ export function getRecommendedPrompt(phase: AgentPhase): string {
 
 export function getAgentPromptExamplesForPhase(phase: AgentPhase): readonly string[] {
   return phasePromptExamples[phase];
+}
+
+export function getLocalRegulationPromptExamples(
+  phase: AgentPhase,
+  random: () => number = Math.random,
+): string[] {
+  const pool = localRegulationPromptPools[phase] ?? [];
+  const candidates = [...pool];
+  const selected: string[] = [];
+
+  while (selected.length < 2 && candidates.length > 0) {
+    const index = Math.floor(random() * candidates.length);
+    selected.push(candidates.splice(index, 1)[0]);
+  }
+
+  return selected;
 }
 
 export function getAgentPhaseForRoute(pathname: string, previousPhase: AgentPhase = 'intro'): AgentPhase {

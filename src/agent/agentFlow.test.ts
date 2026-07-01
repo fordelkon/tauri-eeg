@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import {
   agentPromptExamples,
   getAgentPromptExamplesForPhase,
   getAgentPhaseForRoute,
+  getLocalRegulationPromptExamples,
   getNextAgentPhase,
   getRecommendedPrompt,
   getRouteForAgentPhase,
@@ -63,5 +64,27 @@ describe('agentFlow', () => {
     expect(musicPrompts).toContain(nextStepPrompt);
     expect(musicPrompts).toContain(musicPrompt);
     expect(musicPrompts).not.toContain(videoPrompt);
+  });
+
+  it('keeps video prompt examples limited to generic controls', () => {
+    expect(getAgentPromptExamplesForPhase('video_regulation')).toEqual([
+      agentPromptExamples[1],
+      agentPromptExamples[3],
+    ]);
+  });
+
+  it('randomly selects two local regulation tags for fast quick prompts', () => {
+    const randomValues = [0.51, 0.7, 0.57, 0.82];
+    const nextRandom = () => randomValues.shift() ?? 0;
+
+    expect(getLocalRegulationPromptExamples('video_regulation', nextRandom)).toEqual([
+      '播放低落提振视频',
+      '播放睡前安定视频',
+    ]);
+    expect(getLocalRegulationPromptExamples('music_regulation', nextRandom)).toEqual([
+      '生成压力释放音乐',
+      '生成情绪稳定音乐',
+    ]);
+    expect(getLocalRegulationPromptExamples('baseline')).toEqual([]);
   });
 });
