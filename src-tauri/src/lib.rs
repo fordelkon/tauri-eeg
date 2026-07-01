@@ -15,7 +15,9 @@ use eeg::{
     StartEegRecordingInput,
 };
 use music_history::MusicHistoryItem;
-use python_client::{GenerateRequest, HealthResponse, PythonClient};
+use python_client::{
+    AgentPlannerRequest, AgentPlannerResponse, GenerateRequest, HealthResponse, PythonClient,
+};
 use python_service::PythonServiceManager;
 use serde::Deserialize;
 use tauri::State;
@@ -218,6 +220,18 @@ async fn get_music_service_health(
 }
 
 #[tauri::command]
+async fn plan_agent_action(
+    service: State<'_, PythonServiceManager>,
+    request: AgentPlannerRequest,
+) -> Result<AgentPlannerResponse, String> {
+    service.ensure_agent_running().await?;
+
+    PythonClient::new(service.base_url().to_string())
+        .plan_agent(&request)
+        .await
+}
+
+#[tauri::command]
 fn list_music_history(
     db: State<'_, AppDb>,
     user_id: String,
@@ -323,6 +337,7 @@ pub fn run() {
             list_eeg_sessions,
             generate_music,
             get_music_service_health,
+            plan_agent_action,
             list_music_history,
             delete_music_history,
             get_storage_location,

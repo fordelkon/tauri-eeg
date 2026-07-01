@@ -3,6 +3,25 @@ export type CompactTagOption = {
   value: string;
 };
 
+let currentMusicRegulationTags: string[] = [];
+
+export function setCurrentMusicRegulationTags(tags: readonly string[]) {
+  const seen = new Set<string>();
+  currentMusicRegulationTags = tags
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      if (!tag || seen.has(tag)) {
+        return false;
+      }
+      seen.add(tag);
+      return true;
+    });
+}
+
+export function getCurrentMusicRegulationTags() {
+  return [...currentMusicRegulationTags];
+}
+
 export function getCompactTagSummary(
   options: readonly CompactTagOption[],
   selectedValues: readonly string[],

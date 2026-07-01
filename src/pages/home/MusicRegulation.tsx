@@ -11,17 +11,23 @@ import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import {
+  MUSIC_GENERATED_EVENT,
   deleteMusicHistoryItem,
   generateMusic,
   getMusicServiceHealth,
   listMusicHistory,
   toPlayableFileUrl,
 } from '../../music/musicGenerationApi';
-import { createBundledMusicAssets, createGeneratedMusicAsset } from '../../music/musicAssets';
+import {
+  createBundledMusicAssets,
+  createGeneratedMusicAsset,
+  type GeneratedMusicHistoryItem,
+} from '../../music/musicAssets';
 import { buildMusicPrompt } from '../../music/musicPrompt';
 import {
   getCompactTagSummary,
   getNextOpenTagSelector,
+  setCurrentMusicRegulationTags,
   type CompactTagOption,
 } from '../../music/musicRegulationTags';
 import styles from './MusicRegulation.module.css';
@@ -342,6 +348,17 @@ export default function MusicRegulation() {
     () => buildMusicPrompt(instruments, customInstrument, selectedStyles, customStyle, detailTemplates, details),
     [customInstrument, customStyle, detailTemplates, details, instruments, selectedStyles],
   );
+  const currentTagKeywords = useMemo(
+    () => [
+      ...instruments.filter((instrument) => instrument !== 'custom'),
+      customInstrument,
+      ...selectedStyles.filter((style) => style !== 'custom'),
+      customStyle,
+      ...detailTemplates,
+      details,
+    ],
+    [customInstrument, customStyle, detailTemplates, details, instruments, selectedStyles],
+  );
   const hasSelectedInstrument = instruments.some((selectedInstrument) => (
     selectedInstrument === 'custom' ? customInstrument.trim().length > 0 : true
   ));
@@ -389,6 +406,23 @@ export default function MusicRegulation() {
   }, [currentUser]);
 
   useEffect(() => {
+    const handleGeneratedMusic = (event: Event) => {
+      const item = (event as CustomEvent<GeneratedMusicHistoryItem>).detail;
+
+      if (!item) {
+        return;
+      }
+
+      setGeneratedItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)]);
+      setActiveIndex(0);
+    };
+
+    window.addEventListener(MUSIC_GENERATED_EVENT, handleGeneratedMusic);
+
+    return () => window.removeEventListener(MUSIC_GENERATED_EVENT, handleGeneratedMusic);
+  }, []);
+
+  useEffect(() => {
     setCurrentTime(0);
     setDuration(0);
   }, [activeAsset?.id]);
@@ -398,6 +432,10 @@ export default function MusicRegulation() {
       setActiveIndex(Math.max(0, assets.length - 1));
     }
   }, [activeIndex, assets.length]);
+
+  useEffect(() => {
+    setCurrentMusicRegulationTags(currentTagKeywords);
+  }, [currentTagKeywords]);
 
   useEffect(() => {
     if (!isHistoryOpen) {
@@ -751,6 +789,7 @@ export default function MusicRegulation() {
             <button
               className={styles.generateButton}
               type="submit"
+              data-agent-action="generate_music"
               disabled={!currentUser || isGenerating || !canGenerate}
             >
               {isGenerating ? 'Generating WAV' : 'Generate WAV'}
@@ -764,6 +803,7 @@ export default function MusicRegulation() {
               <button
                 className={styles.coverButton}
                 type="button"
+                data-agent-action="play_music"
                 aria-label={isPlaying ? 'Pause WAV' : 'Play WAV'}
                 onClick={() => {
                   void handleTogglePlay();
@@ -819,6 +859,7 @@ export default function MusicRegulation() {
                     </IconButton>
                     <IconButton
                       className={`${styles.controlButton} ${styles.primaryButton}`}
+                      data-agent-action="play_music"
                       aria-label={isPlaying ? 'Pause WAV' : 'Play WAV'}
                       disabled={assets.length === 0}
                       onClick={() => {

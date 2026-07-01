@@ -1,6 +1,8 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
 import type { GeneratedMusicHistoryItem } from './musicAssets';
 
+export const MUSIC_GENERATED_EVENT = 'music:generated';
+
 export type GenerateMusicInput = {
   duration: number;
   prompt: string;
@@ -18,7 +20,13 @@ export type MusicServiceHealth = {
 };
 
 export async function generateMusic(input: GenerateMusicInput): Promise<GeneratedMusicHistoryItem> {
-  return invoke<GeneratedMusicHistoryItem>('generate_music', { input });
+  const item = await invoke<GeneratedMusicHistoryItem>('generate_music', { input });
+
+  if (typeof dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+    dispatchEvent(new CustomEvent<GeneratedMusicHistoryItem>(MUSIC_GENERATED_EVENT, { detail: item }));
+  }
+
+  return item;
 }
 
 export async function getMusicServiceHealth(): Promise<MusicServiceHealth> {

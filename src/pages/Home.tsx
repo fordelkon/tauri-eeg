@@ -14,8 +14,10 @@ import {
   ListItemButton,
   ListItemIcon,
 } from '@mui/material';
-import { type CSSProperties, type ElementType, useEffect, useState } from 'react';
+import { type CSSProperties, type ElementType, type MouseEvent, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import ExperimentAgentPanel from '../agent/ExperimentAgentPanel';
+import { useExperimentAgent } from '../agent/useExperimentAgent';
 import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
 import HomeIntroLogo from '../homeIntro/HomeIntroLogo';
@@ -134,6 +136,11 @@ export default function Home() {
     navigate(path);
   };
 
+  const experimentAgent = useExperimentAgent({
+    pathname: location.pathname,
+    navigateTo: requestNavigation,
+  });
+
   const handleNavClick = (item: NavigationItem) => {
     requestNavigation(item.path);
     setIsSidebarOpen(false);
@@ -145,6 +152,16 @@ export default function Home() {
 
   const handleNextClick = () => {
     requestNavigation(nextItem.path);
+  };
+
+  const handleAgentActionClick = (event: MouseEvent<HTMLElement>) => {
+    const actionElement = (event.target as HTMLElement).closest<HTMLElement>('[data-agent-action]');
+    const actionId = actionElement?.dataset.agentAction;
+    const payload = actionElement?.dataset.agentPayload;
+
+    if (actionId === 'play_video' || actionId === 'generate_music') {
+      void experimentAgent.submitPrompt(payload ? `${actionId}:${payload}` : actionId);
+    }
   };
 
   const handleSignOut = () => {
@@ -218,7 +235,10 @@ export default function Home() {
   const isScaleReady = pendingScale ? isMentalScaleComplete(pendingScale, scaleAnswers) : false;
 
   return (
-    <main className={`${styles.page} box-border flex min-h-screen overflow-hidden relative`}>
+    <main
+      className={`${styles.page} box-border flex min-h-screen overflow-hidden relative`}
+      onClick={handleAgentActionClick}
+    >
       <div className={styles.heroBloom} aria-hidden="true">
         <span className={styles.heroCore} />
       </div>
@@ -375,7 +395,22 @@ export default function Home() {
           </button>
         </section>
 
-        <GlobalMentalScalePanel />
+        <GlobalMentalScalePanel>
+          <ExperimentAgentPanel
+            isPlannerAvailable={experimentAgent.isPlannerAvailable}
+            isPlanning={experimentAgent.isPlanning}
+            thinkingDurationMs={experimentAgent.thinkingDurationMs}
+            thinkingSteps={experimentAgent.thinkingSteps}
+            message={experimentAgent.message}
+            pendingConfirmation={experimentAgent.pendingConfirmation}
+            phase={experimentAgent.phase}
+            quickPrompts={experimentAgent.quickPrompts}
+            recentTimeline={experimentAgent.recentTimeline}
+            onConfirm={() => void experimentAgent.confirmPendingAction()}
+            onReject={experimentAgent.rejectPendingAction}
+            onSubmitPrompt={(value) => void experimentAgent.submitPrompt(value)}
+          />
+        </GlobalMentalScalePanel>
       </div>
 
       {pendingScale ? (

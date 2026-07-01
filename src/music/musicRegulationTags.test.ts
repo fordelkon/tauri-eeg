@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getCompactTagSummary, getNextOpenTagSelector } from './musicRegulationTags';
+import {
+  getCompactTagSummary,
+  getCurrentMusicRegulationTags,
+  getNextOpenTagSelector,
+  setCurrentMusicRegulationTags,
+} from './musicRegulationTags';
 
 describe('getCompactTagSummary', () => {
   it('reports selected labels and counts for compact tag controls', () => {
@@ -57,5 +62,13 @@ describe('getNextOpenTagSelector', () => {
 
   it('closes a selector when the same selector is requested again', () => {
     expect(getNextOpenTagSelector('style', 'style')).toBeNull();
+  });
+});
+
+describe('current music regulation tags', () => {
+  it('deduplicates and trims selected tags for the assistant planner', () => {
+    setCurrentMusicRegulationTags([' piano ', 'ambient instrumental', 'piano', '', 'soft rhythm']);
+
+    expect(getCurrentMusicRegulationTags()).toEqual(['piano', 'ambient instrumental', 'soft rhythm']);
   });
 });

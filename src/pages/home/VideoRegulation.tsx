@@ -7,6 +7,7 @@ import { chooseVideoLibraryFolder } from '../../video/videoDirectoryPicker';
 import type { VideoLibrary } from '../../video/videoLibraryApi';
 import {
   getDefaultVideoSelections,
+  getAllVideoRegulationAssets,
   getNextVideoSelectionStep,
   getVideoRegulationCatalog,
   getVideoSelectionOptions,
@@ -113,6 +114,21 @@ export default function VideoRegulation() {
 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeVideo]);
+
+  useEffect(() => {
+    const handleAgentPlayVideo = (event: Event) => {
+      const videoId = (event as CustomEvent<{ videoId?: string | null }>).detail?.videoId;
+      const video = getAllVideoRegulationAssets(libraryAssets).find((candidate) => candidate.id === videoId) ?? null;
+
+      if (video) {
+        setActiveVideo(video);
+      }
+    };
+
+    window.addEventListener('agent:play-video', handleAgentPlayVideo);
+
+    return () => window.removeEventListener('agent:play-video', handleAgentPlayVideo);
+  }, [libraryAssets]);
 
   const resetSelections = () => {
     setSelections(getDefaultVideoSelections());
@@ -247,7 +263,13 @@ export default function VideoRegulation() {
                     </div>
                     <code>{video.sourcePath}</code>
                   </div>
-                  <button className={styles.startButton} type="button" onClick={() => setActiveVideo(video)}>
+                  <button
+                    className={styles.startButton}
+                    type="button"
+                    data-agent-action="play_video"
+                    data-agent-payload={video.id}
+                    onClick={() => setActiveVideo(video)}
+                  >
                     播放
                   </button>
                 </article>
