@@ -276,6 +276,22 @@ choose the better validation route per user
 re-check performance in a second session before live deployment
 ```
 
+A follow-up single-subject self-pretraining check was also run on 2026-07-02:
+
+```text
+method: SimCLR-style contrastive pretraining on DEAP DE-band windows
+subjects: 5, 10, 22, 24
+baseline direct four-class balanced accuracy:        0.6306
+self-pretrain using all windows balanced accuracy:   0.5375
+self-pretrain using train windows balanced accuracy: 0.5306
+```
+
+This did not improve the downstream classifier, even though the pretraining
+loss decreased. The next system step should therefore not depend on this simple
+self-supervised variant. Use supervised personal calibration and validation
+model selection first; revisit pretraining later with a stronger text encoder,
+more real 32-channel calibration data, or temporal raw-EEG encoders.
+
 ## Real EEG Emotion Adapter Options
 
 ### Option A - SEED-IV Feature Adapter

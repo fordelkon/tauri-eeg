@@ -357,6 +357,40 @@ different heads, so the live system should train both direct four-class and
 valence/arousal binary heads during calibration, then select the better one on
 the user's validation trials.
 
+## DEAP Single-Subject Self-Pretraining Check
+
+To test whether a personal unlabeled pretraining stage improves the above
+single-subject result, this script runs SimCLR-style contrastive pretraining on
+DE-band windows before fine-tuning a direct four-class head:
+
+```bash
+CUDA_VISIBLE_DEVICES=4 python tools/train_deap_subject_self_pretrain_4class.py \
+  --source /root/piplineegmus/data/raw/DGCNN-DEAP \
+  --subjects 5,10,22,24 \
+  --pretrain-scope all \
+  --out-dir runs/deap_subject_selfpretrain_20260702/all_scope
+
+CUDA_VISIBLE_DEVICES=5 python tools/train_deap_subject_self_pretrain_4class.py \
+  --source /root/piplineegmus/data/raw/DGCNN-DEAP \
+  --subjects 5,10,22,24 \
+  --pretrain-scope train \
+  --out-dir runs/deap_subject_selfpretrain_20260702/train_scope
+```
+
+Result on 2026-07-02:
+
+```text
+baseline direct four-class balanced accuracy:       0.6306
+self-pretrain, all windows balanced accuracy:       0.5375
+self-pretrain, train windows only balanced accuracy: 0.5306
+```
+
+The contrastive loss decreased, but downstream four-class accuracy did not
+improve. Do not extend this self-pretraining variant as the next default
+experiment. The current practical route is still supervised personal
+calibration: train direct four-class and valence/arousal binary candidates,
+then select the best validation route for each user before live regulation.
+
 ## Why This Is Separate From `music-service`
 
 `music-service` generates offline WAV files with Stable Audio 3 Small Music.

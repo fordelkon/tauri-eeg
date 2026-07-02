@@ -231,6 +231,41 @@ direct four-class DGCNN
 For live calibration, save both candidates and select by validation balanced
 accuracy. Do not assume one route is globally better across users.
 
+Single-subject self-pretraining check:
+
+```text
+tools/train_deap_subject_self_pretrain_4class.py
+```
+
+Inputs:
+
+```text
+DEAP 32-channel preprocessed subject files
+subject id list
+fixed train/validation/test trial split
+pretrain scope: train-only or all subject windows
+```
+
+Outputs:
+
+```text
+deap_subject_self_pretrain_4class_report.json
+deap_subject_self_pretrain_4class_predictions.jsonl
+```
+
+Current result on subjects 5, 10, 22, and 24:
+
+```text
+baseline direct four-class balanced accuracy:        0.6306
+self-pretrain using all windows balanced accuracy:   0.5375
+self-pretrain using train windows balanced accuracy: 0.5306
+```
+
+Status: negative diagnostic. The simple contrastive pretraining stage is not a
+required model asset for the first integrated system module. Keep it as an
+ablation script, and prioritize supervised personal calibration plus
+validation-based route selection.
+
 Minimum calibration paradigm:
 
 - Session 1 records labeled video-induced EEG and self-report feedback.
