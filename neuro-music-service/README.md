@@ -268,6 +268,95 @@ live product model. It supports the next system plan: collect real 32-channel
 calibration EEG with the four-class paradigm, train/fine-tune a personal
 encoder, then align that encoder with EmotionCLIP and multimodal emotion CLIP.
 
+## DEAP Minimal EmotionCLIP Experiment
+
+`tools/train_deap_emotionclip.py` tests the next-stage route:
+
+```text
+DEAP EEG DE-band windows
+-> DGCNN EEG encoder
+-> EEG-text contrastive pretraining with emotion prompts
+-> zero-shot prompt classifier
+-> frozen linear probe
+-> fine-tuned classifier
+```
+
+This first version intentionally uses deterministic prompt-hash text features
+so it can run on the remote server without downloading external language
+models. It validates the training and service workflow, but it is not the final
+text/audio/video CLIP model.
+
+Remote result on 2026-07-02:
+
+```text
+run: runs/deap_emotionclip_fixed_20260702
+zero-shot balanced accuracy: 0.3395
+frozen-probe balanced accuracy: 0.2500
+fine-tune balanced accuracy: 0.3521
+best classifier: fine_tune
+service replay: runs/deap_emotionclip_fixed_20260702/deap_emotionclip_service_replay.jsonl
+
+run: runs/deap_emotionclip_cross_20260702
+zero-shot balanced accuracy: 0.2719
+frozen-probe balanced accuracy: 0.2500
+fine-tune balanced accuracy: 0.2717
+best classifier: zero_shot
+```
+
+Interpretation:
+
+```text
+fixed-calibration EmotionCLIP fine-tune: 0.3521 balanced accuracy
+fixed-calibration direct DGCNN:          0.3668 balanced accuracy
+cross-subject EmotionCLIP zero-shot:     0.2719 balanced accuracy
+cross-subject direct DGCNN:              0.2301 balanced accuracy
+```
+
+The minimal EmotionCLIP improves strict cross-subject behavior but does not beat
+the calibrated DGCNN. The likely bottleneck is the placeholder hash text side
+and limited DEAP supervision. The next EmotionCLIP iteration should replace the
+hash prompts with a real frozen text encoder and then extend the alignment to
+audio/video emotion embeddings.
+
+## DEAP Single-Subject Diagnostic
+
+To check whether the low four-class accuracy is caused by the task itself or by
+cross-subject/domain shift, four representative subjects were tested without
+cross-subject training:
+
+```text
+subjects: 5, 10, 22, 24
+split: fixed trial split, 60% train / 20% val / 20% test
+test size: 8 trials per subject, 32 trials total
+```
+
+Remote result on 2026-07-02:
+
+```text
+run: runs/deap_single_subject_20260702
+valence binary overall balanced accuracy: 0.7698
+arousal binary overall balanced accuracy: 0.6926
+binary-combined four-class balanced accuracy: 0.5972
+direct four-class balanced accuracy: 0.6306
+direct four-class service replay: runs/deap_single_subject_20260702/direct_4class_service_replay.jsonl
+```
+
+Per-subject balanced accuracy:
+
+```text
+subject 5:  valence 0.7500, arousal 0.5000, direct four-class 0.6000
+subject 10: valence 0.7500, arousal 0.9286, direct four-class 0.8667
+subject 22: valence 0.8333, arousal 0.5667, direct four-class 0.3750
+subject 24: valence 0.5333, arousal 0.7500, direct four-class 0.5625
+```
+
+Interpretation: the four regulation classes are not impossible for a single
+subject. The main degradation comes from cross-subject/domain shift and the
+small number of held-out trials per subject. Different subjects prefer
+different heads, so the live system should train both direct four-class and
+valence/arousal binary heads during calibration, then select the better one on
+the user's validation trials.
+
 ## Why This Is Separate From `music-service`
 
 `music-service` generates offline WAV files with Stable Audio 3 Small Music.

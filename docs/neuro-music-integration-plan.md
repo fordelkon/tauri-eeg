@@ -226,6 +226,56 @@ record 5+ videos/class per user
 -> expose only the stable emotion-label API to music/video consumers
 ```
 
+The minimal EmotionCLIP experiment was also run on 2026-07-02:
+
+```text
+fixed-calibration EmotionCLIP:
+  zero-shot balanced accuracy: 0.3395
+  frozen-probe balanced accuracy: 0.2500
+  fine-tune balanced accuracy: 0.3521
+
+cross-subject EmotionCLIP:
+  zero-shot balanced accuracy: 0.2719
+  frozen-probe balanced accuracy: 0.2500
+  fine-tune balanced accuracy: 0.2717
+```
+
+This confirms that the EmotionCLIP flow is executable and can feed the realtime
+music-control service, but the placeholder prompt-hash text encoder is too weak
+to beat calibrated DGCNN. The corrected next plan is:
+
+```text
+replace hash text prototypes with a frozen real text encoder
+-> pretrain EEG-text EmotionCLIP on DEAP/SEED-IV/real 32ch calibration data
+-> evaluate zero-shot, frozen probe, and fine-tune classifiers
+-> add audio/video emotion embeddings only after EEG-text improves classification
+-> keep DEMON and video recommendation behind the same emotion-label API
+```
+
+The single-subject diagnostic on 2026-07-02 further clarifies the failure mode:
+
+```text
+subjects: 5, 10, 22, 24
+valence binary balanced accuracy: 0.7698
+arousal binary balanced accuracy: 0.6926
+binary-combined four-class balanced accuracy: 0.5972
+direct four-class balanced accuracy: 0.6306
+```
+
+This means the four-class regulation task is learnable for some individuals
+when training and testing stay within the same subject. The main issue is not
+that depression/anxiety/calm/happy are mathematically inseparable, but that EEG
+emotion recognition has large subject/domain shift and only 40 DEAP trials per
+subject. For the real 32-channel cap workflow, the calibration trainer should:
+
+```text
+train valence binary head
+train arousal binary head
+train direct four-class head
+choose the better validation route per user
+re-check performance in a second session before live deployment
+```
+
 ## Real EEG Emotion Adapter Options
 
 ### Option A - SEED-IV Feature Adapter

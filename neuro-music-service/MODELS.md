@@ -182,6 +182,55 @@ calibration session id
 held-out validation metrics
 ```
 
+Minimal EmotionCLIP experiment:
+
+```text
+tools/train_deap_emotionclip.py
+```
+
+The current script uses deterministic prompt-hash text vectors for offline
+reproducibility. Treat it as a workflow check, not as the final multimodal CLIP
+implementation.
+
+Outputs:
+
+```text
+runs/deap_emotionclip_*/deap_emotionclip.pt
+runs/deap_emotionclip_*/deap_emotionclip_report.json
+runs/deap_emotionclip_*/deap_emotionclip_zero_shot_predictions.jsonl
+runs/deap_emotionclip_*/deap_emotionclip_frozen_probe_predictions.jsonl
+runs/deap_emotionclip_*/deap_emotionclip_fine_tune_predictions.jsonl
+runs/deap_emotionclip_*/deap_emotionclip_best_predictions.jsonl
+```
+
+Next required model assets for a real EmotionCLIP stage:
+
+```text
+frozen text encoder checkpoint or local text embedding cache
+emotion prompt set with Chinese/English variants
+optional audio emotion CLIP embedding cache
+optional video emotion CLIP embedding cache
+EEG encoder checkpoint initialized from the best calibrated model
+shared embedding dimension and normalization contract
+linear-probe and fine-tune evaluation reports
+```
+
+Single-subject DGCNN diagnostic:
+
+```text
+tools/train_deap_dgcnn_subject_4class.py
+```
+
+Use this alongside `tools/train_deap_dgcnn_subject_calibration.py` to compare:
+
+```text
+valence binary + arousal binary -> four-class combination
+direct four-class DGCNN
+```
+
+For live calibration, save both candidates and select by validation balanced
+accuracy. Do not assume one route is globally better across users.
+
 Minimum calibration paradigm:
 
 - Session 1 records labeled video-induced EEG and self-report feedback.
