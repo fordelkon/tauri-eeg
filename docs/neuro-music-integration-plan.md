@@ -411,6 +411,26 @@ Session 2 - Regulation / feedback validation
   -> collect feedback and compare with Session 1 baseline
 ```
 
+The paradigm should be SEED-style, not DEAP-style. DEAP is useful for offline
+method development, but its labels are continuous valence/arousal self-ratings
+that we later hard-cut into four quadrants. Our all-subject DEAP diagnostic
+showed this is noisy:
+
+```text
+DEAP direct four-class, all 32 subjects:
+  overall balanced accuracy: 0.4109
+  mean subject balanced accuracy: 0.4016
+
+DEAP valence/arousal threshold ambiguity:
+  29.1% of trials are within +/-0.5 of valence=5 or arousal=5
+  49.7% of trials are within +/-1.0 of valence=5 or arousal=5
+```
+
+That means many DEAP trials are close to the artificial decision boundary. The
+live calibration dataset should instead start with discrete target emotions
+from curated videos, then use self-report only to accept, reject, or mark a
+trial as uncertain.
+
 The formal labels are:
 
 ```text
@@ -435,10 +455,25 @@ This is the minimum for system integration and first personal calibration, not
 the recommended final research sample size. If model stability is weak, increase
 the number of trials per class before adding more emotion categories.
 
-Each trial has four phases:
+Each trial has six phases:
 
 ```text
-starting hint -> video watching -> ending hint -> feedback
+baseline rest
+-> starting hint
+-> video watching
+-> post-video rest
+-> self-report
+-> quality check
+```
+
+The minimum timing contract in `config/eeg_emotion_paradigm.json` is:
+
+```text
+baseline_rest: 5 s
+pre_video_hint: 2 s
+video: 45-90 s
+post_video_rest: 5 s
+self_report_timeout: 30 s
 ```
 
 The legacy settings assume 32 EEG channels, 2000 Hz sampling, and a TCP EEG
@@ -463,6 +498,39 @@ Anxiety    -> fear
 Calm       -> neutral
 Happy      -> happy
 ```
+
+### Trial Acceptance Rules
+
+Do not train the first personal classifier on every recorded trial. After each
+video, collect valence and arousal on a 1-9 scale and apply conservative
+acceptance rules:
+
+```text
+Depression / sad:
+  accept if valence <= 4 and arousal <= 5
+
+Anxiety / fear:
+  accept if valence <= 4 and arousal >= 6
+
+Calm / neutral:
+  accept if valence >= 5 and arousal <= 4
+
+Happy:
+  accept if valence >= 6 and 5 <= arousal <= 8
+```
+
+Trials outside these ranges should not be thrown away blindly. Save them with a
+quality label:
+
+```text
+accepted: use for supervised personal calibration
+uncertain: keep EEG and metadata, exclude from first classifier
+rejected: exclude and inspect stimulus quality
+artifact_rejected: exclude due to EEG artifact or missing trigger metadata
+```
+
+The goal is to avoid DEAP-style boundary noise. It is better to train on fewer
+clean trials than to force ambiguous trials into one of four labels.
 
 Do not train `Fear`, `Joy`, or `Surprise` as formal classes for the minimum
 system module. They can remain in an exploratory stimulus pool, but adding them
@@ -560,6 +628,8 @@ samples or recorded file path
 self_report_valence
 self_report_arousal
 self_report_dominance optional
+self_report_acceptance: accepted | uncertain | rejected | artifact_rejected
+label_source: induction_target | self_report_confirmed | model_prediction
 artifact_flags optional
 ```
 
@@ -586,6 +656,20 @@ database/Happy
    `POST /eeg/emotion/predict`.
 5. Use `get_latest_eeg_emotion` as the system signal for both realtime music
    control and future video recommendation.
+
+For each user, train and compare these routes rather than assuming one global
+winner:
+
+```text
+direct four-class classifier
+valence binary + arousal binary classifier
+valence/arousal regression with rule mapping
+Riemannian tangent-space SVM/LDA baseline
+```
+
+Select by validation balanced accuracy and confusion review. If validation is
+weak or one class collapses, keep the live system in label-driven/mock mode and
+collect more calibration trials before enabling automatic regulation.
 
 Deep EmotionCLIP or native 32-channel models should be added after this
 calibration loop proves that the local cap, triggers, and labels are aligned.

@@ -33,8 +33,11 @@ def test_four_class_paradigm_contract_is_minimum_runnable() -> None:
     paradigm = json.loads(config_path.read_text(encoding="utf-8"))
 
     classes = paradigm["classes"]
+    assert paradigm["version"] == "emotion-regulation-4class-v2"
     assert paradigm["minimum_videos_per_class"] == 5
     assert paradigm["trials_per_class_per_session"] == 5
+    assert paradigm["minimum_accepted_trials_per_class"] >= 3
+    assert "DEAP-style" in paradigm["design_principle"]
     assert {item["paradigm_emotion"] for item in classes} == {
         "depression",
         "anxiety",
@@ -43,6 +46,8 @@ def test_four_class_paradigm_contract_is_minimum_runnable() -> None:
     }
     assert {item["system_emotion"] for item in classes} == {"sad", "fear", "neutral", "happy"}
     assert {item["trigger_class"] for item in classes} == {1, 2, 3, 4}
+    assert all("accept_self_report" in item for item in classes)
+    assert paradigm["trial_quality_policy"]["uncertain"].startswith("Keep metadata")
 
 
 def test_emotion_control_maps_to_safe_demon_knobs() -> None:

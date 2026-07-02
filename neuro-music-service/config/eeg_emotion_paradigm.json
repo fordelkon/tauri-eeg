@@ -1,18 +1,41 @@
 {
-  "version": "emotion-regulation-4class-v1",
-  "description": "Minimum personal 32-channel EEG emotion calibration paradigm for realtime music and video regulation.",
+  "version": "emotion-regulation-4class-v2",
+  "description": "SEED-style personal 32-channel EEG emotion calibration paradigm for realtime music and video regulation.",
+  "design_principle": "Use discrete video-induced emotion targets first, then use self-report to accept, reject, or mark ambiguous trials. Do not create training labels by hard-cutting all trials on DEAP-style valence/arousal thresholds.",
   "minimum_videos_per_class": 5,
   "trials_per_class_per_session": 5,
+  "minimum_accepted_trials_per_class": 3,
+  "self_report_scale": {
+    "valence": "1-9",
+    "arousal": "1-9",
+    "dominance": "1-9 optional"
+  },
+  "trial_quality_policy": {
+    "accepted": "Use for supervised personal calibration.",
+    "uncertain": "Keep metadata and EEG, but exclude from first supervised classifier training.",
+    "rejected": "Exclude from training and inspect stimulus/artifact quality.",
+    "artifact_rejected": "Exclude when EEG artifact flags or missing trigger timestamps are present."
+  },
+  "trial_timing_sec": {
+    "baseline_rest": 5,
+    "pre_video_hint": 2,
+    "video_min": 45,
+    "video_max": 90,
+    "post_video_rest": 5,
+    "self_report_timeout": 30
+  },
   "sessions": [
     {
       "id": 1,
       "name": "baseline_induction",
-      "feedback_enabled": false
+      "feedback_enabled": false,
+      "purpose": "Collect labeled personal EEG under controlled video induction."
     },
     {
       "id": 2,
       "name": "regulation_feedback",
-      "feedback_enabled": true
+      "feedback_enabled": true,
+      "purpose": "Validate online emotion recognition and music/video regulation effects."
     }
   ],
   "classes": [
@@ -23,7 +46,13 @@
       "system_emotion": "sad",
       "video_folder": "database/Depression",
       "target_valence": "negative",
-      "target_arousal": "low_to_medium"
+      "target_arousal": "low_to_medium",
+      "accept_self_report": {
+        "valence_max": 4,
+        "arousal_max": 5
+      },
+      "uncertain_if": "valence is 5 or arousal is 6; keep for audit but exclude from first classifier.",
+      "regulation_goal": "raise_valence_gently_raise_arousal"
     },
     {
       "trigger_class": 2,
@@ -32,7 +61,13 @@
       "system_emotion": "fear",
       "video_folder": "database/Anxiety",
       "target_valence": "negative",
-      "target_arousal": "high"
+      "target_arousal": "high",
+      "accept_self_report": {
+        "valence_max": 4,
+        "arousal_min": 6
+      },
+      "uncertain_if": "valence is 5 or arousal is 5; keep for audit but exclude from first classifier.",
+      "regulation_goal": "lower_arousal_stabilize_valence"
     },
     {
       "trigger_class": 3,
@@ -41,7 +76,13 @@
       "system_emotion": "neutral",
       "video_folder": "database/Calm",
       "target_valence": "neutral_to_positive",
-      "target_arousal": "low"
+      "target_arousal": "low",
+      "accept_self_report": {
+        "valence_min": 5,
+        "arousal_max": 4
+      },
+      "uncertain_if": "valence is below 5 or arousal is 5; keep for audit but exclude from first classifier.",
+      "regulation_goal": "maintain_low_arousal_stability"
     },
     {
       "trigger_class": 4,
@@ -50,7 +91,25 @@
       "system_emotion": "happy",
       "video_folder": "database/Happy",
       "target_valence": "positive",
-      "target_arousal": "medium"
+      "target_arousal": "medium",
+      "accept_self_report": {
+        "valence_min": 6,
+        "arousal_min": 5,
+        "arousal_max": 8
+      },
+      "uncertain_if": "valence is 5 or arousal is above 8; keep for audit but exclude from first classifier.",
+      "regulation_goal": "maintain_positive_valence_without_overstimulation"
     }
-  ]
+  ],
+  "training_recommendation": {
+    "first_model": "subject_dependent_calibrated_classifier",
+    "candidate_routes": [
+      "direct_4class",
+      "valence_binary_plus_arousal_binary",
+      "valence_arousal_regression_with_rule_mapping",
+      "riemannian_tangent_space_svm_or_lda"
+    ],
+    "selection_metric": "validation balanced accuracy with per-class confusion review",
+    "minimum_live_gate": "Use live regulation only when validation confidence is acceptable; otherwise fall back to mock/label-driven mode."
+  }
 }

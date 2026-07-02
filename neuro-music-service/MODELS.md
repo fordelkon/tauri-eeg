@@ -276,6 +276,11 @@ Minimum calibration paradigm:
   `config/eeg_emotion_paradigm.json`.
 - Each class needs at least five induction videos for the minimum runnable
   paradigm.
+- Use SEED-style discrete emotion induction first. Do not build the first live
+  training set by hard-cutting every trial on DEAP-style valence/arousal
+  thresholds.
+- Keep only accepted trials for the first supervised classifier; preserve
+  uncertain/rejected trials for audit and later semi-supervised analysis.
 - Keep both the paradigm label and the system label:
 
 ```text
@@ -290,7 +295,26 @@ Required saved metadata:
 ```text
 subject_id, session_id, trial_id, paradigm_emotion, system_emotion,
 video_id, trigger_start_ts, trigger_end_ts, sample_rate_hz, channel_ids,
-recording_path, self_report_valence, self_report_arousal
+recording_path, self_report_valence, self_report_arousal,
+self_report_acceptance, label_source, artifact_flags
+```
+
+Self-report acceptance rules on a 1-9 scale:
+
+```text
+Depression / sad: valence <= 4, arousal <= 5
+Anxiety / fear:   valence <= 4, arousal >= 6
+Calm / neutral:   valence >= 5, arousal <= 4
+Happy:            valence >= 6, 5 <= arousal <= 8
+```
+
+Model selection for each user:
+
+```text
+direct four-class classifier
+valence binary + arousal binary classifier
+valence/arousal regression with rule mapping
+Riemannian tangent-space SVM/LDA baseline
 ```
 
 Music regulation policy:
