@@ -392,6 +392,9 @@ Implementation note:
 
 ## Personal 32-Channel Emotion Calibration Paradigm
 
+Chinese execution guide:
+`docs/eeg-emotion-paradigm-operation-guide.zh.md`
+
 For real personal EEG collected from the 32-channel cap, the system should run
 an emotion calibration paradigm before claiming reliable live emotion
 recognition. The old `emotionBCI/emo_bci` design is a useful starting point,
