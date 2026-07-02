@@ -200,6 +200,32 @@ lower-regularization / multi-seed binary DGCNN
 -> EmotionCLIP alignment
 ```
 
+The 2026-07-02 DEAP runs confirm this direction:
+
+```text
+strict cross-subject binary DGCNN:
+  valence balanced accuracy: 0.4678
+  arousal balanced accuracy: 0.5337
+  combined four-class balanced accuracy: 0.2301
+
+subject calibration DGCNN with fixed held-out trials:
+  valence balanced accuracy: 0.5683
+  arousal balanced accuracy: 0.5683
+  combined four-class balanced accuracy: 0.3668
+```
+
+Subject calibration improves the signal enough to justify continuing, but it is
+not yet production-grade. The next experimental stage should therefore use the
+real 32-channel cap paradigm rather than relying on DEAP alone:
+
+```text
+record 5+ videos/class per user
+-> train/fine-tune personal EEG encoder
+-> evaluate same-session held-out trials and next-session transfer
+-> use accepted encoder embeddings for EmotionCLIP alignment
+-> expose only the stable emotion-label API to music/video consumers
+```
+
 ## Real EEG Emotion Adapter Options
 
 ### Option A - SEED-IV Feature Adapter

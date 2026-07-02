@@ -156,6 +156,32 @@ The combined prediction JSONL can be replayed through
 contract, not live EEG inference. Live use still requires a calibrated adapter
 or a model trained on the actual 32-channel cap.
 
+Personal calibration experiment:
+
+```text
+tools/train_deap_dgcnn_subject_calibration.py
+```
+
+Use `--split-mode fixed` when the outputs will be combined into four regulation
+classes. Use `--split-mode task-stratified` only for isolated binary analysis,
+because it can select different test trials for valence and arousal.
+
+The minimum live-equivalent model package should contain:
+
+```text
+model_type: personal_dgcnn_or_emotionclip
+subject_id
+channel_ids and montage
+sample_rate_hz
+window_sec
+preprocessing version
+class_names
+valence/arousal threshold or four-class label map
+checkpoint path
+calibration session id
+held-out validation metrics
+```
+
 Minimum calibration paradigm:
 
 - Session 1 records labeled video-induced EEG and self-report feedback.

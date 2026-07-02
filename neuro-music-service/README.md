@@ -215,6 +215,59 @@ strict held-out-subject DEAP models are not accurate enough for real emotion
 recognition. The next accuracy step should use subject-dependent or few-shot
 personal calibration, then use the best encoder for EmotionCLIP alignment.
 
+## DEAP Subject Calibration Experiment
+
+When strict cross-subject generalization is weak, the next practical route is a
+personal calibration model. The calibration script trains one small DGCNN per
+subject:
+
+```bash
+CUDA_VISIBLE_DEVICES=4 python tools/train_deap_dgcnn_subject_calibration.py \
+  --source /root/piplineegmus/data/raw/DGCNN-DEAP \
+  --task valence \
+  --subjects all \
+  --split-mode fixed \
+  --epochs 80 \
+  --batch-size 256 \
+  --lr 0.003 \
+  --l2 0.0001 \
+  --dropout 0.35 \
+  --out-dir runs/deap_dgcnn_subject_fixed_20260702
+
+CUDA_VISIBLE_DEVICES=5 python tools/train_deap_dgcnn_subject_calibration.py \
+  --source /root/piplineegmus/data/raw/DGCNN-DEAP \
+  --task arousal \
+  --subjects all \
+  --split-mode fixed \
+  --epochs 80 \
+  --batch-size 256 \
+  --lr 0.003 \
+  --l2 0.0001 \
+  --dropout 0.35 \
+  --out-dir runs/deap_dgcnn_subject_fixed_20260702
+```
+
+`--split-mode fixed` is important when combining valence and arousal into four
+classes because both binary heads must predict the same held-out trials.
+
+Remote fixed-split result on 2026-07-02:
+
+```text
+run: runs/deap_dgcnn_subject_fixed_20260702
+valence binary overall balanced accuracy: 0.5683
+valence mean subject balanced accuracy: 0.6015
+arousal binary overall balanced accuracy: 0.5683
+arousal mean subject balanced accuracy: 0.5635
+combined four-class balanced accuracy: 0.3668
+combined four-class accuracy: 0.3711
+service replay: runs/deap_dgcnn_subject_fixed_20260702/deap_dgcnn_subject_service_replay.jsonl
+```
+
+This is better than strict cross-subject DEAP, but still not enough for a final
+live product model. It supports the next system plan: collect real 32-channel
+calibration EEG with the four-class paradigm, train/fine-tune a personal
+encoder, then align that encoder with EmotionCLIP and multimodal emotion CLIP.
+
 ## Why This Is Separate From `music-service`
 
 `music-service` generates offline WAV files with Stable Audio 3 Small Music.
