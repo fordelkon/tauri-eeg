@@ -46,6 +46,38 @@ uv run python server.py
 See [MODELS.md](./MODELS.md) for environment variables, model paths, ports, and
 verification commands.
 
+## SEED-IV Offline Replay Smoke Test
+
+Use local processed SEED-IV data to test the system contract before live EEG is
+available:
+
+```bash
+uv run python server.py
+```
+
+In another terminal:
+
+```bash
+uv run python tools/replay_seediv_to_service.py \
+  --data /home/bbbwa01/workspace/piplineegmus/data/processed/emotionclip_seediv_full_fixed \
+  --subject 1 \
+  --session 1 \
+  --per-class 2 \
+  --log runs/seediv_service_replay.jsonl
+```
+
+This uses SEED-IV labels as an oracle:
+
+```text
+neutral -> calm       -> neutral
+sad     -> depression -> sad
+fear    -> anxiety    -> fear
+happy   -> happy      -> happy
+```
+
+The purpose is to verify EEG emotion labels, latest-emotion state, and music
+control parameters. It does not validate a real live EEG classifier.
+
 ## Why This Is Separate From `music-service`
 
 `music-service` generates offline WAV files with Stable Audio 3 Small Music.
