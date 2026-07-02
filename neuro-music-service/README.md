@@ -130,6 +130,91 @@ uv run python tools/build_deap_manifest.py \
   --summary runs/deap_4class_summary.json
 ```
 
+## DEAP DGCNN Binary Encoder Experiment
+
+The stronger DEAP route should first train two binary EEG encoders instead of a
+direct four-class DGCNN:
+
+```text
+DEAP EEG -> DE band windows -> DGCNN valence binary head
+DEAP EEG -> DE band windows -> DGCNN arousal binary head
+```
+
+Then combine the two binary predictions into the four regulation classes:
+
+```text
+low valence + low arousal   -> depression -> sad
+low valence + high arousal  -> anxiety    -> fear
+high valence + low arousal  -> calm       -> neutral
+high valence + high arousal -> happy      -> happy
+```
+
+Remote training example:
+
+```bash
+CUDA_VISIBLE_DEVICES=4 python tools/train_deap_dgcnn_binary.py \
+  --source /root/piplineegmus/data/raw/DGCNN-DEAP \
+  --task valence \
+  --epochs 150 \
+  --batch-size 512 \
+  --lr 0.01 \
+  --out-dir runs/deap_dgcnn_binary_20260702 \
+  --cache-dir runs/deap_dgcnn_binary_20260702/cache
+
+CUDA_VISIBLE_DEVICES=5 python tools/train_deap_dgcnn_binary.py \
+  --source /root/piplineegmus/data/raw/DGCNN-DEAP \
+  --task arousal \
+  --epochs 150 \
+  --batch-size 512 \
+  --lr 0.01 \
+  --out-dir runs/deap_dgcnn_binary_20260702 \
+  --cache-dir runs/deap_dgcnn_binary_20260702/cache
+```
+
+After both runs finish:
+
+```bash
+python tools/combine_deap_binary_predictions.py \
+  --valence runs/deap_dgcnn_binary_20260702/deap_dgcnn_valence_predictions.jsonl \
+  --arousal runs/deap_dgcnn_binary_20260702/deap_dgcnn_arousal_predictions.jsonl \
+  --out runs/deap_dgcnn_binary_20260702/deap_dgcnn_combined_4class_predictions.jsonl \
+  --report runs/deap_dgcnn_binary_20260702/deap_dgcnn_combined_4class_report.json
+```
+
+The combined JSONL uses the same `pred_class` and `probabilities` fields as the
+existing service replay script:
+
+```bash
+python tools/replay_prediction_jsonl_to_service.py \
+  --predictions runs/deap_dgcnn_binary_20260702/deap_dgcnn_combined_4class_predictions.jsonl \
+  --log runs/deap_dgcnn_binary_20260702/deap_dgcnn_service_replay.jsonl
+```
+
+This experiment belongs to the EEG encoder/pretraining stage. A useful encoder
+can then be aligned to emotion text/audio/video CLIP embeddings before driving
+DEMON realtime controls.
+
+Current remote DEAP held-out-subject result on 2026-07-02:
+
+```text
+run: runs/deap_dgcnn_binary_20260702
+valence binary trial balanced accuracy: 0.4587
+arousal binary trial balanced accuracy: 0.5199
+combined four-class balanced accuracy: 0.2084
+service replay: runs/deap_dgcnn_binary_20260702/deap_dgcnn_service_replay.jsonl
+
+run: runs/deap_dgcnn_binary_20260702_lowreg
+valence binary trial balanced accuracy: 0.4678
+arousal binary trial balanced accuracy: 0.5337
+combined four-class balanced accuracy: 0.2301
+service replay: runs/deap_dgcnn_binary_20260702_lowreg/deap_dgcnn_service_replay.jsonl
+```
+
+Interpretation: the service workflow is now validated end to end, but these
+strict held-out-subject DEAP models are not accurate enough for real emotion
+recognition. The next accuracy step should use subject-dependent or few-shot
+personal calibration, then use the best encoder for EmotionCLIP alignment.
+
 ## Why This Is Separate From `music-service`
 
 `music-service` generates offline WAV files with Stable Audio 3 Small Music.

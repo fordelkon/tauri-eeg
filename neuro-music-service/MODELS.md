@@ -111,6 +111,51 @@ Real adapter requirements:
 - DE/PSD feature extraction or retraining for raw 32-channel input.
 - Per-user calibration or domain adaptation.
 
+Current DEAP encoder experiment:
+
+```text
+tools/train_deap_dgcnn_binary.py
+```
+
+Inputs:
+
+- Extracted DEAP preprocessed Python `.dat` files.
+- Expected source root:
+
+```text
+<data_root>/DGCNN-DEAP/dataset/DEAP/data_preprocessed_python/s01.dat ... s32.dat
+```
+
+Runtime packages:
+
+- Python 3.10+.
+- `torch`.
+- `numpy`.
+- `scipy`.
+- `scikit-learn`.
+
+Outputs:
+
+```text
+runs/deap_dgcnn_binary_*/deap_dgcnn_valence.pt
+runs/deap_dgcnn_binary_*/deap_dgcnn_valence_report.json
+runs/deap_dgcnn_binary_*/deap_dgcnn_valence_predictions.jsonl
+runs/deap_dgcnn_binary_*/deap_dgcnn_arousal.pt
+runs/deap_dgcnn_binary_*/deap_dgcnn_arousal_report.json
+runs/deap_dgcnn_binary_*/deap_dgcnn_arousal_predictions.jsonl
+```
+
+Combination into four regulation classes:
+
+```text
+tools/combine_deap_binary_predictions.py
+```
+
+The combined prediction JSONL can be replayed through
+`tools/replay_prediction_jsonl_to_service.py`. This validates the system
+contract, not live EEG inference. Live use still requires a calibrated adapter
+or a model trained on the actual 32-channel cap.
+
 Minimum calibration paradigm:
 
 - Session 1 records labeled video-induced EEG and self-report feedback.

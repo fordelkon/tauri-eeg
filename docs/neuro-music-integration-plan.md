@@ -160,6 +160,46 @@ For the first integrated product milestone, use a calibrated/session-adapted
 model or a mock/label-driven service mode. Do not claim strict zero-shot
 emotion recognition from arbitrary live users.
 
+## Corrected Experiment Route
+
+The current model-improvement route is:
+
+```text
+DEAP/SEED-IV EEG encoder pretraining
+-> EmotionCLIP EEG-text emotion alignment
+-> emotion text/audio/video CLIP alignment
+-> DEMON realtime music control
+```
+
+DGCNN is useful in this route as an EEG encoder baseline for DEAP, especially
+because DEAP provides valence and arousal ratings. It should not be treated as
+the final four-class application model by itself.
+
+The corrected DEAP experiment is:
+
+```text
+DEAP 32ch raw EEG
+-> differential entropy band windows
+-> DGCNN valence binary classifier
+-> DGCNN arousal binary classifier
+-> combine binary outputs into depression/anxiety/calm/happy
+-> replay through neuro-music-service
+```
+
+This preserves the regulation label contract while avoiding the known weakness
+of direct four-quadrant classification on DEAP. The two binary DGCNN encoders
+are candidates for the later EmotionCLIP alignment stage.
+
+If held-out-subject accuracy remains weak, the next accuracy-focused branch is
+not to force the four-class model. Instead:
+
+```text
+lower-regularization / multi-seed binary DGCNN
+-> subject-dependent or few-shot personal calibration
+-> optional SEED-IV/DEAP contrastive pretraining
+-> EmotionCLIP alignment
+```
+
 ## Real EEG Emotion Adapter Options
 
 ### Option A - SEED-IV Feature Adapter
