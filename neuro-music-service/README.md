@@ -92,10 +92,20 @@ In another terminal:
 
 ```bash
 uv run python tools/replay_deap_to_service.py \
-  --zip /home/bbbwa01/workspace/piplineegmus/data/raw/DGCNN-DEAP.zip \
+  --source /home/bbbwa01/workspace/piplineegmus/data/raw/DGCNN-DEAP.zip \
   --subject 1 \
   --per-class 2 \
   --log runs/deap_service_replay.jsonl
+```
+
+After full extraction, use the extracted directory instead:
+
+```bash
+uv run python tools/replay_deap_to_service.py \
+  --source /home/bbbwa01/workspace/piplineegmus/data/raw/DGCNN-DEAP \
+  --subject 1 \
+  --per-class 2 \
+  --log runs/deap_service_replay_extracted.jsonl
 ```
 
 DEAP labels are mapped with a 5.0 threshold on the 1-9 rating scale:
@@ -109,6 +119,16 @@ high valence + high arousal -> happy     -> happy
 
 This validates the valence/arousal-to-regulation strategy. It is still an
 oracle-label replay, not a trained DEAP EEG classifier.
+
+Build a full 32-subject manifest for later model training:
+
+```bash
+uv run python tools/build_deap_manifest.py \
+  --source /home/bbbwa01/workspace/piplineegmus/data/raw/DGCNN-DEAP \
+  --subjects all \
+  --out runs/deap_4class_manifest.csv \
+  --summary runs/deap_4class_summary.json
+```
 
 ## Why This Is Separate From `music-service`
 

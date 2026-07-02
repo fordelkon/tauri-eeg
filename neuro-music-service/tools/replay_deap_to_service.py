@@ -24,6 +24,7 @@ import numpy as np
 
 
 DEAP_ZIP_PREFIX = "DGCNN-DEAP/dataset/DEAP/data_preprocessed_python"
+DEAP_DIR_RELATIVE = Path("dataset/DEAP/data_preprocessed_python")
 
 PARADIGM = {
     "depression": {"system_emotion": "sad", "trigger_class": 1},
@@ -55,14 +56,25 @@ def get_json(base_url: str, path: str, timeout: float) -> dict[str, Any]:
         return json.loads(response.read().decode("utf-8"))
 
 
-def load_deap_labels(zip_path: Path, subject: int) -> np.ndarray:
-    member = f"{DEAP_ZIP_PREFIX}/s{subject:02d}.dat"
-    with zipfile.ZipFile(zip_path) as archive:
-        with archive.open(member) as file:
-            obj = pickle.load(file, encoding="latin1")
+def load_deap_subject(source: Path, subject: int) -> dict[str, Any]:
+    if source.is_file():
+        member = f"{DEAP_ZIP_PREFIX}/s{subject:02d}.dat"
+        with zipfile.ZipFile(source) as archive:
+            with archive.open(member) as file:
+                return pickle.load(file, encoding="latin1")
+
+    dat_path = source / DEAP_DIR_RELATIVE / f"s{subject:02d}.dat"
+    if not dat_path.is_file():
+        raise FileNotFoundError(f"DEAP subject file not found: {dat_path}")
+    with dat_path.open("rb") as file:
+        return pickle.load(file, encoding="latin1")
+
+
+def load_deap_labels(source: Path, subject: int) -> np.ndarray:
+    obj = load_deap_subject(source, subject)
     labels = np.asarray(obj["labels"], dtype=np.float64)
     if labels.shape != (40, 4):
-        raise RuntimeError(f"unexpected DEAP label shape for {member}: {labels.shape}")
+        raise RuntimeError(f"unexpected DEAP label shape for subject {subject}: {labels.shape}")
     return labels
 
 
@@ -106,7 +118,12 @@ def write_jsonl(path: Path, row: dict[str, Any]) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--zip", type=Path, required=True, help="DGCNN-DEAP.zip path.")
+    parser.add_argument(
+        "--source",
+        type=Path,
+        help="DGCNN-DEAP.zip path or extracted DGCNN-DEAP directory.",
+    )
+    parser.add_argument("--zip", type=Path, help="Deprecated alias for --source.")
     parser.add_argument("--subject", type=int, default=1)
     parser.add_argument("--per-class", type=int, default=2)
     parser.add_argument("--threshold", type=float, default=5.0)
@@ -119,7 +136,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    labels = load_deap_labels(args.zip, args.subject)
+    source = args.source or args.zip
+    if source is None:
+        raise SystemExit("provide --source /path/to/DGCNN-DEAP.zip or /path/to/DGCNN-DEAP")
+    labels = load_deap_labels(source, args.subject)
     trial_indices = select_trials(labels, args.per_class, args.threshold)
     health = get_json(args.service_url, "/health", args.timeout)
     session = post_json(
