@@ -262,11 +262,13 @@ Implementation note:
 
 For real personal EEG collected from the 32-channel cap, the system should run
 an emotion calibration paradigm before claiming reliable live emotion
-recognition. The old `emotionBCI/emo_bci` design is a suitable starting point:
+recognition. The old `emotionBCI/emo_bci` design is a useful starting point,
+but the production regulation system should use a smaller four-class paradigm
+that matches the actual intervention targets:
 
 ```text
 Session 1 - Baseline / labeled induction
-  -> 20 video trials across 7 emotions
+  -> 20 video trials across 4 emotions
   -> collect raw 32ch EEG with trigger start/end timestamps
   -> collect subject self-report after each trial
   -> train or adapt a personal emotion classifier
@@ -277,17 +279,29 @@ Session 2 - Regulation / feedback validation
   -> collect feedback and compare with Session 1 baseline
 ```
 
-The referenced paradigm uses seven induced emotion labels:
+The formal labels are:
 
 ```text
-1 Anxiety
-2 Depression
-3 Fear
-4 Happy
-5 Joy
-6 Neutral
-7 Surprise
+1 Depression -> system emotion sad
+2 Anxiety    -> system emotion fear
+3 Calm       -> system emotion neutral
+4 Happy      -> system emotion happy
 ```
+
+Each class needs at least five induction videos for the minimum runnable
+paradigm. That gives 20 baseline trials per session:
+
+```text
+Depression 5 trials
+Anxiety    5 trials
+Calm       5 trials
+Happy      5 trials
+Total     20 trials / session
+```
+
+This is the minimum for system integration and first personal calibration, not
+the recommended final research sample size. If model stability is weak, increase
+the number of trials per class before adding more emotion categories.
 
 Each trial has four phases:
 
@@ -301,36 +315,96 @@ source on port 9687. The current Tauri backend usually exposes 32 channels at
 blocking issue, but the calibration recorder must persist the actual sampling
 rate, channel ids, trigger times, and device metadata for every trial.
 
-### Label Mapping To The Current System
+### Label Space
 
-The realtime system contract currently uses the four SEED-IV-compatible labels:
+The realtime system contract uses the four SEED-IV-compatible labels:
 
 ```text
 neutral, sad, fear, happy
 ```
 
-Use this first mapping for integration:
+The four-class paradigm maps directly to that contract:
 
 ```text
-Anxiety    -> fear
-Fear       -> fear
 Depression -> sad
+Anxiety    -> fear
+Calm       -> neutral
 Happy      -> happy
-Joy        -> happy
-Neutral    -> neutral
-Surprise   -> unknown/high-arousal until self-report resolves valence
 ```
 
-If the product needs a richer video recommendation policy, keep the original
-7-class label in metadata and expose both fields:
+Do not train `Fear`, `Joy`, or `Surprise` as formal classes for the minimum
+system module. They can remain in an exploratory stimulus pool, but adding them
+to the classifier increases confusion without adding a direct regulation action:
 
 ```text
-raw_emotion_label: Anxiety | Depression | Fear | Happy | Joy | Neutral | Surprise
+Fear     overlaps operationally with Anxiety / high-arousal negative
+Joy      overlaps operationally with Happy / positive
+Surprise has unstable valence and should be resolved by self-report first
+```
+
+Expose both the paradigm label and the system label so later modules can choose
+the level they need:
+
+```text
+paradigm_emotion: Depression | Anxiety | Calm | Happy
 system_emotion: neutral | sad | fear | happy
 valence: float
 arousal: float
 confidence: float
 ```
+
+### Music Regulation Strategy
+
+The realtime music module should not simply mirror the detected emotion. It
+should generate or steer music toward the desired regulation direction:
+
+```text
+Detected depression / sad
+  -> goal: raise valence and gently raise arousal
+  -> music: warm major/minor-to-major harmony, moderate tempo, gradual energy
+  -> avoid: very slow, sparse, dark, or rumination-heavy textures
+  -> DEMON control: increase positive timbre channels, moderate guidance,
+     slowly reduce sad-channel emphasis after the first adaptation window
+
+Detected anxiety / fear
+  -> goal: lower arousal first, then stabilize valence
+  -> music: steady low-to-mid tempo, soft attack, predictable rhythm,
+     low dissonance, breathing-like phrasing
+  -> avoid: abrupt transitions, high percussion density, sharp transients,
+     fast tempo, high-frequency tension
+  -> DEMON control: reduce arousal/shift intensity, keep denoise moderate,
+     favor calm/neutral texture and smooth changes
+
+Detected calm / neutral
+  -> goal: maintain stable low arousal and prevent drift to negative state
+  -> music: ambient, light acoustic/electronic texture, stable tempo,
+     low novelty, low dynamic range
+  -> avoid: strong emotional pushes unless the user asks for activation
+  -> DEMON control: conservative parameter changes, low feedback depth,
+     neutral channel emphasis
+
+Detected happy
+  -> goal: maintain positive valence without overstimulation
+  -> music: bright harmony, moderate rhythmic motion, melodic continuity,
+     controlled energy
+  -> avoid: excessive intensity that could push anxious arousal
+  -> DEMON control: maintain positive timbre channels, cap arousal-related
+     shift/guidance, keep transitions smooth
+```
+
+The same emotion label can also drive video recommendation, but the target is
+the same regulation intent rather than a music-specific control:
+
+```text
+sad        -> positive activation content
+fear       -> calming / grounding content
+neutral    -> maintenance content
+happy      -> positive maintenance content
+```
+
+For safety, changes should be gradual. A detected label should be smoothed over
+multiple EEG windows before large music-control changes, and user override must
+take priority over automatic steering.
 
 ### Minimum Data Contract For Calibration
 
@@ -341,7 +415,7 @@ subject_id
 session_id
 trial_id
 phase
-raw_emotion_label
+paradigm_emotion
 system_emotion
 video_id / video_path
 trigger_start_ts
@@ -365,16 +439,13 @@ emotion label for music and video modules.
 
 1. Add a calibration recorder that writes session/trial metadata and raw 32ch
    EEG windows from the existing EEG backend.
-2. Reuse the `emotionBCI` video-folder organization for induction stimuli:
+2. Use the four-class video-folder organization for induction stimuli:
 
 ```text
-database/Anxiety
 database/Depression
-database/Fear
+database/Anxiety
+database/Calm
 database/Happy
-database/Joy
-database/Neutral
-database/Surprise
 ```
 
 3. Train Option C first: bandpass/notch filtering, Hjorth or band covariance

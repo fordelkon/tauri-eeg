@@ -152,6 +152,10 @@ def infer_mock_emotion(request: EegEmotionRequest) -> EegEmotionResponse:
         emotion = "sad"
     elif request.trigger_class == 2:
         emotion = "fear"
+    elif request.trigger_class == 3:
+        emotion = "neutral"
+    elif request.trigger_class == 4:
+        emotion = "happy"
     elif request.trigger_class == 255:
         emotion = "happy"
     else:

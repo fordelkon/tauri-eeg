@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -25,6 +26,23 @@ def test_trigger_class_maps_to_eeg_emotion_label() -> None:
     assert response.emotion == "fear"
     assert response.probabilities["fear"] == response.confidence
     assert response.source == "test"
+
+
+def test_four_class_paradigm_contract_is_minimum_runnable() -> None:
+    config_path = Path(__file__).resolve().parents[1] / "config" / "eeg_emotion_paradigm.json"
+    paradigm = json.loads(config_path.read_text(encoding="utf-8"))
+
+    classes = paradigm["classes"]
+    assert paradigm["minimum_videos_per_class"] == 5
+    assert paradigm["trials_per_class_per_session"] == 5
+    assert {item["paradigm_emotion"] for item in classes} == {
+        "depression",
+        "anxiety",
+        "calm",
+        "happy",
+    }
+    assert {item["system_emotion"] for item in classes} == {"sad", "fear", "neutral", "happy"}
+    assert {item["trigger_class"] for item in classes} == {1, 2, 3, 4}
 
 
 def test_emotion_control_maps_to_safe_demon_knobs() -> None:

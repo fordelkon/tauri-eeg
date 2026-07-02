@@ -1,0 +1,56 @@
+{
+  "version": "emotion-regulation-4class-v1",
+  "description": "Minimum personal 32-channel EEG emotion calibration paradigm for realtime music and video regulation.",
+  "minimum_videos_per_class": 5,
+  "trials_per_class_per_session": 5,
+  "sessions": [
+    {
+      "id": 1,
+      "name": "baseline_induction",
+      "feedback_enabled": false
+    },
+    {
+      "id": 2,
+      "name": "regulation_feedback",
+      "feedback_enabled": true
+    }
+  ],
+  "classes": [
+    {
+      "trigger_class": 1,
+      "paradigm_emotion": "depression",
+      "display_name": "Depression",
+      "system_emotion": "sad",
+      "video_folder": "database/Depression",
+      "target_valence": "negative",
+      "target_arousal": "low_to_medium"
+    },
+    {
+      "trigger_class": 2,
+      "paradigm_emotion": "anxiety",
+      "display_name": "Anxiety",
+      "system_emotion": "fear",
+      "video_folder": "database/Anxiety",
+      "target_valence": "negative",
+      "target_arousal": "high"
+    },
+    {
+      "trigger_class": 3,
+      "paradigm_emotion": "calm",
+      "display_name": "Calm",
+      "system_emotion": "neutral",
+      "video_folder": "database/Calm",
+      "target_valence": "neutral_to_positive",
+      "target_arousal": "low"
+    },
+    {
+      "trigger_class": 4,
+      "paradigm_emotion": "happy",
+      "display_name": "Happy",
+      "system_emotion": "happy",
+      "video_folder": "database/Happy",
+      "target_valence": "positive",
+      "target_arousal": "medium"
+    }
+  ]
+}

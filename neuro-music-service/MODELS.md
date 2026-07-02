@@ -117,22 +117,45 @@ Minimum calibration paradigm:
 - Train a personal baseline model from the recorded 32-channel windows.
 - Session 2 runs live regulation and validates whether music/video feedback
   changes the user's EEG emotion state.
-- Keep both the raw 7-class induction label and the 4-class system label:
+- Use the four formal regulation classes from
+  `config/eeg_emotion_paradigm.json`.
+- Each class needs at least five induction videos for the minimum runnable
+  paradigm.
+- Keep both the paradigm label and the system label:
 
 ```text
-Anxiety/Fear -> fear
 Depression -> sad
-Happy/Joy -> happy
-Neutral -> neutral
-Surprise -> unknown or mapped by self-report valence/arousal
+Anxiety -> fear
+Calm -> neutral
+Happy -> happy
 ```
 
 Required saved metadata:
 
 ```text
-subject_id, session_id, trial_id, raw_emotion_label, system_emotion,
+subject_id, session_id, trial_id, paradigm_emotion, system_emotion,
 video_id, trigger_start_ts, trigger_end_ts, sample_rate_hz, channel_ids,
 recording_path, self_report_valence, self_report_arousal
+```
+
+Music regulation policy:
+
+```text
+sad / depression
+  goal: raise valence, gently raise arousal
+  music: warm, gradual, moderate tempo, positive progression
+
+fear / anxiety
+  goal: lower arousal, stabilize valence
+  music: steady, soft, predictable, low dissonance, no abrupt transitions
+
+neutral / calm
+  goal: maintain stable low arousal
+  music: ambient, light texture, low novelty, conservative changes
+
+happy
+  goal: maintain positive valence without overstimulation
+  music: bright, melodic, moderate energy, smooth transitions
 ```
 
 Do not claim strict unseen-subject zero-shot emotion recognition until this path
