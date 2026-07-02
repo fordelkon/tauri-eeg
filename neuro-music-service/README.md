@@ -78,6 +78,38 @@ happy   -> happy      -> happy
 The purpose is to verify EEG emotion labels, latest-emotion state, and music
 control parameters. It does not validate a real live EEG classifier.
 
+## DEAP Offline Replay Smoke Test
+
+Use DEAP valence/arousal ratings to test the same contract with 32-channel
+music-video emotion data. The script reads the zipped DEAP `.dat` file directly
+and does not require extracting the full 27 GB archive.
+
+```bash
+uv run python server.py
+```
+
+In another terminal:
+
+```bash
+uv run python tools/replay_deap_to_service.py \
+  --zip /home/bbbwa01/workspace/piplineegmus/data/raw/DGCNN-DEAP.zip \
+  --subject 1 \
+  --per-class 2 \
+  --log runs/deap_service_replay.jsonl
+```
+
+DEAP labels are mapped with a 5.0 threshold on the 1-9 rating scale:
+
+```text
+low valence + low arousal  -> depression -> sad
+low valence + high arousal -> anxiety    -> fear
+high valence + low arousal -> calm       -> neutral
+high valence + high arousal -> happy     -> happy
+```
+
+This validates the valence/arousal-to-regulation strategy. It is still an
+oracle-label replay, not a trained DEAP EEG classifier.
+
 ## Why This Is Separate From `music-service`
 
 `music-service` generates offline WAV files with Stable Audio 3 Small Music.
