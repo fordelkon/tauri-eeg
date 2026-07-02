@@ -1,0 +1,134 @@
+.panel {
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(23, 32, 38, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(23, 32, 38, 0.06);
+  display: grid;
+  gap: 12px;
+  max-width: 500px;
+  padding: 12px;
+}
+
+.header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header span,
+.metrics span {
+  color: rgba(23, 32, 38, 0.54);
+  display: block;
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header strong {
+  color: #172026;
+  display: block;
+  font-size: 15px;
+  font-weight: 760;
+  margin-top: 3px;
+}
+
+.idlePill,
+.livePill {
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 760;
+  min-height: 28px;
+  padding: 6px 10px;
+}
+
+.idlePill {
+  background: rgba(84, 96, 104, 0.12);
+  color: #46525a;
+}
+
+.livePill {
+  background: rgba(34, 139, 94, 0.12);
+  color: #17633f;
+}
+
+.metrics {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metrics div {
+  background: rgba(23, 32, 38, 0.05);
+  border-radius: 8px;
+  min-width: 0;
+  padding: 9px;
+}
+
+.metrics strong {
+  color: #172026;
+  display: block;
+  font-size: 14px;
+  font-weight: 760;
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.actions button {
+  align-items: center;
+  background: #172026;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 760;
+  gap: 6px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 8px;
+}
+
+.actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.statusLine,
+.note {
+  color: rgba(23, 32, 38, 0.64);
+  font-size: 12px;
+  font-weight: 640;
+}
+
+.error {
+  background: rgba(196, 58, 48, 0.1);
+  border: 1px solid rgba(196, 58, 48, 0.22);
+  border-radius: 8px;
+  color: #8d2d25;
+  font-size: 12px;
+  font-weight: 680;
+  padding: 8px 10px;
+}
+
+@media (max-width: 720px) {
+  .actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+}
+

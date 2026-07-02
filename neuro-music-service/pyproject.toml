@@ -1,0 +1,14 @@
+[project]
+name = "neuro-music-service"
+version = "0.1.0"
+description = "Realtime EEG emotion music control service for tauri-eeg"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.115.0",
+  "pydantic>=2.8.0",
+  "uvicorn>=0.30.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

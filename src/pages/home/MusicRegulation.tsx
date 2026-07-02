@@ -24,6 +24,7 @@ import {
   getNextOpenTagSelector,
   type CompactTagOption,
 } from '../../music/musicRegulationTags';
+import RealtimeNeuroMusicPanel from '../../neuroMusic/RealtimeNeuroMusicPanel';
 import styles from './MusicRegulation.module.css';
 
 const bundledMusicFiles = [] as const;
@@ -757,6 +758,8 @@ export default function MusicRegulation() {
             </button>
           </div>
         </form>
+
+        <RealtimeNeuroMusicPanel currentUser={currentUser} />
 
         <div className={`${styles.lowerGrid} grid items-start`}>
           <div className="min-w-0">

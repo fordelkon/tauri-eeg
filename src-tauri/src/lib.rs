@@ -3,6 +3,8 @@ mod config;
 mod db;
 mod eeg;
 mod music_history;
+mod neuro_music_client;
+mod neuro_music_service;
 mod python_client;
 mod python_service;
 mod storage_paths;
@@ -15,6 +17,11 @@ use eeg::{
     StartEegRecordingInput,
 };
 use music_history::MusicHistoryItem;
+use neuro_music_client::{
+    EegEmotionPredictRequest, EegEmotionResponse, NeuroEmotionControlRequest, NeuroMusicClient,
+    NeuroMusicHealthResponse, NeuroMusicSessionStatus, StartNeuroMusicSessionRequest,
+};
+use neuro_music_service::NeuroMusicServiceManager;
 use python_client::{GenerateRequest, HealthResponse, PythonClient};
 use python_service::PythonServiceManager;
 use serde::Deserialize;
@@ -152,6 +159,36 @@ struct DeleteMusicHistoryInput {
     item_id: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StartNeuroMusicInput {
+    user_id: String,
+    username: String,
+    mode: String,
+    prompt: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PredictEegEmotionInput {
+    channel_ids: Vec<String>,
+    sample_rate_hz: u32,
+    started_at_ms: Option<i64>,
+    samples: Vec<Vec<f32>>,
+    trigger_class: Option<u8>,
+    source: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct NeuroEmotionControlInput {
+    emotion: String,
+    probabilities: std::collections::HashMap<String, f64>,
+    valence: f64,
+    arousal: f64,
+    playback_pos: Option<f64>,
+}
+
 #[tauri::command]
 async fn generate_music(
     app: tauri::AppHandle,
@@ -214,6 +251,106 @@ async fn get_music_service_health(
 
     PythonClient::new(service.base_url().to_string())
         .health()
+        .await
+}
+
+#[tauri::command]
+async fn get_neuro_music_health(
+    service: State<'_, NeuroMusicServiceManager>,
+) -> Result<NeuroMusicHealthResponse, String> {
+    service.ensure_running().await?;
+
+    NeuroMusicClient::new(service.base_url().to_string())
+        .health()
+        .await
+}
+
+#[tauri::command]
+async fn predict_eeg_emotion(
+    service: State<'_, NeuroMusicServiceManager>,
+    input: PredictEegEmotionInput,
+) -> Result<EegEmotionResponse, String> {
+    service.ensure_running().await?;
+
+    NeuroMusicClient::new(service.base_url().to_string())
+        .predict_eeg_emotion(&EegEmotionPredictRequest {
+            channel_ids: input.channel_ids,
+            sample_rate_hz: input.sample_rate_hz,
+            started_at_ms: input.started_at_ms,
+            samples: input.samples,
+            trigger_class: input.trigger_class,
+            source: input
+                .source
+                .unwrap_or_else(|| "tauri-eeg-live-32ch".to_string()),
+        })
+        .await
+}
+
+#[tauri::command]
+async fn get_latest_eeg_emotion(
+    service: State<'_, NeuroMusicServiceManager>,
+) -> Result<EegEmotionResponse, String> {
+    service.ensure_running().await?;
+
+    NeuroMusicClient::new(service.base_url().to_string())
+        .latest_eeg_emotion()
+        .await
+}
+
+#[tauri::command]
+async fn start_neuro_music_session(
+    service: State<'_, NeuroMusicServiceManager>,
+    input: StartNeuroMusicInput,
+) -> Result<NeuroMusicSessionStatus, String> {
+    service.ensure_running().await?;
+
+    NeuroMusicClient::new(service.base_url().to_string())
+        .start_session(&StartNeuroMusicSessionRequest {
+            user_id: input.user_id,
+            username: input.username,
+            mode: input.mode,
+            prompt: input.prompt,
+        })
+        .await
+}
+
+#[tauri::command]
+async fn stop_neuro_music_session(
+    service: State<'_, NeuroMusicServiceManager>,
+) -> Result<NeuroMusicSessionStatus, String> {
+    service.ensure_running().await?;
+
+    NeuroMusicClient::new(service.base_url().to_string())
+        .stop_session()
+        .await
+}
+
+#[tauri::command]
+async fn get_neuro_music_session_status(
+    service: State<'_, NeuroMusicServiceManager>,
+) -> Result<NeuroMusicSessionStatus, String> {
+    service.ensure_running().await?;
+
+    NeuroMusicClient::new(service.base_url().to_string())
+        .session_status()
+        .await
+}
+
+#[tauri::command]
+async fn send_neuro_music_emotion_control(
+    service: State<'_, NeuroMusicServiceManager>,
+    input: NeuroEmotionControlInput,
+) -> Result<NeuroMusicSessionStatus, String> {
+    service.ensure_running().await?;
+
+    NeuroMusicClient::new(service.base_url().to_string())
+        .control_emotion(&NeuroEmotionControlRequest {
+            emotion: input.emotion,
+            probabilities: input.probabilities,
+            valence: input.valence,
+            arousal: input.arousal,
+            playback_pos: input.playback_pos.unwrap_or(0.0),
+        })
         .await
 }
 
@@ -311,6 +448,7 @@ pub fn run() {
         .manage(app_db)
         .manage(EegStreamState::default())
         .manage(PythonServiceManager::new())
+        .manage(NeuroMusicServiceManager::new())
         .invoke_handler(tauri::generate_handler![
             register_user,
             login_user,
@@ -323,6 +461,13 @@ pub fn run() {
             list_eeg_sessions,
             generate_music,
             get_music_service_health,
+            get_neuro_music_health,
+            predict_eeg_emotion,
+            get_latest_eeg_emotion,
+            start_neuro_music_session,
+            stop_neuro_music_session,
+            get_neuro_music_session_status,
+            send_neuro_music_emotion_control,
             list_music_history,
             delete_music_history,
             get_storage_location,
