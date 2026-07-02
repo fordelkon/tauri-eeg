@@ -34,3 +34,21 @@ set NEURO_MUSIC_DEMON_CONTROL_URL=http://127.0.0.1:1319
 uv run python server.py
 ```
 
+## Runtime Modes
+
+- `mock`: no models required; validates the Tauri UI, EEG emotion label contract,
+  and music/video consumer contract.
+- `demon`: forwards emotion-derived controls to an already-running DEMON
+  control bus.
+- `real-eeg-emotion`: reserved for a future calibrated EmotionCLIP or 32-channel
+  live EEG model adapter.
+
+See [MODELS.md](./MODELS.md) for environment variables, model paths, ports, and
+verification commands.
+
+## Why This Is Separate From `music-service`
+
+`music-service` generates offline WAV files with Stable Audio 3 Small Music.
+`neuro-music-service` is a realtime control-plane service. It publishes the
+latest EEG emotion label as a shared system signal so Music Regulation and
+future Video Recommendation can consume the same label.
