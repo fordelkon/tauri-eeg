@@ -11,6 +11,26 @@ type Props = {
   children?: ReactNode;
 };
 
+const dimensionLabels: Record<string, string> = {
+  anxiety: '焦虑',
+  energy: '精力',
+  mood: '情绪',
+  worry: '担忧',
+};
+
+const scaleTitleLabels: Record<string, string> = {
+  'Average Baseline': '平均基线',
+  'Game Regulation Scale': '游戏调控量表',
+  'Music Regulation Scale': '音乐调控量表',
+  'Video Regulation Scale': '视频调控量表',
+  '游戏调控量表': '游戏调控量表',
+  '音乐调控量表': '音乐调控量表',
+  '视频调控量表': '视频调控量表',
+};
+
+const getDimensionLabel = (key: string, fallback: string) => dimensionLabels[key] ?? fallback;
+const getScaleTitleLabel = (title: string) => scaleTitleLabels[title] ?? title;
+
 export default function GlobalMentalScalePanel({ children }: Props) {
   const chartRef = useRef<HTMLDivElement | null>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
@@ -53,7 +73,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
         radius: '68%',
         center: ['50%', '52%'],
         indicator: status.dimensions.map((dimension) => ({
-          name: dimension.label,
+          name: getDimensionLabel(dimension.key, dimension.label),
           max: 100,
         })),
         axisName: {
@@ -86,7 +106,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
           data: [
             {
               value: status.dimensions.map((dimension) => dimension.value),
-              name: 'Mental state',
+              name: '心理状态',
               areaStyle: {
                 color: 'rgba(223, 2, 3, 0.18)',
               },
@@ -124,15 +144,15 @@ export default function GlobalMentalScalePanel({ children }: Props) {
       hour: '2-digit',
       minute: '2-digit',
     }).format(new Date(status.updatedAt))
-    : 'Baseline';
+    : '基线';
 
   return (
-    <aside className={styles.panel} aria-label="Global mental scale status">
+    <aside className={styles.panel} aria-label="全局心理量表状态">
       <div className={styles.header}>
-        <span className={styles.eyebrow}>Mental Scale</span>
-        <h2 className={styles.headline}>Emotion Radar</h2>
+        <span className={styles.eyebrow}>心理量表</span>
+        <h2 className={styles.headline}>心理状态雷达图</h2>
         <p className={styles.summary}>
-          {status.lastScaleTitle} · {updatedLabel}
+          {getScaleTitleLabel(status.lastScaleTitle)} · {updatedLabel}
         </p>
       </div>
 
@@ -141,7 +161,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
           ref={chartRef}
           className={styles.radar}
           role="img"
-          aria-label="Six dimension mental state radar chart"
+          aria-label="心理状态雷达图"
         />
       </div>
 

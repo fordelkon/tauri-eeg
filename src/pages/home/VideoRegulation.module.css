@@ -181,6 +181,59 @@
   gap: 9px;
 }
 
+.tagGroupSections {
+  gap: 10px;
+}
+
+.tagGroupSection {
+  background: rgba(23, 32, 38, 0.035);
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tagGroupSummary {
+  color: #172026;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 760;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 12px;
+  user-select: none;
+}
+
+.tagGroupSummary::-webkit-details-marker {
+  display: none;
+}
+
+.tagGroupSummary::before {
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid rgba(23, 32, 38, 0.54);
+  border-top: 5px solid transparent;
+  content: "";
+  flex: none;
+  height: 0;
+  transition: transform 160ms ease;
+  width: 0;
+}
+
+.tagGroupSection[open] .tagGroupSummary::before {
+  transform: rotate(90deg);
+}
+
+.tagGroupSummary strong {
+  color: rgba(23, 32, 38, 0.54);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.tagGroupSection .tagList {
+  border-top: 1px solid rgba(23, 32, 38, 0.08);
+  padding: 12px;
+}
+
 .selectionTrail {
   gap: 8px;
   grid-template-columns: repeat(5, minmax(0, 1fr));

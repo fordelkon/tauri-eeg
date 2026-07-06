@@ -13,14 +13,14 @@ export default function GameRegulation() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <p className={styles.eyebrow}>Game Regulation</p>
-        <h1>VR and AR Regulation</h1>
+        <p className={styles.eyebrow}>游戏调控</p>
+        <h1>VR 与 AR 调控</h1>
         <p>
-          Select a regulation scene entry. Internal game launch and device integration will be connected later.
+          选择一个调控场景入口，内部游戏启动与设备联动后续接入。
         </p>
       </header>
 
-      <section className={styles.grid} aria-label="VR and AR game regulation entries">
+      <section className={styles.grid} aria-label="VR 与 AR 游戏调控入口">
         {gameRegulationOptions.map((option) => {
           const Icon = modeIcon[option.mode];
 

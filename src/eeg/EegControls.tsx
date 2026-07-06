@@ -59,7 +59,7 @@ export default function EegControls({
         disabled={!canStartDevice}
         onClick={onStartDevice}
       >
-        {deviceStatus === 'starting' ? 'Retry Start' : 'Start Device'}
+        {deviceStatus === 'starting' ? '重新连接' : '启动设备'}
       </Button>
       <Button
         className={styles.controlButton}
@@ -69,7 +69,7 @@ export default function EegControls({
         disabled={!canStopDevice}
         onClick={onStopDevice}
       >
-        Stop Device
+        停止设备
       </Button>
       <Button
         className={styles.controlButton}
@@ -79,7 +79,7 @@ export default function EegControls({
         disabled={!canStartRecord}
         onClick={onStartRecord}
       >
-        Start Record
+        开始记录
       </Button>
       <Button
         className={styles.controlButton}
@@ -89,7 +89,7 @@ export default function EegControls({
         disabled={!canPauseRecord && !canResumeRecord}
         onClick={canResumeRecord ? onResumeRecord : onPauseRecord}
       >
-        {canResumeRecord ? 'Resume Record' : 'Pause Record'}
+        {canResumeRecord ? '继续记录' : '暂停记录'}
       </Button>
       <Button
         className={styles.controlButton}
@@ -99,16 +99,16 @@ export default function EegControls({
         disabled={!canStopRecord}
         onClick={onStopRecord}
       >
-        Stop Record
+        停止记录
       </Button>
       <Button className={styles.controlButton} variant="outlined" startIcon={<RestartAltRoundedIcon />} onClick={onReset}>
-        Reset View
+        重置视图
       </Button>
       <TextField
         className={styles.controlSelect}
         select
         size="small"
-        label="Window"
+        label="窗口"
         value={timeWindowSeconds}
         onChange={(event) => onTimeWindowChange(Number(event.target.value))}
       >
@@ -120,7 +120,7 @@ export default function EegControls({
         className={styles.controlSelect}
         select
         size="small"
-        label="Scale"
+        label="幅度"
         value={amplitudeUvPerDiv}
         onChange={(event) => onAmplitudeChange(Number(event.target.value))}
       >

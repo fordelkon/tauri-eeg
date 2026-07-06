@@ -14,8 +14,8 @@ export default function EegChannelList({ channels, visibleChannelIds, onToggleCh
   const isAtVisibleLimit = selectedCount >= MAX_VISIBLE_EEG_CHANNELS;
 
   return (
-    <aside className={styles.channelPanel} aria-label="EEG channel visibility">
-      <div className={styles.panelTitle}>Channels {selectedCount}/{channels.length}</div>
+    <aside className={styles.channelPanel} aria-label="EEG通道显示">
+      <div className={styles.panelTitle}>通道 {selectedCount}/{channels.length}</div>
       <div className={styles.channelToggleGrid}>
         {channels.map((channel) => {
           const checked = visibleChannelIds.has(channel.id);

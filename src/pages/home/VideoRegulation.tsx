@@ -2,7 +2,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import SlideshowRoundedIcon from '@mui/icons-material/SlideshowRounded';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { type CSSProperties, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type MouseEvent, useEffect, useMemo, useState } from 'react';
 import { chooseVideoLibraryFolder } from '../../video/videoDirectoryPicker';
 import type { VideoLibrary } from '../../video/videoLibraryApi';
 import {
@@ -26,6 +26,54 @@ import styles from './VideoRegulation.module.css';
 
 const tagColors = ['#48a868', '#e16d4f', '#e3a22c', '#4d7fc8', '#9c6ade'] as const;
 
+type TagOptionGroup = {
+  label: string;
+  values: readonly string[];
+};
+
+const tagOptionGroups: readonly TagOptionGroup[] = [
+  {
+    label: '山林植被',
+    values: ['密林', '树木', '自然', '山林', '植被', '森林', '秋叶', '群山', '山谷'],
+  },
+  {
+    label: '水域海岸',
+    values: ['海岸', '海景', '海滩', '礁石', '浪花', '水面', '栈桥', '码头', '船帆'],
+  },
+  {
+    label: '天气天空',
+    values: ['阴天', '浓雾', '晨雾', '薄雾', '风雨', '云层', '云雾', '云海', '云天', '天际', '地平线', '霞光'],
+  },
+  {
+    label: '色调光影',
+    values: ['翠绿', '青绿', '灰蓝', '灰蓝调', '暖蓝', '暖调', '暗调', '暗蓝', '蓝灰', '灰调', '紫调', '金黄', '暮色', '黄昏'],
+  },
+  {
+    label: '情绪氛围',
+    values: [
+      '清幽',
+      '壮阔',
+      '温暖',
+      '神秘',
+      '宁静',
+      '沉静',
+      '粗犷',
+      '开阔',
+      '苍凉',
+      '治愈',
+      '平静',
+      '深沉',
+      '幽暗',
+      '空灵',
+      '朦胧',
+      '层叠',
+      '素雅',
+      '悠远',
+      '温柔',
+    ],
+  },
+] as const;
+
 type TagGroupProps = {
   colors: readonly string[];
   label: string;
@@ -34,6 +82,107 @@ type TagGroupProps = {
   onSelect: (value: string) => void;
 };
 
+type TagButtonListProps = {
+  colors: readonly string[];
+  options: readonly CompactTagOption[];
+  selectedValue: string;
+  onSelect: (value: string) => void;
+};
+
+function TagButtonList({ colors, options, selectedValue, onSelect }: TagButtonListProps) {
+  return (
+    <div className={`${styles.tagList} flex flex-wrap`}>
+      {options.map((option, index) => {
+        const selected = selectedValue === option.value;
+
+        return (
+          <button
+            key={option.value}
+            className={`${styles.tagButton} ${selected ? styles.activeTagButton : ''}`}
+            style={{ '--tag-color': colors[index % colors.length] } as CSSProperties}
+            type="button"
+            onClick={() => onSelect(option.value)}
+          >
+            <span aria-hidden="true" />
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function getGroupedTagOptions(options: readonly CompactTagOption[]) {
+  const optionByValue = new Map(options.map((option) => [option.value, option]));
+  const groupedValues = new Set<string>();
+  const groups = tagOptionGroups
+    .map((group) => {
+      const groupOptions = group.values
+        .map((value) => optionByValue.get(value))
+        .filter((option): option is CompactTagOption => Boolean(option));
+
+      groupOptions.forEach((option) => groupedValues.add(option.value));
+
+      return {
+        label: group.label,
+        options: groupOptions,
+      };
+    })
+    .filter((group) => group.options.length > 0);
+  const otherOptions = options.filter((option) => !groupedValues.has(option.value));
+
+  return otherOptions.length > 0
+    ? [...groups, { label: '其他标签', options: otherOptions }]
+    : groups;
+}
+
+function TagGroupSections({ colors, options, selectedValue, onSelect }: Omit<TagGroupProps, 'label'>) {
+  const groups = useMemo(() => getGroupedTagOptions(options), [options]);
+  const selectedGroupLabel = groups.find((group) => (
+    group.options.some((option) => option.value === selectedValue)
+  ))?.label;
+  const fallbackGroupLabel = groups[0]?.label ?? '';
+  const [openTagGroupLabel, setOpenTagGroupLabel] = useState(selectedGroupLabel ?? fallbackGroupLabel);
+
+  useEffect(() => {
+    setOpenTagGroupLabel(selectedGroupLabel ?? fallbackGroupLabel);
+  }, [fallbackGroupLabel, selectedGroupLabel]);
+
+  const handleAccordionSummaryClick = (
+    event: MouseEvent<HTMLElement>,
+    groupLabel: string,
+  ) => {
+    event.preventDefault();
+    setOpenTagGroupLabel(groupLabel);
+  };
+
+  return (
+    <div className={`${styles.tagGroupSections} grid`}>
+      {groups.map((group) => (
+        <details
+          key={group.label}
+          className={styles.tagGroupSection}
+          open={openTagGroupLabel === group.label}
+        >
+          <summary
+            className={`${styles.tagGroupSummary} flex items-center justify-between`}
+            onClick={(event) => handleAccordionSummaryClick(event, group.label)}
+          >
+            <span>{group.label}</span>
+            <strong>{group.options.length} 项</strong>
+          </summary>
+          <TagButtonList
+            colors={colors}
+            options={group.options}
+            selectedValue={selectedValue}
+            onSelect={onSelect}
+          />
+        </details>
+      ))}
+    </div>
+  );
+}
+
 function TagGroup({ colors, label, options, selectedValue, onSelect }: TagGroupProps) {
   return (
     <section className={`${styles.tagGroup} grid`} aria-label={label}>
@@ -41,24 +190,21 @@ function TagGroup({ colors, label, options, selectedValue, onSelect }: TagGroupP
         <span>{label}</span>
         <strong>{options.length} 项</strong>
       </div>
-      <div className={`${styles.tagList} flex flex-wrap`}>
-        {options.map((option, index) => {
-          const selected = selectedValue === option.value;
-
-          return (
-            <button
-              key={option.value}
-              className={`${styles.tagButton} ${selected ? styles.activeTagButton : ''}`}
-              style={{ '--tag-color': colors[index % colors.length] } as CSSProperties}
-              type="button"
-              onClick={() => onSelect(option.value)}
-            >
-              <span aria-hidden="true" />
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
+      {label === videoSelectionStepLabels.tag ? (
+        <TagGroupSections
+          colors={colors}
+          options={options}
+          selectedValue={selectedValue}
+          onSelect={onSelect}
+        />
+      ) : (
+        <TagButtonList
+          colors={colors}
+          options={options}
+          selectedValue={selectedValue}
+          onSelect={onSelect}
+        />
+      )}
     </section>
   );
 }
@@ -169,11 +315,11 @@ export default function VideoRegulation() {
   };
 
   return (
-    <section className={`${styles.workspace} mx-auto flex w-full flex-col`} aria-label="Video regulation workspace">
+    <section className={`${styles.workspace} mx-auto flex w-full flex-col`} aria-label="视频调控工作区">
       <header className={`${styles.header} flex items-start justify-between`}>
         <div>
           <div className={styles.eyebrow}>视频调节刺激</div>
-          <h1 className={styles.title}>Video Regulation</h1>
+          <h1 className={styles.title}>视频调控</h1>
           <p className={styles.description}>
             按视频库现有标签逐层选择：标签、氛围、场景。完成后自动弹出一个匹配视频。
           </p>
@@ -197,7 +343,7 @@ export default function VideoRegulation() {
       </div>
 
       <div className={`${styles.contentGrid} ${hasStartedSelection ? styles.withResults : ''} grid`}>
-        <main className={`${styles.selectorPanel} grid`} aria-label="Video tag selectors">
+        <main className={`${styles.selectorPanel} grid`} aria-label="视频标签选择器">
           <div className={`${styles.panelHeader} grid`}>
             <span>逐层选择</span>
             <strong>{currentStep ? videoSelectionStepLabels[currentStep] : '已完成选择'}</strong>
@@ -238,7 +384,7 @@ export default function VideoRegulation() {
           </button>
         </main>
 
-        <aside className={`${styles.libraryPanel} grid`} aria-label="Filtered video library">
+        <aside className={`${styles.libraryPanel} grid`} aria-label="筛选后的视频库">
           <div className={`${styles.panelHeader} grid`}>
             <span>{hasStartedSelection ? '当前候选' : '选择后推荐'}</span>
             <strong>{hasStartedSelection ? `${videos.length} 个匹配` : '完成标签后自动播放'}</strong>
@@ -300,7 +446,7 @@ export default function VideoRegulation() {
         >
           <section
             className={`${playerStyles.videoModal} grid w-full`}
-            aria-label="Regulation video player"
+            aria-label="视频调节播放器"
             onClick={(event) => event.stopPropagation()}
           >
             <header className={`${playerStyles.videoModalHeader} flex items-center justify-between`}>
@@ -312,7 +458,7 @@ export default function VideoRegulation() {
               <button
                 type="button"
                 className={playerStyles.closeButton}
-                aria-label="Close regulation video"
+                aria-label="关闭调节视频"
                 onClick={() => setActiveVideo(null)}
               >
                 <CloseRoundedIcon />

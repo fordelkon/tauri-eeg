@@ -8,9 +8,9 @@ import {
 
 describe('mentalScaleGate', () => {
   it('defines anxiety and depression scale gates for regulation pages only', () => {
-    expect(getMentalScaleForPath('/video-regulation')?.title).toBe('Video Regulation Scale');
-    expect(getMentalScaleForPath('/game-regulation')?.title).toBe('Game Regulation Scale');
-    expect(getMentalScaleForPath('/music-regulation')?.title).toBe('Music Regulation Scale');
+    expect(getMentalScaleForPath('/video-regulation')?.title).toBe('视频调控量表');
+    expect(getMentalScaleForPath('/game-regulation')?.title).toBe('游戏调控量表');
+    expect(getMentalScaleForPath('/music-regulation')?.title).toBe('音乐调控量表');
     expect(getMentalScaleForPath('/eeg-acquisition')).toBeNull();
     expect(getMentalScaleForPath('/home')).toBeNull();
   });

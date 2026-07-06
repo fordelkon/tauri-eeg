@@ -8,25 +8,39 @@ import styles from './EegAcquisition.module.css';
 export default function EegAcquisition() {
   const eeg = useRealtimeEeg();
   const visibleCount = eeg.settings.visibleChannelIds.size;
-  const deviceStatusLabel = eeg.deviceStatus === 'starting' ? 'waiting for EEG' : eeg.deviceStatus;
+  const deviceStatusLabels = {
+    disconnected: '未连接',
+    error: '异常',
+    starting: '等待脑电设备',
+    stopping: '停止中',
+    streaming: '采集中',
+  } as const;
+  const recordStatusLabels = {
+    idle: '空闲',
+    paused: '已暂停',
+    recording: '记录中',
+    stopped: '已停止',
+  } as const;
+  const deviceStatusLabel = deviceStatusLabels[eeg.deviceStatus];
+  const recordStatusLabel = recordStatusLabels[eeg.recordStatus];
 
   return (
-    <section className={`${styles.workspace} mx-auto flex w-full min-h-0 flex-col`} aria-label="EEG acquisition workspace">
+    <section className={`${styles.workspace} mx-auto flex w-full min-h-0 flex-col`} aria-label="EEG采集工作区">
       <header className={`${styles.header} flex items-start justify-between`}>
         <div>
-          <div className={styles.eyebrow}>Acquisition Monitor</div>
-          <h1 className={styles.title}>Realtime EEG</h1>
+          <div className={styles.eyebrow}>采集监测</div>
+          <h1 className={styles.title}>实时脑电</h1>
         </div>
         <div className={`${styles.statusBar} flex flex-wrap items-center justify-end`}>
           <span className={`${styles.statusPill} inline-flex items-center ${styles[eeg.deviceStatus]}`}>
             <ActivityRoundedIcon fontSize="small" />
-            Device {deviceStatusLabel}
+            设备 {deviceStatusLabel}
           </span>
           <span className={`${styles.statusPill} inline-flex items-center ${styles[eeg.recordStatus]}`}>
-            Record {eeg.recordStatus}
+            记录 {recordStatusLabel}
           </span>
           <span>{eeg.sampleRateHz} Hz</span>
-          <span>{visibleCount}/{eeg.channels.length} channels</span>
+          <span>{visibleCount}/{eeg.channels.length} 通道</span>
         </div>
       </header>
 
@@ -67,10 +81,10 @@ export default function EegAcquisition() {
       </div>
 
       <footer className={`${styles.footer} flex flex-wrap`}>
-        <span>Window {eeg.settings.timeWindowSeconds}s</span>
-        <span>Scale {eeg.settings.amplitudeUvPerDiv} uV/div</span>
-        <span>Buffered {eeg.snapshot.retainedSampleCount} samples</span>
-        <span>Sequence {eeg.snapshot.latestSequence ?? '-'}</span>
+        <span>窗口 {eeg.settings.timeWindowSeconds}s</span>
+        <span>幅度 {eeg.settings.amplitudeUvPerDiv} uV/div</span>
+        <span>缓存 {eeg.snapshot.retainedSampleCount} 样本</span>
+        <span>序列 {eeg.snapshot.latestSequence ?? '-'}</span>
       </footer>
     </section>
   );

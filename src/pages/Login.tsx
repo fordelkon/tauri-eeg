@@ -62,6 +62,25 @@ type PopParticle = {
   y: number;
 };
 
+const translateAuthError = (error: unknown) => {
+  if (typeof error !== 'string') {
+    return '账号或密码不正确。';
+  }
+
+  const translations: Record<string, string> = {
+    'Account or password is incorrect.': '账号或密码不正确。',
+    'Failed to register user.': '注册失败，请稍后重试。',
+    'Failed to reset password.': '重置密码失败，请稍后重试。',
+    'Password must be at least 6 characters.': '密码至少需要 6 位。',
+    'Password reset is not configured.': '暂未配置密码重置功能。',
+    'Reset code is incorrect.': '重置码不正确。',
+    'Username and password are required.': '请输入账号和密码。',
+    'Username is already registered.': '该账号已被注册。',
+  };
+
+  return translations[error] ?? error;
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const { resetPassword, signIn, signUp } = useAuth();
@@ -81,7 +100,7 @@ export default function Login() {
   const [isShaking, setIsShaking] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin');
-  const [errorMessage, setErrorMessage] = useState('Account or password is incorrect.');
+  const [errorMessage, setErrorMessage] = useState('账号或密码不正确。');
   const [isExiting, setIsExiting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [exitStyle, setExitStyle] = useState<CSSProperties>({});
@@ -589,15 +608,15 @@ export default function Login() {
     if (!username || !password || (isSignup || isReset) && password !== confirmPassword) {
       setErrorMessage(
         (isSignup || isReset) && password !== confirmPassword
-          ? 'Passwords do not match.'
-          : 'Username and password are required.',
+          ? '两次输入的密码不一致。'
+          : '请输入账号和密码。',
       );
       setHasError(true);
       return;
     }
 
     if (isReset && !resetCode.trim()) {
-      setErrorMessage('Reset code is required.');
+      setErrorMessage('请输入重置码。');
       setHasError(true);
       return;
     }
@@ -619,7 +638,7 @@ export default function Login() {
         setConfirmPassword('');
         setResetCode('');
         setShowPassword(false);
-        setErrorMessage('Password reset successfully. Sign in with your new password.');
+        setErrorMessage('密码已重置，请使用新密码登录。');
         setHasError(true);
         return;
       }
@@ -641,7 +660,7 @@ export default function Login() {
         navigate('/home');
       }, 940);
     } catch (error) {
-      setErrorMessage(typeof error === 'string' ? error : 'Account or password is incorrect.');
+      setErrorMessage(translateAuthError(error));
       setHasError(true);
       setIsShaking(false);
 
@@ -657,7 +676,7 @@ export default function Login() {
 
   const handleModeChange = (mode: 'signin' | 'signup' | 'reset') => {
     setAuthMode(mode);
-    setErrorMessage('Account or password is incorrect.');
+    setErrorMessage('账号或密码不正确。');
     setHasError(false);
     setIsShaking(false);
     setShowPassword(false);
@@ -707,7 +726,7 @@ export default function Login() {
             EEG Ecosystem
           </Typography>
           <Typography variant="body2" className={`${styles.subtitle} mb-34px text-center`}>
-            {isSignup ? 'Create your account.' : isReset ? 'Reset your password.' : 'Sign in to continue.'}
+            {isSignup ? '创建账号以开始使用。' : isReset ? '重置你的登录密码。' : '登录后继续实验。'}
           </Typography>
 
           <form onSubmit={handleAuthSubmit} className="w-full">
@@ -716,8 +735,8 @@ export default function Login() {
                 className={`${styles.textField} ${isShaking ? styles.isShaking : ''}`}
                 value={account}
                 onChange={(event) => setAccount(event.target.value)}
-                label="Account"
-                placeholder="Email or User ID"
+                label="账号"
+                placeholder="请输入账号"
                 autoComplete="username"
                 error={hasError}
                 fullWidth
@@ -738,8 +757,8 @@ export default function Login() {
                   className={styles.textField}
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  label="Email"
-                  placeholder="name@example.com"
+                  label="邮箱"
+                  placeholder="请输入邮箱"
                   autoComplete="email"
                   fullWidth
                   type="email"
@@ -761,8 +780,8 @@ export default function Login() {
                   className={styles.textField}
                   value={resetCode}
                   onChange={(event) => setResetCode(event.target.value)}
-                  label="Reset Code"
-                  placeholder="Admin reset code"
+                  label="重置码"
+                  placeholder="请输入管理员重置码"
                   autoComplete="off"
                   fullWidth
                   type="password"
@@ -783,8 +802,8 @@ export default function Login() {
                 className={`${styles.textField} ${isShaking ? styles.isShaking : ''}`}
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                label={isReset ? 'New Password' : 'Password'}
-                placeholder={isReset ? 'New password' : 'Password'}
+                label={isReset ? '新密码' : '密码'}
+                placeholder={isReset ? '请输入新密码' : '请输入密码'}
                 autoComplete={isSignup || isReset ? 'new-password' : 'current-password'}
                 error={hasError}
                 fullWidth
@@ -803,9 +822,7 @@ export default function Login() {
                           edge="end"
                           size="small"
                           onClick={() => setShowPassword((value) => !value)}
-                          aria-label={showPassword
-                            ? (isSignup || isReset) ? 'Hide passwords' : 'Hide password'
-                            : (isSignup || isReset) ? 'Show passwords' : 'Show password'}
+                          aria-label={showPassword ? '隐藏密码' : '显示密码'}
                         >
                           {showPassword ? (
                             <VisibilityOffRoundedIcon fontSize="small" />
@@ -824,8 +841,8 @@ export default function Login() {
                   className={styles.textField}
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
-                  label="Confirm Password"
-                  placeholder="Confirm password"
+                  label="确认密码"
+                  placeholder="请再次输入密码"
                   autoComplete="new-password"
                   fullWidth
                   type={showPassword ? 'text' : 'password'}
@@ -852,7 +869,7 @@ export default function Login() {
               fullWidth
               variant="contained"
             >
-              {isSubmitting ? 'Please wait...' : isSignup ? 'Sign Up' : isReset ? 'Reset Password' : 'Sign In'}
+              {isSubmitting ? '请稍候...' : isSignup ? '注册' : isReset ? '重置密码' : '登录'}
             </Button>
 
             <Button
@@ -862,7 +879,7 @@ export default function Login() {
               variant="text"
               onClick={() => handleModeChange(isSignup || isReset ? 'signin' : 'signup')}
             >
-              {isSignup || isReset ? 'Back to sign in' : "Don't have an account? Sign up"}
+              {isSignup || isReset ? '返回登录' : '还没有账号？立即注册'}
             </Button>
 
             {!isSignup && !isReset ? (
@@ -871,7 +888,7 @@ export default function Login() {
                 className={`${styles.forgotPassword} cursor-pointer text-center`}
                 onClick={() => handleModeChange('reset')}
               >
-                Forgotten your password?
+                忘记密码？
               </Typography>
             ) : null}
           </form>

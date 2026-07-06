@@ -26,7 +26,7 @@ describe('mentalScaleStatus', () => {
 
     const status = buildMentalScaleStatus(scale, answers);
 
-    expect(status.lastScaleTitle).toBe('Video Regulation Scale');
+    expect(status.lastScaleTitle).toBe('视频调控量表');
     expect(status.dimensions.find((dimension) => dimension.key === 'anxiety')?.value).toBe(100);
     expect(status.dimensions.find((dimension) => dimension.key === 'worry')?.value).toBe(33);
     expect(status.dimensions.find((dimension) => dimension.key === 'mood')?.value).toBe(0);

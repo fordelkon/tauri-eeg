@@ -26,7 +26,7 @@ export const mentalScaleAnswerOptions: Array<{ value: MentalScaleAnswerValue; la
 export const mentalScaleDefinitions: Record<MentalScalePath, MentalScaleDefinition> = {
   '/video-regulation': {
     path: '/video-regulation',
-    title: 'Video Regulation Scale',
+    title: '视频调控量表',
     subtitle: '请根据最近一周的状态完成简短心理量表。',
     questions: [
       { id: 'video-anxiety-tense', prompt: '最近一周，我感到紧张、焦虑或坐立不安。' },
@@ -36,7 +36,7 @@ export const mentalScaleDefinitions: Record<MentalScalePath, MentalScaleDefiniti
   },
   '/game-regulation': {
     path: '/game-regulation',
-    title: 'Game Regulation Scale',
+    title: '游戏调控量表',
     subtitle: '请先完成当前情绪状态记录，再进入游戏调节。',
     questions: [
       { id: 'game-anxiety-irritable', prompt: '最近一周，我容易烦躁或难以放松。' },
@@ -46,7 +46,7 @@ export const mentalScaleDefinitions: Record<MentalScalePath, MentalScaleDefiniti
   },
   '/music-regulation': {
     path: '/music-regulation',
-    title: 'Music Regulation Scale',
+    title: '音乐调控量表',
     subtitle: '请先完成简短心理量表，再进入音乐调节。',
     questions: [
       { id: 'music-depression-low', prompt: '最近一周，我感到情绪低落、沮丧或无望。' },

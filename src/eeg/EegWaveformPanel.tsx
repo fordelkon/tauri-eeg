@@ -252,7 +252,7 @@ export default function EegWaveformPanel({
   }, [data]);
 
   return (
-    <section className={styles.waveformPanel} aria-label="Realtime EEG waveform">
+    <section className={styles.waveformPanel} aria-label="实时脑电波形">
       <div className={styles.channelRail} aria-hidden="true">
         {snapshot.visibleChannels.map((channel) => (
           <span key={channel.id}>{channel.label}</span>

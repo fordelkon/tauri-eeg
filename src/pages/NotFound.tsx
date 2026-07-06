@@ -361,9 +361,9 @@ export default function NotFound() {
 
         <div className={`${styles.content} relative z-1 flex flex-col items-center text-center opacity-0`}>
           <p className={styles.eyebrow}>404</p>
-          <h1 id="not-found-title" className={styles.title}>Page Not Found</h1>
+          <h1 id="not-found-title" className={styles.title}>页面未找到</h1>
           <p className={styles.description}>
-            This EEG Ecosystem route has not been implemented yet.
+            当前 EEG 系统路由尚未实现。
           </p>
           <Button
             className={`${styles.backButton} h-48px px-24px text-white`}
@@ -371,7 +371,7 @@ export default function NotFound() {
             onClick={() => navigate('/login')}
             variant="contained"
           >
-            Back to Login
+            返回登录
           </Button>
         </div>
       </section>

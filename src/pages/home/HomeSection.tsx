@@ -26,9 +26,9 @@ const renderRollingText = (text: string, className?: string) => (
 
 export default function HomeSection({
   description,
-  eyebrow = 'Control Center',
+  eyebrow = '控制中心',
   surfaceText,
-  surfaceTitle = 'Session Overview',
+  surfaceTitle = '会话概览',
   title,
 }: Props) {
   return (

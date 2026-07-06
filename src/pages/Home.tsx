@@ -44,11 +44,11 @@ type NavigationItem = {
 };
 
 const navigationItems: NavigationItem[] = [
-  { icon: HomeRoundedIcon, label: 'Home', path: '/home' },
-  { icon: GraphicEqRoundedIcon, label: 'EEG Acquisition', path: '/eeg-acquisition' },
-  { icon: VideocamRoundedIcon, label: 'Video Regulation', path: '/video-regulation' },
-  { icon: SportsEsportsRoundedIcon, label: 'Game Regulation', path: '/game-regulation' },
-  { icon: MusicNoteRoundedIcon, label: 'Music Regulation', path: '/music-regulation' },
+  { icon: HomeRoundedIcon, label: '首页', path: '/home' },
+  { icon: GraphicEqRoundedIcon, label: 'EEG采集', path: '/eeg-acquisition' },
+  { icon: VideocamRoundedIcon, label: '视频调控', path: '/video-regulation' },
+  { icon: SportsEsportsRoundedIcon, label: 'VR调控', path: '/game-regulation' },
+  { icon: MusicNoteRoundedIcon, label: '音乐调控', path: '/music-regulation' },
 ];
 
 const renderRollingText = (text: string, className?: string) => (
@@ -245,7 +245,7 @@ export default function Home() {
 
       <IconButton
         className={`${styles.mobileMenuButton} ${isSidebarOpen ? styles.isHidden : ''}`}
-        aria-label="Open navigation"
+        aria-label="打开导航"
         aria-controls="primary-navigation"
         aria-expanded={isSidebarOpen}
         size="small"
@@ -257,7 +257,7 @@ export default function Home() {
       <button
         className={`${styles.sidebarOverlay} ${isSidebarOpen ? styles.isOpen : ''}`}
         type="button"
-        aria-label="Close navigation"
+        aria-label="关闭导航"
         onClick={() => setIsSidebarOpen(false)}
       />
 
@@ -265,7 +265,7 @@ export default function Home() {
         <aside
           id="primary-navigation"
           className={`${styles.sidebar} box-border flex flex-col`}
-          aria-label="Primary navigation"
+          aria-label="主导航"
         >
           <div className={`${styles.sidebarHeader} flex items-center justify-between`}>
             <div className={`${styles.logoGroup} flex items-center`}>
@@ -274,7 +274,7 @@ export default function Home() {
             </div>
             <IconButton
               className={styles.menuButton}
-              aria-label="Close navigation"
+              aria-label="关闭导航"
               aria-expanded={isSidebarOpen}
               size="small"
               onClick={() => setIsSidebarOpen(false)}
@@ -311,12 +311,12 @@ export default function Home() {
               {currentUser?.username.charAt(0).toUpperCase() ?? 'U'}
             </div>
             <div className={styles.userMeta}>
-              <span className={styles.userLabel}>Signed in</span>
-              <span className={styles.userName}>{currentUser?.username ?? 'User'}</span>
+              <span className={styles.userLabel}>已登录</span>
+              <span className={styles.userName}>{currentUser?.username ?? '用户'}</span>
             </div>
             <IconButton
               className={styles.storageButton}
-              aria-label="Storage path settings"
+              aria-label="存储路径设置"
               aria-expanded={isStorageOpen}
               size="small"
               onClick={() => setIsStorageOpen((isOpen) => !isOpen)}
@@ -325,7 +325,7 @@ export default function Home() {
             </IconButton>
             <IconButton
               className={styles.signOutButton}
-              aria-label="Sign out"
+              aria-label="退出登录"
               size="small"
               onClick={handleSignOut}
             >
@@ -334,9 +334,9 @@ export default function Home() {
           </div>
 
           {isStorageOpen ? (
-            <section className={styles.storagePanel} aria-label="Storage path settings">
+            <section className={styles.storagePanel} aria-label="存储路径设置">
               <label className={styles.storageField}>
-                <span>Storage root</span>
+                <span>存储根目录</span>
                 <input
                   value={storageInput}
                   onChange={(event) => setStorageInput(event.currentTarget.value)}
@@ -344,7 +344,7 @@ export default function Home() {
                 />
               </label>
               <div className={styles.storagePreview}>
-                <span>{storageLocation?.root ?? 'Default app data'}</span>
+                <span>{storageLocation?.root ?? '默认应用数据目录'}</span>
                 <strong>
                   {currentUser
                     ? `${currentUser.username}\\eeg_recordings | ${currentUser.username}\\music`
@@ -354,13 +354,13 @@ export default function Home() {
               {storageError ? <div className={styles.storageError}>{storageError}</div> : null}
               <div className={styles.storageActions}>
                 <button type="button" onClick={() => void handleChooseStorageRoot()}>
-                  Browse
+                  浏览
                 </button>
                 <button type="button" onClick={() => void handleResetStorageRoot()}>
-                  Default
+                  默认
                 </button>
                 <button type="button" onClick={() => void handleSaveStorageRoot()}>
-                  Save
+                  保存
                 </button>
               </div>
             </section>
@@ -387,7 +387,7 @@ export default function Home() {
           <button
             type="button"
             className={styles.nextPageButton}
-            aria-label={`Go to ${nextItem.label}`}
+            aria-label={`前往${nextItem.label}`}
             onClick={handleNextClick}
           >
             <span>{nextLabel}</span>
@@ -426,13 +426,13 @@ export default function Home() {
           >
             <div className={`${styles.scaleHeader} flex items-start justify-between gap-18px`}>
               <div>
-                <p className={styles.scaleEyebrow}>Psychological Scale</p>
+                <p className={styles.scaleEyebrow}>心理量表</p>
                 <h2 id="mental-scale-title">{pendingScale.title}</h2>
                 <p>{pendingScale.subtitle}</p>
               </div>
               <IconButton
                 className={styles.scaleCloseButton}
-                aria-label="Close psychological scale"
+                aria-label="关闭心理量表"
                 size="small"
                 onClick={handleCloseScale}
               >
@@ -471,7 +471,7 @@ export default function Home() {
 
             <div className={`${styles.scaleFooter} flex items-center justify-between gap-14px`}>
               <span>
-                {isScaleReady ? 'Completed. You can enter the regulation page.' : 'Complete all questions to continue.'}
+                {isScaleReady ? '已完成，可以进入调控页面。' : '完成全部题目后继续。'}
               </span>
               <button
                 type="button"
@@ -479,7 +479,7 @@ export default function Home() {
                 disabled={!isScaleReady}
                 onClick={handleCompleteScale}
               >
-                Enter
+                进入
               </button>
             </div>
           </section>

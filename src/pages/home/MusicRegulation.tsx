@@ -35,115 +35,115 @@ import styles from './MusicRegulation.module.css';
 const bundledMusicFiles = [] as const;
 const instrumentOptions = [
   {
-    label: 'Piano',
+    label: '钢琴',
     value: 'piano',
   },
   {
-    label: 'Violin',
+    label: '小提琴',
     value: 'violin',
   },
   {
-    label: 'Guitar',
+    label: '吉他',
     value: 'guitar',
   },
   {
-    label: 'Cello',
+    label: '大提琴',
     value: 'cello',
   },
   {
-    label: 'Flute',
+    label: '长笛',
     value: 'flute',
   },
   {
-    label: 'Drums',
+    label: '鼓组',
     value: 'drums',
   },
   {
-    label: 'Bass',
+    label: '贝斯',
     value: 'bass',
   },
   {
-    label: 'Synth',
+    label: '合成器',
     value: 'synthesizer',
   },
   {
-    label: 'Saxophone',
+    label: '萨克斯',
     value: 'saxophone',
   },
   {
-    label: 'Other',
+    label: '其他',
     value: 'custom',
   },
 ] as const;
 const styleOptions = [
   {
-    label: 'Ambient',
+    label: '氛围',
     value: 'ambient instrumental',
   },
   {
-    label: 'Pop',
+    label: '流行',
     value: 'pop instrumental',
   },
   {
-    label: 'Rock',
+    label: '摇滚',
     value: 'rock instrumental',
   },
   {
-    label: 'Classical',
+    label: '古典',
     value: 'classical instrumental',
   },
   {
-    label: 'Meditation',
+    label: '冥想',
     value: 'meditation music',
   },
   {
-    label: 'Lo-fi',
+    label: '低保真',
     value: 'lo-fi instrumental',
   },
   {
-    label: 'Jazz',
+    label: '爵士',
     value: 'jazz instrumental',
   },
   {
-    label: 'Cinematic',
+    label: '电影感',
     value: 'cinematic instrumental',
   },
   {
-    label: 'Other',
+    label: '其他',
     value: 'custom',
   },
 ] as const;
 const detailTemplateOptions = [
   {
-    label: 'Slow tempo',
+    label: '慢速',
     value: 'slow tempo',
   },
   {
-    label: 'Warm tone',
+    label: '温暖音色',
     value: 'warm tone',
   },
   {
-    label: 'Soft rhythm',
+    label: '柔和节奏',
     value: 'soft rhythm',
   },
   {
-    label: 'Calm texture',
+    label: '平静质感',
     value: 'calm therapeutic texture',
   },
   {
-    label: 'Light reverb',
+    label: '轻混响',
     value: 'light reverb',
   },
   {
-    label: 'Gentle dynamics',
+    label: '轻柔动态',
     value: 'gentle dynamics',
   },
   {
-    label: 'Deep bass',
+    label: '低频厚度',
     value: 'deep bass',
   },
   {
-    label: 'Bright melody',
+    label: '明亮旋律',
     value: 'bright melody',
   },
 ] as const;
@@ -288,13 +288,13 @@ function TagEditorSheet({
         onClose();
       }
     }}>
-      <section className={styles.tagSheet} aria-label={`${title} tags`}>
+      <section className={styles.tagSheet} aria-label={`${title}标签`}>
         <div className={styles.tagSheetHeader}>
           <div>
             <span>{title}</span>
             <strong>{summary.label}</strong>
           </div>
-          <button className={styles.tagSheetClose} type="button" aria-label="Close tag editor" onClick={onClose}>
+          <button className={styles.tagSheetClose} type="button" aria-label="关闭标签编辑器" onClick={onClose}>
             <CloseRoundedIcon fontSize="small" />
           </button>
         </div>
@@ -328,7 +328,7 @@ function TagEditorSheet({
                     onOnly(option.value);
                   }}
                 >
-                  Only
+                  仅选
                 </button>
                 {option.value === 'custom' && isSelected ? (
                   <input
@@ -360,7 +360,7 @@ export default function MusicRegulation() {
   const [openTagSelectorId, setOpenTagSelectorId] = useState<string | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState(0);
-  const [generationStage, setGenerationStage] = useState('Ready');
+  const [generationStage, setGenerationStage] = useState('就绪');
   const [generationDevice, setGenerationDevice] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -405,7 +405,7 @@ export default function MusicRegulation() {
   const hasPromptCore = hasSelectedInstrument
     && hasSelectedStyle;
   const canGenerate = generatedPrompt.trim().length > 0 && hasPromptCore;
-  const generationDeviceLabel = generationDevice ? generationDevice.toUpperCase() : 'Detecting device';
+  const generationDeviceLabel = generationDevice ? generationDevice.toUpperCase() : '检测设备中';
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
   const remainingTime = Math.max(0, duration - currentTime);
   const coverStyle = activeAsset
@@ -528,13 +528,13 @@ export default function MusicRegulation() {
       const elapsedSeconds = (Date.now() - startedAt) / 1000;
 
       if (elapsedSeconds < 8) {
-        setGenerationStage('Starting service');
+        setGenerationStage('启动服务');
         setGenerationProgress(Math.min(28, 8 + elapsedSeconds * 2.5));
       } else if (elapsedSeconds < 40) {
-        setGenerationStage('Loading model');
+        setGenerationStage('加载模型');
         setGenerationProgress(Math.min(64, 28 + (elapsedSeconds - 8) * 1.1));
       } else {
-        setGenerationStage('Generating WAV');
+        setGenerationStage('生成 WAV');
         setGenerationProgress(Math.min(94, 64 + (elapsedSeconds - 40) * 0.6));
       }
     }, 500);
@@ -637,7 +637,7 @@ export default function MusicRegulation() {
       onToggle: handleInstrumentToggle,
       options: instrumentOptions,
       selectedValues: instruments,
-      title: 'Instrument',
+      title: '乐器',
     }
     : openTagSelectorId === 'style'
       ? {
@@ -649,7 +649,7 @@ export default function MusicRegulation() {
         onToggle: handleStyleToggle,
         options: styleOptions,
         selectedValues: selectedStyles,
-        title: 'Style',
+        title: '风格',
       }
       : openTagSelectorId === 'details'
         ? {
@@ -658,7 +658,7 @@ export default function MusicRegulation() {
           onToggle: handleDetailTemplateToggle,
           options: detailTemplateOptions,
           selectedValues: detailTemplates,
-          title: 'Details',
+          title: '细节',
         }
         : null;
 
@@ -670,7 +670,7 @@ export default function MusicRegulation() {
     setError(null);
     setIsGenerating(true);
     setGenerationProgress(6);
-    setGenerationStage('Starting service');
+    setGenerationStage('启动服务');
     setGenerationDevice(null);
 
     try {
@@ -695,9 +695,9 @@ export default function MusicRegulation() {
         void playActiveAudio();
       }, 0);
       setGenerationProgress(100);
-      setGenerationStage('Generation complete');
+      setGenerationStage('生成完成');
     } catch (reason) {
-      setGenerationStage('Generation failed');
+      setGenerationStage('生成失败');
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setIsGenerating(false);
@@ -741,18 +741,18 @@ export default function MusicRegulation() {
   };
 
   return (
-    <section className={`${styles.workspace} mx-auto flex w-full flex-col`} aria-label="Music regulation workspace">
+    <section className={`${styles.workspace} mx-auto flex w-full flex-col`} aria-label="音乐调控工作区">
       <header className={`${styles.header} flex items-start justify-between`}>
         <div>
-          <div className={styles.eyebrow}>Regulation Player</div>
-          <h1 className={styles.title}>WAV Music Generation</h1>
+          <div className={styles.eyebrow}>音乐调控播放器</div>
+          <h1 className={styles.title}>WAV 音乐生成</h1>
         </div>
         <div className={`${styles.statusBar} flex flex-wrap items-center justify-end`}>
           <span className={`${styles.statusPill} inline-flex items-center ${isPlaying ? styles.playing : styles.idle}`}>
             <GraphicEqRoundedIcon fontSize="small" />
-            {isGenerating ? 'Generating' : isPlaying ? 'Playing' : 'Ready'}
+            {isGenerating ? '生成中' : isPlaying ? '播放中' : '就绪'}
           </span>
-          <span>{assets.length} WAV tracks</span>
+          <span>{assets.length} 首 WAV</span>
         </div>
       </header>
 
@@ -767,16 +767,16 @@ export default function MusicRegulation() {
           }}
         >
           <div className={`${styles.promptHeader} flex flex-col`}>
-            <span>Music Generation</span>
-            <strong>Prompt Builder</strong>
+            <span>音乐生成</span>
+            <strong>提示词构建</strong>
           </div>
 
           <div className={`${styles.layeredFields} grid`}>
             <div className={`${styles.promptField} flex min-w-0 flex-col`}>
-              <span>Layer 1 · Instrument</span>
+              <span>第 1 层 · 乐器</span>
               <CompactTagSelector
                 id="instrument"
-                label="Instrument"
+                label="乐器"
                 options={instrumentOptions}
                 isOpen={openTagSelectorId === 'instrument'}
                 selectedValues={instruments}
@@ -787,10 +787,10 @@ export default function MusicRegulation() {
             </div>
 
             <div className={`${styles.promptField} flex min-w-0 flex-col`}>
-              <span>Layer 2 · Style</span>
+              <span>第 2 层 · 风格</span>
               <CompactTagSelector
                 id="style"
-                label="Style"
+                label="风格"
                 options={styleOptions}
                 isOpen={openTagSelectorId === 'style'}
                 selectedValues={selectedStyles}
@@ -801,10 +801,10 @@ export default function MusicRegulation() {
             </div>
 
             <div className={`${styles.promptField} flex min-w-0 flex-col`}>
-              <span>Layer 3 · Details optional</span>
+              <span>第 3 层 · 细节（可选）</span>
               <CompactTagSelector
                 id="details"
-                label="Details"
+                label="细节"
                 options={detailTemplateOptions}
                 isOpen={openTagSelectorId === 'details'}
                 selectedValues={detailTemplates}
@@ -822,7 +822,7 @@ export default function MusicRegulation() {
           </div>
 
           <div className={styles.promptPreview} title={generatedPrompt}>
-            {generatedPrompt || 'Choose an instrument and style to build a prompt.'}
+            {generatedPrompt || '选择乐器和风格后生成提示词。'}
           </div>
 
           {isGenerating ? (
@@ -839,7 +839,7 @@ export default function MusicRegulation() {
 
           <div className={`${styles.promptActions} grid items-end`}>
             <label className={`${styles.durationField} flex min-w-0 flex-col`}>
-              <span>Length</span>
+              <span>长度</span>
               <select
                 value={generationDuration}
                 onChange={(event) => setGenerationDuration(Number(event.currentTarget.value))}
@@ -857,7 +857,7 @@ export default function MusicRegulation() {
               data-agent-action="generate_music"
               disabled={!currentUser || isGenerating || !canGenerate}
             >
-              {isGenerating ? 'Generating WAV' : 'Generate WAV'}
+              {isGenerating ? '正在生成 WAV' : '生成 WAV'}
             </button>
           </div>
         </form>
@@ -869,7 +869,7 @@ export default function MusicRegulation() {
                 className={styles.coverButton}
                 type="button"
                 data-agent-action="play_music"
-                aria-label={isPlaying ? 'Pause WAV' : 'Play WAV'}
+                aria-label={isPlaying ? '暂停 WAV' : '播放 WAV'}
                 onClick={() => {
                   void handleTogglePlay();
                 }}
@@ -887,8 +887,8 @@ export default function MusicRegulation() {
               <div className={styles.playerMain}>
                 <div className={styles.playerTop}>
                   <div className={styles.playerMeta}>
-                    <strong>{activeAsset?.title || 'No WAV selected'}</strong>
-                    <span>{activeAsset?.source === 'generated' ? 'Generated WAV' : 'WAV Stream'}</span>
+                    <strong>{activeAsset?.title || '未选择 WAV'}</strong>
+                    <span>{activeAsset?.source === 'generated' ? '生成的 WAV' : 'WAV 音频流'}</span>
                   </div>
                   <div className={styles.trackCounter}>
                     {assets.length > 0 ? `${activeIndex + 1}/${assets.length}` : '0/0'}
@@ -903,7 +903,7 @@ export default function MusicRegulation() {
                     min="0"
                     max="100"
                     value={progress}
-                    aria-label="Playback position"
+                    aria-label="播放位置"
                     style={{ '--progress': `${progress}%` } as CSSProperties}
                     onChange={(event) => handleSeek(Number(event.currentTarget.value))}
                   />
@@ -914,7 +914,7 @@ export default function MusicRegulation() {
                   <div className={styles.transportControls}>
                     <IconButton
                       className={styles.controlButton}
-                      aria-label="Previous WAV"
+                      aria-label="上一首 WAV"
                       disabled={assets.length === 0}
                       onClick={() => {
                         void handleTrackChange(activeIndex - 1);
@@ -925,7 +925,7 @@ export default function MusicRegulation() {
                     <IconButton
                       className={`${styles.controlButton} ${styles.primaryButton}`}
                       data-agent-action="play_music"
-                      aria-label={isPlaying ? 'Pause WAV' : 'Play WAV'}
+                      aria-label={isPlaying ? '暂停 WAV' : '播放 WAV'}
                       disabled={assets.length === 0}
                       onClick={() => {
                         void handleTogglePlay();
@@ -935,7 +935,7 @@ export default function MusicRegulation() {
                     </IconButton>
                     <IconButton
                       className={styles.controlButton}
-                      aria-label="Next WAV"
+                      aria-label="下一首 WAV"
                       disabled={assets.length === 0}
                       onClick={() => {
                         void handleTrackChange(activeIndex + 1);
@@ -947,7 +947,7 @@ export default function MusicRegulation() {
 
                   <IconButton
                     className={styles.controlButton}
-                    aria-label="Open generated WAV history"
+                    aria-label="打开生成的 WAV 记录"
                     onClick={() => setIsHistoryOpen(true)}
                   >
                     <QueueMusicRoundedIcon />
@@ -969,15 +969,15 @@ export default function MusicRegulation() {
             }
           }}
         >
-          <section className={`${styles.historyModal} flex min-h-0 w-full flex-col`} aria-label="Generated WAV history">
+          <section className={`${styles.historyModal} flex min-h-0 w-full flex-col`} aria-label="生成的 WAV 记录">
             <div className={`${styles.historyHeader} flex items-center justify-between`}>
               <div>
-                <span>History</span>
-                <strong>Generated WAV</strong>
+                <span>生成记录</span>
+                <strong>生成的 WAV</strong>
               </div>
               <IconButton
                 className={styles.closeButton}
-                aria-label="Close history"
+                aria-label="关闭记录"
                 onClick={() => setIsHistoryOpen(false)}
               >
                 <CloseRoundedIcon />
@@ -985,7 +985,7 @@ export default function MusicRegulation() {
             </div>
             <div className={`${styles.queueList} grid min-h-0 overflow-auto`}>
               {assets.length === 0 ? (
-                <div className={styles.emptyQueue}>Generate a WAV track to start playback.</div>
+                <div className={styles.emptyQueue}>生成一首 WAV 后开始播放。</div>
               ) : assets.map((asset, index) => (
                 <div
                   key={asset.id}
@@ -1001,12 +1001,12 @@ export default function MusicRegulation() {
                   >
                     <span>{String(index + 1).padStart(2, '0')}</span>
                     <strong>{asset.title}</strong>
-                    <em>{asset.source === 'generated' ? 'Generated' : 'Bundled'}</em>
+                    <em>{asset.source === 'generated' ? '已生成' : '内置'}</em>
                   </button>
                   {asset.source === 'generated' ? (
                     <IconButton
                       className={styles.deleteQueueButton}
-                      aria-label={`Delete ${asset.title}`}
+                      aria-label={`删除 ${asset.title}`}
                       disabled={deletingItemId === asset.id}
                       onClick={(event) => {
                         event.stopPropagation();

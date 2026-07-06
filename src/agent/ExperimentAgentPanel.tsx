@@ -41,14 +41,14 @@ export default function ExperimentAgentPanel({
   const [liveThinkingMs, setLiveThinkingMs] = useState(0);
   const activityRef = useRef<HTMLDivElement | null>(null);
   const thinkingSummary = isPlanning
-    ? `Thinking ${formatThinkingSeconds(liveThinkingMs)}`
-    : `Thought for ${formatThinkingSeconds(thinkingDurationMs ?? 0)}`;
+    ? `思考中 ${formatThinkingSeconds(liveThinkingMs)}`
+    : `已思考 ${formatThinkingSeconds(thinkingDurationMs ?? 0)}`;
   const thinkingClassName = isPlanning
     ? `${styles.thinking} ${styles.thinkingActive}`
     : styles.thinking;
   const visibleThinkingSteps = thinkingSteps.length > 0
     ? thinkingSteps
-    : ['Waiting for planner response.'];
+    : ['等待规划器响应。'];
 
   const submit = (value: string) => {
     const nextValue = value.trim();
@@ -100,7 +100,7 @@ export default function ExperimentAgentPanel({
       </div>
 
       <div className={styles.content}>
-      <div className={styles.promptGrid} aria-label="Prompt examples">
+      <div className={styles.promptGrid} aria-label="快捷指令示例">
         {Array.from(new Set(quickPrompts)).slice(0, 4).map((example) => (
           <button key={example} type="button" disabled={isPlanning} onClick={() => submit(example)}>
             {example}
@@ -114,7 +114,7 @@ export default function ExperimentAgentPanel({
             <span aria-hidden="true" />
             <strong>{thinkingSummary}</strong>
           </summary>
-          <ol className={styles.thinkingBody} aria-label="Planner thinking steps">
+          <ol className={styles.thinkingBody} aria-label="规划器思考步骤">
             {visibleThinkingSteps.map((step, index) => (
               <li key={`${index}-${step}`}>{step}</li>
             ))}
@@ -126,7 +126,7 @@ export default function ExperimentAgentPanel({
       <p className={styles.message} aria-live="polite">{message}</p>
 
       {recentTimeline.length > 0 ? (
-        <ol className={styles.timeline} aria-label="Recent assistant timeline">
+        <ol className={styles.timeline} aria-label="最近助手记录">
           {recentTimeline.map((entry) => (
             <li key={`${entry.at}-${entry.type}`}>
               <span>{entry.type}</span>

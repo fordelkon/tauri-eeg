@@ -101,8 +101,8 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(agentTsx).toContain('thinkingSteps: readonly string[];');
     expect(agentTsx).toContain('thinkingDurationMs: number | null;');
     expect(agentTsx).toContain('<details className={styles.thinkingPanel}');
-    expect(agentTsx).toContain('Thinking ${formatThinkingSeconds(liveThinkingMs)}');
-    expect(agentTsx).toContain('Thought for');
+    expect(agentTsx).toContain('思考中 ${formatThinkingSeconds(liveThinkingMs)}');
+    expect(agentTsx).toContain('已思考');
     expect(agentTsx).toContain('const [liveThinkingMs, setLiveThinkingMs] = useState(0);');
     expect(agentTsx).toContain('window.setInterval');
     expect(agentTsx).toContain('styles.thinkingActive');
