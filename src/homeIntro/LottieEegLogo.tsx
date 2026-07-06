@@ -1,4 +1,4 @@
-import lottie, { type AnimationItem } from 'lottie-web';
+import lottie, { type AnimationItem } from 'lottie-web/build/player/lottie_light';
 import { useEffect, useRef } from 'react';
 import { eegWaveHexLogoAnimation } from './eegWaveHexLogoAnimation';
 import styles from './LottieEegLogo.module.css';

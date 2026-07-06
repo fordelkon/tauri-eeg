@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+// @ts-expect-error This project does not install Node type declarations for test-only imports.
+import { readFileSync } from 'node:fs';
 import { eegWaveHexLogoAnimation } from './eegWaveHexLogoAnimation';
 
 describe('eegWaveHexLogoAnimation', () => {
@@ -27,5 +29,12 @@ describe('eegWaveHexLogoAnimation', () => {
     expect(wavePath?.[0]).toEqual([-170, 0]);
     expect(wavePath?.[wavePath.length - 1]).toEqual([170, 0]);
     expect(wavePath?.some((point) => Math.abs(point[1]) > 42)).toBe(false);
+  });
+
+  it('loads the lottie light player to avoid the full player eval warning', () => {
+    const source = readFileSync(new URL('./LottieEegLogo.tsx', import.meta.url), 'utf8');
+
+    expect(source).toContain("from 'lottie-web/build/player/lottie_light'");
+    expect(source).not.toContain("from 'lottie-web';");
   });
 });
