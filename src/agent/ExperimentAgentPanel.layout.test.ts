@@ -168,6 +168,20 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(hookTs).toContain('duration: plannerDuration ?? preview.params.duration');
   });
 
+  test('broadcasts planner music parameters to the prompt builder before generation', () => {
+    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
+
+    expect(hookTs).toContain("new CustomEvent('agent:music-prompt'");
+    expect(hookTs).toContain('detail: {');
+    expect(hookTs).toContain('instrument: getPlannerStringParam(params,');
+    expect(hookTs).toContain('style: getPlannerStringParam(params,');
+    expect(hookTs).toContain('details: getPlannerStringParam(params,');
+    expect(hookTs).toContain('duration: plannerDuration ?? preview.params.duration');
+    expect(hookTs.indexOf("new CustomEvent('agent:music-prompt'")).toBeLessThan(
+      hookTs.indexOf('await generateMusic({'),
+    );
+  });
+
   test('orders quick prompts with next step last and uses local regulation tags without planner inference', () => {
     const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
 

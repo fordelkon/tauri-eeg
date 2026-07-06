@@ -16,6 +16,16 @@ describe('agentMusic', () => {
     expect(preview.requiresConfirmation).toBe(true);
   });
 
+  it('preserves planner-provided music style and detail tags in the prompt', () => {
+    const preview = buildAgentMusicPreview({
+      coreScores: { anxiety: 60, worry: 45, mood: 55, energy: 50 },
+      personalizedTags: ['lo-fi instrumental', 'warm vinyl texture'],
+    });
+
+    expect(preview.params.prompt).toContain('lo-fi instrumental');
+    expect(preview.params.prompt).toContain('warm vinyl texture');
+  });
+
   it('filters vocal and harsh custom descriptions', () => {
     expect(sanitizeMusicCustomDescription('加入人声歌词和尖锐恐怖音效')).toEqual({
       accepted: false,

@@ -194,15 +194,27 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
         ) as { anxiety: number; worry: number; mood: number; energy: number };
         const plannerPrompt = getPlannerStringParam(params, 'prompt');
         const plannerDuration = getPlannerDurationParam(params);
+        const plannerInstrument = getPlannerStringParam(params, 'instrument');
+        const plannerStyle = getPlannerStringParam(params, 'style');
+        const plannerDetails = getPlannerStringParam(params, 'details');
         const plannerTags = [
-          getPlannerStringParam(params, 'style'),
-          getPlannerStringParam(params, 'details'),
+          plannerInstrument,
+          plannerStyle,
+          plannerDetails,
         ].filter((tag): tag is string => Boolean(tag));
         const preview = buildAgentMusicPreview({ coreScores: scores, personalizedTags: plannerTags.length > 0 ? plannerTags : ['soft'] });
         if (!currentUser) {
           setMessage('请先登录后再生成调控音乐。');
           return;
         }
+        window.dispatchEvent(new CustomEvent('agent:music-prompt', {
+          detail: {
+            instrument: getPlannerStringParam(params, 'instrument'),
+            style: getPlannerStringParam(params, 'style'),
+            details: getPlannerStringParam(params, 'details'),
+            duration: plannerDuration ?? preview.params.duration,
+          },
+        }));
         await generateMusic({
           duration: plannerDuration ?? preview.params.duration,
           prompt: plannerPrompt ?? preview.params.prompt,

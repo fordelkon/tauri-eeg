@@ -21,6 +21,7 @@ export type CustomDescriptionResult =
 
 const blockedDescriptionPattern = /人声|歌词|演唱|说话|尖锐|恐怖|暴力|惊吓|vocal|lyrics|speech|harsh|scary|violent/i;
 const negativePrompt = 'vocals, singing, speech, lyrics';
+const controlTags = new Set(['avoid_vocals', 'no vocals']);
 
 export function sanitizeMusicCustomDescription(description: string): CustomDescriptionResult {
   const value = description.trim().slice(0, 120);
@@ -42,11 +43,15 @@ export function sanitizeMusicCustomDescription(description: string): CustomDescr
 export function buildAgentMusicPreview(input: AgentMusicInput): AgentMusicPreview {
   const { coreScores, personalizedTags = [] } = input;
   const custom = sanitizeMusicCustomDescription(input.customDescription ?? '');
+  const plannerTags = personalizedTags
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0 && !controlTags.has(tag.toLowerCase()) && !blockedDescriptionPattern.test(tag));
   const parts = [
     coreScores.anxiety >= 70 || coreScores.worry >= 70 ? 'ambient instrumental' : 'calm instrumental',
     coreScores.energy <= 35 ? 'warm low energy texture' : 'stable slow rhythm',
     personalizedTags.includes('piano') ? 'piano' : '',
     personalizedTags.includes('soft') ? 'soft dynamics' : '',
+    ...plannerTags,
     custom.accepted ? custom.value : '',
   ].filter((part) => part.length > 0);
 

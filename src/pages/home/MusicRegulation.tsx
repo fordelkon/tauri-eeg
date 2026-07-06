@@ -150,6 +150,43 @@ const detailTemplateOptions = [
 const instrumentTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f', '#d7a86e', '#9aa2a9'] as const;
 const styleTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f', '#d7a86e'] as const;
 const detailTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f'] as const;
+const generationDurationOptions = [15, 30, 60, 120] as const;
+
+type AgentMusicPromptDetail = {
+  instrument?: string | null;
+  style?: string | null;
+  details?: string | null;
+  duration?: number | null;
+};
+
+function splitPlannerTags(value: string | null | undefined) {
+  return (value ?? '')
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+}
+
+function selectTagValues(
+  options: readonly CompactTagOption[],
+  values: readonly (string | null | undefined)[],
+  setCustomValue: (value: string) => void,
+) {
+  const optionValues = new Set(options.map((option) => option.value));
+  const exactValues: string[] = [];
+  const customValues: string[] = [];
+
+  values.flatMap(splitPlannerTags).forEach((value) => {
+    if (optionValues.has(value) && value !== 'custom') {
+      exactValues.push(value);
+      return;
+    }
+
+    customValues.push(value);
+  });
+
+  setCustomValue(customValues.join(', '));
+  return customValues.length > 0 ? [...exactValues, 'custom'] : exactValues;
+}
 
 function formatTime(seconds: number) {
   if (!Number.isFinite(seconds) || seconds <= 0) {
@@ -328,12 +365,12 @@ export default function MusicRegulation() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [generationDuration, setGenerationDuration] = useState(30);
-  const [instruments, setInstruments] = useState<string[]>(['piano']);
+  const [instruments, setInstruments] = useState<string[]>([]);
   const [customInstrument, setCustomInstrument] = useState('');
-  const [selectedStyles, setSelectedStyles] = useState<string[]>(['ambient instrumental']);
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [customStyle, setCustomStyle] = useState('');
-  const [detailTemplates, setDetailTemplates] = useState<string[]>(['calm therapeutic texture']);
-  const [details, setDetails] = useState('soft strings');
+  const [detailTemplates, setDetailTemplates] = useState<string[]>([]);
+  const [details, setDetails] = useState('');
   const [error, setError] = useState<string | null>(null);
   const generatedAssets = useMemo(
     () => generatedItems.map((item) => createGeneratedMusicAsset(item, toPlayableFileUrl)),
@@ -420,6 +457,34 @@ export default function MusicRegulation() {
     window.addEventListener(MUSIC_GENERATED_EVENT, handleGeneratedMusic);
 
     return () => window.removeEventListener(MUSIC_GENERATED_EVENT, handleGeneratedMusic);
+  }, []);
+
+  useEffect(() => {
+    const applyAgentMusicPrompt = (event: Event) => {
+      const detail = (event as CustomEvent<AgentMusicPromptDetail>).detail;
+
+      if (!detail) {
+        return;
+      }
+
+      const detailTags = splitPlannerTags(detail.details);
+      const detailTemplateValues = new Set<string>(detailTemplateOptions.map((option) => option.value));
+      const templateMatches = detailTags.filter((tag) => detailTemplateValues.has(tag));
+      const customDetails = detailTags.filter((tag) => !detailTemplateValues.has(tag));
+
+      setInstruments(selectTagValues(instrumentOptions, [detail.instrument], setCustomInstrument));
+      setSelectedStyles(selectTagValues(styleOptions, [detail.style], setCustomStyle));
+      setDetailTemplates(templateMatches);
+      setDetails(customDetails.join(', '));
+
+      if (typeof detail.duration === 'number' && generationDurationOptions.includes(detail.duration as typeof generationDurationOptions[number])) {
+        setGenerationDuration(detail.duration);
+      }
+    };
+
+    window.addEventListener('agent:music-prompt', applyAgentMusicPrompt);
+
+    return () => window.removeEventListener('agent:music-prompt', applyAgentMusicPrompt);
   }, []);
 
   useEffect(() => {
