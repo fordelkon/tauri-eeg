@@ -6,6 +6,8 @@ import type { AgentPhase } from './agentFlow';
 import type { PendingAgentConfirmation } from './useExperimentAgent';
 import styles from './ExperimentAgentPanel.module.css';
 
+const formatThinkingSeconds = (durationMs: number) => `${(durationMs / 1000).toFixed(1)} s`;
+
 type Props = {
   isPlannerAvailable: boolean;
   isPlanning: boolean;
@@ -36,10 +38,14 @@ export default function ExperimentAgentPanel({
   onSubmitPrompt,
 }: Props) {
   const [input, setInput] = useState('');
+  const [liveThinkingMs, setLiveThinkingMs] = useState(0);
   const activityRef = useRef<HTMLDivElement | null>(null);
   const thinkingSummary = isPlanning
-    ? 'Thinking...'
-    : `Thought for ${(((thinkingDurationMs ?? 0) / 1000)).toFixed(1)} s`;
+    ? `Thinking ${formatThinkingSeconds(liveThinkingMs)}`
+    : `Thought for ${formatThinkingSeconds(thinkingDurationMs ?? 0)}`;
+  const thinkingClassName = isPlanning
+    ? `${styles.thinking} ${styles.thinkingActive}`
+    : styles.thinking;
   const visibleThinkingSteps = thinkingSteps.length > 0
     ? thinkingSteps
     : ['Waiting for planner response.'];
@@ -65,6 +71,24 @@ export default function ExperimentAgentPanel({
     return () => window.cancelAnimationFrame(frameId);
   }, [message, pendingConfirmation, recentTimeline]);
 
+  useEffect(() => {
+    if (!isPlanning) {
+      setLiveThinkingMs(thinkingDurationMs ?? 0);
+      return undefined;
+    }
+
+    const planningStartedAt = Date.now();
+    setLiveThinkingMs(0);
+
+    const timerId = window.setInterval(() => {
+      setLiveThinkingMs(Date.now() - planningStartedAt);
+    }, 100);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [isPlanning, thinkingDurationMs]);
+
   return (
     <section className={styles.panel} aria-busy={isPlanning} aria-label="实验助手聊天">
       <div className={styles.header}>
@@ -86,7 +110,7 @@ export default function ExperimentAgentPanel({
 
       {(isPlanning || thinkingDurationMs !== null || thinkingSteps.length > 0) ? (
         <details className={styles.thinkingPanel}>
-          <summary className={styles.thinking} role="status" aria-live="polite">
+          <summary className={thinkingClassName} role="status" aria-live="polite">
             <span aria-hidden="true" />
             <strong>{thinkingSummary}</strong>
           </summary>
@@ -96,13 +120,6 @@ export default function ExperimentAgentPanel({
             ))}
           </ol>
         </details>
-      ) : null}
-
-      {false && isPlanning ? (
-        <div className={styles.thinking} role="status" aria-live="polite">
-          <span aria-hidden="true" />
-          <strong>Agent 正在思考</strong>
-        </div>
       ) : null}
 
       <div className={styles.activity} ref={activityRef}>

@@ -101,11 +101,16 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(agentTsx).toContain('thinkingSteps: readonly string[];');
     expect(agentTsx).toContain('thinkingDurationMs: number | null;');
     expect(agentTsx).toContain('<details className={styles.thinkingPanel}');
-    expect(agentTsx).toContain('Thinking...');
+    expect(agentTsx).toContain('Thinking ${formatThinkingSeconds(liveThinkingMs)}');
     expect(agentTsx).toContain('Thought for');
+    expect(agentTsx).toContain('const [liveThinkingMs, setLiveThinkingMs] = useState(0);');
+    expect(agentTsx).toContain('window.setInterval');
+    expect(agentTsx).toContain('styles.thinkingActive');
     expect(agentTsx).toContain('className={styles.thinkingBody}');
     expect(agentTsx).toContain('visibleThinkingSteps.map');
     expect(agentCss).toMatch(/\.thinkingPanel\s*{/s);
+    expect(agentCss).toMatch(/\.thinkingActive\s+span\s*{[^}]*animation:\s*agentThinkingPulse/s);
+    expect(agentCss).not.toMatch(/\.thinking\s+span\s*{[^}]*animation:\s*agentThinkingPulse/s);
     expect(agentCss).toMatch(/\.thinkingBody\s*{[^}]*resize:\s*vertical;/s);
     expect(agentCss).toMatch(/\.thinkingBody\s*{[^}]*overflow:\s*auto;/s);
   });

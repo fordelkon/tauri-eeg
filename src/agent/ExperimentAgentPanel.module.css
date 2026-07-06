@@ -148,12 +148,16 @@
 }
 
 .thinking span {
-  animation: agentThinkingPulse 0.9s ease-in-out infinite;
   background: #2c2218;
   border-radius: 999px;
   flex: 0 0 auto;
   height: 7px;
+  opacity: 0.45;
   width: 7px;
+}
+
+.thinkingActive span {
+  animation: agentThinkingPulse 0.9s ease-in-out infinite;
 }
 
 .thinking strong {
