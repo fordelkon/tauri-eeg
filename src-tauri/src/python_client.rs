@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Serialize)]
 pub struct GenerateRequest {
@@ -16,6 +17,28 @@ pub struct GenerateResponse {
     pub progress: u8,
     pub output_path: Option<String>,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentPlannerRequest {
+    pub phase: String,
+    pub current_route: String,
+    pub user_input: String,
+    pub scale_status: Value,
+    pub available_resources: Value,
+    pub personalized_context: Value,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentPlannerResponse {
+    pub status: String,
+    pub action: String,
+    pub params: Value,
+    pub reason: String,
+    pub thinking: Vec<String>,
+    pub requires_confirmation: bool,
 }
 
 #[cfg(test)]
@@ -63,6 +86,42 @@ mod tests {
             response.output_path.as_deref(),
             Some("D:/music/gen_job.wav")
         );
+    }
+
+    #[test]
+    fn serializes_agent_planner_request_for_fastapi_contract() {
+        let request = AgentPlannerRequest {
+            phase: "music_regulation".to_string(),
+            current_route: "/music-regulation".to_string(),
+            user_input: "生成舒缓音乐".to_string(),
+            scale_status: json!({"dimensions": []}),
+            available_resources: json!({"videos": [], "musicGeneration": true, "gameAvailable": false}),
+            personalized_context: json!({"answers": [], "timeline": []}),
+        };
+
+        let value = serde_json::to_value(request).expect("serialize request");
+
+        assert_eq!(value["currentRoute"], "/music-regulation");
+        assert_eq!(value["userInput"], "生成舒缓音乐");
+        assert_eq!(value["availableResources"]["musicGeneration"], true);
+    }
+
+    #[test]
+    fn deserializes_agent_planner_response_from_fastapi_contract() {
+        let response: AgentPlannerResponse = serde_json::from_value(json!({
+            "status": "available",
+            "action": "recommend_music",
+            "params": {"duration": 30},
+            "reason": "当前量表显示焦虑较高。",
+            "thinking": ["Phase: music_regulation"],
+            "requiresConfirmation": true
+        }))
+        .expect("deserialize response");
+
+        assert_eq!(response.action, "recommend_music");
+        assert!(response.requires_confirmation);
+        assert_eq!(response.params["duration"], 30);
+        assert_eq!(response.thinking[0], "Phase: music_regulation");
     }
 }
 
@@ -134,5 +193,31 @@ impl PythonClient {
             .json::<HealthResponse>()
             .await
             .map_err(|_| "Music generation service returned an invalid response.".to_string())
+    }
+
+    pub async fn plan_agent(
+        &self,
+        request: &AgentPlannerRequest,
+    ) -> Result<AgentPlannerResponse, String> {
+        let url = format!("{}/agent/plan", self.base_url);
+        let response = self
+            .client
+            .post(url)
+            .json(request)
+            .send()
+            .await
+            .map_err(|_| "Failed to reach agent planner service.".to_string())?;
+
+        if !response.status().is_success() {
+            return Err(format!(
+                "Agent planner service returned HTTP {}.",
+                response.status()
+            ));
+        }
+
+        response
+            .json::<AgentPlannerResponse>()
+            .await
+            .map_err(|_| "Agent planner service returned an invalid response.".to_string())
     }
 }

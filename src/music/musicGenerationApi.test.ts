@@ -1,6 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { describe, expect, it, vi } from 'vitest';
-import { generateMusic, getMusicServiceHealth, preloadMusicService } from './musicGenerationApi';
+import {
+  MUSIC_GENERATED_EVENT,
+  generateMusic,
+  getMusicServiceHealth,
+  preloadMusicService,
+} from './musicGenerationApi';
 
 vi.mock('@tauri-apps/api/core', () => ({
   convertFileSrc: vi.fn((filePath: string) => `asset://${filePath}`),
@@ -53,6 +58,43 @@ describe('generateMusic', () => {
         username: 'ikun',
       },
     });
+  });
+
+  it('announces generated tracks so open music pages can refresh immediately', async () => {
+    const dispatchEvent = vi.fn();
+    class TestCustomEvent<T> {
+      detail: T;
+      type: string;
+
+      constructor(type: string, init: { detail: T }) {
+        this.type = type;
+        this.detail = init.detail;
+      }
+    }
+    vi.stubGlobal('dispatchEvent', dispatchEvent);
+    vi.stubGlobal('CustomEvent', TestCustomEvent);
+    vi.mocked(invoke).mockResolvedValueOnce({
+      createdAt: '2026-06-16T00:00:00Z',
+      durationSeconds: 30,
+      filePath: 'D:/ExperimentData/ikun/music/gen_job.wav',
+      id: 'job-1',
+      modelVersion: 'stable-audio-3-small-music',
+      prompt: 'calm piano',
+    });
+
+    await generateMusic({
+      duration: 30,
+      prompt: 'calm piano',
+      userId: 'user-1',
+      username: 'ikun',
+    });
+
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchEvent.mock.calls[0][0]).toMatchObject({
+      detail: { id: 'job-1', prompt: 'calm piano' },
+      type: MUSIC_GENERATED_EVENT,
+    });
+    vi.unstubAllGlobals();
   });
 });
 

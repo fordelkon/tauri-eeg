@@ -54,6 +54,7 @@ export default function EegControls({
       <Button
         className={styles.controlButton}
         variant="contained"
+        data-agent-action="start_eeg_device"
         startIcon={<PowerSettingsNewRoundedIcon />}
         disabled={!canStartDevice}
         onClick={onStartDevice}
@@ -63,6 +64,7 @@ export default function EegControls({
       <Button
         className={styles.controlButton}
         variant="outlined"
+        data-agent-action="stop_eeg_device"
         startIcon={<PowerSettingsNewRoundedIcon />}
         disabled={!canStopDevice}
         onClick={onStopDevice}
@@ -72,6 +74,7 @@ export default function EegControls({
       <Button
         className={styles.controlButton}
         variant="contained"
+        data-agent-action="start_eeg_recording"
         startIcon={<PlayArrowRoundedIcon />}
         disabled={!canStartRecord}
         onClick={onStartRecord}
@@ -81,6 +84,7 @@ export default function EegControls({
       <Button
         className={styles.controlButton}
         variant="outlined"
+        data-agent-action={canResumeRecord ? 'resume_eeg_recording' : 'pause_eeg_recording'}
         startIcon={canResumeRecord ? <PlayArrowRoundedIcon /> : <PauseRoundedIcon />}
         disabled={!canPauseRecord && !canResumeRecord}
         onClick={canResumeRecord ? onResumeRecord : onPauseRecord}
@@ -90,6 +94,7 @@ export default function EegControls({
       <Button
         className={styles.controlButton}
         variant="outlined"
+        data-agent-action="stop_and_save_eeg_recording"
         startIcon={<StopRoundedIcon />}
         disabled={!canStopRecord}
         onClick={onStopRecord}

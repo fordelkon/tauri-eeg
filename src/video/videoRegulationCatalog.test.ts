@@ -1,5 +1,6 @@
 ﻿import { describe, expect, it } from 'vitest';
 import {
+  getAllVideoRegulationAssets,
   getDefaultVideoSelections,
   getNextVideoSelectionStep,
   getVideoRegulationCatalog,
@@ -34,6 +35,10 @@ describe('videoRegulationCatalog', () => {
 
   it('does not show videos before a tag selection starts', () => {
     expect(getVideoRegulationCatalog(getDefaultVideoSelections())).toEqual([]);
+  });
+
+  it('exposes all finite assets for assistant lookup without requiring a partial selection', () => {
+    expect(getAllVideoRegulationAssets().map((video) => video.id)).toContain('9_seg016');
   });
 
   it('filters a caller supplied video library', () => {
