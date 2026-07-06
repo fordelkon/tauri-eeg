@@ -1,12 +1,17 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import * as echarts from 'echarts';
+import type { ReactNode } from 'react';
 import {
   getMentalScaleStatusSnapshot,
   subscribeMentalScaleStatus,
 } from './mentalScaleStatus';
 import styles from './GlobalMentalScalePanel.module.css';
 
-export default function GlobalMentalScalePanel() {
+type Props = {
+  children?: ReactNode;
+};
+
+export default function GlobalMentalScalePanel({ children }: Props) {
   const chartRef = useRef<HTMLDivElement | null>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
   const status = useSyncExternalStore(
@@ -114,10 +119,6 @@ export default function GlobalMentalScalePanel() {
     });
   }, [status.dimensions]);
 
-  const primaryDimension = status.dimensions.reduce((strongest, dimension) => (
-    dimension.value > strongest.value ? dimension : strongest
-  ), status.dimensions[0]);
-
   const updatedLabel = status.updatedAt
     ? new Intl.DateTimeFormat(undefined, {
       hour: '2-digit',
@@ -144,25 +145,7 @@ export default function GlobalMentalScalePanel() {
         />
       </div>
 
-      <div className={styles.focusCard}>
-        <span>Highest signal</span>
-        <strong>{primaryDimension.label} {primaryDimension.value}%</strong>
-        <p>{primaryDimension.description}</p>
-      </div>
-
-      <div className={styles.metrics}>
-        {status.dimensions.map((dimension) => (
-          <div className={styles.metric} key={dimension.key}>
-            <div className={styles.metricHead}>
-              <span>{dimension.label}</span>
-              <strong>{dimension.value}%</strong>
-            </div>
-            <span className={styles.track} aria-hidden="true">
-              <span style={{ width: `${dimension.value}%` }} />
-            </span>
-          </div>
-        ))}
-      </div>
+      {children ? <div className={styles.assistantSlot}>{children}</div> : null}
     </aside>
   );
 }

@@ -10,12 +10,21 @@ import torch
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from agent_planner import (
+    AGENT_PLANNER_CAPABILITIES,
+    AGENT_PLANNER_VERSION,
+    AgentPlannerRequest,
+    AgentPlannerResponse,
+    plan_agent_action,
+)
+
 MODEL_VERSION = "stable-audio-3-small-music"
 NEGATIVE_PROMPT = "vocals, singing, speech, lyrics"
 
 app = FastAPI(title="Tauri EEG Music Generation Service")
 model: Any | None = None
 model_error: str | None = None
+model_load_task: asyncio.Task[None] | None = None
 
 
 def resolve_device() -> str:
@@ -118,17 +127,24 @@ async def generate_wav(request: GenerateRequest, output_path: Path) -> None:
     await asyncio.to_thread(run_generation)
 
 
-@app.on_event("startup")
-async def startup_load_model() -> None:
+async def load_model_in_background() -> None:
     global model, model_error
 
     try:
-        model = load_model()
+        loaded_model = await asyncio.to_thread(load_model)
+        model = loaded_model
         model_error = None
     except Exception as exc:
         model = None
         model_error = str(exc)
         print(model_error)
+
+
+@app.on_event("startup")
+async def startup_load_model() -> None:
+    global model_load_task
+
+    model_load_task = asyncio.create_task(load_model_in_background())
 
 
 @app.get("/health")
@@ -143,6 +159,15 @@ async def health_check() -> dict[str, Any]:
         "gpuAvailable": torch.cuda.is_available(),
         "device": device,
         "error": model_error,
+    }
+
+
+@app.get("/agent/health")
+async def agent_health_check() -> dict[str, Any]:
+    return {
+        "status": "ready",
+        "plannerVersion": AGENT_PLANNER_VERSION,
+        "capabilities": AGENT_PLANNER_CAPABILITIES,
     }
 
 
@@ -168,6 +193,11 @@ async def generate_music(request: GenerateRequest) -> JobResponse:
             progress=0,
             error=str(exc),
         )
+
+
+@app.post("/agent/plan", response_model=AgentPlannerResponse)
+async def plan_agent(request: AgentPlannerRequest) -> AgentPlannerResponse:
+    return plan_agent_action(request)
 
 
 if __name__ == "__main__":

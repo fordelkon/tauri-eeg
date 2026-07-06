@@ -23,6 +23,9 @@ use neuro_music_client::{
 };
 use neuro_music_service::NeuroMusicServiceManager;
 use python_client::{GenerateRequest, HealthResponse, PythonClient};
+use python_client::{
+    AgentPlannerRequest, AgentPlannerResponse, GenerateRequest, HealthResponse, PythonClient,
+};
 use python_service::PythonServiceManager;
 use serde::Deserialize;
 use tauri::State;
@@ -351,6 +354,14 @@ async fn send_neuro_music_emotion_control(
             arousal: input.arousal,
             playback_pos: input.playback_pos.unwrap_or(0.0),
         })
+async fn plan_agent_action(
+    service: State<'_, PythonServiceManager>,
+    request: AgentPlannerRequest,
+) -> Result<AgentPlannerResponse, String> {
+    service.ensure_agent_running().await?;
+
+    PythonClient::new(service.base_url().to_string())
+        .plan_agent(&request)
         .await
 }
 
@@ -468,6 +479,7 @@ pub fn run() {
             stop_neuro_music_session,
             get_neuro_music_session_status,
             send_neuro_music_emotion_control,
+            plan_agent_action,
             list_music_history,
             delete_music_history,
             get_storage_location,

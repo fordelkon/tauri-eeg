@@ -370,6 +370,12 @@ export function getDefaultVideoSelections(): VideoRegulationSelections {
   };
 }
 
+export function getAllVideoRegulationAssets(
+  libraryAssets: readonly VideoRegulationAsset[] = assets,
+): VideoRegulationAsset[] {
+  return [...libraryAssets];
+}
+
 export function getVideoRegulationCatalog(
   selections: VideoRegulationSelections = getDefaultVideoSelections(),
   libraryAssets: readonly VideoRegulationAsset[] = assets,
