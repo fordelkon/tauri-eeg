@@ -49,9 +49,10 @@ def base_request(**overrides):
 
 class AgentPlannerTests(unittest.TestCase):
     def test_exposes_planner_version_and_lm_capabilities(self):
-        self.assertEqual(AGENT_PLANNER_VERSION, "lm-video-music-v1")
+        self.assertEqual(AGENT_PLANNER_VERSION, "lm-video-music-stream-v1")
         self.assertIn("lm_video_selection", AGENT_PLANNER_CAPABILITIES)
         self.assertIn("lm_music_generation_prompt", AGENT_PLANNER_CAPABILITIES)
+        self.assertIn("lm_planner_streaming", AGENT_PLANNER_CAPABILITIES)
 
     def test_agent_health_reports_versioned_capabilities(self):
         response = asyncio.run(agent_health_check())

@@ -47,29 +47,44 @@ def complete_json_with_lm_studio(
     *,
     settings: LmStudioSettings | None = None,
     post: Callable[..., Any] | None = None,
+    stream: Callable[..., Any] | None = None,
+    on_delta: Callable[[str], None] | None = None,
 ) -> LmStudioResult[T]:
     current_settings = settings or load_lm_studio_settings()
-    if post is None:
+    if post is None and stream is None:
         try:
             import httpx
         except ModuleNotFoundError as exc:
             return LmStudioResult(available=False, error=str(exc))
 
         post_fn = httpx.post
+        stream_fn = httpx.stream
         http_error = httpx.HTTPError
     else:
         post_fn = post
+        stream_fn = stream
         http_error = Exception
 
+    body = {
+        "model": current_settings.model,
+        "messages": messages,
+        "temperature": 0.2,
+        "response_format": {"type": "text"},
+    }
+
     try:
+        if stream_fn is not None:
+            return _stream_json_with_lm_studio(
+                stream_fn,
+                current_settings,
+                body,
+                response_model,
+                on_delta,
+            )
+
         response = post_fn(
             f"{current_settings.base_url.rstrip('/')}/chat/completions",
-            json={
-                "model": current_settings.model,
-                "messages": messages,
-                "temperature": 0.2,
-                "response_format": {"type": "text"},
-            },
+            json=body,
             timeout=current_settings.timeout_seconds,
         )
         response.raise_for_status()
@@ -80,3 +95,47 @@ def complete_json_with_lm_studio(
         return LmStudioResult(available=True, value=response_model.model_validate(parsed))
     except (http_error, KeyError, IndexError, TypeError, json.JSONDecodeError, ValidationError) as exc:
         return LmStudioResult(available=False, error=str(exc))
+
+
+def _stream_json_with_lm_studio(
+    stream_fn: Callable[..., Any],
+    settings: LmStudioSettings,
+    body: dict[str, Any],
+    response_model: type[T],
+    on_delta: Callable[[str], None] | None,
+) -> LmStudioResult[T]:
+    content_parts: list[str] = []
+    reasoning_parts: list[str] = []
+    stream_body = {**body, "stream": True}
+
+    with stream_fn(
+        "POST",
+        f"{settings.base_url.rstrip('/')}/chat/completions",
+        json=stream_body,
+        timeout=settings.timeout_seconds,
+    ) as response:
+        response.raise_for_status()
+        for raw_line in response.iter_lines():
+            line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else raw_line
+            line = line.strip()
+            if not line or not line.startswith("data:"):
+                continue
+
+            data = line[len("data:"):].strip()
+            if data == "[DONE]":
+                break
+
+            chunk = json.loads(data)
+            delta = chunk["choices"][0].get("delta", {})
+            reasoning_delta = delta.get("reasoning_content") or ""
+            content_delta = delta.get("content") or ""
+            if reasoning_delta:
+                reasoning_parts.append(reasoning_delta)
+                if on_delta is not None:
+                    on_delta(reasoning_delta)
+            if content_delta:
+                content_parts.append(content_delta)
+
+    content = "".join(content_parts) or "".join(reasoning_parts)
+    parsed = _extract_json_object(content)
+    return LmStudioResult(available=True, value=response_model.model_validate(parsed))

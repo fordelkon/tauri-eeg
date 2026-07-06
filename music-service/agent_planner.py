@@ -1,15 +1,16 @@
 ﻿from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Any, Callable, Literal, TypedDict
 
 from pydantic import BaseModel, Field, field_validator
 
 from lm_studio_client import complete_json_with_lm_studio
 
-AGENT_PLANNER_VERSION = "lm-video-music-v1"
+AGENT_PLANNER_VERSION = "lm-video-music-stream-v1"
 AGENT_PLANNER_CAPABILITIES = [
     "lm_video_selection",
     "lm_music_generation_prompt",
+    "lm_planner_streaming",
 ]
 
 try:
@@ -272,7 +273,10 @@ def _requested_video_id(request: AgentPlannerRequest) -> str | None:
     return None
 
 
-def _select_video_with_lm_studio(request: AgentPlannerRequest) -> AgentPlannerResponse | None:
+def _select_video_with_lm_studio(
+    request: AgentPlannerRequest,
+    on_thinking_delta: Callable[[str], None] | None = None,
+) -> AgentPlannerResponse | None:
     available_ids = {video.id: video for video in request.availableResources.videos}
     lm_result = complete_json_with_lm_studio(
         [
@@ -296,6 +300,7 @@ def _select_video_with_lm_studio(request: AgentPlannerRequest) -> AgentPlannerRe
             },
         ],
         LmVideoPlannerOutput,
+        on_delta=on_thinking_delta,
     )
     if not lm_result.available or lm_result.value is None:
         return None
@@ -314,7 +319,10 @@ def _select_video_with_lm_studio(request: AgentPlannerRequest) -> AgentPlannerRe
 
 
 
-def _select_music_with_lm_studio(request: AgentPlannerRequest) -> AgentPlannerResponse | None:
+def _select_music_with_lm_studio(
+    request: AgentPlannerRequest,
+    on_thinking_delta: Callable[[str], None] | None = None,
+) -> AgentPlannerResponse | None:
     lm_result = complete_json_with_lm_studio(
         [
             {
@@ -338,6 +346,7 @@ def _select_music_with_lm_studio(request: AgentPlannerRequest) -> AgentPlannerRe
             },
         ],
         LmMusicPlannerOutput,
+        on_delta=on_thinking_delta,
     )
     if not lm_result.available or lm_result.value is None:
         return None
@@ -367,7 +376,10 @@ def _thinking_steps(request: AgentPlannerRequest, decision: str) -> list[str]:
     ]
 
 
-def _plan_by_phase(state: PlannerState) -> PlannerState:
+def _plan_by_phase(
+    state: PlannerState,
+    on_thinking_delta: Callable[[str], None] | None = None,
+) -> PlannerState:
     request = state["request"]
     user_input = request.userInput
     anxiety = _dimension_value(request, "anxiety")
@@ -390,7 +402,7 @@ def _plan_by_phase(state: PlannerState) -> PlannerState:
         return state
 
     if request.phase == "video_regulation" and request.availableResources.videos:
-        state["response"] = _select_video_with_lm_studio(request)
+        state["response"] = _select_video_with_lm_studio(request, on_thinking_delta)
         if state["response"] is not None:
             return state
 
@@ -412,7 +424,7 @@ def _plan_by_phase(state: PlannerState) -> PlannerState:
     wants_music_generation = any(term in user_input.lower() for term in music_generation_terms)
 
     if request.phase == "music_regulation" and request.availableResources.musicGeneration and wants_music_generation:
-        state["response"] = _select_music_with_lm_studio(request)
+        state["response"] = _select_music_with_lm_studio(request, on_thinking_delta)
         if state["response"] is not None:
             return state
 
@@ -452,6 +464,7 @@ def _plan_by_phase(state: PlannerState) -> PlannerState:
                 {"role": "user", "content": user_input},
             ],
             LmPlannerOutput,
+            on_delta=on_thinking_delta,
         )
         if not lm_result.available or lm_result.value is None:
             state["response"] = AgentPlannerResponse(
@@ -486,12 +499,15 @@ def build_agent_graph():
     return graph.compile()
 
 
-def plan_agent_action(request: AgentPlannerRequest) -> AgentPlannerResponse:
+def plan_agent_action(
+    request: AgentPlannerRequest,
+    on_thinking_delta: Callable[[str], None] | None = None,
+) -> AgentPlannerResponse:
     graph = build_agent_graph()
     initial_state: PlannerState = {"request": request, "response": None}
 
-    if graph is None:
-        state = _plan_by_phase(initial_state)
+    if graph is None or on_thinking_delta is not None:
+        state = _plan_by_phase(initial_state, on_thinking_delta)
     else:
         state = graph.invoke(initial_state)
 

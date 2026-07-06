@@ -115,6 +115,19 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(agentCss).toMatch(/\.thinkingBody\s*{[^}]*overflow:\s*auto;/s);
   });
 
+  test('requests planner recommendations through a streaming response', () => {
+    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
+    const apiTs = readText(new URL('./agentPlannerApi.ts', import.meta.url));
+
+    expect(apiTs).toContain('requestAgentPlanStream');
+    expect(apiTs).toContain("fetch(`${baseUrl}/agent/plan/stream`");
+    expect(apiTs).toContain("if (eventName === 'thinking_delta')");
+    expect(apiTs).toContain('onThinkingDelta');
+    expect(hookTs).toContain('requestAgentPlanStream');
+    expect(hookTs).toContain('onThinkingDelta: appendThinkingDelta');
+    expect(hookTs).not.toContain('await requestAgentPlan({');
+  });
+
   test('does not advance assistant phase before gated navigation actually changes route', () => {
     const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
 

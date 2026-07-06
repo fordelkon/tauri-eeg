@@ -232,6 +232,15 @@ async fn plan_agent_action(
 }
 
 #[tauri::command]
+async fn get_agent_service_base_url(
+    service: State<'_, PythonServiceManager>,
+) -> Result<String, String> {
+    service.ensure_agent_running().await?;
+
+    Ok(service.base_url().to_string())
+}
+
+#[tauri::command]
 fn list_music_history(
     db: State<'_, AppDb>,
     user_id: String,
@@ -338,6 +347,7 @@ pub fn run() {
             generate_music,
             get_music_service_health,
             plan_agent_action,
+            get_agent_service_base_url,
             list_music_history,
             delete_music_history,
             get_storage_location,

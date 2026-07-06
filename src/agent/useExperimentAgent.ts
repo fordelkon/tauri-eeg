@@ -18,7 +18,7 @@ import {
 } from './agentContext';
 import { classifyAgentIntent } from './agentIntent';
 import { buildAgentMusicPreview } from './agentMusic';
-import { requestAgentPlan } from './agentPlannerApi';
+import { requestAgentPlanStream } from './agentPlannerApi';
 import { findAgentVideoMatch } from './agentVideo';
 import {
   type AgentPhase,
@@ -124,6 +124,14 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
       type,
     }));
   }, [phase]);
+
+  const appendThinkingDelta = useCallback((delta: string) => {
+    setThinkingSteps((currentSteps) => {
+      const nextSteps = currentSteps.length > 0 ? [...currentSteps] : [''];
+      nextSteps[nextSteps.length - 1] = `${nextSteps[nextSteps.length - 1]}${delta}`;
+      return nextSteps;
+    });
+  }, []);
 
   const executeAction = useCallback(async (actionId: AgentActionId, params: AgentActionParams = {}) => {
     const validation = getAgentActionValidation(actionId, phase);
@@ -277,27 +285,30 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
         title: video.title,
       }));
       const currentMusicTags = getCurrentMusicRegulationTags();
-      const response = await requestAgentPlan({
-        availableResources: getAgentAvailableResourcesForPhase(phase, videos),
-        currentRoute: pathname,
-        personalizedContext: {
-          answers: currentMusicTags.length > 0
-            ? [
-              ...personalizedAnswers,
-              {
-                answer: currentMusicTags.join(', '),
-                createdAt: Date.now(),
-                normalizedTags: currentMusicTags,
-                phase: 'music_regulation' as const,
-              },
-            ]
-            : personalizedAnswers,
-          timeline,
+      const response = await requestAgentPlanStream(
+        {
+          availableResources: getAgentAvailableResourcesForPhase(phase, videos),
+          currentRoute: pathname,
+          personalizedContext: {
+            answers: currentMusicTags.length > 0
+              ? [
+                ...personalizedAnswers,
+                {
+                  answer: currentMusicTags.join(', '),
+                  createdAt: Date.now(),
+                  normalizedTags: currentMusicTags,
+                  phase: 'music_regulation' as const,
+                },
+              ]
+              : personalizedAnswers,
+            timeline,
+          },
+          phase,
+          scaleStatus: getMentalScaleStatusSnapshot(),
+          userInput: input,
         },
-        phase,
-        scaleStatus: getMentalScaleStatusSnapshot(),
-        userInput: input,
-      });
+        { onThinkingDelta: appendThinkingDelta },
+      );
 
       if (response.status === 'unavailable') {
         setIsPlannerAvailable(false);
@@ -337,7 +348,7 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
       setMessage('智能助手暂不可用，已切换为本地指令识别。');
       return false;
     }
-  }, [pathname, personalizedAnswers, phase, queueOrExecute, pushTimeline, timeline]);
+  }, [appendThinkingDelta, pathname, personalizedAnswers, phase, queueOrExecute, pushTimeline, timeline]);
 
   const submitPrompt = useCallback(async (input: string) => {
     const trimmed = input.trim();
@@ -347,6 +358,7 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
 
     setIsPlanning(true);
     setThinkingDurationMs(null);
+    setThinkingSteps([]);
     const planningStartedAt = Date.now();
 
     try {

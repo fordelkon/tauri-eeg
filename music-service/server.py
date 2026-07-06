@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -8,6 +9,8 @@ from typing import Any
 import numpy as np
 import torch
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from agent_planner import (
@@ -22,6 +25,12 @@ MODEL_VERSION = "stable-audio-3-small-music"
 NEGATIVE_PROMPT = "vocals, singing, speech, lyrics"
 
 app = FastAPI(title="Tauri EEG Music Generation Service")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 model: Any | None = None
 model_error: str | None = None
 model_load_task: asyncio.Task[None] | None = None
@@ -198,6 +207,42 @@ async def generate_music(request: GenerateRequest) -> JobResponse:
 @app.post("/agent/plan", response_model=AgentPlannerResponse)
 async def plan_agent(request: AgentPlannerRequest) -> AgentPlannerResponse:
     return plan_agent_action(request)
+
+
+def _format_sse(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@app.post("/agent/plan/stream")
+async def stream_agent_plan(request: AgentPlannerRequest) -> StreamingResponse:
+    async def events():
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue[tuple[str, dict[str, Any]] | None] = asyncio.Queue()
+
+        def on_thinking_delta(delta: str) -> None:
+            loop.call_soon_threadsafe(queue.put_nowait, ("thinking_delta", {"delta": delta}))
+
+        async def run_planner() -> None:
+            try:
+                response = await asyncio.to_thread(plan_agent_action, request, on_thinking_delta)
+                await queue.put(("response", response.model_dump(by_alias=True)))
+            except Exception as exc:
+                await queue.put(("error", {"error": str(exc)}))
+            finally:
+                await queue.put(None)
+
+        planner_task = asyncio.create_task(run_planner())
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                event, data = item
+                yield _format_sse(event, data)
+        finally:
+            await planner_task
+
+    return StreamingResponse(events(), media_type="text/event-stream")
 
 
 if __name__ == "__main__":

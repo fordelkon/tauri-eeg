@@ -171,6 +171,43 @@ class LmStudioClientTests(unittest.TestCase):
         self.assertTrue(result.available)
         self.assertEqual(result.value.action if result.value else None, "no_op")
 
+    def test_streams_lm_studio_deltas_before_parsing_final_json(self) -> None:
+        captured_body = {}
+        deltas: list[str] = []
+
+        class FakeStreamResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback) -> None:
+                return None
+
+            def raise_for_status(self) -> None:
+                return None
+
+            def iter_lines(self):
+                yield 'data: {"choices":[{"delta":{"reasoning_content":"Reading scale status. "}}]}'
+                yield 'data: {"choices":[{"delta":{"content":"{\\"action\\":"}}]}'
+                yield 'data: {"choices":[{"delta":{"content":"\\"no_op\\"}"}}]}'
+                yield "data: [DONE]"
+
+        def fake_stream(method, url, **kwargs):
+            captured_body.update(kwargs["json"])
+            return FakeStreamResponse()
+
+        result = complete_json_with_lm_studio(
+            [{"role": "user", "content": "hello"}],
+            _PlannerOutput,
+            settings=LmStudioSettings(),
+            stream=fake_stream,
+            on_delta=deltas.append,
+        )
+
+        self.assertTrue(result.available)
+        self.assertEqual(result.value.action if result.value else None, "no_op")
+        self.assertTrue(captured_body["stream"])
+        self.assertEqual(deltas, ["Reading scale status. "])
+
 
 if __name__ == "__main__":
     unittest.main()
