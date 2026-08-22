@@ -1,24 +1,59 @@
-use serde::Serialize;
+use std::sync::OnceLock;
 
 use super::protocol::EEG_CHANNEL_COUNT;
 
-pub const EEG_SAMPLE_BLOCK_EVENT: &str = "eeg://sample-block";
+/// Low-frequency device lifecycle event (connect / disconnect / stream stop).
+pub const EEG_STATUS_EVENT: &str = "eeg://status";
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct EegSampleBlockPayload {
-    pub sequence: u64,
-    pub sample_rate_hz: u32,
-    pub started_at_ms: i64,
-    pub channel_ids: Vec<String>,
-    pub samples: Vec<Vec<f32>>,
-    pub trigger_class: Option<u8>,
-}
+/// Binary sample-block wire format (little-endian):
+/// - 0..4   u32 sequence
+/// - 4..8   u32 sample rate (Hz)
+/// - 8..16  u64 stream start time (ms since UNIX epoch)
+/// - 16..18 u16 channel count
+/// - 18..20 u16 sample count
+/// - 20     u8 trigger present (0/1)
+/// - 21     u8 trigger value
+/// - 22..24 zero padding
+/// - 24..   f32 x channel count x sample count, channel-major ([ch0 s0..sN][ch1 s0..sN]...)
+pub const EEG_BLOCK_HEADER_BYTES: usize = 24;
+const MAX_BLOCK_SAMPLES: usize = u16::MAX as usize;
 
 pub fn default_channel_ids() -> Vec<String> {
     (1..=EEG_CHANNEL_COUNT)
         .map(|index| format!("ch{index:02}"))
         .collect()
+}
+
+/// Channel ids are immutable for the process lifetime; build them once.
+pub fn shared_channel_ids() -> &'static [String] {
+    static CHANNEL_IDS: OnceLock<Vec<String>> = OnceLock::new();
+    CHANNEL_IDS.get_or_init(default_channel_ids)
+}
+
+fn encode_block(
+    sequence: u64,
+    sample_rate_hz: u32,
+    started_at_ms: i64,
+    samples: &[[f32; EEG_CHANNEL_COUNT]],
+    trigger: Option<u8>,
+) -> Vec<u8> {
+    let channel_count = EEG_CHANNEL_COUNT.min(u16::MAX as usize) as u16;
+    let sample_count = samples.len().min(MAX_BLOCK_SAMPLES) as u16;
+    let mut bytes = Vec::with_capacity(EEG_BLOCK_HEADER_BYTES + 4 * channel_count as usize * sample_count as usize);
+    bytes.extend_from_slice(&(sequence as u32).to_le_bytes());
+    bytes.extend_from_slice(&sample_rate_hz.to_le_bytes());
+    bytes.extend_from_slice(&(started_at_ms as u64).to_le_bytes());
+    bytes.extend_from_slice(&channel_count.to_le_bytes());
+    bytes.extend_from_slice(&sample_count.to_le_bytes());
+    bytes.push(u8::from(trigger.is_some()));
+    bytes.push(trigger.unwrap_or(0));
+    bytes.extend_from_slice(&[0, 0]);
+    for channel_index in 0..channel_count as usize {
+        for sample in samples {
+            bytes.extend_from_slice(&sample[channel_index].to_le_bytes());
+        }
+    }
+    bytes
 }
 
 pub struct RealtimeBlockAggregator {
@@ -53,7 +88,7 @@ impl RealtimeBlockAggregator {
         sample: [f32; EEG_CHANNEL_COUNT],
         trigger: Option<u8>,
         sample_time_ms: i64,
-    ) -> Option<EegSampleBlockPayload> {
+    ) -> Option<Vec<u8>> {
         if self.stream_started_at_ms.is_none() {
             self.stream_started_at_ms = Some(sample_time_ms);
         }
@@ -67,23 +102,16 @@ impl RealtimeBlockAggregator {
             return None;
         }
 
-        let mut samples = vec![Vec::with_capacity(self.pending_samples.len()); EEG_CHANNEL_COUNT];
-        for sample in self.pending_samples.drain(..) {
-            for channel_index in 0..EEG_CHANNEL_COUNT {
-                samples[channel_index].push(sample[channel_index]);
-            }
-        }
-
-        let payload = EegSampleBlockPayload {
-            sequence: self.sequence,
-            sample_rate_hz: self.sample_rate_hz,
-            started_at_ms: self.block_started_at_ms(sample_time_ms),
-            channel_ids: default_channel_ids(),
-            samples,
-            trigger_class: self.pending_trigger.take(),
-        };
+        let block = encode_block(
+            self.sequence,
+            self.sample_rate_hz,
+            self.block_started_at_ms(sample_time_ms),
+            &self.pending_samples,
+            self.pending_trigger.take(),
+        );
+        self.pending_samples.clear();
         self.sequence += 1;
-        Some(payload)
+        Some(block)
     }
 
     fn block_started_at_ms(&self, fallback_time_ms: i64) -> i64 {
@@ -107,6 +135,27 @@ mod tests {
         [value; EEG_CHANNEL_COUNT]
     }
 
+    fn decode_header(block: &[u8]) -> (u32, u32, i64, u16, u16, Option<u8>) {
+        assert!(block.len() >= EEG_BLOCK_HEADER_BYTES);
+        (
+            u32::from_le_bytes(block[0..4].try_into().expect("sequence")),
+            u32::from_le_bytes(block[4..8].try_into().expect("rate")),
+            u64::from_le_bytes(block[8..16].try_into().expect("start")) as i64,
+            u16::from_le_bytes(block[16..18].try_into().expect("channels")),
+            u16::from_le_bytes(block[18..20].try_into().expect("samples")),
+            if block[20] == 0 {
+                None
+            } else {
+                Some(block[21])
+            },
+        )
+    }
+
+    fn decode_sample(block: &[u8], channel: usize, index: usize, sample_count: usize) -> f32 {
+        let offset = EEG_BLOCK_HEADER_BYTES + (channel * sample_count + index) * 4;
+        f32::from_le_bytes(block[offset..offset + 4].try_into().expect("f32"))
+    }
+
     #[test]
     fn default_channel_ids_are_ch01_to_ch32() {
         let ids = default_channel_ids();
@@ -115,10 +164,11 @@ mod tests {
         assert_eq!(ids[0], "ch01");
         assert_eq!(ids[15], "ch16");
         assert_eq!(ids[31], "ch32");
+        assert_eq!(shared_channel_ids().len(), 32);
     }
 
     #[test]
-    fn emits_block_after_configured_sample_count() {
+    fn emits_binary_block_after_configured_sample_count() {
         let mut aggregator = RealtimeBlockAggregator::new(1000, 50).expect("aggregator");
 
         for index in 0..49 {
@@ -130,15 +180,18 @@ mod tests {
             .push_sample(sample(49.0), Some(2), 1_049)
             .expect("block emitted");
 
-        assert_eq!(block.sequence, 0);
-        assert_eq!(block.sample_rate_hz, 1000);
-        assert_eq!(block.started_at_ms, 1_000);
-        assert_eq!(block.channel_ids.len(), 32);
-        assert_eq!(block.samples.len(), 32);
-        assert_eq!(block.samples[0].len(), 50);
-        assert_eq!(block.samples[0][0], 0.0);
-        assert_eq!(block.samples[0][49], 49.0);
-        assert_eq!(block.trigger_class, Some(2));
+        assert_eq!(
+            block.len(),
+            EEG_BLOCK_HEADER_BYTES + 32 * 50 * std::mem::size_of::<f32>()
+        );
+        assert_eq!(
+            decode_header(&block),
+            (0, 1000, 1_000, 32, 50, Some(2))
+        );
+        assert_eq!(decode_sample(&block, 0, 0, 50), 0.0);
+        assert_eq!(decode_sample(&block, 5, 0, 50), 0.0);
+        assert_eq!(decode_sample(&block, 0, 49, 50), 49.0);
+        assert_eq!(decode_sample(&block, 31, 49, 50), 49.0);
     }
 
     #[test]
@@ -152,11 +205,8 @@ mod tests {
             .push_sample(sample(2.0), None, 510)
             .expect("second");
 
-        assert_eq!(first.sequence, 0);
-        assert_eq!(first.trigger_class, Some(5));
-        assert_eq!(second.sequence, 1);
-        assert_eq!(second.trigger_class, None);
-        assert_eq!(second.started_at_ms, 510);
+        assert_eq!(decode_header(&first), (0, 2, 10, 32, 1, Some(5)));
+        assert_eq!(decode_header(&second), (1, 2, 510, 32, 1, None));
     }
 
     #[test]
@@ -167,7 +217,7 @@ mod tests {
             assert_eq!(
                 aggregator
                     .push_sample(sample(index as f32), None, 1_000)
-                    .map(|block| block.started_at_ms),
+                    .map(|block| decode_header(&block).2),
                 if index == 49 { Some(1_000) } else { None }
             );
         }
@@ -176,7 +226,7 @@ mod tests {
         for index in 0..50 {
             second_started_at = aggregator
                 .push_sample(sample(index as f32), None, 1_001)
-                .map(|block| block.started_at_ms)
+                .map(|block| decode_header(&block).2)
                 .or(second_started_at);
         }
 

@@ -33,8 +33,26 @@ pub struct EegStatus {
     pub eeg_connected: bool,
     pub trigger_connected: bool,
     pub last_error: Option<String>,
+    pub last_disconnect_reason: Option<String>,
     pub sample_rate_hz: u32,
     pub block_interval_ms: u64,
-    pub channel_ids: Vec<String>,
+    pub channel_ids: &'static [String],
+    pub padded_samples: u64,
     pub active_recording: Option<EegRecordingSession>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EegStatusClient {
+    Eeg,
+    Trigger,
+    Stream,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EegStatusEvent {
+    pub client: EegStatusClient,
+    pub connected: bool,
+    pub reason: Option<String>,
 }

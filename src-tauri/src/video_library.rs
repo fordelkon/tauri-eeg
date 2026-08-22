@@ -1,11 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
+    sync::Mutex,
+    time::{Duration, Instant},
 };
 
-#[derive(Debug, Serialize)]
+const LIBRARY_CACHE_TTL: Duration = Duration::from_secs(30);
+
+// Directory scans are expensive; reuse the last result per folder briefly.
+static LIBRARY_CACHE: Mutex<Option<HashMap<PathBuf, (Instant, VideoLibrary)>>> = Mutex::new(None);
+
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoLibrary {
     pub assets: Vec<VideoAsset>,
@@ -13,7 +20,7 @@ pub struct VideoLibrary {
     pub root: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoAsset {
     pub id: String,
@@ -27,7 +34,7 @@ pub struct VideoAsset {
     pub title: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoSegment {
     pub atmosphere: String,
@@ -65,12 +72,41 @@ pub fn load_video_library(folder_path: &str) -> Result<VideoLibrary, String> {
         return Err("请选择一个有效的视频库文件夹。".to_string());
     }
 
-    let mp4_files = collect_mp4_files(&root)?;
+    if let Some(library) = cached_library(&root) {
+        return Ok(library);
+    }
+
+    let library = scan_video_library(&root)?;
+    store_cached_library(root, library.clone());
+
+    Ok(library)
+}
+
+fn cached_library(root: &Path) -> Option<VideoLibrary> {
+    let cache = LIBRARY_CACHE.lock().ok()?;
+    let entries = cache.as_ref()?;
+    let (cached_at, library) = entries.get(root)?;
+
+    (cached_at.elapsed() < LIBRARY_CACHE_TTL).then(|| library.clone())
+}
+
+fn store_cached_library(root: PathBuf, library: VideoLibrary) {
+    if let Ok(mut cache) = LIBRARY_CACHE.lock() {
+        let entries = cache.get_or_insert_with(HashMap::new);
+        let now = Instant::now();
+
+        entries.retain(|_, (cached_at, _)| now.duration_since(*cached_at) < LIBRARY_CACHE_TTL);
+        entries.insert(root, (now, library));
+    }
+}
+
+fn scan_video_library(root: &Path) -> Result<VideoLibrary, String> {
+    let mp4_files = collect_mp4_files(root)?;
     if mp4_files.is_empty() {
         return Err("视频库文件夹中没有 mp4 文件。".to_string());
     }
 
-    let index_path = find_index_path(&root)?;
+    let index_path = find_index_path(root)?;
     let text = fs::read_to_string(&index_path).map_err(|_| "无法读取视频库 JSON 索引。".to_string())?;
     let index: std::collections::BTreeMap<String, LibrarySource> =
         serde_json::from_str(&text).map_err(|_| "视频库 JSON 索引格式无效。".to_string())?;
@@ -82,7 +118,7 @@ pub fn load_video_library(folder_path: &str) -> Result<VideoLibrary, String> {
                 return Err(format!("JSON 索引引用的视频不存在：{}", segment.file));
             }
 
-            assets.push(to_video_asset(&root, &source.source, segment));
+            assets.push(to_video_asset(root, &source.source, segment));
         }
     }
 

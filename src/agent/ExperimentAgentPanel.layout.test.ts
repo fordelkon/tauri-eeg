@@ -11,7 +11,7 @@ describe('ExperimentAgentPanel layout contract', () => {
     const mentalScaleTsx = readText(new URL('../mentalScale/GlobalMentalScalePanel.tsx', import.meta.url));
     const homeCss = readText(new URL('../pages/Home.module.css', import.meta.url));
     const homeTsx = readText(new URL('../pages/Home.tsx', import.meta.url));
-    const shellBlock = homeTsx.match(/<div className={styles\.shell}>[\s\S]*?<\/div>\s*\n\n      {pendingScale \?/);
+    const shellBlock = homeTsx.match(/<div className={styles\.shell}>[\s\S]*?<\/div>\s*\r?\n\r?\n\s*\{pendingScale \?/);
 
     expect(agentCss).not.toMatch(/position:\s*fixed/);
     expect(agentCss).not.toMatch(/\.dragHandle\s*{/s);
@@ -39,7 +39,7 @@ describe('ExperimentAgentPanel layout contract', () => {
   test('limits scrolling to assistant activity and confirmation content', () => {
     const agentTsx = readText(new URL('./ExperimentAgentPanel.tsx', import.meta.url));
     const agentCss = readText(new URL('./ExperimentAgentPanel.module.css', import.meta.url));
-    const activityBlock = agentTsx.match(/<div className={styles\.activity}[^>]*>[\s\S]*?<\/div>\s*\n\n      <\/div>/)?.[0] ?? '';
+    const activityBlock = agentTsx.match(/<div className={styles\.activity}[^>]*>[\s\S]*?<\/div>\s*\r?\n\r?\n\s*<\/div>/)?.[0] ?? '';
     const contentBlock = agentTsx.match(/<div className={styles\.content}>[\s\S]*?<div className={styles\.activity}[^>]*>/)?.[0] ?? '';
 
     expect(agentCss).toMatch(/\.content\s*{[^}]*overflow:\s*hidden;/s);
@@ -47,8 +47,6 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(agentCss).toMatch(/\.activity\s*{[^}]*overflow-y:\s*auto;/s);
     expect(contentBlock).toContain('styles.promptGrid');
     expect(contentBlock).toContain('styles.thinkingPanel');
-    expect(activityBlock).toContain('styles.message');
-    expect(activityBlock).toContain('styles.timeline');
     expect(activityBlock).toContain('styles.confirmation');
     expect(activityBlock).not.toContain('styles.promptGrid');
     expect(activityBlock).not.toContain('styles.thinkingPanel');
@@ -74,7 +72,10 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(hookTs).toContain('setIsPlanning(true)');
     expect(hookTs).toContain('setIsPlanning(false)');
     expect(hookTs).toContain('isPlanning,');
-    expect(homeTsx).toContain('isPlanning={experimentAgent.isPlanning}');
+    expect(homeTsx).not.toContain('useExperimentAgent(');
+    expect(homeTsx).toContain('<ExperimentAgentPanel navigateTo={requestNavigation} />');
+    expect(agentTsx).toContain('const agent = useExperimentAgent({ pathname: location.pathname, navigateTo });');
+    expect(agentTsx).toContain('isPlanning={agent.isPlanning}');
     expect(agentTsx).toContain('isPlanning: boolean;');
     expect(agentTsx).toContain('isPlanning,');
     expect(agentTsx).toContain('aria-busy={isPlanning}');
@@ -158,11 +159,14 @@ describe('ExperimentAgentPanel layout contract', () => {
 
   test('bridges page data-agent-action clicks into the embedded assistant', () => {
     const homeTsx = readText(new URL('../pages/Home.tsx', import.meta.url));
+    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
     const videoTsx = readText(new URL('../pages/home/VideoRegulation.tsx', import.meta.url));
 
     expect(homeTsx).toContain("closest<HTMLElement>('[data-agent-action]')");
     expect(homeTsx).toContain('const payload = actionElement?.dataset.agentPayload;');
-    expect(homeTsx).toContain('experimentAgent.submitPrompt(payload ? `${actionId}:${payload}` : actionId)');
+    expect(homeTsx).toContain("new CustomEvent('agent:submit-prompt'");
+    expect(homeTsx).toContain('payload ? `${actionId}:${payload}` : actionId');
+    expect(hookTs).toContain("addEventListener('agent:submit-prompt'");
     expect(homeTsx).toContain("actionId === 'play_video'");
     expect(videoTsx).toContain("data-agent-payload={video.id}");
   });

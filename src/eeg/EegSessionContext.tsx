@@ -4,18 +4,18 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
   useRef,
   useState,
-  useEffect,
 } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_EEG_CHANNELS } from './channels';
 import { EegRingBuffer } from './eegRingBuffer';
 import {
   getEegStatus,
-  listenToEegSampleBlocks,
+  listenToEegStatusEvents,
   startEegRecording,
   startEegStream,
   stopEegStream,
@@ -33,14 +33,19 @@ import {
 } from './eegSessionState';
 import {
   DEFAULT_SAMPLE_RATE_HZ,
+  EEG_TIME_WINDOW_OPTIONS_SECONDS,
   createInitialEegDisplaySettings,
   toggleEegChannelVisibility,
 } from './eegSessionStore';
 import type {
   EegDisplaySettings,
   EegDisplaySnapshot,
+  EegRecordingSession,
+  EegStatusEvent,
   EegStreamInfo,
 } from './types';
+
+const DEVICE_START_TIMEOUT_MS = 30_000;
 
 type EegSessionContextValue = {
   bufferRef: MutableRefObject<EegRingBuffer>;
@@ -53,6 +58,7 @@ type EegSessionContextValue = {
   channels: typeof DEFAULT_EEG_CHANNELS;
   deviceStatus: typeof initialEegSessionState.deviceStatus;
   errorMessage: string | null;
+  lastRecording: EegRecordingSession | null;
   pauseRecord: () => void;
   recordStatus: typeof initialEegSessionState.recordStatus;
   resetBuffer: () => void;
@@ -71,21 +77,40 @@ type EegSessionContextValue = {
 
 const EegSessionContext = createContext<EegSessionContextValue | null>(null);
 
+function eegStatusEventMessage(event: EegStatusEvent) {
+  return event.reason ?? 'EEG device disconnected.';
+}
+
 export function EegProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const channels = DEFAULT_EEG_CHANNELS;
-  const bufferRef = useRef(new EegRingBuffer(channels, DEFAULT_SAMPLE_RATE_HZ));
+  const bufferRef = useRef(new EegRingBuffer(
+    channels,
+    DEFAULT_SAMPLE_RATE_HZ,
+    Math.max(...EEG_TIME_WINDOW_OPTIONS_SECONDS),
+  ));
 
   const [streamInfo, setStreamInfo] = useState<EegStreamInfo | null>(null);
   const [sessionState, dispatchSession] = useReducer(eegSessionReducer, initialEegSessionState);
   const [settings, setSettings] = useState<EegDisplaySettings>(createInitialEegDisplaySettings);
+  const [lastRecording, setLastRecording] = useState<EegRecordingSession | null>(null);
 
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | null = null;
 
-    listenToEegSampleBlocks((payload) => {
-      bufferRef.current.appendPayload(payload);
+    listenToEegStatusEvents((event) => {
+      if (event.client === 'trigger') {
+        return;
+      }
+      if (event.connected) {
+        dispatchSession({ type: 'device_connected' });
+      } else {
+        dispatchSession({
+          type: 'device_disconnected',
+          message: eegStatusEventMessage(event),
+        });
+      }
     })
       .then((nextUnlisten) => {
         if (disposed) {
@@ -98,7 +123,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
       .catch((error) => {
         dispatchSession({
           type: 'start_device_failed',
-          message: typeof error === 'string' ? error : 'Failed to subscribe to EEG stream.',
+          message: typeof error === 'string' ? error : 'Failed to subscribe to EEG status events.',
         });
       });
 
@@ -116,7 +141,9 @@ export function EegProvider({ children }: { children: ReactNode }) {
     dispatchSession({ type: 'start_device_requested' });
 
     try {
-      const info = await startEegStream();
+      const info = await startEegStream((block) => {
+        bufferRef.current.appendPayload(block);
+      });
       setStreamInfo(info);
       const status = await getEegStatus();
       if (status.eegConnected) {
@@ -136,7 +163,16 @@ export function EegProvider({ children }: { children: ReactNode }) {
     }
 
     let cancelled = false;
+    const startedAtMs = Date.now();
     const interval = window.setInterval(() => {
+      if (Date.now() - startedAtMs >= DEVICE_START_TIMEOUT_MS) {
+        dispatchSession({
+          type: 'start_device_failed',
+          message: 'Timed out waiting for the EEG device to connect. Check the device and try again.',
+        });
+        return;
+      }
+
       getEegStatus()
         .then((status) => {
           if (cancelled) {
@@ -222,9 +258,14 @@ export function EegProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      await stopEegRecording();
-    } finally {
+      const session = await stopEegRecording();
+      setLastRecording(session);
       dispatchSession({ type: 'stop_record' });
+    } catch (error) {
+      dispatchSession({
+        type: 'stop_record_failed',
+        message: typeof error === 'string' ? error : 'Failed to stop EEG recording.',
+      });
     }
   }, [sessionState]);
 
@@ -266,6 +307,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
     channels,
     deviceStatus: sessionState.deviceStatus,
     errorMessage: sessionState.errorMessage,
+    lastRecording,
     pauseRecord,
     recordStatus: sessionState.recordStatus,
     resetBuffer,
@@ -282,6 +324,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
     toggleChannel,
   }), [
     channels,
+    lastRecording,
     pauseRecord,
     resetBuffer,
     resumeRecord,

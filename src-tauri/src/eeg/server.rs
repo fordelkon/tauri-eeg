@@ -9,14 +9,15 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use tauri::{AppHandle, Emitter};
+use tauri::{ipc::InvokeResponseBody, AppHandle, Emitter};
 
 use super::{
-    buffer::{EegSampleBlockPayload, RealtimeBlockAggregator, EEG_SAMPLE_BLOCK_EVENT},
+    buffer::{RealtimeBlockAggregator, EEG_STATUS_EVENT},
     protocol::{
         PacketContinuity, PacketLossTracker, ParsedFrame, ProtocolParser, EEG_CHANNEL_COUNT,
         START_INSTRUCTION,
     },
+    session::{EegStatusClient, EegStatusEvent},
     EegRuntime, EegStreamConfig,
 };
 
@@ -24,6 +25,22 @@ use super::{
 pub enum ClientKind {
     Eeg,
     Trigger,
+}
+
+impl ClientKind {
+    fn device_label(self) -> &'static str {
+        match self {
+            ClientKind::Eeg => "EEG device",
+            ClientKind::Trigger => "Trigger device",
+        }
+    }
+
+    fn status_client(self) -> EegStatusClient {
+        match self {
+            ClientKind::Eeg => EegStatusClient::Eeg,
+            ClientKind::Trigger => EegStatusClient::Trigger,
+        }
+    }
 }
 
 pub struct EegServerWorker {
@@ -154,10 +171,15 @@ fn handle_stream(
     let mut trigger_tracker = PacketLossTracker::new();
     let mut last_sample = [0.0_f32; EEG_CHANNEL_COUNT];
     let mut buffer = [0_u8; 4096];
+    let mut disconnect_reason: Option<String> = None;
 
     while !stop_requested.load(Ordering::Relaxed) {
         match stream.read(&mut buffer) {
-            Ok(0) => break,
+            Ok(0) => {
+                disconnect_reason =
+                    Some(format!("{} closed the connection.", kind.device_label()));
+                break;
+            }
             Ok(read_count) => {
                 for frame in parser.push_bytes(&buffer[..read_count]) {
                     match frame {
@@ -181,9 +203,9 @@ fn handle_stream(
                             match eeg_tracker.observe(packet_index) {
                                 PacketContinuity::Duplicate => continue,
                                 PacketContinuity::Missing(count) => {
+                                    record_padded_samples(&runtime, count);
                                     for _ in 0..count {
                                         process_eeg_sample(
-                                            &app,
                                             &runtime,
                                             &mut aggregator,
                                             last_sample,
@@ -196,22 +218,32 @@ fn handle_stream(
                             }
                             confirm_client_data(&runtime, kind);
                             last_sample = samples_uv;
-                            process_eeg_sample(&app, &runtime, &mut aggregator, samples_uv);
+                            process_eeg_sample(&runtime, &mut aggregator, samples_uv);
                         }
                         _ => {}
                     }
                 }
+                drain_status_events(&app, &runtime);
             }
             Err(error)
                 if error.kind() == std::io::ErrorKind::WouldBlock
                     || error.kind() == std::io::ErrorKind::TimedOut => {}
             Err(error) => {
-                record_error(&runtime, format!("{kind:?} EEG socket error: {error}."));
+                let message = format!("{} connection error: {error}.", kind.device_label());
+                record_error(&runtime, message.clone());
+                disconnect_reason = Some(message);
                 break;
             }
         }
     }
-    set_connection_state(&runtime, kind, false);
+    let reason = if stop_requested.load(Ordering::Relaxed) {
+        format!("{} disconnected: EEG stream stopped.", kind.device_label())
+    } else {
+        disconnect_reason
+            .unwrap_or_else(|| format!("{} disconnected unexpectedly.", kind.device_label()))
+    };
+    set_connection_state(&runtime, kind, false, Some(reason));
+    drain_status_events(&app, &runtime);
 }
 
 fn confirm_client_data(runtime: &Arc<Mutex<EegRuntime>>, kind: ClientKind) {
@@ -224,20 +256,34 @@ fn confirm_client_data(runtime: &Arc<Mutex<EegRuntime>>, kind: ClientKind) {
         .unwrap_or(false);
 
     if !is_connected {
-        set_connection_state(runtime, kind, true);
+        set_connection_state(runtime, kind, true, None);
     }
 }
 
 fn process_eeg_sample(
-    app: &AppHandle,
     runtime: &Arc<Mutex<EegRuntime>>,
     aggregator: &mut RealtimeBlockAggregator,
     samples_uv: [f32; EEG_CHANNEL_COUNT],
 ) {
-    let trigger = take_latest_trigger(runtime);
-    write_recording_sample(runtime, &samples_uv, trigger.unwrap_or(0) as i32);
+    // Single lock per sample: take the trigger and clone the recording sender.
+    // Disk IO happens on the dedicated recording writer thread.
+    let (trigger, recording_sender) = match runtime.lock() {
+        Ok(mut runtime) => (runtime.latest_trigger.take(), runtime.recording_sender()),
+        Err(_) => return,
+    };
+    if let Some(sender) = recording_sender {
+        let _ = sender.send((samples_uv, trigger.unwrap_or(0) as i32));
+    }
     if let Some(block) = aggregator.push_sample(samples_uv, trigger, current_time_ms()) {
-        emit_block(app, block);
+        send_sample_block(runtime, block);
+    }
+}
+
+fn send_sample_block(runtime: &Arc<Mutex<EegRuntime>>, block: Vec<u8>) {
+    if let Ok(runtime) = runtime.lock() {
+        if let Some(channel) = runtime.sample_channel.as_ref() {
+            let _ = channel.send(InvokeResponseBody::Raw(block));
+        }
     }
 }
 
@@ -247,12 +293,44 @@ fn set_latest_trigger(runtime: &Arc<Mutex<EegRuntime>>, trigger: u8) {
     }
 }
 
-fn set_connection_state(runtime: &Arc<Mutex<EegRuntime>>, kind: ClientKind, connected: bool) {
+fn set_connection_state(
+    runtime: &Arc<Mutex<EegRuntime>>,
+    kind: ClientKind,
+    connected: bool,
+    reason: Option<String>,
+) {
     if let Ok(mut runtime) = runtime.lock() {
+        let was_connected = match kind {
+            ClientKind::Eeg => runtime.eeg_connected,
+            ClientKind::Trigger => runtime.trigger_connected,
+        };
+        if was_connected == connected {
+            return;
+        }
         match kind {
             ClientKind::Eeg => runtime.eeg_connected = connected,
             ClientKind::Trigger => runtime.trigger_connected = connected,
         }
+        if !connected {
+            if let Some(reason) = &reason {
+                runtime.last_disconnect_reason = Some(reason.clone());
+            }
+        }
+        runtime.pending_status_events.push(EegStatusEvent {
+            client: kind.status_client(),
+            connected,
+            reason,
+        });
+    }
+}
+
+fn drain_status_events(app: &AppHandle, runtime: &Arc<Mutex<EegRuntime>>) {
+    let events = match runtime.lock() {
+        Ok(mut runtime) => std::mem::take(&mut runtime.pending_status_events),
+        Err(_) => return,
+    };
+    for event in events {
+        let _ = app.emit(EEG_STATUS_EVENT, event);
     }
 }
 
@@ -262,27 +340,10 @@ fn record_error(runtime: &Arc<Mutex<EegRuntime>>, message: String) {
     }
 }
 
-fn take_latest_trigger(runtime: &Arc<Mutex<EegRuntime>>) -> Option<u8> {
-    runtime
-        .lock()
-        .ok()
-        .and_then(|mut runtime| runtime.latest_trigger.take())
-}
-
-fn write_recording_sample(
-    runtime: &Arc<Mutex<EegRuntime>>,
-    samples_uv: &[f32; EEG_CHANNEL_COUNT],
-    trigger: i32,
-) {
+fn record_padded_samples(runtime: &Arc<Mutex<EegRuntime>>, count: u32) {
     if let Ok(mut runtime) = runtime.lock() {
-        if let Some(writer) = runtime.recording.as_mut() {
-            let _ = writer.write_sample(samples_uv, trigger);
-        }
+        runtime.padded_samples += count as u64;
     }
-}
-
-fn emit_block(app: &AppHandle, block: EegSampleBlockPayload) {
-    let _ = app.emit(EEG_SAMPLE_BLOCK_EVENT, block);
 }
 
 fn current_time_ms() -> i64 {
@@ -354,5 +415,47 @@ mod tests {
             assert!(runtime.eeg_connected);
             assert!(runtime.trigger_connected);
         }
+    }
+
+    #[test]
+    fn queues_status_event_and_disconnect_reason_when_connection_state_changes() {
+        let runtime = Arc::new(Mutex::new(EegRuntime::default()));
+
+        set_connection_state(&runtime, ClientKind::Eeg, true, None);
+        set_connection_state(&runtime, ClientKind::Eeg, true, None);
+
+        {
+            let runtime = runtime.lock().expect("runtime");
+            assert_eq!(runtime.pending_status_events.len(), 1);
+            assert_eq!(
+                runtime.pending_status_events[0],
+                EegStatusEvent {
+                    client: EegStatusClient::Eeg,
+                    connected: true,
+                    reason: None,
+                }
+            );
+        }
+
+        set_connection_state(&runtime, ClientKind::Eeg, false, Some("EEG device closed the connection.".to_string()));
+
+        let runtime = runtime.lock().expect("runtime");
+        assert_eq!(runtime.pending_status_events.len(), 2);
+        assert!(!runtime.eeg_connected);
+        assert_eq!(
+            runtime.last_disconnect_reason.as_deref(),
+            Some("EEG device closed the connection.")
+        );
+    }
+
+    #[test]
+    fn tracks_padded_samples_from_packet_gaps() {
+        let runtime = Arc::new(Mutex::new(EegRuntime::default()));
+
+        record_padded_samples(&runtime, 3);
+        record_padded_samples(&runtime, 2);
+
+        let runtime = runtime.lock().expect("runtime");
+        assert_eq!(runtime.padded_samples, 5);
     }
 }

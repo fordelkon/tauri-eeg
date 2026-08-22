@@ -15,39 +15,77 @@ pub struct UserProfile {
     pub username: String,
 }
 
+pub struct NewRegistration {
+    pub username: String,
+    password_hash: String,
+}
+
+#[cfg(test)]
 pub fn register_user_record(
     conn: &Connection,
     username: &str,
     password: &str,
 ) -> Result<UserProfile, String> {
+    insert_registration(conn, prepare_registration(username, password)?)
+}
+
+// Argon2 hashing happens here so callers can run it before acquiring the db lock.
+pub fn prepare_registration(username: &str, password: &str) -> Result<NewRegistration, String> {
     let username = normalize_username(username)?;
     validate_password(password)?;
 
-    let existing = find_user_by_username(conn, &username)?;
-    if existing.is_some() {
+    Ok(NewRegistration {
+        username,
+        password_hash: hash_password(password)?,
+    })
+}
+
+pub fn insert_registration(
+    conn: &Connection,
+    registration: NewRegistration,
+) -> Result<UserProfile, String> {
+    if find_user_by_username(conn, &registration.username)?.is_some() {
         return Err("Username is already registered.".to_string());
     }
 
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
-    let password_hash = hash_password(password)?;
 
     conn.execute(
         "INSERT INTO users (id, username, password_hash, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, username, password_hash, now, now],
+        params![id, registration.username, registration.password_hash, now, now],
     )
     .map_err(|_| "Failed to register user.".to_string())?;
 
-    Ok(UserProfile { id, username })
+    Ok(UserProfile {
+        id,
+        username: registration.username,
+    })
 }
 
+#[cfg(test)]
 pub fn login_user_record(
     conn: &Connection,
     username: &str,
     password: &str,
 ) -> Result<UserProfile, String> {
+    let user = load_stored_user(conn, username)?;
+
+    verify_stored_user(user, password)
+}
+
+pub fn load_stored_user(conn: &Connection, username: &str) -> Result<Option<StoredUser>, String> {
     let username = normalize_username(username)?;
-    let Some(user) = find_user_by_username(conn, &username)? else {
+
+    find_user_by_username(conn, &username)
+}
+
+// Runs Argon2; callers must not hold the db lock while calling this.
+pub fn verify_stored_user(
+    user: Option<StoredUser>,
+    password: &str,
+) -> Result<UserProfile, String> {
+    let Some(user) = user else {
         return Err("Account or password is incorrect.".to_string());
     };
 
@@ -98,9 +136,9 @@ pub fn reset_user_password_record(
     })
 }
 
-struct StoredUser {
-    id: String,
-    username: String,
+pub struct StoredUser {
+    pub id: String,
+    pub username: String,
     password_hash: String,
 }
 
@@ -140,17 +178,17 @@ fn verify_password(password: &str, password_hash: &str) -> Result<bool, String> 
 }
 
 fn find_user_by_username(conn: &Connection, username: &str) -> Result<Option<StoredUser>, String> {
-    let result = conn.query_row(
-        "SELECT id, username, password_hash FROM users WHERE username = ?1",
-        params![username],
-        |row| {
-            Ok(StoredUser {
-                id: row.get(0)?,
-                username: row.get(1)?,
-                password_hash: row.get(2)?,
-            })
-        },
-    );
+    let mut stmt = conn
+        .prepare_cached("SELECT id, username, password_hash FROM users WHERE username = ?1")
+        .map_err(|_| "Failed to load user.".to_string())?;
+
+    let result = stmt.query_row(params![username], |row| {
+        Ok(StoredUser {
+            id: row.get(0)?,
+            username: row.get(1)?,
+            password_hash: row.get(2)?,
+        })
+    });
 
     match result {
         Ok(user) => Ok(Some(user)),

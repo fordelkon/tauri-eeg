@@ -103,6 +103,10 @@
 }
 
 .brandMark {
+  background:
+    linear-gradient(#fb7a68, #fb7a68) center / 2px 24px no-repeat,
+    linear-gradient(45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px no-repeat,
+    linear-gradient(-45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px no-repeat;
   height: 30px;
   margin-bottom: 18px;
   position: relative;
@@ -123,13 +127,6 @@
 
 .brandMark::after {
   transform: rotate(90deg);
-}
-
-.brandMark {
-  background:
-    linear-gradient(#fb7a68, #fb7a68) center / 2px 24px no-repeat,
-    linear-gradient(45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px no-repeat,
-    linear-gradient(-45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px no-repeat;
 }
 
 .title {
@@ -156,12 +153,9 @@
   --shake-overshoot: 4px;
 }
 
-.textField {
-  will-change: transform;
-}
-
 .textField.isShaking {
   animation: inputShake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
+  will-change: transform;
 }
 
 .textField :global(.MuiInputLabel-root) {
@@ -368,18 +362,6 @@
   }
 }
 
-@keyframes fadeInFromLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-48px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 @keyframes shellIn {
   from {
     opacity: 0;
@@ -413,42 +395,6 @@
   to {
     opacity: 1;
     transform: translateY(0) scaleY(1);
-  }
-}
-
-@keyframes fadeInFromRight {
-  from {
-    opacity: 0;
-    transform: translateX(48px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes fadeInFromTop {
-  from {
-    opacity: 0;
-    transform: translateY(-36px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fadeInFromBottom {
-  from {
-    opacity: 0;
-    transform: translateY(36px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
   }
 }
 

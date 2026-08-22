@@ -1,8 +1,18 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs, path::PathBuf, sync::OnceLock};
 
 const ADMIN_RESET_CODE_KEY: &str = "TAURI_EEG_ADMIN_RESET_CODE";
 
+static ADMIN_RESET_CODE: OnceLock<Result<String, String>> = OnceLock::new();
+
 pub fn admin_reset_code() -> Result<String, String> {
+    // The value cannot change while the process is running, so the .env walk
+    // only happens once.
+    ADMIN_RESET_CODE
+        .get_or_init(load_admin_reset_code)
+        .clone()
+}
+
+fn load_admin_reset_code() -> Result<String, String> {
     if let Some(value) = non_empty_env_var(ADMIN_RESET_CODE_KEY) {
         return Ok(value);
     }

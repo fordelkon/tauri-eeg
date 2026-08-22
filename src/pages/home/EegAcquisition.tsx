@@ -2,25 +2,58 @@ import ActivityRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import EegChannelList from '../../eeg/EegChannelList';
 import EegControls from '../../eeg/EegControls';
 import EegWaveformPanel from '../../eeg/EegWaveformPanel';
+import { useEegSession } from '../../eeg/EegSessionContext';
 import { useRealtimeEeg } from '../../eeg/useRealtimeEeg';
 import styles from './EegAcquisition.module.css';
 
-export default function EegAcquisition() {
+const deviceStatusLabels = {
+  disconnected: '未连接',
+  error: '异常',
+  starting: '等待脑电设备',
+  stopping: '停止中',
+  streaming: '采集中',
+} as const;
+const recordStatusLabels = {
+  idle: '空闲',
+  paused: '已暂停',
+  recording: '记录中',
+  stopped: '已停止',
+} as const;
+
+/**
+ * Owns the 30Hz snapshot state so only this subtree re-renders per frame; the
+ * controls strip and (thanks to React.memo) the channel checkboxes are skipped.
+ */
+function RealtimeMonitor() {
   const eeg = useRealtimeEeg();
+
+  return (
+    <>
+      <div className={styles.monitorGrid}>
+        <EegChannelList
+          channels={eeg.channels}
+          visibleChannelIds={eeg.settings.visibleChannelIds}
+          onToggleChannel={eeg.toggleChannel}
+        />
+        <EegWaveformPanel
+          amplitudeUvPerDiv={eeg.settings.amplitudeUvPerDiv}
+          snapshot={eeg.snapshot}
+          timeWindowSeconds={eeg.settings.timeWindowSeconds}
+        />
+      </div>
+      <footer className={`${styles.footer} flex flex-wrap`}>
+        <span>窗口 {eeg.settings.timeWindowSeconds}s</span>
+        <span>幅度 {eeg.settings.amplitudeUvPerDiv} uV/div</span>
+        <span>缓存 {eeg.snapshot.retainedSampleCount} 样本</span>
+        <span>序列 {eeg.snapshot.latestSequence ?? '-'}</span>
+      </footer>
+    </>
+  );
+}
+
+export default function EegAcquisition() {
+  const eeg = useEegSession();
   const visibleCount = eeg.settings.visibleChannelIds.size;
-  const deviceStatusLabels = {
-    disconnected: '未连接',
-    error: '异常',
-    starting: '等待脑电设备',
-    stopping: '停止中',
-    streaming: '采集中',
-  } as const;
-  const recordStatusLabels = {
-    idle: '空闲',
-    paused: '已暂停',
-    recording: '记录中',
-    stopped: '已停止',
-  } as const;
   const deviceStatusLabel = deviceStatusLabels[eeg.deviceStatus];
   const recordStatusLabel = recordStatusLabels[eeg.recordStatus];
 
@@ -56,7 +89,7 @@ export default function EegAcquisition() {
         timeWindowSeconds={eeg.settings.timeWindowSeconds}
         onAmplitudeChange={eeg.setAmplitudeUvPerDiv}
         onPauseRecord={eeg.pauseRecord}
-        onReset={eeg.reset}
+        onReset={eeg.resetBuffer}
         onResumeRecord={eeg.resumeRecord}
         onStartDevice={eeg.startDevice}
         onStartRecord={eeg.startRecord}
@@ -67,25 +100,7 @@ export default function EegAcquisition() {
 
       {eeg.errorMessage ? <div className={styles.errorMessage}>{eeg.errorMessage}</div> : null}
 
-      <div className={styles.monitorGrid}>
-        <EegChannelList
-          channels={eeg.channels}
-          visibleChannelIds={eeg.settings.visibleChannelIds}
-          onToggleChannel={eeg.toggleChannel}
-        />
-        <EegWaveformPanel
-          amplitudeUvPerDiv={eeg.settings.amplitudeUvPerDiv}
-          snapshot={eeg.snapshot}
-          timeWindowSeconds={eeg.settings.timeWindowSeconds}
-        />
-      </div>
-
-      <footer className={`${styles.footer} flex flex-wrap`}>
-        <span>窗口 {eeg.settings.timeWindowSeconds}s</span>
-        <span>幅度 {eeg.settings.amplitudeUvPerDiv} uV/div</span>
-        <span>缓存 {eeg.snapshot.retainedSampleCount} 样本</span>
-        <span>序列 {eeg.snapshot.latestSequence ?? '-'}</span>
-      </footer>
+      <RealtimeMonitor />
     </section>
   );
 }

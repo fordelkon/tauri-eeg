@@ -1,4 +1,5 @@
 import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
+import { memo } from 'react';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import PowerSettingsNewRoundedIcon from '@mui/icons-material/PowerSettingsNewRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
@@ -29,7 +30,7 @@ type Props = {
   onTimeWindowChange: (value: number) => void;
 };
 
-export default function EegControls({
+function EegControls({
   amplitudeUvPerDiv,
   canPauseRecord,
   canResumeRecord,
@@ -131,3 +132,6 @@ export default function EegControls({
     </div>
   );
 }
+
+// Memoized so the 30Hz waveform snapshots never re-render the control strip.
+export default memo(EegControls);

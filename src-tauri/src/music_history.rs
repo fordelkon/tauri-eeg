@@ -91,7 +91,7 @@ pub fn list_music_history_items(
 ) -> Result<Vec<MusicHistoryItem>, String> {
     let limit = limit.clamp(1, 100);
     let mut stmt = conn
-        .prepare(
+        .prepare_cached(
             "SELECT id, user_id, prompt, file_path, duration_seconds, created_at, model_version
                 FROM music_history
                 WHERE user_id = ?1
@@ -124,7 +124,7 @@ pub fn delete_music_history_item(
     item_id: &str,
 ) -> Result<MusicHistoryItem, String> {
     let mut stmt = conn
-        .prepare(
+        .prepare_cached(
             "SELECT id, user_id, prompt, file_path, duration_seconds, created_at, model_version
                 FROM music_history
                 WHERE user_id = ?1 AND id = ?2",

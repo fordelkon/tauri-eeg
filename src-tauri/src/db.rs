@@ -1,8 +1,13 @@
 use rusqlite::Connection;
-use std::{fs, path::PathBuf, sync::Mutex};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 pub struct AppDb {
-    pub conn: Mutex<Connection>,
+    // Arc so async commands can clone the handle into spawn_blocking closures.
+    pub conn: Arc<Mutex<Connection>>,
 }
 
 pub fn init_app_db() -> Result<AppDb, String> {
@@ -15,10 +20,17 @@ pub fn init_app_db() -> Result<AppDb, String> {
 
     let conn = Connection::open(db_path).map_err(|_| "Failed to open database.".to_string())?;
 
+    conn.execute_batch(
+        "PRAGMA journal_mode = WAL;
+         PRAGMA synchronous = NORMAL;
+         PRAGMA busy_timeout = 1000;",
+    )
+    .map_err(|_| "Failed to configure database.".to_string())?;
+
     init_schema(&conn)?;
 
     Ok(AppDb {
-        conn: Mutex::new(conn),
+        conn: Arc::new(Mutex::new(conn)),
     })
 }
 

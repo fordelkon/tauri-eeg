@@ -131,6 +131,36 @@ describe('eegSessionReducer', () => {
     });
     expect(canStartRecord(failed)).toBe(true);
   });
+
+  it('marks the device as errored when the backend reports a disconnect', () => {
+    const streaming = { ...initialEegSessionState, deviceStatus: 'streaming' as const };
+    const disconnected = eegSessionReducer(streaming, {
+      type: 'device_disconnected',
+      message: 'EEG device closed the connection.',
+    });
+
+    expect(disconnected).toMatchObject({
+      deviceStatus: 'error',
+      errorMessage: 'EEG device closed the connection.',
+    });
+
+    // A later connected event restores streaming without resetting records.
+    const restored = eegSessionReducer(disconnected, { type: 'device_connected' });
+    expect(restored).toMatchObject({
+      deviceStatus: 'streaming',
+      errorMessage: null,
+    });
+  });
+
+  it('ignores status events that accompany an explicit user stop', () => {
+    const stopping = { ...initialEegSessionState, deviceStatus: 'stopping' as const };
+    const afterEvent = eegSessionReducer(stopping, {
+      type: 'device_disconnected',
+      message: 'EEG stream stopped.',
+    });
+
+    expect(afterEvent).toBe(stopping);
+  });
 });
 
 describe('eegApi recording commands', () => {

@@ -14,10 +14,9 @@ import {
   ListItemButton,
   ListItemIcon,
 } from '@mui/material';
-import { type CSSProperties, type ElementType, type MouseEvent, useEffect, useState } from 'react';
+import { type CSSProperties, type ElementType, type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import ExperimentAgentPanel from '../agent/ExperimentAgentPanel';
-import { useExperimentAgent } from '../agent/useExperimentAgent';
 import { useAuth } from '../auth/AuthContext';
 import MatterScene from '../components/MatterScene';
 import HomeIntroLogo from '../homeIntro/HomeIntroLogo';
@@ -32,7 +31,6 @@ import {
   type MentalScaleAnswerValue,
 } from '../mentalScale/mentalScaleGate';
 import { buildMentalScaleStatus, updateMentalScaleStatus } from '../mentalScale/mentalScaleStatus';
-import { preloadMusicServiceForUser } from '../music/musicServicePreload';
 import { chooseStorageRoot } from '../storage/storageDirectoryPicker';
 import { getStorageLocation, setStorageRoot, type StorageLocation } from '../storage/storageApi';
 import styles from './Home.module.css';
@@ -65,38 +63,16 @@ const renderRollingText = (text: string, className?: string) => (
   </span>
 );
 
-export default function Home() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { currentUser, signOut } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isStorageOpen, setIsStorageOpen] = useState(false);
+type StorageSettingsPanelProps = {
+  onClose: () => void;
+  username?: string;
+};
+
+function StorageSettingsPanel({ onClose, username }: StorageSettingsPanelProps) {
   const [storageLocation, setStorageLocation] = useState<StorageLocation | null>(null);
   const [storageInput, setStorageInput] = useState('');
   const [storageError, setStorageError] = useState<string | null>(null);
-  const [pendingScale, setPendingScale] = useState<MentalScaleDefinition | null>(null);
-  const [scaleAnswers, setScaleAnswers] = useState<MentalScaleAnswers>({});
-  const [showHomeIntro, setShowHomeIntro] = useState(false);
-  const activeItem = navigationItems.find((item) => (
-    item.path === '/home'
-      ? location.pathname === item.path
-      : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
-  )) ?? navigationItems[0];
-  const isWorkspaceRoute = location.pathname !== '/home';
-  const isEegWorkspaceRoute = location.pathname === '/eeg-acquisition';
-  const activeIndex = navigationItems.findIndex((item) => item.path === activeItem.path);
-  const nextItem = navigationItems[(activeIndex + 1) % navigationItems.length];
-  const nextLabel = nextItem.label.toUpperCase();
-
-  useEffect(() => {
-    void preloadMusicServiceForUser({ userId: currentUser?.id });
-  }, [currentUser?.id]);
-
-  useEffect(() => {
-    if (homeIntroPlayback.shouldPlay(currentUser?.id)) {
-      setShowHomeIntro(true);
-    }
-  }, [currentUser?.id]);
+  const [isStoragePending, setIsStoragePending] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -119,54 +95,14 @@ export default function Home() {
     };
   }, []);
 
-  const requestNavigation = (path: string) => {
-    if (path === location.pathname) {
-      return;
+  const runStorageAction = async (action: () => Promise<void>) => {
+    if (isStoragePending) return;
+    setIsStoragePending(true);
+    try {
+      await action();
+    } finally {
+      setIsStoragePending(false);
     }
-
-    const scale = getMentalScaleForPath(path);
-
-    if (scale) {
-      setPendingScale(scale);
-      setScaleAnswers({});
-      setIsSidebarOpen(false);
-      return;
-    }
-
-    navigate(path);
-  };
-
-  const experimentAgent = useExperimentAgent({
-    pathname: location.pathname,
-    navigateTo: requestNavigation,
-  });
-
-  const handleNavClick = (item: NavigationItem) => {
-    requestNavigation(item.path);
-    setIsSidebarOpen(false);
-  };
-
-  const handleMenuOpen = () => {
-    setIsSidebarOpen(true);
-  };
-
-  const handleNextClick = () => {
-    requestNavigation(nextItem.path);
-  };
-
-  const handleAgentActionClick = (event: MouseEvent<HTMLElement>) => {
-    const actionElement = (event.target as HTMLElement).closest<HTMLElement>('[data-agent-action]');
-    const actionId = actionElement?.dataset.agentAction;
-    const payload = actionElement?.dataset.agentPayload;
-
-    if (actionId === 'play_video' || actionId === 'generate_music') {
-      void experimentAgent.submitPrompt(payload ? `${actionId}:${payload}` : actionId);
-    }
-  };
-
-  const handleSignOut = () => {
-    signOut();
-    navigate('/login', { replace: true });
   };
 
   const handleSaveStorageRoot = async () => {
@@ -176,7 +112,7 @@ export default function Home() {
       const location = await setStorageRoot(storageInput);
       setStorageLocation(location);
       setStorageInput(location.root);
-      setIsStorageOpen(false);
+      onClose();
     } catch (reason) {
       setStorageError(reason instanceof Error ? reason.message : String(reason));
     }
@@ -208,31 +144,236 @@ export default function Home() {
     }
   };
 
-  const handleScaleAnswer = (questionId: string, value: MentalScaleAnswerValue) => {
+  return (
+    <section className={styles.storagePanel} aria-label="存储路径设置">
+      <label className={styles.storageField}>
+        <span>存储根目录</span>
+        <input
+          value={storageInput}
+          onChange={(event) => setStorageInput(event.currentTarget.value)}
+          placeholder="D:\\ExperimentData"
+        />
+      </label>
+      <div className={styles.storagePreview}>
+        <span>{storageLocation?.root ?? '默认应用数据目录'}</span>
+        <strong>
+          {username
+            ? `${username}\\eeg_recordings | ${username}\\music`
+            : 'username\\eeg_recordings | username\\music'}
+        </strong>
+      </div>
+      {storageError ? <div className={styles.storageError}>{storageError}</div> : null}
+      <div className={styles.storageActions}>
+        <button
+          type="button"
+          disabled={isStoragePending}
+          onClick={() => void runStorageAction(handleChooseStorageRoot)}
+        >
+          浏览
+        </button>
+        <button
+          type="button"
+          disabled={isStoragePending}
+          onClick={() => void runStorageAction(handleResetStorageRoot)}
+        >
+          默认
+        </button>
+        <button
+          type="button"
+          disabled={isStoragePending}
+          onClick={() => void runStorageAction(handleSaveStorageRoot)}
+        >
+          保存
+        </button>
+      </div>
+    </section>
+  );
+}
+
+type MentalScaleDialogProps = {
+  onComplete: (answers: MentalScaleAnswers) => void;
+  onClose: () => void;
+  scale: MentalScaleDefinition;
+};
+
+function MentalScaleDialog({ onComplete, onClose, scale }: MentalScaleDialogProps) {
+  const [scaleAnswers, setScaleAnswers] = useState<MentalScaleAnswers>({});
+  const isScaleReady = isMentalScaleComplete(scale, scaleAnswers);
+
+  const handleAnswer = (questionId: string, value: MentalScaleAnswerValue) => {
     setScaleAnswers((answers) => ({
       ...answers,
       [questionId]: value,
     }));
   };
 
-  const handleCloseScale = () => {
-    setPendingScale(null);
-    setScaleAnswers({});
+  const handleComplete = () => {
+    if (!isScaleReady) {
+      return;
+    }
+
+    onComplete(scaleAnswers);
   };
 
-  const handleCompleteScale = () => {
-    if (!pendingScale || !isMentalScaleComplete(pendingScale, scaleAnswers)) {
+  return (
+    <div
+      className={`${styles.scaleOverlay} fixed inset-0 flex items-center justify-center p-22px`}
+      role="presentation"
+    >
+      <section
+        className={`${styles.scaleDialog} grid gap-20px overflow-y-auto w-full max-w-720px`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mental-scale-title"
+      >
+        <div className={`${styles.scaleHeader} flex items-start justify-between gap-18px`}>
+          <div>
+            <p className={styles.scaleEyebrow}>心理量表</p>
+            <h2 id="mental-scale-title">{scale.title}</h2>
+            <p>{scale.subtitle}</p>
+          </div>
+          <IconButton
+            className={styles.scaleCloseButton}
+            aria-label="关闭心理量表"
+            size="small"
+            onClick={onClose}
+          >
+            <CloseRoundedIcon fontSize="small" />
+          </IconButton>
+        </div>
+
+        <div className={`${styles.scaleQuestions} grid gap-14px`}>
+          {scale.questions.map((question, questionIndex) => (
+            <fieldset className={`${styles.scaleQuestion} grid gap-14px m-0 p-16px`} key={question.id}>
+              <legend className="flex items-center gap-10px p-0">
+                <span className="inline-flex flex-none items-center justify-center h-24px w-24px">{questionIndex + 1}</span>
+                {question.prompt}
+              </legend>
+              <div className={`${styles.scaleOptions} grid gap-8px`}>
+                {mentalScaleAnswerOptions.map((option) => {
+                  const isSelected = scaleAnswers[question.id] === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`${isSelected ? styles.isScaleOptionSelected : ''} grid items-center gap-4px min-h-62px px-8px py-9px`}
+                      aria-pressed={isSelected}
+                      onClick={() => handleAnswer(question.id, option.value)}
+                    >
+                      <strong>{option.value}</strong>
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ))}
+        </div>
+
+        <div className={`${styles.scaleFooter} flex items-center justify-between gap-14px`}>
+          <span>
+            {isScaleReady ? '已完成，可以进入调控页面。' : '完成全部题目后继续。'}
+          </span>
+          <button
+            type="button"
+            className="flex-none h-40px min-w-112px px-18px"
+            disabled={!isScaleReady}
+            onClick={handleComplete}
+          >
+            进入
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export default function Home() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, signOut } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isStorageOpen, setIsStorageOpen] = useState(false);
+  const [pendingScale, setPendingScale] = useState<MentalScaleDefinition | null>(null);
+  const [showHomeIntro, setShowHomeIntro] = useState(false);
+  const activeItem = navigationItems.find((item) => (
+    item.path === '/home'
+      ? location.pathname === item.path
+      : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
+  )) ?? navigationItems[0];
+  const isWorkspaceRoute = location.pathname !== '/home';
+  const isEegWorkspaceRoute = location.pathname === '/eeg-acquisition';
+  const activeIndex = navigationItems.findIndex((item) => item.path === activeItem.path);
+  const nextItem = navigationItems[(activeIndex + 1) % navigationItems.length];
+  const nextLabel = nextItem.label.toUpperCase();
+
+  useEffect(() => {
+    if (homeIntroPlayback.shouldPlay(currentUser?.id)) {
+      setShowHomeIntro(true);
+    }
+  }, [currentUser?.id]);
+
+  const requestNavigation = useCallback((path: string) => {
+    if (path === location.pathname) {
+      return;
+    }
+
+    const scale = getMentalScaleForPath(path);
+
+    if (scale) {
+      setPendingScale(scale);
+      setIsSidebarOpen(false);
+      return;
+    }
+
+    navigate(path);
+  }, [location.pathname, navigate]);
+
+  const handleNavClick = (item: NavigationItem) => {
+    requestNavigation(item.path);
+    setIsSidebarOpen(false);
+  };
+
+  const handleMenuOpen = () => {
+    setIsSidebarOpen(true);
+  };
+
+  const handleNextClick = () => {
+    requestNavigation(nextItem.path);
+  };
+
+  const handleAgentActionClick = (event: MouseEvent<HTMLElement>) => {
+    const actionElement = (event.target as HTMLElement).closest<HTMLElement>('[data-agent-action]');
+    const actionId = actionElement?.dataset.agentAction;
+    const payload = actionElement?.dataset.agentPayload;
+
+    if (actionId === 'play_video' || actionId === 'generate_music') {
+      window.dispatchEvent(new CustomEvent('agent:submit-prompt', {
+        detail: { prompt: payload ? `${actionId}:${payload}` : actionId },
+      }));
+    }
+  };
+
+  const handleSignOut = () => {
+    signOut();
+    navigate('/login', { replace: true });
+  };
+
+  const handleCloseScale = () => {
+    setPendingScale(null);
+  };
+
+  const handleCompleteScale = (answers: MentalScaleAnswers) => {
+    if (!pendingScale) {
       return;
     }
 
     const nextPath = pendingScale.path;
-    updateMentalScaleStatus(buildMentalScaleStatus(pendingScale, scaleAnswers));
+    updateMentalScaleStatus(buildMentalScaleStatus(pendingScale, answers));
     setPendingScale(null);
-    setScaleAnswers({});
     navigate(nextPath);
   };
-
-  const isScaleReady = pendingScale ? isMentalScaleComplete(pendingScale, scaleAnswers) : false;
 
   return (
     <main
@@ -334,36 +475,10 @@ export default function Home() {
           </div>
 
           {isStorageOpen ? (
-            <section className={styles.storagePanel} aria-label="存储路径设置">
-              <label className={styles.storageField}>
-                <span>存储根目录</span>
-                <input
-                  value={storageInput}
-                  onChange={(event) => setStorageInput(event.currentTarget.value)}
-                  placeholder="D:\\ExperimentData"
-                />
-              </label>
-              <div className={styles.storagePreview}>
-                <span>{storageLocation?.root ?? '默认应用数据目录'}</span>
-                <strong>
-                  {currentUser
-                    ? `${currentUser.username}\\eeg_recordings | ${currentUser.username}\\music`
-                    : 'username\\eeg_recordings | username\\music'}
-                </strong>
-              </div>
-              {storageError ? <div className={styles.storageError}>{storageError}</div> : null}
-              <div className={styles.storageActions}>
-                <button type="button" onClick={() => void handleChooseStorageRoot()}>
-                  浏览
-                </button>
-                <button type="button" onClick={() => void handleResetStorageRoot()}>
-                  默认
-                </button>
-                <button type="button" onClick={() => void handleSaveStorageRoot()}>
-                  保存
-                </button>
-              </div>
-            </section>
+            <StorageSettingsPanel
+              onClose={() => setIsStorageOpen(false)}
+              username={currentUser?.username}
+            />
           ) : null}
         </aside>
 
@@ -396,94 +511,17 @@ export default function Home() {
         </section>
 
         <GlobalMentalScalePanel>
-          <ExperimentAgentPanel
-            isPlannerAvailable={experimentAgent.isPlannerAvailable}
-            isPlanning={experimentAgent.isPlanning}
-            thinkingDurationMs={experimentAgent.thinkingDurationMs}
-            thinkingSteps={experimentAgent.thinkingSteps}
-            message={experimentAgent.message}
-            pendingConfirmation={experimentAgent.pendingConfirmation}
-            phase={experimentAgent.phase}
-            quickPrompts={experimentAgent.quickPrompts}
-            recentTimeline={experimentAgent.recentTimeline}
-            onConfirm={() => void experimentAgent.confirmPendingAction()}
-            onReject={experimentAgent.rejectPendingAction}
-            onSubmitPrompt={(value) => void experimentAgent.submitPrompt(value)}
-          />
+          <ExperimentAgentPanel navigateTo={requestNavigation} />
         </GlobalMentalScalePanel>
       </div>
 
       {pendingScale ? (
-        <div
-          className={`${styles.scaleOverlay} fixed inset-0 flex items-center justify-center p-22px`}
-          role="presentation"
-        >
-          <section
-            className={`${styles.scaleDialog} grid gap-20px overflow-y-auto w-full max-w-720px`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="mental-scale-title"
-          >
-            <div className={`${styles.scaleHeader} flex items-start justify-between gap-18px`}>
-              <div>
-                <p className={styles.scaleEyebrow}>心理量表</p>
-                <h2 id="mental-scale-title">{pendingScale.title}</h2>
-                <p>{pendingScale.subtitle}</p>
-              </div>
-              <IconButton
-                className={styles.scaleCloseButton}
-                aria-label="关闭心理量表"
-                size="small"
-                onClick={handleCloseScale}
-              >
-                <CloseRoundedIcon fontSize="small" />
-              </IconButton>
-            </div>
-
-            <div className={`${styles.scaleQuestions} grid gap-14px`}>
-              {pendingScale.questions.map((question, questionIndex) => (
-                <fieldset className={`${styles.scaleQuestion} grid gap-14px m-0 p-16px`} key={question.id}>
-                  <legend className="flex items-center gap-10px p-0">
-                    <span className="inline-flex flex-none items-center justify-center h-24px w-24px">{questionIndex + 1}</span>
-                    {question.prompt}
-                  </legend>
-                  <div className={`${styles.scaleOptions} grid gap-8px`}>
-                    {mentalScaleAnswerOptions.map((option) => {
-                      const isSelected = scaleAnswers[question.id] === option.value;
-
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          className={`${isSelected ? styles.isScaleOptionSelected : ''} grid items-center gap-4px min-h-62px px-8px py-9px`}
-                          aria-pressed={isSelected}
-                          onClick={() => handleScaleAnswer(question.id, option.value)}
-                        >
-                          <strong>{option.value}</strong>
-                          <span>{option.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </fieldset>
-              ))}
-            </div>
-
-            <div className={`${styles.scaleFooter} flex items-center justify-between gap-14px`}>
-              <span>
-                {isScaleReady ? '已完成，可以进入调控页面。' : '完成全部题目后继续。'}
-              </span>
-              <button
-                type="button"
-                className="flex-none h-40px min-w-112px px-18px"
-                disabled={!isScaleReady}
-                onClick={handleCompleteScale}
-              >
-                进入
-              </button>
-            </div>
-          </section>
-        </div>
+        <MentalScaleDialog
+          key={pendingScale.path}
+          onComplete={handleCompleteScale}
+          onClose={handleCloseScale}
+          scale={pendingScale}
+        />
       ) : null}
 
       {showHomeIntro ? <HomeIntroLogo onComplete={() => setShowHomeIntro(false)} /> : null}

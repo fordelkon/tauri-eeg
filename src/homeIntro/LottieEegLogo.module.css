@@ -37,6 +37,8 @@
   stroke: #2c2218;
   stroke-dasharray: 30 12;
   stroke-width: 2.2;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .innerHex {
@@ -106,6 +108,20 @@
   width: 100%;
 }
 
+/* Toggled by LottieEegLogo when the logo is offscreen or the page is hidden,
+   so the CSS keyframe animations stop along with the lottie player. */
+.logo[data-paused] .hexSignal,
+.logo[data-paused] .outerHex,
+.logo[data-paused] .innerHex,
+.logo[data-paused] .waveGhost,
+.logo[data-paused] .wave,
+.logo[data-paused] .coreHalo,
+.logo[data-paused] .core,
+.logo[data-paused] .nodeRed,
+.logo[data-paused] .nodeDark {
+  animation-play-state: paused;
+}
+
 @keyframes waveFlow {
   0% {
     stroke-dashoffset: 440;
@@ -132,18 +148,20 @@
   }
 }
 
+/* Opacity/transform only: animating stroke-width would force the SVG path to be
+   re-rasterized every frame; a subtle scale approximates the same pulse. */
 @keyframes outerHexPulse {
   0%,
   100% {
     opacity: 0.86;
     stroke-dashoffset: 0;
-    stroke-width: 2.2;
+    transform: scale(1);
   }
 
   50% {
     opacity: 1;
     stroke-dashoffset: -24;
-    stroke-width: 2.8;
+    transform: scale(1.03);
   }
 }
 
@@ -188,5 +206,23 @@
   50% {
     opacity: 0.68;
     transform: scale(1.22);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hexSignal,
+  .outerHex,
+  .innerHex,
+  .waveGhost,
+  .wave,
+  .coreHalo,
+  .core,
+  .nodeRed,
+  .nodeDark {
+    animation: none;
+  }
+
+  .wave {
+    stroke-dashoffset: 0;
   }
 }

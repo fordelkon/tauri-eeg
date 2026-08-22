@@ -50,19 +50,32 @@ export type EegStatus = {
   eegConnected: boolean;
   triggerConnected: boolean;
   lastError: string | null;
+  lastDisconnectReason: string | null;
   sampleRateHz: number;
   blockIntervalMs: number;
   channelIds: string[];
+  paddedSamples: number;
   activeRecording: EegRecordingSession | null;
 };
 
-export type EegSampleBlockPayload = {
+export type EegStatusClientKind = 'eeg' | 'trigger' | 'stream';
+
+export type EegStatusEvent = {
+  client: EegStatusClientKind;
+  connected: boolean;
+  reason: string | null;
+};
+
+/**
+ * Decoded binary sample block sent over a Tauri IPC channel: per-channel
+ * Float32Arrays in channel order (ch01..ch32).
+ */
+export type EegDecodedSampleBlock = {
   sequence: number;
   sampleRateHz: number;
   startedAtMs: number;
-  channelIds: string[];
-  samples: number[][];
-  triggerClass?: EegTriggerCode | null;
+  triggerClass: number | null;
+  samples: Float32Array[];
 };
 
 export type EegDisplaySettings = {
@@ -76,6 +89,7 @@ export type EegDisplaySnapshot = {
   x: number[];
   visibleChannels: EegChannel[];
   seriesByChannel: Record<string, number[]>;
+  baselineByChannel: Record<string, number>;
   markers: EegMarker[];
   retainedSampleCount: number;
 };

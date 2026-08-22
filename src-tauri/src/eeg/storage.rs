@@ -5,6 +5,12 @@ use std::{
     fs::{self, File},
     io::{BufWriter, Write},
     path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+    },
+    sync::mpsc,
+    thread::{self, JoinHandle},
 };
 
 use super::{
@@ -106,7 +112,7 @@ impl RecordingWriter {
         self.session.clone()
     }
 
-    pub fn write_sample(
+    fn write_sample(
         &mut self,
         samples_uv: &[f32; EEG_CHANNEL_COUNT],
         trigger: i32,
@@ -123,7 +129,9 @@ impl RecordingWriter {
         Ok(())
     }
 
-    pub fn finish(mut self, conn: &Connection) -> Result<EegRecordingSession, String> {
+    /// Flushes files and writes metadata. The database row is inserted by the
+    /// caller after the writer thread joins (see `insert_eeg_session`).
+    fn finalize(mut self) -> Result<EegRecordingSession, String> {
         self.eeg_writer
             .flush()
             .map_err(|_| "Failed to flush EEG binary file.".to_string())?;
@@ -140,8 +148,73 @@ impl RecordingWriter {
         self.session.duration_seconds = Some(duration_seconds);
 
         write_metadata(&self.session, duration_seconds)?;
-        insert_eeg_session(conn, &self.session)?;
         Ok(self.session)
+    }
+}
+
+/// One EEG sample destined for disk: 32 channel values plus the trigger code.
+pub type RecordingSample = ([f32; EEG_CHANNEL_COUNT], i32);
+
+/// Owns the recording files on a dedicated thread so the sample path never
+/// performs disk IO under the EEG runtime mutex. Dropping the sender side
+/// (via `stop`) makes the thread flush and finalize the session.
+#[derive(Debug)]
+pub struct RecordingWorker {
+    session: EegRecordingSession,
+    sample_count: Arc<AtomicU64>,
+    sender: mpsc::Sender<RecordingSample>,
+    handle: Mutex<Option<JoinHandle<Result<EegRecordingSession, String>>>>,
+}
+
+impl RecordingWorker {
+    pub fn start(writer: RecordingWriter) -> Self {
+        let (sender, receiver) = mpsc::channel::<RecordingSample>();
+        let sample_count = Arc::new(AtomicU64::new(0));
+        let count_for_thread = Arc::clone(&sample_count);
+        let session = writer.session();
+        let handle = thread::Builder::new()
+            .name("eeg-recording-writer".to_string())
+            .spawn(move || {
+                let mut writer = writer;
+                while let Ok((samples_uv, trigger)) = receiver.recv() {
+                    writer.write_sample(&samples_uv, trigger)?;
+                    count_for_thread.fetch_add(1, Ordering::Relaxed);
+                }
+                writer.finalize()
+            })
+            .expect("failed to spawn EEG recording writer thread");
+
+        Self {
+            session,
+            sample_count,
+            sender,
+            handle: Mutex::new(Some(handle)),
+        }
+    }
+
+    pub fn session(&self) -> EegRecordingSession {
+        let mut session = self.session.clone();
+        session.sample_count = self.sample_count.load(Ordering::Relaxed);
+        session
+    }
+
+    pub fn sender(&self) -> mpsc::Sender<RecordingSample> {
+        self.sender.clone()
+    }
+
+    /// Drops the sample sender, joins the writer thread (flushing both files)
+    /// and returns the finalized session, ready to be persisted.
+    pub fn stop(self) -> Result<EegRecordingSession, String> {
+        drop(self.sender);
+        let handle = self
+            .handle
+            .lock()
+            .ok()
+            .and_then(|mut handle| handle.take())
+            .ok_or_else(|| "EEG recording writer already stopped.".to_string())?;
+        handle
+            .join()
+            .map_err(|_| "EEG recording writer thread failed.".to_string())?
     }
 }
 
@@ -187,7 +260,7 @@ pub fn list_eeg_sessions(
     }
 
     let mut stmt = conn
-        .prepare(
+        .prepare_cached(
             "SELECT id, user_id, username, session_dir, eeg_file, trigger_file, metadata_file,
                 sample_rate_hz, channel_count, sample_count, duration_seconds, started_at, ended_at
              FROM eeg_sessions
@@ -218,6 +291,34 @@ pub fn list_eeg_sessions(
 
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|_| "Failed to load EEG sessions.".to_string())
+}
+
+pub(crate) fn insert_eeg_session(conn: &Connection, session: &EegRecordingSession) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO eeg_sessions
+            (id, user_id, username, session_dir, eeg_file, trigger_file, metadata_file,
+             sample_rate_hz, channel_count, sample_count, duration_seconds, started_at, ended_at, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        params![
+            session.id,
+            session.user_id,
+            session.username,
+            session.session_dir,
+            session.eeg_file,
+            session.trigger_file,
+            session.metadata_file,
+            session.sample_rate_hz,
+            session.channel_count as i64,
+            session.sample_count as i64,
+            session.duration_seconds,
+            session.started_at,
+            session.ended_at,
+            Utc::now().to_rfc3339(),
+        ],
+    )
+    .map_err(|_| "Failed to save EEG session.".to_string())?;
+
+    Ok(())
 }
 
 fn validate_user(conn: &Connection, input: StartEegRecordingInput) -> Result<ValidUser, String> {
@@ -294,34 +395,6 @@ fn write_metadata(session: &EegRecordingSession, duration_seconds: f64) -> Resul
     fs::write(metadata_path, json).map_err(|_| "Failed to write EEG metadata.".to_string())
 }
 
-fn insert_eeg_session(conn: &Connection, session: &EegRecordingSession) -> Result<(), String> {
-    conn.execute(
-        "INSERT INTO eeg_sessions
-            (id, user_id, username, session_dir, eeg_file, trigger_file, metadata_file,
-             sample_rate_hz, channel_count, sample_count, duration_seconds, started_at, ended_at, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-        params![
-            session.id,
-            session.user_id,
-            session.username,
-            session.session_dir,
-            session.eeg_file,
-            session.trigger_file,
-            session.metadata_file,
-            session.sample_rate_hz,
-            session.channel_count as i64,
-            session.sample_count as i64,
-            session.duration_seconds,
-            session.started_at,
-            session.ended_at,
-            Utc::now().to_rfc3339(),
-        ],
-    )
-    .map_err(|_| "Failed to save EEG session.".to_string())?;
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -394,7 +467,7 @@ mod tests {
     fn writes_sample_major_binaries_metadata_and_user_bound_row() {
         let conn = setup_conn();
         let base_dir = temp_recording_dir();
-        let mut writer = RecordingWriter::start(
+        let writer = RecordingWriter::start(
             &conn,
             &base_dir,
             StartEegRecordingInput {
@@ -405,11 +478,23 @@ mod tests {
         )
         .expect("start writer");
 
+        let worker = RecordingWorker::start(writer);
+
         let mut sample = [0.0_f32; EEG_CHANNEL_COUNT];
         sample[0] = 1.25;
         sample[31] = -2.5;
-        writer.write_sample(&sample, 3).expect("write sample");
-        let session = writer.finish(&conn).expect("finish writer");
+        worker
+            .sender()
+            .send((sample, 3))
+            .expect("send sample to writer thread");
+
+        // The writer thread updates the live sample count asynchronously.
+        while worker.session().sample_count == 0 {
+            thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        let session = worker.stop().expect("stop worker");
+        insert_eeg_session(&conn, &session).expect("insert session row");
 
         let eeg_bytes =
             fs::read(Path::new(&session.session_dir).join(EEG_FILE_NAME)).expect("read eeg binary");

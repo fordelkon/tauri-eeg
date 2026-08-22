@@ -27,7 +27,7 @@ export default function GameRegulation() {
           return (
             <article className={styles.card} key={option.id}>
               <div className={styles.imageFrame}>
-                <img src={option.imageSrc} alt={option.title} />
+                <img src={option.imageSrc} alt={option.title} loading="lazy" decoding="async" />
                 <span className={styles.modeBadge}>
                   <Icon fontSize="small" aria-hidden="true" />
                   {option.mode}

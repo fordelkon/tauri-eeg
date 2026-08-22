@@ -8,7 +8,7 @@ import SkipNextRoundedIcon from '@mui/icons-material/SkipNextRounded';
 import SkipPreviousRoundedIcon from '@mui/icons-material/SkipPreviousRounded';
 import { IconButton } from '@mui/material';
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import {
   MUSIC_GENERATED_EVENT,
@@ -151,6 +151,9 @@ const instrumentTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bf
 const styleTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f', '#d7a86e'] as const;
 const detailTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f'] as const;
 const generationDurationOptions = [15, 30, 60, 120] as const;
+// Session-local cap for the generated history list (newest first), mirroring the
+// backend's bounded history semantics so the list never grows without limit.
+const MAX_GENERATED_ITEMS = 100;
 
 type AgentMusicPromptDetail = {
   instrument?: string | null;
@@ -348,6 +351,130 @@ function TagEditorSheet({
   );
 }
 
+// Owns the simulated generation progress timer so its 500ms ticks re-render
+// only this subtree instead of the whole page during a 40s+ generation.
+const GenerationProgressPanel = memo(function GenerationProgressPanel({
+  deviceLabel,
+}: {
+  deviceLabel: string;
+}) {
+  const [progress, setProgress] = useState(6);
+  const [stage, setStage] = useState('启动服务');
+
+  useEffect(() => {
+    const startedAt = Date.now();
+    let lastStage = '';
+    let lastProgress = -1;
+    const intervalId = window.setInterval(() => {
+      const elapsedSeconds = (Date.now() - startedAt) / 1000;
+      let nextStage: string;
+      let nextProgress: number;
+
+      if (elapsedSeconds < 8) {
+        nextStage = '启动服务';
+        nextProgress = Math.min(28, 8 + elapsedSeconds * 2.5);
+      } else if (elapsedSeconds < 40) {
+        nextStage = '加载模型';
+        nextProgress = Math.min(64, 28 + (elapsedSeconds - 8) * 1.1);
+      } else {
+        nextStage = '生成 WAV';
+        nextProgress = Math.min(94, 64 + (elapsedSeconds - 40) * 0.6);
+      }
+
+      if (nextStage !== lastStage) {
+        lastStage = nextStage;
+        setStage(nextStage);
+      }
+      if (nextProgress !== lastProgress) {
+        lastProgress = nextProgress;
+        setProgress(nextProgress);
+      }
+    }, 500);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  return (
+    <div className={`${styles.generationProgress} grid`} aria-live="polite">
+      <div className={`${styles.generationProgressHeader} flex items-center justify-between`}>
+        <span>{stage} - {deviceLabel}</span>
+        <strong>{Math.round(progress)}%</strong>
+      </div>
+      <div className={styles.generationProgressTrack}>
+        <span style={{ width: `${progress}%` }} />
+      </div>
+    </div>
+  );
+});
+
+// Owns the playback time display. `timeupdate` fires ~4Hz during playback, so
+// keeping currentTime/duration local to this memoized subtree prevents the full
+// page from re-rendering on every tick.
+const PlaybackTimeline = memo(function PlaybackTimeline({
+  audioRef,
+}: {
+  audioRef: { current: HTMLAudioElement | null };
+}) {
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const remainingTime = Math.max(0, duration - currentTime);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    if (!audio) {
+      setCurrentTime(0);
+      setDuration(0);
+      return undefined;
+    }
+
+    const syncFromElement = () => {
+      setCurrentTime(audio.currentTime);
+      setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
+    };
+    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', syncFromElement);
+    audio.addEventListener('emptied', syncFromElement);
+    syncFromElement();
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', syncFromElement);
+      audio.removeEventListener('emptied', syncFromElement);
+    };
+  }, [audioRef]);
+
+  const handleSeek = (value: number) => {
+    const audio = audioRef.current;
+
+    if (!audio || duration <= 0) {
+      return;
+    }
+
+    audio.currentTime = (value / 100) * duration;
+  };
+
+  return (
+    <div className={styles.timelineRow}>
+      <span>{formatTime(currentTime)}</span>
+      <input
+        className={styles.timeline}
+        type="range"
+        min="0"
+        max="100"
+        value={progress}
+        aria-label="播放位置"
+        style={{ '--progress': `${progress}%` } as CSSProperties}
+        onChange={(event) => handleSeek(Number(event.currentTarget.value))}
+      />
+      <span>-{formatTime(remainingTime)}</span>
+    </div>
+  );
+});
+
 export default function MusicRegulation() {
   const { currentUser } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -359,11 +486,7 @@ export default function MusicRegulation() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [openTagSelectorId, setOpenTagSelectorId] = useState<string | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
-  const [generationProgress, setGenerationProgress] = useState(0);
-  const [generationStage, setGenerationStage] = useState('就绪');
   const [generationDevice, setGenerationDevice] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [generationDuration, setGenerationDuration] = useState(30);
   const [instruments, setInstruments] = useState<string[]>([]);
   const [customInstrument, setCustomInstrument] = useState('');
@@ -406,8 +529,6 @@ export default function MusicRegulation() {
     && hasSelectedStyle;
   const canGenerate = generatedPrompt.trim().length > 0 && hasPromptCore;
   const generationDeviceLabel = generationDevice ? generationDevice.toUpperCase() : '检测设备中';
-  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const remainingTime = Math.max(0, duration - currentTime);
   const coverStyle = activeAsset
     ? {
       '--cover-accent': activeAsset.cover.accent,
@@ -442,6 +563,10 @@ export default function MusicRegulation() {
     };
   }, [currentUser]);
 
+  useEffect(() => () => {
+    audioRef.current?.pause();
+  }, []);
+
   useEffect(() => {
     const handleGeneratedMusic = (event: Event) => {
       const item = (event as CustomEvent<GeneratedMusicHistoryItem>).detail;
@@ -450,7 +575,7 @@ export default function MusicRegulation() {
         return;
       }
 
-      setGeneratedItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)]);
+      setGeneratedItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)].slice(0, MAX_GENERATED_ITEMS));
       setActiveIndex(0);
     };
 
@@ -488,11 +613,6 @@ export default function MusicRegulation() {
   }, []);
 
   useEffect(() => {
-    setCurrentTime(0);
-    setDuration(0);
-  }, [activeAsset?.id]);
-
-  useEffect(() => {
     if (activeIndex >= assets.length) {
       setActiveIndex(Math.max(0, assets.length - 1));
     }
@@ -518,30 +638,6 @@ export default function MusicRegulation() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isHistoryOpen]);
 
-  useEffect(() => {
-    if (!isGenerating) {
-      return undefined;
-    }
-
-    const startedAt = Date.now();
-    const intervalId = window.setInterval(() => {
-      const elapsedSeconds = (Date.now() - startedAt) / 1000;
-
-      if (elapsedSeconds < 8) {
-        setGenerationStage('启动服务');
-        setGenerationProgress(Math.min(28, 8 + elapsedSeconds * 2.5));
-      } else if (elapsedSeconds < 40) {
-        setGenerationStage('加载模型');
-        setGenerationProgress(Math.min(64, 28 + (elapsedSeconds - 8) * 1.1));
-      } else {
-        setGenerationStage('生成 WAV');
-        setGenerationProgress(Math.min(94, 64 + (elapsedSeconds - 40) * 0.6));
-      }
-    }, 500);
-
-    return () => window.clearInterval(intervalId);
-  }, [isGenerating]);
-
   const playActiveAudio = async () => {
     const audio = audioRef.current;
 
@@ -549,7 +645,11 @@ export default function MusicRegulation() {
       return;
     }
 
-    await audio.play();
+    try {
+      await audio.play();
+    } catch {
+      setError('无法播放音频，请检查音频文件或系统音频权限。');
+    }
   };
 
   const handleTogglePlay = async () => {
@@ -580,16 +680,6 @@ export default function MusicRegulation() {
         void playActiveAudio();
       }, 0);
     }
-  };
-
-  const handleSeek = (value: number) => {
-    const audio = audioRef.current;
-
-    if (!audio || duration <= 0) {
-      return;
-    }
-
-    audio.currentTime = (value / 100) * duration;
   };
 
   const handleInstrumentToggle = (value: string) => {
@@ -669,8 +759,6 @@ export default function MusicRegulation() {
 
     setError(null);
     setIsGenerating(true);
-    setGenerationProgress(6);
-    setGenerationStage('启动服务');
     setGenerationDevice(null);
 
     try {
@@ -689,15 +777,12 @@ export default function MusicRegulation() {
         username: currentUser.username,
       });
 
-      setGeneratedItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)]);
+      setGeneratedItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)].slice(0, MAX_GENERATED_ITEMS));
       setActiveIndex(0);
       window.setTimeout(() => {
         void playActiveAudio();
       }, 0);
-      setGenerationProgress(100);
-      setGenerationStage('生成完成');
     } catch (reason) {
-      setGenerationStage('生成失败');
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setIsGenerating(false);
@@ -826,15 +911,7 @@ export default function MusicRegulation() {
           </div>
 
           {isGenerating ? (
-            <div className={`${styles.generationProgress} grid`} aria-live="polite">
-              <div className={`${styles.generationProgressHeader} flex items-center justify-between`}>
-                <span>{generationStage} - {generationDeviceLabel}</span>
-                <strong>{Math.round(generationProgress)}%</strong>
-              </div>
-              <div className={styles.generationProgressTrack}>
-                <span style={{ width: `${generationProgress}%` }} />
-              </div>
-            </div>
+            <GenerationProgressPanel deviceLabel={generationDeviceLabel} />
           ) : null}
 
           <div className={`${styles.promptActions} grid items-end`}>
@@ -895,20 +972,7 @@ export default function MusicRegulation() {
                   </div>
                 </div>
 
-                <div className={styles.timelineRow}>
-                  <span>{formatTime(currentTime)}</span>
-                  <input
-                    className={styles.timeline}
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={progress}
-                    aria-label="播放位置"
-                    style={{ '--progress': `${progress}%` } as CSSProperties}
-                    onChange={(event) => handleSeek(Number(event.currentTarget.value))}
-                  />
-                  <span>-{formatTime(remainingTime)}</span>
-                </div>
+                <PlaybackTimeline key={activeAsset?.id ?? 'none'} audioRef={audioRef} />
 
                 <div className={styles.controls}>
                   <div className={styles.transportControls}>
@@ -1045,13 +1109,12 @@ export default function MusicRegulation() {
           ref={audioRef}
           src={activeAsset.mediaUrl}
           preload="metadata"
-          onDurationChange={(event) => setDuration(event.currentTarget.duration)}
           onEnded={() => {
             void handleTrackChange(activeIndex + 1);
           }}
           onPause={() => setIsPlaying(false)}
           onPlay={() => setIsPlaying(true)}
-          onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
+          onError={() => setError('音频加载失败，请重新生成或选择其他曲目。')}
         />
       ) : null}
     </section>

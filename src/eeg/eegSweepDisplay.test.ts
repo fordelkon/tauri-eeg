@@ -13,6 +13,10 @@ const snapshot: EegDisplaySnapshot = {
     fp1: [80, 90, 100, 110, 120],
     fp2: [8, 9, 10, 11, 12],
   },
+  baselineByChannel: {
+    fp1: 0,
+    fp2: 0,
+  },
   markers: [
     { timeSeconds: 9, classId: 1 },
     { timeSeconds: 11, classId: 2 },

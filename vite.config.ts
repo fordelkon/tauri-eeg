@@ -8,11 +8,46 @@ import UnoCSS from "unocss/vite";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+// Split heavy vendor deps into their own chunks so route code changes don't
+// force clients to re-download the large, rarely-changing libraries.
+const manualChunks = (id: string): string | undefined => {
+  if (id.indexOf("node_modules") === -1) {
+    return undefined;
+  }
+
+  if (id.indexOf("@mui") !== -1 || id.indexOf("@emotion") !== -1) {
+    return "vendor-mui";
+  }
+
+  if (id.indexOf("matter-js") !== -1) {
+    return "vendor-matter";
+  }
+
+  if (id.indexOf("lottie-web") !== -1) {
+    return "vendor-lottie";
+  }
+
+  // echarts is dynamically imported by GlobalMentalScalePanel; without an
+  // explicit chunk rollup merges it into the shared entry chunk (~1MB).
+  if (id.indexOf("echarts") !== -1 || id.indexOf("zrender") !== -1) {
+    return "vendor-echarts";
+  }
+
+  return undefined;
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), UnoCSS({ presets: [presetUno()] })],
   define: {
     __TAURI_EEG_PROJECT_ROOT__: JSON.stringify(process.cwd()),
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks,
+      },
+    },
   },
   test: {
     environment: "node",

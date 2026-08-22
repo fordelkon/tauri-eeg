@@ -14,12 +14,21 @@ export function useRealtimeEeg() {
     setSnapshot(eegSession.takeSnapshot());
   }, [eegSession.takeSnapshot]);
 
+  // Skip snapshot work while no samples are flowing; the last rendered
+  // snapshot stays on screen.
+  const streamingRef = useRef(eegSession.deviceStatus === 'streaming');
+
+  useEffect(() => {
+    streamingRef.current = eegSession.deviceStatus === 'streaming';
+  }, [eegSession.deviceStatus]);
+
   useEffect(() => {
     let frame = 0;
     let lastRenderedAtMs: number | null = null;
+    let running = !document.hidden;
 
     const tick = (nowMs: number) => {
-      if (shouldRenderEegFrame(nowMs, lastRenderedAtMs)) {
+      if (streamingRef.current && shouldRenderEegFrame(nowMs, lastRenderedAtMs)) {
         lastRenderedAtMs = nowMs;
         setSnapshot(takeSnapshotRef.current());
       }
@@ -27,9 +36,35 @@ export function useRealtimeEeg() {
       frame = window.requestAnimationFrame(tick);
     };
 
-    frame = window.requestAnimationFrame(tick);
+    const start = () => {
+      if (running) return;
+      running = true;
+      lastRenderedAtMs = null;
+      frame = window.requestAnimationFrame(tick);
+    };
 
-    return () => window.cancelAnimationFrame(frame);
+    const stop = () => {
+      running = false;
+      window.cancelAnimationFrame(frame);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        start();
+      }
+    };
+
+    if (running) {
+      frame = window.requestAnimationFrame(tick);
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const reset = useCallback(() => {

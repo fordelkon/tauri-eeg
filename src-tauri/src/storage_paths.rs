@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs,
     path::{Component, Path, PathBuf},
+    sync::RwLock,
 };
 use tauri::Manager;
 
@@ -25,6 +26,10 @@ pub struct UserStorageRoots {
 }
 
 const SETTINGS_FILE_NAME: &str = "storage-settings.json";
+
+// storage_root() is called on nearly every command; avoid re-reading and
+// re-parsing the settings JSON each time. Invalidated by save_storage_settings.
+static SETTINGS_CACHE: RwLock<Option<StorageSettings>> = RwLock::new(None);
 
 pub fn safe_username_dir_segment(username: &str) -> Result<String, String> {
     let mut value = String::new();
@@ -66,6 +71,12 @@ pub fn settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 pub fn load_storage_settings(app: &tauri::AppHandle) -> Result<StorageSettings, String> {
+    if let Ok(cache) = SETTINGS_CACHE.read() {
+        if let Some(settings) = cache.as_ref() {
+            return Ok(settings.clone());
+        }
+    }
+
     let path = settings_path(app)?;
     if !path.exists() {
         return Ok(StorageSettings::default());
@@ -73,7 +84,14 @@ pub fn load_storage_settings(app: &tauri::AppHandle) -> Result<StorageSettings, 
 
     let text =
         fs::read_to_string(path).map_err(|_| "Failed to read storage settings.".to_string())?;
-    serde_json::from_str(&text).map_err(|_| "Storage settings are invalid.".to_string())
+    let settings: StorageSettings =
+        serde_json::from_str(&text).map_err(|_| "Storage settings are invalid.".to_string())?;
+
+    if let Ok(mut cache) = SETTINGS_CACHE.write() {
+        *cache = Some(settings.clone());
+    }
+
+    Ok(settings)
 }
 
 pub fn save_storage_settings(
@@ -93,7 +111,16 @@ pub fn save_storage_settings(
 
     let json = serde_json::to_string_pretty(&settings)
         .map_err(|_| "Failed to serialize storage settings.".to_string())?;
-    fs::write(path, json).map_err(|_| "Failed to save storage settings.".to_string())?;
+
+    // Write to a sibling temp file first so a crash mid-write cannot leave a
+    // truncated settings file behind.
+    let temp_path = path.with_extension("json.tmp");
+    fs::write(&temp_path, json).map_err(|_| "Failed to save storage settings.".to_string())?;
+    fs::rename(&temp_path, &path).map_err(|_| "Failed to save storage settings.".to_string())?;
+
+    if let Ok(mut cache) = SETTINGS_CACHE.write() {
+        *cache = Some(settings);
+    }
 
     storage_location(app)
 }

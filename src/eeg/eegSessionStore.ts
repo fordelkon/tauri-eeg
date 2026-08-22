@@ -5,7 +5,7 @@ import {
 } from './channels';
 import type { EegDisplaySettings, EegDisplaySnapshot } from './types';
 
-export const DEFAULT_SAMPLE_RATE_HZ = 500;
+export const DEFAULT_SAMPLE_RATE_HZ = 1000;
 export const EEG_TIME_WINDOW_OPTIONS_SECONDS = [5, 10, 30] as const;
 export const DEFAULT_TIME_WINDOW_SECONDS = 10;
 export const DEFAULT_AMPLITUDE_UV_PER_DIV = 100;
@@ -28,6 +28,7 @@ export function createInitialEegSnapshot(): EegDisplaySnapshot {
     x: [],
     visibleChannels,
     seriesByChannel: Object.fromEntries(visibleChannels.map((channel) => [channel.id, []])),
+    baselineByChannel: Object.fromEntries(visibleChannels.map((channel) => [channel.id, 0])),
     markers: [],
     retainedSampleCount: 0,
   };

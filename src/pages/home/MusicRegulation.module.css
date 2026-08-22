@@ -575,9 +575,6 @@
   grid-template-columns: minmax(0, 500px);
 }
 
-.playbackColumn {
-}
-
 .playerCard {
   --cover-accent: #314a59;
   --cover-angle: 140deg;
@@ -1117,5 +1114,11 @@
 @media (prefers-reduced-motion: reduce) {
   .workspace {
     animation: none;
+  }
+
+  .generationProgressTrack span,
+  .tagChevron,
+  .queueSelectButton {
+    transition: none;
   }
 }

@@ -1,18 +1,33 @@
-import { invoke } from '@tauri-apps/api/core';
+import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { decodeEegSampleBlock } from './eegBinaryDecoder';
 import type {
+  EegDecodedSampleBlock,
   EegRecordingSession,
-  EegSampleBlockPayload,
   EegStatus,
+  EegStatusEvent,
   EegStreamConfig,
   EegStreamInfo,
   StartEegRecordingRequest,
 } from './types';
 
-export const EEG_SAMPLE_BLOCK_EVENT = 'eeg://sample-block';
+export const EEG_STATUS_EVENT = 'eeg://status';
 
-export function startEegStream(config?: Partial<EegStreamConfig>) {
-  return invoke<EegStreamInfo>('start_eeg_stream', { config: config ?? null });
+export function startEegStream(
+  onBlock: (block: EegDecodedSampleBlock) => void,
+  config?: Partial<EegStreamConfig>,
+) {
+  const channel = new Channel<ArrayBuffer>();
+  channel.onmessage = (data) => {
+    const block = decodeEegSampleBlock(data);
+    if (block) {
+      onBlock(block);
+    }
+  };
+  return invoke<EegStreamInfo>('start_eeg_stream', {
+    config: config ?? null,
+    onSampleBlock: channel,
+  });
 }
 
 export function stopEegStream() {
@@ -24,7 +39,7 @@ export function startEegRecording(request: StartEegRecordingRequest) {
 }
 
 export function stopEegRecording() {
-  return invoke<void>('stop_eeg_recording');
+  return invoke<EegRecordingSession>('stop_eeg_recording');
 }
 
 export function getEegStatus() {
@@ -35,10 +50,10 @@ export function listEegSessions(userId: string) {
   return invoke<EegRecordingSession[]>('list_eeg_sessions', { userId });
 }
 
-export function listenToEegSampleBlocks(
-  onBlock: (payload: EegSampleBlockPayload) => void,
+export function listenToEegStatusEvents(
+  onStatus: (event: EegStatusEvent) => void,
 ) {
-  return listen<EegSampleBlockPayload>(EEG_SAMPLE_BLOCK_EVENT, (event) => {
-    onBlock(event.payload);
+  return listen<EegStatusEvent>(EEG_STATUS_EVENT, (event) => {
+    onStatus(event.payload);
   });
 }

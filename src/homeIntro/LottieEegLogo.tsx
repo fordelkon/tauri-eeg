@@ -15,6 +15,7 @@ export default function LottieEegLogo({
   title = 'EEG emotion regulation animated logo',
 }: LottieEegLogoProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -23,9 +24,10 @@ export default function LottieEegLogo({
       return undefined;
     }
 
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const animation: AnimationItem = lottie.loadAnimation({
       animationData: eegWaveHexLogoAnimation,
-      autoplay: true,
+      autoplay: !prefersReducedMotion,
       container,
       loop,
       renderer: 'svg',
@@ -35,13 +37,51 @@ export default function LottieEegLogo({
       },
     });
 
+    let isVisible = true;
+    let isPageVisible = !document.hidden;
+    let playing = !prefersReducedMotion;
+
+    const syncPausedState = () => {
+      // Pause the lottie player and the CSS keyframe animations together so a
+      // hidden/offscreen logo stops both its JS and compositor work.
+      rootRef.current?.toggleAttribute('data-paused', !playing);
+    };
+
+    syncPausedState();
+
+    const syncPlayback = () => {
+      const shouldPlay = !prefersReducedMotion && isVisible && isPageVisible;
+      if (shouldPlay === playing) return;
+      playing = shouldPlay;
+      if (shouldPlay) {
+        animation.play();
+      } else {
+        animation.pause();
+      }
+      syncPausedState();
+    };
+
+    const handleVisibilityChange = () => {
+      isPageVisible = !document.hidden;
+      syncPlayback();
+    };
+
+    const intersectionObserver = new IntersectionObserver(([entry]) => {
+      isVisible = entry.isIntersecting;
+      syncPlayback();
+    });
+    intersectionObserver.observe(container);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      intersectionObserver.disconnect();
       animation.destroy();
     };
   }, [loop]);
 
   return (
-    <div className={`${styles.logo} ${className ?? ''}`} aria-label={title} role="img">
+    <div ref={rootRef} className={`${styles.logo} ${className ?? ''}`} aria-label={title} role="img">
       <svg className={styles.mark} viewBox="0 0 360 360" aria-hidden="true">
         <g className={styles.hexSignal}>
           <path

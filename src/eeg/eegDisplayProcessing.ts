@@ -1,6 +1,7 @@
 type DisplayInput = {
   seriesByChannel: Record<string, number[]>;
   x: number[];
+  baselineByChannel?: Record<string, number>;
 };
 
 type DisplayOptions = {
@@ -17,7 +18,9 @@ export function processEegDisplayData(
   const clipUv = Math.max(1, options.clipUv);
   const correctedSeries = Object.fromEntries(
     Object.entries(input.seriesByChannel).map(([channelId, values]) => {
-      const baseline = median(values);
+      // DC offset is removed with the incremental per-channel baseline
+      // maintained by the ring buffer; no per-frame sorting.
+      const baseline = input.baselineByChannel?.[channelId] ?? 0;
 
       return [
         channelId,
@@ -39,17 +42,13 @@ export function processEegDisplayData(
   }, options.targetPointCount);
 }
 
+// NaN (or any non-finite value) renders as 0 so it can never propagate into
+// uPlot data and break the canvas layout.
 function clip(value: number, limit: number) {
-  return Math.max(-limit, Math.min(limit, value));
-}
-
-function median(values: number[]) {
-  if (values.length === 0) {
+  if (!Number.isFinite(value)) {
     return 0;
   }
-
-  const sorted = [...values].sort((left, right) => left - right);
-  return sorted[Math.floor((sorted.length - 1) / 2)];
+  return Math.max(-limit, Math.min(limit, value));
 }
 
 function downsampleMinMax(input: DisplayInput, targetPointCount: number): DisplayOutput {

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useEegSession } from '../eeg/EegSessionContext';
 import { getMentalScaleStatusSnapshot } from '../mentalScale/mentalScaleStatus';
@@ -85,6 +85,13 @@ function getPlannerDurationParam(params: AgentActionParams): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 5 && value <= 120 ? value : null;
 }
 
+const THINKING_FLUSH_INTERVAL_MS = 100;
+
+function formatAgentActionError(reason: unknown): string {
+  const detail = reason instanceof Error ? reason.message : String(reason);
+  return `操作执行失败：${detail}`;
+}
+
 export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentOptions) {
   const eeg = useEegSession();
   const { currentUser } = useAuth();
@@ -97,10 +104,28 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   const [isPlanning, setIsPlanning] = useState(false);
   const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
   const [thinkingDurationMs, setThinkingDurationMs] = useState<number | null>(null);
+  const timelineRef = useRef(timeline);
+  const thinkingBufferRef = useRef('');
+  const thinkingFlushTimerRef = useRef<number | null>(null);
+  const plannerAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setPhase((currentPhase) => getAgentPhaseForRoute(pathname, currentPhase));
   }, [pathname]);
+
+  useEffect(() => {
+    timelineRef.current = timeline;
+  }, [timeline]);
+
+  useEffect(() => {
+    return () => {
+      plannerAbortRef.current?.abort();
+      if (thinkingFlushTimerRef.current !== null) {
+        window.clearTimeout(thinkingFlushTimerRef.current);
+        thinkingFlushTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const recommendedPrompt = useMemo(() => getRecommendedPrompt(phase), [phase]);
   const quickPrompts = useMemo(() => {
@@ -125,13 +150,34 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
     }));
   }, [phase]);
 
-  const appendThinkingDelta = useCallback((delta: string) => {
+  const flushBufferedThinking = useCallback(() => {
+    if (thinkingFlushTimerRef.current !== null) {
+      window.clearTimeout(thinkingFlushTimerRef.current);
+      thinkingFlushTimerRef.current = null;
+    }
+
+    const bufferedDelta = thinkingBufferRef.current;
+    if (bufferedDelta.length === 0) {
+      return;
+    }
+
+    thinkingBufferRef.current = '';
     setThinkingSteps((currentSteps) => {
       const nextSteps = currentSteps.length > 0 ? [...currentSteps] : [''];
-      nextSteps[nextSteps.length - 1] = `${nextSteps[nextSteps.length - 1]}${delta}`;
+      nextSteps[nextSteps.length - 1] = `${nextSteps[nextSteps.length - 1]}${bufferedDelta}`;
       return nextSteps;
     });
   }, []);
+
+  const appendThinkingDelta = useCallback((delta: string) => {
+    thinkingBufferRef.current += delta;
+    if (thinkingFlushTimerRef.current === null) {
+      thinkingFlushTimerRef.current = window.setTimeout(() => {
+        thinkingFlushTimerRef.current = null;
+        flushBufferedThinking();
+      }, THINKING_FLUSH_INTERVAL_MS);
+    }
+  }, [flushBufferedThinking]);
 
   const executeAction = useCallback(async (actionId: AgentActionId, params: AgentActionParams = {}) => {
     const validation = getAgentActionValidation(actionId, phase);
@@ -278,6 +324,10 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   }, [executeAction, phase, pushTimeline]);
 
   const requestPlannerRecommendation = useCallback(async (input: string) => {
+    plannerAbortRef.current?.abort();
+    const abortController = new AbortController();
+    plannerAbortRef.current = abortController;
+
     try {
       const videos = getAllVideoRegulationAssets().map((video) => ({
         id: video.id,
@@ -301,14 +351,20 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
                 },
               ]
               : personalizedAnswers,
-            timeline,
+            timeline: timelineRef.current,
           },
           phase,
           scaleStatus: getMentalScaleStatusSnapshot(),
           userInput: input,
         },
-        { onThinkingDelta: appendThinkingDelta },
+        { onThinkingDelta: appendThinkingDelta, signal: abortController.signal },
       );
+
+      if (abortController.signal.aborted) {
+        return true;
+      }
+
+      flushBufferedThinking();
 
       if (response.status === 'unavailable') {
         setIsPlannerAvailable(false);
@@ -343,12 +399,16 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
       const plannerParams = normalizeAgentActionParams(response.params);
       await queueOrExecute(actionId, response.requiresConfirmation, plannerParams);
       return true;
-    } catch {
+    } catch (reason) {
+      if (plannerAbortRef.current?.signal.aborted) {
+        return true;
+      }
+
       setIsPlannerAvailable(false);
       setMessage('智能助手暂不可用，已切换为本地指令识别。');
       return false;
     }
-  }, [appendThinkingDelta, pathname, personalizedAnswers, phase, queueOrExecute, pushTimeline, timeline]);
+  }, [appendThinkingDelta, flushBufferedThinking, pathname, personalizedAnswers, phase, queueOrExecute, pushTimeline]);
 
   const submitPrompt = useCallback(async (input: string) => {
     const trimmed = input.trim();
@@ -378,11 +438,14 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
       if (localIntent === 'unknown') {
         setMessage('没有识别该请求，请使用面板中的示例表达。');
       }
+    } catch (reason) {
+      setMessage(formatAgentActionError(reason));
     } finally {
+      flushBufferedThinking();
       setThinkingDurationMs(Date.now() - planningStartedAt);
       setIsPlanning(false);
     }
-  }, [isPlanning, pushTimeline, queueOrExecute, requestPlannerRecommendation]);
+  }, [flushBufferedThinking, isPlanning, pushTimeline, queueOrExecute, requestPlannerRecommendation]);
 
   const confirmPendingAction = useCallback(async () => {
     if (!pendingConfirmation) {
@@ -392,13 +455,41 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
     const actionId = pendingConfirmation.actionId;
     const params = pendingConfirmation.params;
     setPendingConfirmation(null);
-    await executeAction(actionId, params);
+    try {
+      await executeAction(actionId, params);
+    } catch (reason) {
+      setMessage(formatAgentActionError(reason));
+    }
   }, [executeAction, pendingConfirmation]);
 
   const rejectPendingAction = useCallback(() => {
     setPendingConfirmation(null);
     setMessage('已取消敏感操作。');
   }, []);
+
+  const cancelPlanning = useCallback(() => {
+    if (!isPlanning) {
+      return;
+    }
+
+    plannerAbortRef.current?.abort();
+    setMessage('已取消本次智能助手请求。');
+    pushTimeline('planner', '已取消本次智能助手请求。');
+  }, [isPlanning, pushTimeline]);
+
+  useEffect(() => {
+    const handleSubmitPromptEvent = (event: Event) => {
+      const prompt = (event as CustomEvent<{ prompt?: unknown }>).detail?.prompt;
+      if (typeof prompt === 'string' && prompt.length > 0) {
+        void submitPrompt(prompt);
+      }
+    };
+
+    window.addEventListener('agent:submit-prompt', handleSubmitPromptEvent);
+    return () => {
+      window.removeEventListener('agent:submit-prompt', handleSubmitPromptEvent);
+    };
+  }, [submitPrompt]);
 
   return {
     isPlannerAvailable,
@@ -411,6 +502,7 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
     quickPrompts,
     recentTimeline: timeline.slice(-5),
     recommendedPrompt,
+    cancelPlanning,
     confirmPendingAction,
     rejectPendingAction,
     submitPrompt,

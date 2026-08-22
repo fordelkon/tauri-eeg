@@ -1,12 +1,17 @@
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { preloadMusicServiceForUser } from '../music/musicServicePreload';
 import type { AgentTimelineEntry } from './agentContext';
 import type { AgentPhase } from './agentFlow';
-import type { PendingAgentConfirmation } from './useExperimentAgent';
+import { useExperimentAgent, type PendingAgentConfirmation } from './useExperimentAgent';
 import styles from './ExperimentAgentPanel.module.css';
 
 const formatThinkingSeconds = (durationMs: number) => `${(durationMs / 1000).toFixed(1)} s`;
+
+let hasPreloadedMusicService = false;
 
 type Props = {
   isPlannerAvailable: boolean;
@@ -21,9 +26,10 @@ type Props = {
   onConfirm: () => void;
   onReject: () => void;
   onSubmitPrompt: (value: string) => void;
+  onCancel: () => void;
 };
 
-export default function ExperimentAgentPanel({
+function ExperimentAgentPanelView({
   isPlannerAvailable,
   isPlanning,
   thinkingDurationMs,
@@ -36,6 +42,7 @@ export default function ExperimentAgentPanel({
   onConfirm,
   onReject,
   onSubmitPrompt,
+  onCancel,
 }: Props) {
   const [input, setInput] = useState('');
   const [liveThinkingMs, setLiveThinkingMs] = useState(0);
@@ -82,7 +89,7 @@ export default function ExperimentAgentPanel({
 
     const timerId = window.setInterval(() => {
       setLiveThinkingMs(Date.now() - planningStartedAt);
-    }, 100);
+    }, 250);
 
     return () => {
       window.clearInterval(timerId);
@@ -96,7 +103,12 @@ export default function ExperimentAgentPanel({
           <span>{isPlannerAvailable ? '智能可用' : '智能不可用'}</span>
           <strong>{phase}</strong>
         </div>
-        <SmartToyRoundedIcon fontSize="small" aria-hidden="true" />
+        <div className={styles.headerActions}>
+          {isPlanning ? (
+            <button type="button" className={styles.cancelButton} onClick={onCancel}>取消</button>
+          ) : null}
+          <SmartToyRoundedIcon fontSize="small" aria-hidden="true" />
+        </div>
       </div>
 
       <div className={styles.content}>
@@ -168,5 +180,42 @@ export default function ExperimentAgentPanel({
         </button>
       </form>
     </section>
+  );
+}
+
+type ContainerProps = {
+  navigateTo: (path: string) => void;
+};
+
+export default function ExperimentAgentPanel({ navigateTo }: ContainerProps) {
+  const location = useLocation();
+  const { currentUser } = useAuth();
+  const agent = useExperimentAgent({ pathname: location.pathname, navigateTo });
+
+  useEffect(() => {
+    if (hasPreloadedMusicService) {
+      return;
+    }
+
+    hasPreloadedMusicService = true;
+    void preloadMusicServiceForUser({ userId: currentUser?.id });
+  }, [currentUser?.id]);
+
+  return (
+    <ExperimentAgentPanelView
+      isPlannerAvailable={agent.isPlannerAvailable}
+      isPlanning={agent.isPlanning}
+      thinkingDurationMs={agent.thinkingDurationMs}
+      thinkingSteps={agent.thinkingSteps}
+      message={agent.message}
+      pendingConfirmation={agent.pendingConfirmation}
+      phase={agent.phase}
+      quickPrompts={agent.quickPrompts}
+      recentTimeline={agent.recentTimeline}
+      onConfirm={() => void agent.confirmPendingAction()}
+      onReject={agent.rejectPendingAction}
+      onSubmitPrompt={(value) => void agent.submitPrompt(value)}
+      onCancel={agent.cancelPlanning}
+    />
   );
 }

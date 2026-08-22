@@ -118,6 +118,7 @@ export default function EegWaveformPanel({
     const processed = processEegDisplayData({
       x: sweep.x,
       seriesByChannel: sweep.seriesByChannel,
+      baselineByChannel: snapshot.baselineByChannel,
     }, {
       clipUv: amplitudeUvPerDiv * 5,
       targetPointCount: Math.min(MAX_DISPLAY_POINTS_PER_CHANNEL, plotWidth * 2),

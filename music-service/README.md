@@ -15,6 +15,18 @@ Use the CUDA 12.8 PyTorch wheels:
 uv sync --extra cu128
 ```
 
+```bash
+uv pip install -U huggingface_hub
+```
+
+```bash
+uvx hf auth login
+```
+
+```bash
+uvx hf download stabilityai/stable-audio-3-small-music
+```
+
 Verify CUDA is available:
 
 ```bash

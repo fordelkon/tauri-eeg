@@ -1,4 +1,5 @@
 import { Checkbox, FormControlLabel } from '@mui/material';
+import { memo } from 'react';
 import styles from '../pages/home/EegAcquisition.module.css';
 import { MAX_VISIBLE_EEG_CHANNELS } from './channels';
 import type { EegChannel } from './types';
@@ -9,7 +10,7 @@ type Props = {
   onToggleChannel: (channelId: string) => void;
 };
 
-export default function EegChannelList({ channels, visibleChannelIds, onToggleChannel }: Props) {
+function EegChannelList({ channels, visibleChannelIds, onToggleChannel }: Props) {
   const selectedCount = visibleChannelIds.size;
   const isAtVisibleLimit = selectedCount >= MAX_VISIBLE_EEG_CHANNELS;
 
@@ -42,3 +43,6 @@ export default function EegChannelList({ channels, visibleChannelIds, onToggleCh
     </aside>
   );
 }
+
+// Memoized so the 30Hz waveform snapshots never re-render the 32 checkboxes.
+export default memo(EegChannelList);

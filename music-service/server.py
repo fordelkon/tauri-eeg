@@ -34,6 +34,9 @@ app.add_middleware(
 model: Any | None = None
 model_error: str | None = None
 model_load_task: asyncio.Task[None] | None = None
+# The UI and the agent panel can both trigger /generate; serialize model access
+# so concurrent requests queue up instead of contending for the GPU.
+generate_lock = asyncio.Lock()
 
 
 def resolve_device() -> str:
@@ -133,7 +136,8 @@ async def generate_wav(request: GenerateRequest, output_path: Path) -> None:
         sample_rate = int(getattr(model, "sample_rate", 44100))
         save_wav(output_path, result, sample_rate)
 
-    await asyncio.to_thread(run_generation)
+    async with generate_lock:
+        await asyncio.to_thread(run_generation)
 
 
 async def load_model_in_background() -> None:
@@ -206,7 +210,9 @@ async def generate_music(request: GenerateRequest) -> JobResponse:
 
 @app.post("/agent/plan", response_model=AgentPlannerResponse)
 async def plan_agent(request: AgentPlannerRequest) -> AgentPlannerResponse:
-    return plan_agent_action(request)
+    # plan_agent_action performs blocking LM Studio calls; keep it off the event loop
+    # so /health and /generate stay responsive while a plan is being computed.
+    return await asyncio.to_thread(plan_agent_action, request)
 
 
 def _format_sse(event: str, data: dict[str, Any]) -> str:

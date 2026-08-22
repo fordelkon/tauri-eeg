@@ -24,118 +24,172 @@ use tauri::State;
 use uuid::Uuid;
 
 #[tauri::command]
-fn register_user(
+async fn register_user(
     state: State<'_, AppDb>,
     username: String,
     password: String,
 ) -> Result<UserProfile, String> {
-    let conn = state
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
+    let conn = state.conn.clone();
 
-    auth::register_user_record(&conn, &username, &password)
+    tauri::async_runtime::spawn_blocking(move || {
+        // Hash before acquiring the lock; Argon2 must not block other db users.
+        let registration = auth::prepare_registration(&username, &password)?;
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        auth::insert_registration(&conn, registration)
+    })
+    .await
+    .map_err(|_| "Registration task failed.".to_string())?
 }
 
 #[tauri::command]
-fn login_user(
+async fn login_user(
     state: State<'_, AppDb>,
     username: String,
     password: String,
 ) -> Result<UserProfile, String> {
-    let conn = state
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
+    let conn = state.conn.clone();
 
-    auth::login_user_record(&conn, &username, &password)
+    tauri::async_runtime::spawn_blocking(move || {
+        // Drop the lock before the Argon2 verification below runs.
+        let stored_user = {
+            let conn = conn
+                .lock()
+                .map_err(|_| "Database is unavailable.".to_string())?;
+
+            auth::load_stored_user(&conn, &username)?
+        };
+
+        auth::verify_stored_user(stored_user, &password)
+    })
+    .await
+    .map_err(|_| "Login task failed.".to_string())?
 }
 
 #[tauri::command]
-fn reset_user_password(
+async fn reset_user_password(
     state: State<'_, AppDb>,
     username: String,
     reset_code: String,
     new_password: String,
 ) -> Result<UserProfile, String> {
     let expected_reset_code = config::admin_reset_code()?;
-    let conn = state
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
+    let conn = state.conn.clone();
 
-    auth::reset_user_password_record(
-        &conn,
-        &username,
-        &reset_code,
-        &new_password,
-        &expected_reset_code,
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        auth::reset_user_password_record(
+            &conn,
+            &username,
+            &reset_code,
+            &new_password,
+            &expected_reset_code,
+        )
+    })
+    .await
+    .map_err(|_| "Password reset task failed.".to_string())?
 }
 
 #[tauri::command]
-fn start_eeg_stream(
+async fn start_eeg_stream(
     app: tauri::AppHandle,
     state: State<'_, EegStreamState>,
     config: Option<EegStreamConfig>,
+    on_sample_block: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>,
 ) -> Result<EegStreamInfo, String> {
-    eeg::start_stream(app, &state, config)
+    eeg::start_stream(app, &state, config, on_sample_block)
 }
 
 #[tauri::command]
-fn stop_eeg_stream(db: State<'_, AppDb>, state: State<'_, EegStreamState>) -> Result<(), String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
+async fn stop_eeg_stream(
+    app: tauri::AppHandle,
+    db: State<'_, AppDb>,
+    state: State<'_, EegStreamState>,
+) -> Result<(), String> {
+    let conn = db.conn.clone();
+    let state = state.inner().clone();
 
-    eeg::stop_stream(&state, &conn)
+    // Joins the accept/client threads and flushes recording files; must not
+    // block the async runtime.
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        eeg::stop_stream(&app, &state, &conn)
+    })
+    .await
+    .map_err(|_| "Failed to stop EEG stream.".to_string())?
 }
 
 #[tauri::command]
-fn get_eeg_status(state: State<'_, EegStreamState>) -> Result<EegStatus, String> {
+async fn get_eeg_status(state: State<'_, EegStreamState>) -> Result<EegStatus, String> {
     eeg::get_status(&state)
 }
 
 #[tauri::command]
-fn start_eeg_recording(
+async fn start_eeg_recording(
     app: tauri::AppHandle,
     db: State<'_, AppDb>,
     state: State<'_, EegStreamState>,
     input: StartEegRecordingInput,
 ) -> Result<EegRecordingSession, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
+    let conn = db.conn.clone();
+    let state = state.inner().clone();
 
-    eeg::start_recording(&app, &conn, &state, input)
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        eeg::start_recording(&app, &conn, &state, input)
+    })
+    .await
+    .map_err(|_| "Failed to start EEG recording.".to_string())?
 }
 
 #[tauri::command]
-fn stop_eeg_recording(
+async fn stop_eeg_recording(
     db: State<'_, AppDb>,
     state: State<'_, EegStreamState>,
 ) -> Result<EegRecordingSession, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
+    let conn = db.conn.clone();
+    let state = state.inner().clone();
 
-    eeg::stop_recording(&conn, &state)
+    // Joins the recording writer thread (flushing both binary files) and
+    // persists the session row; must not block the async runtime.
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        eeg::stop_recording(&conn, &state)
+    })
+    .await
+    .map_err(|_| "Failed to stop EEG recording.".to_string())?
 }
 
 #[tauri::command]
-fn list_eeg_sessions(
+async fn list_eeg_sessions(
     db: State<'_, AppDb>,
     user_id: String,
 ) -> Result<Vec<EegRecordingSession>, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
+    let conn = db.conn.clone();
 
-    eeg::list_sessions(&conn, &user_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        eeg::list_sessions(&conn, &user_id)
+    })
+    .await
+    .map_err(|_| "Failed to load EEG sessions.".to_string())?
 }
 
 #[derive(Debug, Deserialize)]
@@ -168,7 +222,15 @@ async fn generate_music(
 
     let duration = input.duration.clamp(5, 120);
     let job_id = Uuid::new_v4().to_string();
-    let output_dir = storage_paths::music_user_dir(&app, &input.username)?;
+    let output_dir = {
+        let username = input.username.clone();
+
+        tauri::async_runtime::spawn_blocking(move || {
+            storage_paths::music_user_dir(&app, &username)
+        })
+        .await
+        .map_err(|_| "Failed to resolve music output directory.".to_string())??
+    };
 
     service.ensure_running().await?;
 
@@ -193,19 +255,26 @@ async fn generate_music(
         .output_path
         .ok_or_else(|| "Music generation did not return a WAV file.".to_string())?;
 
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
+    let job_id = response.job_id;
+    let conn = db.conn.clone();
+    let user_id = input.user_id.clone();
 
-    music_history::save_music_history_item(
-        &conn,
-        &response.job_id,
-        &input.user_id,
-        &prompt,
-        &output_path,
-        Some(duration as f64),
-    )
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        music_history::save_music_history_item(
+            &conn,
+            &job_id,
+            &user_id,
+            &prompt,
+            &output_path,
+            Some(duration as f64),
+        )
+    })
+    .await
+    .map_err(|_| "Failed to save music history.".to_string())?
 }
 
 #[tauri::command]
@@ -241,59 +310,79 @@ async fn get_agent_service_base_url(
 }
 
 #[tauri::command]
-fn list_music_history(
+async fn list_music_history(
     db: State<'_, AppDb>,
     user_id: String,
     limit: Option<u32>,
 ) -> Result<Vec<MusicHistoryItem>, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
+    let conn = db.conn.clone();
+    let limit = limit.unwrap_or(50);
 
-    music_history::list_music_history_items(&conn, &user_id, limit.unwrap_or(50))
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        music_history::list_music_history_items(&conn, &user_id, limit)
+    })
+    .await
+    .map_err(|_| "Failed to load music history.".to_string())?
 }
 
 #[tauri::command]
-fn delete_music_history(
+async fn delete_music_history(
     app: tauri::AppHandle,
     db: State<'_, AppDb>,
     input: DeleteMusicHistoryInput,
 ) -> Result<MusicHistoryItem, String> {
-    let conn = db
-        .conn
-        .lock()
-        .map_err(|_| "Database is unavailable.".to_string())?;
-    let deleted = music_history::delete_music_history_item(&conn, &input.user_id, &input.item_id)?;
+    let conn = db.conn.clone();
 
-    delete_music_file_in_storage_root(&storage_paths::music_root(&app)?, &deleted.file_path)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        // Drop the lock before the file system work below.
+        let deleted = {
+            let conn = conn
+                .lock()
+                .map_err(|_| "Database is unavailable.".to_string())?;
 
-    Ok(deleted)
+            music_history::delete_music_history_item(&conn, &input.user_id, &input.item_id)?
+        };
+
+        delete_music_file_in_storage_root(&storage_paths::music_root(&app)?, &deleted.file_path)?;
+
+        Ok(deleted)
+    })
+    .await
+    .map_err(|_| "Failed to delete music history.".to_string())?
 }
 
 #[tauri::command]
-fn get_storage_location(app: tauri::AppHandle) -> Result<storage_paths::StorageLocation, String> {
-    storage_paths::storage_location(&app)
+async fn get_storage_location(app: tauri::AppHandle) -> Result<storage_paths::StorageLocation, String> {
+    tauri::async_runtime::spawn_blocking(move || storage_paths::storage_location(&app))
+        .await
+        .map_err(|_| "Failed to load storage location.".to_string())?
 }
 
 #[tauri::command]
-fn set_storage_root(
+async fn set_storage_root(
     app: tauri::AppHandle,
     custom_root: Option<String>,
 ) -> Result<storage_paths::StorageLocation, String> {
-    storage_paths::save_storage_settings(
-        &app,
-        storage_paths::StorageSettings {
-            custom_root: custom_root
-                .map(|value| value.trim().to_string())
-                .filter(|value| !value.is_empty()),
-        },
-    )
+    let settings = storage_paths::StorageSettings {
+        custom_root: custom_root
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty()),
+    };
+
+    tauri::async_runtime::spawn_blocking(move || storage_paths::save_storage_settings(&app, settings))
+        .await
+        .map_err(|_| "Failed to save storage settings.".to_string())?
 }
 
 #[tauri::command]
-fn load_video_library(folder_path: String) -> Result<video_library::VideoLibrary, String> {
-    video_library::load_video_library(&folder_path)
+async fn load_video_library(folder_path: String) -> Result<video_library::VideoLibrary, String> {
+    tauri::async_runtime::spawn_blocking(move || video_library::load_video_library(&folder_path))
+        .await
+        .map_err(|_| "Failed to load video library.".to_string())?
 }
 
 fn delete_music_file_in_storage_root(
@@ -330,7 +419,6 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
         .manage(app_db)
         .manage(EegStreamState::default())
         .manage(PythonServiceManager::new())

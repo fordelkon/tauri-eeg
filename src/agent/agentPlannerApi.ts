@@ -43,6 +43,7 @@ export async function requestAgentPlan(request: AgentPlannerRequest): Promise<Ag
 
 type AgentPlanStreamOptions = {
   onThinkingDelta?: (delta: string) => void;
+  signal?: AbortSignal;
 };
 
 function parseSseEvent(rawEvent: string): { eventName: string; data: string } | null {
@@ -103,6 +104,7 @@ export async function requestAgentPlanStream(
     body: JSON.stringify(request),
     headers: { 'Content-Type': 'application/json' },
     method: 'POST',
+    signal: options.signal,
   });
 
   if (!response.ok || !response.body) {
@@ -115,6 +117,12 @@ export async function requestAgentPlanStream(
 
   while (true) {
     const { done, value } = await reader.read();
+
+    if (options.signal?.aborted) {
+      void reader.cancel().catch(() => undefined);
+      throw new DOMException('Agent planner stream aborted.', 'AbortError');
+    }
+
     buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
     const events = buffer.split(/\r?\n\r?\n/);
     buffer = events.pop() ?? '';

@@ -1,5 +1,16 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::OnceLock;
+use std::time::Duration;
+
+// Building a reqwest Client is not free (connection pool setup); share one
+// across PythonClient instances and the service manager health probes. Only
+// plain http://127.0.0.1:8000 is requested, so no TLS features are compiled in.
+static SHARED_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+pub fn shared_client() -> reqwest::Client {
+    SHARED_CLIENT.get_or_init(reqwest::Client::new).clone()
+}
 
 #[derive(Debug, Serialize)]
 pub struct GenerateRequest {
@@ -146,7 +157,7 @@ impl PythonClient {
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
             base_url: base_url.into(),
-            client: reqwest::Client::new(),
+            client: shared_client(),
         }
     }
 
@@ -156,6 +167,8 @@ impl PythonClient {
             .client
             .post(url)
             .json(request)
+            // Cold model loads make generation slow; allow long-running jobs.
+            .timeout(Duration::from_secs(900))
             .send()
             .await
             .map_err(|_| "Failed to reach music generation service.".to_string())?;
@@ -178,6 +191,7 @@ impl PythonClient {
         let response = self
             .client
             .get(url)
+            .timeout(Duration::from_secs(5))
             .send()
             .await
             .map_err(|_| "Failed to reach music generation service.".to_string())?;
@@ -204,6 +218,7 @@ impl PythonClient {
             .client
             .post(url)
             .json(request)
+            .timeout(Duration::from_secs(90))
             .send()
             .await
             .map_err(|_| "Failed to reach agent planner service.".to_string())?;

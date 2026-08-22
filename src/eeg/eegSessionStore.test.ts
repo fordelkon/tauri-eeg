@@ -38,7 +38,7 @@ describe('eegSessionStore', () => {
   it('creates an empty snapshot that is ready for the waveform panel', () => {
     const snapshot = createInitialEegSnapshot();
 
-    expect(DEFAULT_SAMPLE_RATE_HZ).toBe(500);
+    expect(DEFAULT_SAMPLE_RATE_HZ).toBe(1000);
     expect(snapshot.latestSequence).toBeNull();
     expect(snapshot.x).toEqual([]);
     expect(snapshot.visibleChannels.map((channel) => channel.id)).toEqual(

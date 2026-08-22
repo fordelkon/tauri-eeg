@@ -2,7 +2,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import SlideshowRoundedIcon from '@mui/icons-material/SlideshowRounded';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import { type CSSProperties, type MouseEvent, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { chooseVideoLibraryFolder } from '../../video/videoDirectoryPicker';
 import type { VideoLibrary } from '../../video/videoLibraryApi';
 import {
@@ -229,6 +229,7 @@ function clearFollowingSelections(selections: VideoRegulationSelections, step: V
 }
 
 export default function VideoRegulation() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [selections, setSelections] = useState<VideoRegulationSelections>(() => getDefaultVideoSelections());
   const [activeVideo, setActiveVideo] = useState<VideoRegulationAsset | null>(null);
   const [videoLibrary, setVideoLibrary] = useState<VideoLibrary | null>(null);
@@ -244,6 +245,16 @@ export default function VideoRegulation() {
   );
   const isPlaying = activeVideo !== null;
   const libraryRoot = videoLibrary?.root ?? videoLibraryPath;
+
+  // Pause the playing video whenever it is closed, switched to another asset, or
+  // the page unmounts; a removed <video> element would otherwise keep decoding.
+  useEffect(() => {
+    const video = videoRef.current;
+
+    return () => {
+      video?.pause();
+    };
+  }, [activeVideo?.id]);
 
   useEffect(() => {
     if (!activeVideo) {
@@ -467,6 +478,7 @@ export default function VideoRegulation() {
             <div className={playerStyles.videoFrame}>
               <video
                 key={activeVideo.id}
+                ref={videoRef}
                 autoPlay
                 controls
                 src={toPlayableVideoUrl(activeVideo.sourcePath, convertFileSrc)}

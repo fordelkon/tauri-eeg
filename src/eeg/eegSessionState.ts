@@ -15,11 +15,14 @@ export type EegSessionAction =
   | { type: 'stop_device_requested' }
   | { type: 'stop_device_succeeded' }
   | { type: 'stop_device_failed'; message: string }
+  | { type: 'device_connected' }
+  | { type: 'device_disconnected'; message: string }
   | { type: 'start_record' }
   | { type: 'start_record_failed'; message: string }
   | { type: 'pause_record' }
   | { type: 'resume_record' }
   | { type: 'stop_record' }
+  | { type: 'stop_record_failed'; message: string }
   | { type: 'reset_error' };
 
 export const initialEegSessionState: EegSessionState = {
@@ -90,6 +93,24 @@ export function eegSessionReducer(
     case 'stop_device_failed':
       return { ...state, deviceStatus: 'error', errorMessage: action.message };
 
+    case 'device_connected':
+      // Emitted by the backend when EEG client data starts flowing again.
+      if (state.deviceStatus === 'starting') {
+        return { ...state, deviceStatus: 'streaming', recordStatus: 'idle', errorMessage: null };
+      }
+      if (state.deviceStatus === 'error') {
+        return { ...state, deviceStatus: 'streaming', errorMessage: null };
+      }
+      return state;
+
+    case 'device_disconnected':
+      // Ignore the events that accompany an explicit user stop; a 'stopping'
+      // state transitions to 'disconnected' through stop_device_succeeded.
+      if (state.deviceStatus === 'streaming' || state.deviceStatus === 'starting') {
+        return { ...state, deviceStatus: 'error', errorMessage: action.message };
+      }
+      return state;
+
     case 'start_record':
       if (!canStartRecord(state)) {
         return state;
@@ -120,6 +141,13 @@ export function eegSessionReducer(
       }
 
       return { ...state, recordStatus: 'stopped' };
+
+    case 'stop_record_failed':
+      if (state.recordStatus !== 'recording' && state.recordStatus !== 'paused') {
+        return state;
+      }
+
+      return { ...state, errorMessage: action.message };
 
     case 'reset_error':
       return { ...state, errorMessage: null };

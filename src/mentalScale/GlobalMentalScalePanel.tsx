@@ -1,5 +1,5 @@
-import { useEffect, useRef, useSyncExternalStore } from 'react';
-import * as echarts from 'echarts';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { ECharts } from 'echarts';
 import type { ReactNode } from 'react';
 import {
   getMentalScaleStatusSnapshot,
@@ -33,7 +33,8 @@ const getScaleTitleLabel = (title: string) => scaleTitleLabels[title] ?? title;
 
 export default function GlobalMentalScalePanel({ children }: Props) {
   const chartRef = useRef<HTMLDivElement | null>(null);
-  const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const chartInstanceRef = useRef<ECharts | null>(null);
+  const [isChartReady, setIsChartReady] = useState(false);
   const status = useSyncExternalStore(
     subscribeMentalScaleStatus,
     getMentalScaleStatusSnapshot,
@@ -45,15 +46,28 @@ export default function GlobalMentalScalePanel({ children }: Props) {
       return undefined;
     }
 
-    const chart = echarts.init(chartRef.current);
-    chartInstanceRef.current = chart;
+    let cancelled = false;
 
-    const handleResize = () => chart.resize();
-    window.addEventListener('resize', handleResize, { passive: true });
+    void import('echarts').then((echarts) => {
+      if (cancelled || !chartRef.current) {
+        return;
+      }
+
+      const chart = echarts.init(chartRef.current);
+      chartInstanceRef.current = chart;
+      setIsChartReady(true);
+
+      const handleResize = () => chart.resize();
+      window.addEventListener('resize', handleResize, { passive: true });
+      resizeCleanup = () => window.removeEventListener('resize', handleResize);
+    });
+
+    let resizeCleanup: (() => void) | undefined;
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.dispose();
+      cancelled = true;
+      resizeCleanup?.();
+      chartInstanceRef.current?.dispose();
       chartInstanceRef.current = null;
     };
   }, []);
@@ -61,7 +75,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
   useEffect(() => {
     const chart = chartInstanceRef.current;
 
-    if (!chart) {
+    if (!chart || !isChartReady) {
       return;
     }
 
@@ -137,7 +151,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
         valueFormatter: (value: number) => `${value}%`,
       },
     });
-  }, [status.dimensions]);
+  }, [isChartReady, status.dimensions]);
 
   const updatedLabel = status.updatedAt
     ? new Intl.DateTimeFormat(undefined, {
