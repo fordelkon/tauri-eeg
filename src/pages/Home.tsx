@@ -9,12 +9,6 @@ import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded';
 import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded';
 import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   IconButton,
   List,
   ListItemButton,
@@ -31,15 +25,14 @@ const MatterScene = lazy(() => import('../components/MatterScene'));
 const HomeIntroLogo = lazy(() => import('../homeIntro/HomeIntroLogo'));
 import { homeIntroPlayback } from '../homeIntro/homeIntroPlayback';
 import GlobalMentalScalePanel from '../mentalScale/GlobalMentalScalePanel';
+import MentalScaleDialog from '../mentalScale/MentalScaleDialog';
 import {
   getMentalScaleForPath,
-  isMentalScaleComplete,
-  mentalScaleAnswerOptions,
   type MentalScaleAnswers,
   type MentalScaleDefinition,
-  type MentalScaleAnswerValue,
 } from '../mentalScale/mentalScaleGate';
 import { buildMentalScaleStatus, updateMentalScaleStatus } from '../mentalScale/mentalScaleStatus';
+import { isScaleSatisfiedForPath, recordScaleCompletion, recordScaleSkip } from '../mentalScale/scaleCompletion';
 import {
   getParadigmSessionStatus,
   useParadigmSessionStatus,
@@ -47,6 +40,7 @@ import {
 import { chooseStorageRoot } from '../storage/storageDirectoryPicker';
 import { getStorageLocation, setStorageRoot, type StorageLocation } from '../storage/storageApi';
 import { describeFriendlyError } from '../ui/friendlyError';
+import { useConfirmDialog } from '../ui/useConfirmDialog';
 import styles from './Home.module.css';
 
 type NavigationItem = {
@@ -204,140 +198,13 @@ function StorageSettingsPanel({ onClose, username }: StorageSettingsPanelProps) 
   );
 }
 
-type MentalScaleDialogProps = {
-  onComplete: (answers: MentalScaleAnswers) => void;
-  onClose: () => void;
-  scale: MentalScaleDefinition;
-};
-
-function MentalScaleDialog({ onComplete, onClose, scale }: MentalScaleDialogProps) {
-  const [scaleAnswers, setScaleAnswers] = useState<MentalScaleAnswers>({});
-  // Closing with answers already filled in asks for confirmation first; the
-  // answers live here, so the guard belongs next to them.
-  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
-  const hasAnyAnswer = Object.keys(scaleAnswers).length > 0;
-  const isScaleReady = isMentalScaleComplete(scale, scaleAnswers);
-
-  const handleAnswer = (questionId: string, value: MentalScaleAnswerValue) => {
-    setScaleAnswers((answers) => ({
-      ...answers,
-      [questionId]: value,
-    }));
-  };
-
-  const handleCloseRequest = () => {
-    if (hasAnyAnswer) {
-      setIsDiscardConfirmOpen(true);
-      return;
-    }
-
-    onClose();
-  };
-
-  const handleComplete = () => {
-    if (!isScaleReady) {
-      return;
-    }
-
-    onComplete(scaleAnswers);
-  };
-
-  return (
-    <div
-      className={`${styles.scaleOverlay} fixed inset-0 flex items-center justify-center p-22px`}
-      role="presentation"
-    >
-      <section
-        className={`${styles.scaleDialog} grid gap-20px overflow-y-auto w-full max-w-720px`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="mental-scale-title"
-      >
-        <div className={`${styles.scaleHeader} flex items-start justify-between gap-18px`}>
-          <div>
-            <p className={styles.scaleEyebrow}>心理量表</p>
-            <h2 id="mental-scale-title">{scale.title}</h2>
-            <p>{scale.subtitle}</p>
-          </div>
-          <IconButton
-            className={styles.scaleCloseButton}
-            aria-label="关闭心理量表"
-            size="small"
-            onClick={handleCloseRequest}
-          >
-            <CloseRoundedIcon fontSize="small" />
-          </IconButton>
-        </div>
-
-        <div className={`${styles.scaleQuestions} grid gap-14px`}>
-          {scale.questions.map((question, questionIndex) => (
-            <fieldset className={`${styles.scaleQuestion} grid gap-14px m-0 p-16px`} key={question.id}>
-              <legend className="flex items-center gap-10px p-0">
-                <span className="inline-flex flex-none items-center justify-center h-24px w-24px">{questionIndex + 1}</span>
-                {question.prompt}
-              </legend>
-              <div className={`${styles.scaleOptions} grid gap-8px`}>
-                {mentalScaleAnswerOptions.map((option) => {
-                  const isSelected = scaleAnswers[question.id] === option.value;
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      className={`${isSelected ? styles.isScaleOptionSelected : ''} grid items-center gap-4px min-h-62px px-8px py-9px`}
-                      aria-pressed={isSelected}
-                      onClick={() => handleAnswer(question.id, option.value)}
-                    >
-                      <strong>{option.value}</strong>
-                      <span>{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
-          ))}
-        </div>
-
-        <div className={`${styles.scaleFooter} flex items-center justify-between gap-14px`}>
-          <span>
-            {isScaleReady ? '已完成，可以进入调控页面。' : '完成全部题目后继续。'}
-          </span>
-          <button
-            type="button"
-            className="flex-none h-40px min-w-112px px-18px"
-            disabled={!isScaleReady}
-            onClick={handleComplete}
-          >
-            进入
-          </button>
-        </div>
-      </section>
-
-      {/* Portals to <body>, so nesting inside the overlay costs nothing. */}
-      <Dialog
-        open={isDiscardConfirmOpen}
-        onClose={() => setIsDiscardConfirmOpen(false)}
-        aria-labelledby="mental-scale-discard-title"
-      >
-        <DialogTitle id="mental-scale-discard-title">放弃本次作答?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>关闭后已填写的答案不会被保存。</DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsDiscardConfirmOpen(false)}>继续作答</Button>
-          <Button color="error" onClick={onClose}>放弃并关闭</Button>
-        </DialogActions>
-      </Dialog>
-    </div>
-  );
-}
-
 export default function Home() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, signOut } = useAuth();
   const eegSession = useEegSession();
   const paradigmStatus = useParadigmSessionStatus();
+  const { confirm, confirmDialogElement } = useConfirmDialog();
   // A free recording (or a paused one) also owns the EEG data path, so the
   // same mis-tap guards as a paradigm session apply — with softer confirmations
   // because the backend keeps recording independently of the page.
@@ -365,7 +232,7 @@ export default function Home() {
     }
   }, [currentUser?.id]);
 
-  const requestNavigation = useCallback((path: string) => {
+  const requestNavigation = useCallback(async (path: string) => {
     if (path === location.pathname) {
       return;
     }
@@ -374,26 +241,41 @@ export default function Home() {
     // break the trial timeline. Read the module store directly: the check is
     // click-time only and does not need a subscription.
     if (getParadigmSessionStatus().active) {
-      window.alert('范式 Session 进行中,请先结束 Session');
+      await confirm({
+        title: '范式 Session 进行中',
+        description: '请先结束当前范式 Session,再切换页面。',
+        confirmText: '知道了',
+        hideCancel: true,
+      });
       return;
     }
 
     // A free recording survives page changes (it lives in the backend), but
     // leaving mid-recording is rarely intentional — ask first.
-    if (freeRecordActive && !window.confirm('正在记录 EEG 数据,确定要离开本页吗?记录将继续进行。')) {
-      return;
+    if (freeRecordActive) {
+      const leaveConfirmed = await confirm({
+        title: '正在记录 EEG 数据',
+        description: '确定要离开本页吗?记录将继续进行。',
+      });
+
+      if (!leaveConfirmed) {
+        return;
+      }
     }
 
     const scale = getMentalScaleForPath(path);
 
-    if (scale) {
+    // The route-level ScaleGateRoute would also catch this, but prompting from
+    // here keeps the sidebar flow identical — and skips re-prompting while a
+    // recent completion is still inside its grace window.
+    if (scale && !isScaleSatisfiedForPath(scale.path)) {
       setPendingScale(scale);
       setIsSidebarOpen(false);
       return;
     }
 
     navigate(path);
-  }, [freeRecordActive, location.pathname, navigate]);
+  }, [confirm, freeRecordActive, location.pathname, navigate]);
 
   const handleNavClick = (item: NavigationItem) => {
     requestNavigation(item.path);
@@ -428,7 +310,14 @@ export default function Home() {
     // Stop and save the running recording before tearing down the session;
     // the paradigm case is hard-blocked by the disabled button instead.
     if (freeRecordActive) {
-      if (!window.confirm('正在记录 EEG 数据,退出登录前将停止并保存本次记录。确定继续吗?')) {
+      const signOutConfirmed = await confirm({
+        title: '正在记录 EEG 数据',
+        description: '退出登录前将停止并保存本次记录。确定继续吗?',
+        confirmText: '停止并退出',
+        destructive: true,
+      });
+
+      if (!signOutConfirmed) {
         return;
       }
 
@@ -450,6 +339,19 @@ export default function Home() {
 
     const nextPath = pendingScale.path;
     updateMentalScaleStatus(buildMentalScaleStatus(pendingScale, answers));
+    recordScaleCompletion(nextPath);
+    setPendingScale(null);
+    navigate(nextPath);
+  };
+
+  const handleSkipScale = () => {
+    if (!pendingScale) {
+      return;
+    }
+
+    const nextPath = pendingScale.path;
+    // Skipping is a one-shot pass: the next entry into a gated page re-prompts.
+    recordScaleSkip(nextPath);
     setPendingScale(null);
     navigate(nextPath);
   };
@@ -473,6 +375,44 @@ export default function Home() {
       >
         <MenuRoundedIcon fontSize="small" />
       </IconButton>
+
+      {/* Persistent desktop rail: one-click navigation on wide screens. The
+          hamburger + overlay menu remains the narrow-screen flow. */}
+      <nav className={styles.desktopRail} aria-label="主导航">
+        <span className={`${styles.logoMark} ${styles.railLogo}`} aria-hidden="true" />
+        <div className={styles.railNav}>
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeItem.path === item.path;
+
+            return (
+              <button
+                key={item.label}
+                type="button"
+                className={`${styles.railItem} ${isActive ? styles.isRailActive : ''}`}
+                aria-current={isActive ? 'page' : undefined}
+                title={item.label}
+                onClick={() => void requestNavigation(item.path)}
+              >
+                <Icon fontSize="small" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className={styles.railFooter}>
+          <button
+            type="button"
+            className={styles.railSignOut}
+            title={paradigmStatus.active ? '范式 Session 进行中,无法退出登录' : '退出登录'}
+            aria-label="退出登录"
+            disabled={paradigmStatus.active}
+            onClick={() => void handleSignOut()}
+          >
+            <LogoutRoundedIcon fontSize="small" />
+          </button>
+        </div>
+      </nav>
 
       <button
         className={`${styles.sidebarOverlay} ${isSidebarOpen ? styles.isOpen : ''}`}
@@ -605,9 +545,12 @@ export default function Home() {
           key={pendingScale.path}
           onComplete={handleCompleteScale}
           onClose={handleCloseScale}
+          onSkip={handleSkipScale}
           scale={pendingScale}
         />
       ) : null}
+
+      {confirmDialogElement}
 
       {showHomeIntro ? (
         <Suspense fallback={null}>

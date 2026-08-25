@@ -44,7 +44,7 @@ describe('fullscreen stage error notices stay actionable', () => {
   });
 
   test('stage titles no longer promise progress while a command failure is shown', () => {
-    const qualityCheckBlock = runnerTsx.match(/trialPhase === 'qualityCheck' \? \([\s\S]*?\)\ : null\}\n    <\/div>\n  \);\n\}/)?.[0] ?? '';
+    const qualityCheckBlock = runnerTsx.match(/trialPhase === 'qualityCheck' \? \([\s\S]*?\)\ : null\}/)?.[0] ?? '';
     expect(qualityCheckBlock).toContain("stageNotice\n                  ? '试次保存失败'");
 
     const interTrialBlock = runnerTsx.match(/isStartingTrial\s+\?\s+'正在开始试次…'[\s\S]*?'准备下一个试次'/)?.[0] ?? '';

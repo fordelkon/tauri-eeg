@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useEegSession } from '../EegSessionContext';
+import { useConfirmDialog } from '../../ui/useConfirmDialog';
 import ParadigmRunner from './ParadigmRunner';
 import ParadigmSetupPanel, { type ParadigmStartRequest } from './ParadigmSetupPanel';
 
@@ -11,6 +12,7 @@ export default function ParadigmSessionPanel() {
   const eeg = useEegSession();
   const [run, setRun] = useState<ParadigmStartRequest | null>(null);
   const [pendingStart, setPendingStart] = useState<ParadigmStartRequest | null>(null);
+  const { confirm, confirmDialogElement } = useConfirmDialog();
 
   // EegSessionContext.startRecord never rejects: it records failures via
   // errorMessage and success via recordStatus. Watch both to settle the start
@@ -41,12 +43,15 @@ export default function ParadigmSessionPanel() {
     if (!eeg.canStartRecord) {
       // The gate has two distinct causes: with the lights all green a running
       // free recording is the actual blocker, so name it instead of claiming
-      // the device is not ready.
-      window.alert(
-        eeg.recordStatus === 'recording'
+      // the device is not ready. Alert-style confirm (single OK action).
+      void confirm({
+        title: '无法开始范式',
+        description: eeg.recordStatus === 'recording'
           ? '已有 EEG 记录进行中,请先停止当前记录再开始范式。'
           : 'EEG 设备未就绪,请先启动设备并等待 EEG 与 Trigger 均已连接。',
-      );
+        confirmText: '知道了',
+        hideCancel: true,
+      });
       return;
     }
 
@@ -76,10 +81,13 @@ export default function ParadigmSessionPanel() {
   }
 
   return (
-    <ParadigmSetupPanel
-      onStartSession={handleStartSession}
-      startPending={pendingStart !== null}
-      startError={pendingStart ? null : eeg.errorMessage}
-    />
+    <>
+      <ParadigmSetupPanel
+        onStartSession={handleStartSession}
+        startPending={pendingStart !== null}
+        startError={pendingStart ? null : eeg.errorMessage}
+      />
+      {confirmDialogElement}
+    </>
   );
 }

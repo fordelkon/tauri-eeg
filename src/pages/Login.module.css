@@ -138,10 +138,11 @@
   line-height: 1.1;
 }
 
-.subtitle {
-  color: #9d9a98;
-  font-size: 13px;
-  line-height: 1.5;
+.subtitle {
+  color: #9d9a98;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 10px;
 }
 
 .fieldGroup {

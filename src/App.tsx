@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './auth/AuthContext';
-import ProtectedRoute from './auth/ProtectedRoute';
-import { EegProvider } from './eeg/EegSessionContext';
+import { AuthProvider, useAuth } from './auth/AuthContext';
+import ProtectedRoute from './auth/ProtectedRoute';
+import { EegProvider } from './eeg/EegSessionContext';
+import ScaleGateRoute from './mentalScale/ScaleGateRoute';
 import styles from './App.module.css';
 
 const Login = lazy(() => import('./pages/Login'));
@@ -53,9 +54,13 @@ function AppRoutes() {
           >
             <Route path="/home" element={<HomeOverview />} />
             <Route path="/eeg-acquisition" element={<EegAcquisition />} />
-            <Route path="/video-regulation" element={<VideoRegulation />} />
-            <Route path="/game-regulation" element={<GameRegulation />} />
-            <Route path="/music-regulation" element={<MusicRegulation />} />
+            {/* Regulation pages require a recent mental-scale completion:
+                the gate also covers direct URL entry / page refreshes. */}
+            <Route element={<ScaleGateRoute />}>
+              <Route path="/video-regulation" element={<VideoRegulation />} />
+              <Route path="/game-regulation" element={<GameRegulation />} />
+              <Route path="/music-regulation" element={<MusicRegulation />} />
+            </Route>
           </Route>
         </Route>
         <Route path="*" element={<NotFound />} />

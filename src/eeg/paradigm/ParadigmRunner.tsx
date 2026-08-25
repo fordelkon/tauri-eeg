@@ -35,6 +35,7 @@ import {
   setParadigmSessionStatus,
 } from './paradigmSessionStatus';
 import { isVideoDurationOutOfRange } from './paradigmTimeline';
+import { useConfirmDialog } from '../../ui/useConfirmDialog';
 import SamRatingDialog from './SamRatingDialog';
 import TrialStageRenderer, {
   StageNoticeBar,
@@ -106,8 +107,16 @@ function videoNumberFor(trialIndex: number, blockStarts: number[]): number {
 }
 
 export default function ParadigmRunner({ request, onExitToSetup }: Props) {
+
   const eeg = useEegSession();
+
   const dryRun = request.dryRun;
+
+  // Promise-based MUI confirm replaces the native window.confirm calls that
+
+  // blocked the runner's render loop and clashed with the app's dialog system.
+
+  const { confirm, confirmDialogElement } = useConfirmDialog();
   const [state, dispatch] = useReducer(paradigmSessionReducer, initialParadigmSessionState);
   const [snapshot, setSnapshot] = useState<TrialSnapshot | null>(null);
   const [videoDurationSeconds, setVideoDurationSeconds] = useState<number | null>(null);
@@ -396,12 +405,12 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
   // commands support is end_eeg_trial (freezes whatever EEG range was captured)
   // followed by a quality-only finalize with no self-report — the subject never
   // saw the video, so there is nothing to rate.
-  const handleSkipTrial = useCallback(() => {
+  const handleSkipTrial = useCallback(async () => {
     if (isEndingTrial || isFinalizing) {
       return;
     }
 
-    if (!window.confirm('确定跳过该试次吗?将停止当前试次采集并标记为 rejected,然后继续下一个试次。')) {
+    if (!(await confirm({ title: '确定跳过该试次吗?', description: '将停止当前试次采集并标记为 rejected,然后继续下一个试次。' }))) {
       return;
     }
 
@@ -413,25 +422,23 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     }
 
     setIsEndingTrial(true);
-    void (async () => {
-      try {
-        await endEegTrial();
-        await finalizeEegTrial({
-          quality: 'rejected',
-          artifactFlags: [],
-          operatorNotes: '视频加载失败,操作员跳过该试次。',
-        });
-        dispatch({ type: 'trial_skipped' });
-      } catch (error) {
-        dispatch({
-          type: 'command_failed',
-          message: toCommandErrorMessage('跳过试次失败', error, 'Trial could not be skipped.'),
-        });
-      } finally {
-        setIsEndingTrial(false);
-      }
-    })();
-  }, [dryRun, isEndingTrial, isFinalizing]);
+    try {
+      await endEegTrial();
+      await finalizeEegTrial({
+        quality: 'rejected',
+        artifactFlags: [],
+        operatorNotes: '视频加载失败,操作员跳过该试次。',
+      });
+      dispatch({ type: 'trial_skipped' });
+    } catch (error) {
+      dispatch({
+        type: 'command_failed',
+        message: toCommandErrorMessage('跳过试次失败', error, 'Trial could not be skipped.'),
+      });
+    } finally {
+      setIsEndingTrial(false);
+    }
+  }, [confirm, dryRun, isEndingTrial, isFinalizing]);
 
   const handleVideoDurationLoaded = useCallback((seconds: number | null) => {
     setVideoDurationSeconds(seconds);
@@ -581,25 +588,43 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     })();
   }, [state.phase, state.sessionId, eeg, dryRun]);
 
-  const handleEarlyEnd = useCallback(() => {
+  const handleEarlyEnd = useCallback(async () => {
+
     if (dryRun) {
-      if (!window.confirm('确定提前结束试运行吗?未写入任何数据。')) {
+
+      if (!(await confirm({ title: '确定提前结束试运行吗?', description: '未写入任何数据。' }))) {
+
         return;
+
       }
+
       dispatch({ type: 'end_session' });
+
       onExitToSetup();
+
       return;
+
     }
 
-    if (!window.confirm('确定提前结束 Session 吗?当前活动试次将被后端记录为 interrupted。')) {
+
+
+    if (!(await confirm({ title: '确定提前结束 Session 吗?', description: '当前活动试次将被后端记录为 interrupted。' }))) {
+
       return;
+
     }
+
+
 
     // The backend marks the still-active trial as interrupted on stop.
+
     void eeg.stopRecord();
+
     dispatch({ type: 'end_session' });
+
     onExitToSetup();
-  }, [dryRun, eeg, onExitToSetup]);
+
+  }, [confirm, dryRun, eeg, onExitToSetup]);
 
   const handleReturnToSetup = useCallback(() => {
     dispatch({ type: 'end_session' });
@@ -882,10 +907,11 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
                 : stageNotice
                   ? '试次保存失败'
                   : '正在准备下一个视频…'}
-            </span>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
+            </span>
+          </div>
+        </div>
+      ) : null}
+      {confirmDialogElement}
+    </div>
+  );
 }

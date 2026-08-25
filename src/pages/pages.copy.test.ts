@@ -15,7 +15,8 @@ describe('page Chinese copy', () => {
       readText(new URL('./home/GameRegulation.tsx', import.meta.url)),
       readText(new URL('./home/MusicRegulation.tsx', import.meta.url)),
       readText(new URL('./home/VideoRegulation.tsx', import.meta.url)),
-      readText(new URL('../mentalScale/mentalScaleGate.ts', import.meta.url)),
+      readText(new URL('../mentalScale/mentalScaleGate.ts', import.meta.url)),
+      readText(new URL('../mentalScale/MentalScaleDialog.tsx', import.meta.url)),
     ].join('\n');
 
     [
@@ -96,7 +97,8 @@ describe('page Chinese copy', () => {
     [
       '自由采集',
       '范式采集',
-      '范式 Session 进行中,请先结束 Session',
+      '范式 Session 进行中',
+      '请先结束当前范式 Session,再切换页面。',
       '实验信息',
       '个人校准',
       '独立诱发调控',
@@ -140,4 +142,6 @@ describe('page Chinese copy', () => {
       expect(sources).toContain(copy);
     });
   });
+
 });
+
