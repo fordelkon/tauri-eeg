@@ -8,6 +8,13 @@
   overflow: hidden;
 }
 
+/* The paradigm setup card (experiment info + video lists) grows past one
+   screen, so it scrolls inside the workspace; free mode keeps the fitted,
+   non-scrolling monitor layout. */
+.workspace.paradigmWorkspace {
+  overflow-y: auto;
+}
+
 @keyframes workspaceEnter {
   from {
     opacity: 0;
@@ -101,11 +108,73 @@
   padding: 10px 12px;
 }
 
+.resultBanner {
+  align-items: center;
+  background: rgba(34, 139, 94, 0.08);
+  border: 1px solid rgba(34, 139, 94, 0.24);
+  border-radius: 8px;
+  color: #17633f;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 650;
+  gap: 6px 14px;
+  padding: 10px 12px;
+}
+
+/* Full storage paths get long; truncate instead of blowing up the bar. */
+.resultBannerPath {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-weight: 600;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .controlStrip {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.modeSwitch {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modeSwitchButton {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(23, 32, 38, 0.16);
+  border-radius: 8px;
+  color: #172026;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 720;
+  min-height: 34px;
+  padding: 0 14px;
+}
+
+.modeSwitchButton:disabled {
+  color: rgba(23, 32, 38, 0.4);
+  cursor: not-allowed;
+}
+
+.activeModeSwitchButton {
+  background: rgba(34, 139, 94, 0.14);
+  border-color: #22613c;
+  box-shadow: inset 0 0 0 1px #22613c;
+  color: #17633f;
+}
+
+.modeLockHint {
+  color: #8a560e;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .controlButton {

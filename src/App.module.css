@@ -1,0 +1,41 @@
+/* Route-level lazy chunk fallback: a lightweight centered indicator so route
+   switches never flash a blank page while a lazy route loads. */
+
+.routeFallback {
+  align-items: center;
+  background: #f5f0eb;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 30;
+}
+
+.routeSpinner {
+  animation: routeSpin 900ms linear infinite;
+  border: 3px solid rgba(23, 32, 38, 0.14);
+  border-radius: 50%;
+  border-top-color: #fb7a68;
+  height: 28px;
+  width: 28px;
+}
+
+.routeFallbackText {
+  color: rgba(23, 32, 38, 0.62);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+@keyframes routeSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .routeSpinner {
+    animation: none;
+  }
+}

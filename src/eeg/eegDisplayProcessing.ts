@@ -1,6 +1,6 @@
 type DisplayInput = {
-  seriesByChannel: Record<string, number[]>;
-  x: number[];
+  seriesByChannel: Record<string, Float32Array>;
+  x: Float64Array;
   baselineByChannel?: Record<string, number>;
 };
 
@@ -11,27 +11,34 @@ type DisplayOptions = {
 
 type DisplayOutput = DisplayInput;
 
+/**
+ * Baseline correction + clipping + min/max bucket decimation for one rendered
+ * frame. Runs 30 times a second on the live stream, so every pass is typed and
+ * allocation-bounded: one output array per channel plus a tiny index scratch.
+ */
 export function processEegDisplayData(
   input: DisplayInput,
   options: DisplayOptions,
 ): DisplayOutput {
   const clipUv = Math.max(1, options.clipUv);
-  const correctedSeries = Object.fromEntries(
-    Object.entries(input.seriesByChannel).map(([channelId, values]) => {
-      // DC offset is removed with the incremental per-channel baseline
-      // maintained by the ring buffer; no per-frame sorting.
-      const baseline = input.baselineByChannel?.[channelId] ?? 0;
+  const channelIds = Object.keys(input.seriesByChannel);
 
-      return [
-        channelId,
-        values.map((value) => clip(value - baseline, clipUv)),
-      ];
-    }),
-  );
+  const correctedSeries: Record<string, Float32Array> = {};
+  for (const channelId of channelIds) {
+    const values = input.seriesByChannel[channelId];
+    // DC offset is removed with the incremental per-channel baseline
+    // maintained by the ring buffer; no per-frame sorting.
+    const baseline = input.baselineByChannel?.[channelId] ?? 0;
+    const corrected = new Float32Array(values.length);
+    for (let index = 0; index < values.length; index += 1) {
+      corrected[index] = clip(values[index] - baseline, clipUv);
+    }
+    correctedSeries[channelId] = corrected;
+  }
 
   if (input.x.length <= options.targetPointCount || options.targetPointCount <= 0) {
     return {
-      x: [...input.x],
+      x: input.x,
       seriesByChannel: correctedSeries,
     };
   }
@@ -52,43 +59,77 @@ function clip(value: number, limit: number) {
 }
 
 function downsampleMinMax(input: DisplayInput, targetPointCount: number): DisplayOutput {
-  const bucketSize = Math.max(1, Math.ceil(input.x.length / Math.max(1, targetPointCount / 2)));
+  const channelIds = Object.keys(input.seriesByChannel);
+  const length = input.x.length;
+  const bucketSize = Math.max(1, Math.ceil(length / Math.max(1, targetPointCount / 2)));
+
+  // Union of the per-channel min/max indexes per bucket, ascending. Buckets
+  // are disjoint and visited in order, so per-bucket ordering is enough — the
+  // extrema of every channel survive decimation (spikes stay visible).
+  const bucketExtrema = new Int32Array(channelIds.length * 2);
   const selectedIndexes: number[] = [];
 
-  for (let start = 0; start < input.x.length; start += bucketSize) {
-    const end = Math.min(input.x.length, start + bucketSize);
-    const bucketIndexes = Array.from({ length: end - start }, (_, index) => start + index);
-    const importantIndexes = new Set<number>();
+  for (let start = 0; start < length; start += bucketSize) {
+    const end = Math.min(length, start + bucketSize);
+    let candidateCount = 0;
 
-    Object.values(input.seriesByChannel).forEach((values) => {
-      let minIndex = bucketIndexes[0];
-      let maxIndex = bucketIndexes[0];
-
-      bucketIndexes.forEach((index) => {
+    for (const channelId of channelIds) {
+      const values = input.seriesByChannel[channelId];
+      let minIndex = start;
+      let maxIndex = start;
+      for (let index = start + 1; index < end; index += 1) {
         if (values[index] < values[minIndex]) {
           minIndex = index;
         }
         if (values[index] > values[maxIndex]) {
           maxIndex = index;
         }
-      });
+      }
+      bucketExtrema[candidateCount] = minIndex;
+      candidateCount += 1;
+      bucketExtrema[candidateCount] = maxIndex;
+      candidateCount += 1;
+    }
 
-      importantIndexes.add(minIndex);
-      importantIndexes.add(maxIndex);
-    });
-
-    selectedIndexes.push(...[...importantIndexes].sort((left, right) => left - right));
+    insertionSort(bucketExtrema, candidateCount);
+    let previous = -1;
+    for (let index = 0; index < candidateCount; index += 1) {
+      const candidate = bucketExtrema[index];
+      if (candidate !== previous) {
+        selectedIndexes.push(candidate);
+        previous = candidate;
+      }
+    }
   }
 
-  const uniqueIndexes = [...new Set(selectedIndexes)].sort((left, right) => left - right);
+  const count = selectedIndexes.length;
+  const x = new Float64Array(count);
+  const seriesByChannel: Record<string, Float32Array> = {};
+  for (const channelId of channelIds) {
+    const values = input.seriesByChannel[channelId];
+    const decimated = new Float32Array(count);
+    for (let index = 0; index < count; index += 1) {
+      decimated[index] = values[selectedIndexes[index]];
+    }
+    seriesByChannel[channelId] = decimated;
+  }
+  for (let index = 0; index < count; index += 1) {
+    x[index] = input.x[selectedIndexes[index]];
+  }
 
-  return {
-    x: uniqueIndexes.map((index) => input.x[index]),
-    seriesByChannel: Object.fromEntries(
-      Object.entries(input.seriesByChannel).map(([channelId, values]) => [
-        channelId,
-        uniqueIndexes.map((index) => values[index]),
-      ]),
-    ),
-  };
+  return { x, seriesByChannel };
+}
+
+// Insertion sort on the ≤2-per-channel extrema indexes: faster than a Set plus
+// Array.prototype.sort for these tiny buckets and allocates nothing.
+function insertionSort(indexes: Int32Array, count: number) {
+  for (let i = 1; i < count; i += 1) {
+    const value = indexes[i];
+    let j = i - 1;
+    while (j >= 0 && indexes[j] > value) {
+      indexes[j + 1] = indexes[j];
+      j -= 1;
+    }
+    indexes[j + 1] = value;
+  }
 }

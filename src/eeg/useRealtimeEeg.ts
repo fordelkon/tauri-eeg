@@ -8,18 +8,27 @@ export function useRealtimeEeg() {
   const eegSession = useEegSession();
   const [snapshot, setSnapshot] = useState<EegDisplaySnapshot>(() => eegSession.takeSnapshot());
   const takeSnapshotRef = useRef(eegSession.takeSnapshot);
+  const getLatestSequenceRef = useRef(eegSession.getLatestSequence);
 
   useEffect(() => {
     takeSnapshotRef.current = eegSession.takeSnapshot;
+    getLatestSequenceRef.current = eegSession.getLatestSequence;
     setSnapshot(eegSession.takeSnapshot());
-  }, [eegSession.takeSnapshot]);
+  }, [eegSession.takeSnapshot, eegSession.getLatestSequence]);
 
   // Skip snapshot work while no samples are flowing; the last rendered
   // snapshot stays on screen.
   const streamingRef = useRef(eegSession.deviceStatus === 'streaming');
+  // NaN sentinel: sequence numbers restart on every device run, so "no new
+  // data" must compare unequal even against a null sequence.
+  const lastRenderedSequenceRef = useRef<number | null>(Number.NaN);
 
   useEffect(() => {
-    streamingRef.current = eegSession.deviceStatus === 'streaming';
+    const streaming = eegSession.deviceStatus === 'streaming';
+    streamingRef.current = streaming;
+    if (!streaming) {
+      lastRenderedSequenceRef.current = Number.NaN;
+    }
   }, [eegSession.deviceStatus]);
 
   useEffect(() => {
@@ -29,8 +38,15 @@ export function useRealtimeEeg() {
 
     const tick = (nowMs: number) => {
       if (streamingRef.current && shouldRenderEegFrame(nowMs, lastRenderedAtMs)) {
-        lastRenderedAtMs = nowMs;
-        setSnapshot(takeSnapshotRef.current());
+        // Blocks arrive at ~20 Hz while frames render at ~30 Hz: probe the
+        // sequence first so frames without new data skip the snapshot copy
+        // and the React update entirely.
+        const latestSequence = getLatestSequenceRef.current();
+        if (latestSequence !== lastRenderedSequenceRef.current) {
+          lastRenderedSequenceRef.current = latestSequence;
+          lastRenderedAtMs = nowMs;
+          setSnapshot(takeSnapshotRef.current());
+        }
       }
 
       frame = window.requestAnimationFrame(tick);
@@ -84,6 +100,7 @@ export function useRealtimeEeg() {
     errorMessage: eegSession.errorMessage,
     pauseRecord: eegSession.pauseRecord,
     recordStatus: eegSession.recordStatus,
+    reportPlotWidthPx: eegSession.reportPlotWidthPx,
     reset,
     resumeRecord: eegSession.resumeRecord,
     sampleRateHz: eegSession.sampleRateHz,

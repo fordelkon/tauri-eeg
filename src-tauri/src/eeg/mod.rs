@@ -1,4 +1,9 @@
 pub mod buffer;
+pub mod paradigm;
+pub mod paradigm_controller;
+pub mod paradigm_db;
+pub mod paradigm_rules;
+pub mod paradigm_video;
 pub mod protocol;
 pub mod server;
 pub mod session;
@@ -6,7 +11,10 @@ pub mod storage;
 
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering},
+    Arc, Mutex,
+};
 use tauri::{
     ipc::{Channel, InvokeResponseBody},
     AppHandle, Emitter,
@@ -21,6 +29,11 @@ const DEFAULT_DEVICE_UDP_PORT: u16 = 8080;
 const DEFAULT_EEG_DEVICE_IP: &str = "192.168.1.102";
 const DEFAULT_TRIGGER_DEVICE_IP: &str = "192.168.1.103";
 
+pub use paradigm::{
+    BeginEegTrialInput, FinalizeEegTrialInput, MarkEegTrialInput, ParadigmQueueInput,
+    ParadigmSessionSummary, ParadigmSummaryInput, ParadigmTrialPlanItem, ParadigmVideoLibrary,
+    ParadigmVideoLibraryInput, TrialRecord, TrialSnapshot,
+};
 pub use session::{EegRecordingSession, EegStatus, EegStatusEvent, StartEegRecordingInput};
 use storage::RecordingWorker;
 
@@ -104,18 +117,61 @@ pub struct EegStreamInfo {
 
 #[derive(Clone, Default)]
 pub struct EegStreamState {
-    inner: Arc<Mutex<EegRuntime>>,
+    inner: Arc<EegSharedState>,
+}
+
+/// The mutex-guarded runtime plus the lock-free ingest signals behind one Arc,
+/// so TCP ingest threads and IPC commands share both halves.
+#[derive(Default)]
+pub(crate) struct EegSharedState {
+    pub(crate) runtime: Mutex<EegRuntime>,
+    pub(crate) signals: EegSignals,
+}
+
+/// Hot-path state kept outside the runtime mutex so the 1000 Hz sample loop
+/// and per-packet bookkeeping never queue behind UI/status commands.
+#[derive(Default)]
+pub(crate) struct EegSignals {
+    /// Latest hardware trigger code awaiting attachment to the next sample.
+    /// The protocol filters zero triggers before they get here, so 0 doubles
+    /// as "none pending" and take() is a single atomic swap.
+    latest_trigger: AtomicU8,
+    /// Incremented whenever the recording worker is installed or removed;
+    /// ingest threads cache the recording sender keyed on this generation, so
+    /// start/stop pays one mutex round-trip instead of every sample.
+    recording_generation: AtomicU64,
+    /// Connection flags, written only under the runtime lock inside
+    /// set_connection_state / stop_stream and read lock-free per packet.
+    pub(crate) eeg_connected: AtomicBool,
+    pub(crate) trigger_connected: AtomicBool,
+}
+
+impl EegSignals {
+    pub(crate) fn store_latest_trigger(&self, value: u8) {
+        self.latest_trigger.store(value, Ordering::Release);
+    }
+
+    pub(crate) fn take_latest_trigger(&self) -> Option<u8> {
+        match self.latest_trigger.swap(0, Ordering::AcqRel) {
+            0 => None,
+            value => Some(value),
+        }
+    }
+
+    /// Must run in the same critical section that installs/removes
+    /// runtime.recording so ingest-side sender caches re-resolve promptly.
+    pub(crate) fn bump_recording_generation(&self) {
+        self.recording_generation.fetch_add(1, Ordering::Release);
+    }
 }
 
 pub(crate) struct EegRuntime {
     pub(crate) config: Option<Arc<EegStreamConfig>>,
     pub(crate) worker: Option<server::EegServerWorker>,
     pub(crate) recording: Option<RecordingWorker>,
+    pub(crate) paradigm: Option<paradigm_controller::ParadigmController>,
     pub(crate) last_recording: Option<EegRecordingSession>,
     pub(crate) sample_channel: Option<Channel<InvokeResponseBody>>,
-    pub(crate) latest_trigger: Option<u8>,
-    pub(crate) eeg_connected: bool,
-    pub(crate) trigger_connected: bool,
     pub(crate) last_error: Option<String>,
     pub(crate) last_disconnect_reason: Option<String>,
     pub(crate) padded_samples: u64,
@@ -128,11 +184,9 @@ impl Default for EegRuntime {
             config: None,
             worker: None,
             recording: None,
+            paradigm: None,
             last_recording: None,
             sample_channel: None,
-            latest_trigger: None,
-            eeg_connected: false,
-            trigger_connected: false,
             last_error: None,
             last_disconnect_reason: None,
             padded_samples: 0,
@@ -142,7 +196,9 @@ impl Default for EegRuntime {
 }
 
 impl EegRuntime {
-    pub(crate) fn recording_sender(&self) -> Option<std::sync::mpsc::Sender<storage::RecordingSample>> {
+    pub(crate) fn recording_sender(
+        &self,
+    ) -> Option<std::sync::mpsc::Sender<storage::RecordingMessage>> {
         self.recording.as_ref().map(|worker| worker.sender())
     }
 }
@@ -163,7 +219,7 @@ pub fn start_stream(
     config: Option<EegStreamConfig>,
     on_sample_block: Channel<InvokeResponseBody>,
 ) -> Result<EegStreamInfo, String> {
-    let mut runtime = state.inner.lock().map_err(eeg_state_unavailable)?;
+    let mut runtime = state.inner.runtime.lock().map_err(eeg_state_unavailable)?;
     if let Some(existing) = runtime.config.clone() {
         server::send_start_instruction(&existing)?;
         runtime.sample_channel = Some(on_sample_block);
@@ -195,33 +251,27 @@ pub fn stop_stream(
     state: &EegStreamState,
     conn: &Connection,
 ) -> Result<(), String> {
-    let recording = {
-        let mut runtime = state
-            .inner
-            .lock()
-            .map_err(|_| "EEG stream state is unavailable.".to_string())?;
-        runtime.recording.take()
-    };
-
-    if let Some(worker) = recording {
-        let session = worker.stop()?;
-        storage::insert_eeg_session(conn, &session)?;
-        let mut runtime = state
-            .inner
-            .lock()
-            .map_err(|_| "EEG stream state is unavailable.".to_string())?;
-        runtime.last_recording = Some(session);
+    if let Some((worker, records)) = halt_recording(state)? {
+        persist_recording(conn, state, worker, records)?;
     }
 
     let worker = {
         let mut runtime = state
             .inner
+            .runtime
             .lock()
             .map_err(|_| "EEG stream state is unavailable.".to_string())?;
         runtime.config = None;
         runtime.sample_channel = None;
-        runtime.eeg_connected = false;
-        runtime.trigger_connected = false;
+        // Same critical section as before: late packets from a dying
+        // connection must not re-mark the devices connected after the stream
+        // is gone.
+        state.inner.signals.eeg_connected.store(false, Ordering::Release);
+        state
+            .inner
+            .signals
+            .trigger_connected
+            .store(false, Ordering::Release);
         runtime.worker.take()
     };
     if let Some(worker) = worker {
@@ -242,6 +292,7 @@ pub fn stop_stream(
 pub fn get_status(state: &EegStreamState) -> Result<EegStatus, String> {
     let runtime = state
         .inner
+        .runtime
         .lock()
         .map_err(|_| "EEG stream state is unavailable.".to_string())?;
     let (sample_rate_hz, block_interval_ms) = runtime
@@ -253,8 +304,8 @@ pub fn get_status(state: &EegStreamState) -> Result<EegStatus, String> {
     Ok(EegStatus {
         is_streaming: runtime.worker.is_some(),
         is_recording: runtime.recording.is_some(),
-        eeg_connected: runtime.eeg_connected,
-        trigger_connected: runtime.trigger_connected,
+        eeg_connected: state.inner.signals.eeg_connected.load(Ordering::Acquire),
+        trigger_connected: state.inner.signals.trigger_connected.load(Ordering::Acquire),
         last_error: runtime.last_error.clone(),
         last_disconnect_reason: runtime.last_disconnect_reason.clone(),
         sample_rate_hz,
@@ -274,11 +325,12 @@ pub fn start_recording(
     let config = {
         let runtime = state
             .inner
+            .runtime
             .lock()
             .map_err(|_| "EEG stream state is unavailable.".to_string())?;
         validate_recording_ready(
             runtime.worker.is_some(),
-            runtime.eeg_connected,
+            state.inner.signals.eeg_connected.load(Ordering::Acquire),
             runtime.recording.is_some(),
         )?;
         runtime
@@ -289,14 +341,35 @@ pub fn start_recording(
     };
 
     let base_dir = crate::storage_paths::eeg_recordings_root(app)?;
+    let paradigm = input.paradigm.clone();
     let writer = storage::RecordingWriter::start(conn, &base_dir, input, &config)?;
     let session = writer.session();
+    let worker = RecordingWorker::start(writer);
+    let controller = paradigm.map(|info| {
+        let controller = paradigm_controller::ParadigmController::new(
+            info,
+            session.id.clone(),
+            session.session_dir.clone(),
+            session.sample_rate_hz,
+            session.channel_count,
+            worker.sender(),
+            worker.sample_count_handle(),
+            worker.trigger_observations_handle(),
+        );
+        controller.emit_session_started();
+        controller
+    });
 
     let mut runtime = state
         .inner
+        .runtime
         .lock()
         .map_err(|_| "EEG stream state is unavailable.".to_string())?;
-    runtime.recording = Some(RecordingWorker::start(writer));
+    runtime.recording = Some(worker);
+    runtime.paradigm = controller;
+    // Publish the new sender to the ingest threads in the same critical
+    // section: once this returns, samples must reach the recorder.
+    state.inner.signals.bump_recording_generation();
     Ok(session)
 }
 
@@ -304,19 +377,65 @@ pub fn stop_recording(
     conn: &Connection,
     state: &EegStreamState,
 ) -> Result<EegRecordingSession, String> {
-    let worker = {
+    let Some((worker, records)) = halt_recording(state)? else {
+        return Err("No EEG recording is active.".to_string());
+    };
+    persist_recording(conn, state, worker, records)
+}
+
+/// Takes the recording worker and paradigm controller out of the runtime,
+/// interrupts the active trial, and sends the training manifest before any
+/// sender is dropped (the writer thread must still be alive to receive it).
+fn halt_recording(
+    state: &EegStreamState,
+) -> Result<Option<(RecordingWorker, Vec<TrialRecord>)>, String> {
+    let (worker, controller) = {
         let mut runtime = state
             .inner
+            .runtime
             .lock()
             .map_err(|_| "EEG stream state is unavailable.".to_string())?;
-        runtime.recording.take()
-    }
-    .ok_or_else(|| "No EEG recording is active.".to_string())?;
+        let taken = (runtime.recording.take(), runtime.paradigm.take());
+        // Invalidate the ingest-side sender caches right away so their stale
+        // clones drop on the next sample instead of pinning the writer's
+        // channel open past the stop below.
+        state.inner.signals.bump_recording_generation();
+        taken
+    };
+    let Some(worker) = worker else {
+        return Ok(None);
+    };
 
+    let mut records = Vec::new();
+    if let Some(mut controller) = controller {
+        controller.interrupt();
+        records = controller.take_all();
+        let summary = paradigm_rules::summarize_trials(controller.session_id(), &records);
+        if let Ok(manifest) = serde_json::to_string_pretty(&summary) {
+            let _ = worker
+                .sender()
+                .send(storage::RecordingMessage::Manifest(manifest));
+        }
+    }
+    Ok(Some((worker, records)))
+}
+
+/// Joins the writer thread (flushing all files), persists the session row
+/// first and then the trial rows, which reference it.
+fn persist_recording(
+    conn: &Connection,
+    state: &EegStreamState,
+    worker: RecordingWorker,
+    records: Vec<TrialRecord>,
+) -> Result<EegRecordingSession, String> {
     let session = worker.stop()?;
     storage::insert_eeg_session(conn, &session)?;
+    for record in &records {
+        paradigm_db::insert_eeg_trial(conn, record, &session.user_id)?;
+    }
     let mut runtime = state
         .inner
+        .runtime
         .lock()
         .map_err(|_| "EEG stream state is unavailable.".to_string())?;
     runtime.last_recording = Some(session.clone());

@@ -6,15 +6,17 @@ use std::{
     io::{BufWriter, Write},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
     },
-    sync::mpsc,
+    sync::mpsc::{self, RecvTimeoutError},
     thread::{self, JoinHandle},
+    time::Duration,
 };
 
 use super::{
     buffer::default_channel_ids,
+    paradigm::{ParadigmInfo, TriggerObservation},
     protocol::EEG_CHANNEL_COUNT,
     session::{EegRecordingSession, StartEegRecordingInput},
     EegStreamConfig,
@@ -23,7 +25,15 @@ use super::{
 const EEG_FILE_NAME: &str = "eeg.f32le.bin";
 const TRIGGER_FILE_NAME: &str = "trigger.i32le.bin";
 const METADATA_FILE_NAME: &str = "metadata.json";
+const TRIAL_EVENTS_FILE_NAME: &str = "trial-events.jsonl";
+const TRIALS_FILE_NAME: &str = "trials.jsonl";
+const TRAINING_MANIFEST_FILE_NAME: &str = "training-manifest.json";
 const DISPLAY_CHANNEL_LIMIT: usize = 16;
+const MAX_TRIGGER_OBSERVATIONS: usize = 4096;
+/// How long the writer waits for the next message before re-checking the
+/// shutdown flag; bounds stop() latency without waking the thread while the
+/// sample stream is flowing.
+const WRITER_POLL_INTERVAL: Duration = Duration::from_millis(20);
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,6 +55,7 @@ struct RecordingMetadata {
     started_at: String,
     ended_at: String,
     duration_seconds: f64,
+    paradigm: Option<ParadigmInfo>,
 }
 
 #[derive(Debug)]
@@ -52,6 +63,9 @@ pub struct RecordingWriter {
     session: EegRecordingSession,
     eeg_writer: BufWriter<File>,
     trigger_writer: BufWriter<File>,
+    trial_events_writer: Option<BufWriter<File>>,
+    trials_writer: Option<BufWriter<File>>,
+    paradigm: Option<ParadigmInfo>,
     started_at: DateTime<Utc>,
 }
 
@@ -62,6 +76,7 @@ impl RecordingWriter {
         input: StartEegRecordingInput,
         config: &EegStreamConfig,
     ) -> Result<Self, String> {
+        let paradigm = input.paradigm.clone();
         let user_id = validate_user(conn, input)?;
         let started_at = Utc::now();
         let session_id = started_at.format("session_%Y%m%d_%H%M%S").to_string();
@@ -79,6 +94,21 @@ impl RecordingWriter {
             File::create(&trigger_path)
                 .map_err(|_| "Failed to create trigger binary file.".to_string())?,
         );
+
+        // Paradigm sessions additionally keep the trial event and record logs.
+        let (trial_events_writer, trials_writer) = if paradigm.is_some() {
+            let events = BufWriter::new(
+                File::create(session_dir.join(TRIAL_EVENTS_FILE_NAME))
+                    .map_err(|_| "Failed to create trial events file.".to_string())?,
+            );
+            let trials = BufWriter::new(
+                File::create(session_dir.join(TRIALS_FILE_NAME))
+                    .map_err(|_| "Failed to create trials file.".to_string())?,
+            );
+            (Some(events), Some(trials))
+        } else {
+            (None, None)
+        };
 
         let session = EegRecordingSession {
             id: session_dir
@@ -104,6 +134,9 @@ impl RecordingWriter {
             session,
             eeg_writer,
             trigger_writer,
+            trial_events_writer,
+            trials_writer,
+            paradigm,
             started_at,
         })
     }
@@ -138,6 +171,16 @@ impl RecordingWriter {
         self.trigger_writer
             .flush()
             .map_err(|_| "Failed to flush trigger binary file.".to_string())?;
+        if let Some(writer) = self.trial_events_writer.as_mut() {
+            writer
+                .flush()
+                .map_err(|_| "Failed to flush trial events file.".to_string())?;
+        }
+        if let Some(writer) = self.trials_writer.as_mut() {
+            writer
+                .flush()
+                .map_err(|_| "Failed to flush trials file.".to_string())?;
+        }
 
         let ended_at = Utc::now();
         let duration_seconds = (ended_at - self.started_at)
@@ -147,38 +190,133 @@ impl RecordingWriter {
         self.session.ended_at = Some(ended_at.to_rfc3339());
         self.session.duration_seconds = Some(duration_seconds);
 
-        write_metadata(&self.session, duration_seconds)?;
+        write_metadata(&self.session, duration_seconds, self.paradigm.as_ref())?;
         Ok(self.session)
+    }
+
+    /// Appends one pre-serialized JSON line to trial-events.jsonl. Ignored for
+    /// non-paradigm sessions, which never create the file.
+    fn append_trial_event(&mut self, line: &str) -> Result<(), String> {
+        append_jsonl_line(
+            self.trial_events_writer.as_mut(),
+            line,
+            "Failed to write trial event.",
+        )
+    }
+
+    /// Appends one pre-serialized JSON line to trials.jsonl.
+    fn append_trial_record(&mut self, line: &str) -> Result<(), String> {
+        append_jsonl_line(
+            self.trials_writer.as_mut(),
+            line,
+            "Failed to write trial record.",
+        )
+    }
+
+    /// Overwrites training-manifest.json with the pretty JSON payload.
+    fn write_manifest(&self, json: &str) -> Result<(), String> {
+        let path = Path::new(&self.session.session_dir).join(TRAINING_MANIFEST_FILE_NAME);
+        fs::write(path, json).map_err(|_| "Failed to write training manifest.".to_string())
     }
 }
 
-/// One EEG sample destined for disk: 32 channel values plus the trigger code.
-pub type RecordingSample = ([f32; EEG_CHANNEL_COUNT], i32);
+fn append_jsonl_line(
+    writer: Option<&mut BufWriter<File>>,
+    line: &str,
+    error: &str,
+) -> Result<(), String> {
+    match writer {
+        Some(writer) => writer
+            .write_all(line.as_bytes())
+            .and_then(|()| writer.write_all(b"\n"))
+            .map_err(|_| error.to_string()),
+        None => Ok(()),
+    }
+}
+
+/// Message sent to the recording writer thread: samples flow continuously,
+/// paradigm trial logs and the final manifest arrive as pre-serialized JSON.
+pub enum RecordingMessage {
+    Sample {
+        samples: [f32; EEG_CHANNEL_COUNT],
+        trigger: i32,
+    },
+    /// One line appended to trial-events.jsonl (serialized JSON, no newline).
+    TrialEvent(String),
+    /// One line appended to trials.jsonl.
+    TrialRecord(String),
+    /// Overwrites training-manifest.json (pretty JSON).
+    Manifest(String),
+}
 
 /// Owns the recording files on a dedicated thread so the sample path never
 /// performs disk IO under the EEG runtime mutex. Dropping the sender side
-/// (via `stop`) makes the thread flush and finalize the session.
+/// (via `stop`) makes the thread flush and finalize the session; the shutdown
+/// flag additionally ends the loop while an idle ingest thread still holds a
+/// cached sender clone (see the generation-checked cache in server.rs), so
+/// stop() stays deterministic even if that thread never sends again.
 #[derive(Debug)]
 pub struct RecordingWorker {
     session: EegRecordingSession,
     sample_count: Arc<AtomicU64>,
-    sender: mpsc::Sender<RecordingSample>,
+    trigger_observations: Arc<Mutex<Vec<TriggerObservation>>>,
+    sender: mpsc::Sender<RecordingMessage>,
+    shutdown: Arc<AtomicBool>,
     handle: Mutex<Option<JoinHandle<Result<EegRecordingSession, String>>>>,
 }
 
 impl RecordingWorker {
     pub fn start(writer: RecordingWriter) -> Self {
-        let (sender, receiver) = mpsc::channel::<RecordingSample>();
+        let (sender, receiver) = mpsc::channel::<RecordingMessage>();
         let sample_count = Arc::new(AtomicU64::new(0));
+        let trigger_observations: Arc<Mutex<Vec<TriggerObservation>>> =
+            Arc::new(Mutex::new(Vec::new()));
         let count_for_thread = Arc::clone(&sample_count);
+        let observations_for_thread = Arc::clone(&trigger_observations);
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let shutdown_for_thread = Arc::clone(&shutdown);
         let session = writer.session();
         let handle = thread::Builder::new()
             .name("eeg-recording-writer".to_string())
             .spawn(move || {
                 let mut writer = writer;
-                while let Ok((samples_uv, trigger)) = receiver.recv() {
-                    writer.write_sample(&samples_uv, trigger)?;
-                    count_for_thread.fetch_add(1, Ordering::Relaxed);
+                // Everything already queued is drained even after the stop flag
+                // is set; the flag only breaks the wait once the channel goes
+                // quiet (or fully disconnects).
+                loop {
+                    match receiver.recv_timeout(WRITER_POLL_INTERVAL) {
+                        Ok(message) => {
+                            match message {
+                                RecordingMessage::Sample { samples, trigger } => {
+                                    writer.write_sample(&samples, trigger)?;
+                                    let sample_index =
+                                        count_for_thread.fetch_add(1, Ordering::Relaxed);
+                                    if trigger != 0 {
+                                        record_trigger_observation(
+                                            &observations_for_thread,
+                                            trigger,
+                                            sample_index,
+                                        );
+                                    }
+                                }
+                                RecordingMessage::TrialEvent(line) => {
+                                    writer.append_trial_event(&line)?
+                                }
+                                RecordingMessage::TrialRecord(line) => {
+                                    writer.append_trial_record(&line)?
+                                }
+                                RecordingMessage::Manifest(json) => {
+                                    writer.write_manifest(&json)?
+                                }
+                            }
+                            continue;
+                        }
+                        Err(RecvTimeoutError::Disconnected) => break,
+                        Err(RecvTimeoutError::Timeout) => {}
+                    }
+                    if shutdown_for_thread.load(Ordering::Acquire) {
+                        break;
+                    }
                 }
                 writer.finalize()
             })
@@ -187,7 +325,9 @@ impl RecordingWorker {
         Self {
             session,
             sample_count,
+            trigger_observations,
             sender,
+            shutdown,
             handle: Mutex::new(Some(handle)),
         }
     }
@@ -198,13 +338,33 @@ impl RecordingWorker {
         session
     }
 
-    pub fn sender(&self) -> mpsc::Sender<RecordingSample> {
+    pub fn sender(&self) -> mpsc::Sender<RecordingMessage> {
         self.sender.clone()
     }
 
-    /// Drops the sample sender, joins the writer thread (flushing both files)
-    /// and returns the finalized session, ready to be persisted.
+    pub fn sample_count_handle(&self) -> Arc<AtomicU64> {
+        Arc::clone(&self.sample_count)
+    }
+
+    pub fn trigger_observations_handle(&self) -> Arc<Mutex<Vec<TriggerObservation>>> {
+        Arc::clone(&self.trigger_observations)
+    }
+
+    /// Snapshot of the observed trigger codes; part of the paradigm API
+    /// (used by tests and status reporting outside the hot sample path).
+    #[allow(dead_code)]
+    pub fn trigger_observations(&self) -> Vec<TriggerObservation> {
+        self.trigger_observations
+            .lock()
+            .map(|observations| observations.clone())
+            .unwrap_or_default()
+    }
+
+    /// Signals the writer to stop once the queue drains, drops the sample
+    /// sender, joins the writer thread (flushing both files) and returns the
+    /// finalized session, ready to be persisted.
     pub fn stop(self) -> Result<EegRecordingSession, String> {
+        self.shutdown.store(true, Ordering::Release);
         drop(self.sender);
         let handle = self
             .handle
@@ -215,6 +375,24 @@ impl RecordingWorker {
         handle
             .join()
             .map_err(|_| "EEG recording writer thread failed.".to_string())?
+    }
+}
+
+/// Keeps at most MAX_TRIGGER_OBSERVATIONS entries, dropping the oldest.
+fn record_trigger_observation(
+    observations: &Arc<Mutex<Vec<TriggerObservation>>>,
+    code: i32,
+    sample_index: u64,
+) {
+    if let Ok(mut observations) = observations.lock() {
+        if observations.len() >= MAX_TRIGGER_OBSERVATIONS {
+            observations.remove(0);
+        }
+        observations.push(TriggerObservation {
+            code,
+            sample_index,
+            timestamp: Utc::now().to_rfc3339(),
+        });
     }
 }
 
@@ -364,7 +542,11 @@ fn unique_session_dir(user_base_dir: &Path, session_id: &str) -> Result<PathBuf,
     Err("Failed to allocate EEG session directory.".to_string())
 }
 
-fn write_metadata(session: &EegRecordingSession, duration_seconds: f64) -> Result<(), String> {
+fn write_metadata(
+    session: &EegRecordingSession,
+    duration_seconds: f64,
+    paradigm: Option<&ParadigmInfo>,
+) -> Result<(), String> {
     let ended_at = session
         .ended_at
         .clone()
@@ -387,6 +569,7 @@ fn write_metadata(session: &EegRecordingSession, duration_seconds: f64) -> Resul
         started_at: session.started_at.clone(),
         ended_at,
         duration_seconds,
+        paradigm: paradigm.cloned(),
     };
 
     let metadata_path = Path::new(&session.session_dir).join(METADATA_FILE_NAME);
@@ -456,6 +639,7 @@ mod tests {
             StartEegRecordingInput {
                 user_id: "missing".to_string(),
                 username: "alice".to_string(),
+                paradigm: None,
             },
             &EegStreamConfig::default(),
         );
@@ -473,6 +657,7 @@ mod tests {
             StartEegRecordingInput {
                 user_id: "user-1".to_string(),
                 username: "alice".to_string(),
+                paradigm: None,
             },
             &EegStreamConfig::default(),
         )
@@ -485,7 +670,10 @@ mod tests {
         sample[31] = -2.5;
         worker
             .sender()
-            .send((sample, 3))
+            .send(RecordingMessage::Sample {
+                samples: sample,
+                trigger: 3,
+            })
             .expect("send sample to writer thread");
 
         // The writer thread updates the live sample count asynchronously.

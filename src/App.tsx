@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
 import { EegProvider } from './eeg/EegSessionContext';
+import styles from './App.module.css';
 
 const Login = lazy(() => import('./pages/Login'));
 const Home = lazy(() => import('./pages/Home'));
@@ -13,6 +14,15 @@ const HomeOverview = lazy(() => import('./pages/home/HomeOverview'));
 const MusicRegulation = lazy(() => import('./pages/home/MusicRegulation'));
 const VideoRegulation = lazy(() => import('./pages/home/VideoRegulation'));
 
+// Shared fallback for route-level Suspense boundaries: keeps lazy chunk loads
+// from flashing a blank viewport between routes.
+const routeFallback = (
+  <div className={styles.routeFallback} role="status">
+    <span className={styles.routeSpinner} aria-hidden="true" />
+    <span className={styles.routeFallbackText}>加载中…</span>
+  </div>
+);
+
 function LoginRoute() {
   const { currentUser } = useAuth();
 
@@ -21,7 +31,7 @@ function LoginRoute() {
   }
 
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={routeFallback}>
       <Login />
     </Suspense>
   );
@@ -29,7 +39,7 @@ function LoginRoute() {
 
 function AppRoutes() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={routeFallback}>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginRoute />} />

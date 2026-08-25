@@ -7,7 +7,13 @@ import StopRoundedIcon from '@mui/icons-material/StopRounded';
 import { Button, MenuItem, TextField } from '@mui/material';
 import styles from '../pages/home/EegAcquisition.module.css';
 import type { EegDeviceStatus } from './eegSessionState';
+import type { EegDisplayMode } from './types';
 import { EEG_TIME_WINDOW_OPTIONS_SECONDS } from './eegSessionStore';
+
+const displayModeLabels: Record<EegDisplayMode, string> = {
+  sweep: '扫描',
+  scroll: '滚动',
+};
 
 type Props = {
   amplitudeUvPerDiv: number;
@@ -18,8 +24,10 @@ type Props = {
   canStopDevice: boolean;
   canStopRecord: boolean;
   deviceStatus: EegDeviceStatus;
+  displayMode: EegDisplayMode;
   timeWindowSeconds: number;
   onAmplitudeChange: (value: number) => void;
+  onDisplayModeChange: (value: EegDisplayMode) => void;
   onPauseRecord: () => void;
   onReset: () => void;
   onResumeRecord: () => void;
@@ -39,8 +47,10 @@ function EegControls({
   canStopDevice,
   canStopRecord,
   deviceStatus,
+  displayMode,
   timeWindowSeconds,
   onAmplitudeChange,
+  onDisplayModeChange,
   onPauseRecord,
   onReset,
   onResumeRecord,
@@ -105,6 +115,18 @@ function EegControls({
       <Button className={styles.controlButton} variant="outlined" startIcon={<RestartAltRoundedIcon />} onClick={onReset}>
         重置视图
       </Button>
+      <TextField
+        className={styles.controlSelect}
+        select
+        size="small"
+        label="刷新"
+        value={displayMode}
+        onChange={(event) => onDisplayModeChange(event.target.value as EegDisplayMode)}
+      >
+        {(Object.keys(displayModeLabels) as EegDisplayMode[]).map((value) => (
+          <MenuItem key={value} value={value}>{displayModeLabels[value]}</MenuItem>
+        ))}
+      </TextField>
       <TextField
         className={styles.controlSelect}
         select

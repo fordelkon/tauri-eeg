@@ -164,9 +164,13 @@ describe('ExperimentAgentPanel layout contract', () => {
 
     expect(homeTsx).toContain("closest<HTMLElement>('[data-agent-action]')");
     expect(homeTsx).toContain('const payload = actionElement?.dataset.agentPayload;');
-    expect(homeTsx).toContain("new CustomEvent('agent:submit-prompt'");
-    expect(homeTsx).toContain('payload ? `${actionId}:${payload}` : actionId');
-    expect(hookTs).toContain("addEventListener('agent:submit-prompt'");
+    // Self-executing page buttons must only inform the agent timeline; a
+    // synthesized prompt would re-plan (and risk re-running) the action.
+    expect(homeTsx).toContain("new CustomEvent('agent:record-action'");
+    expect(homeTsx).toContain('detail: { actionId, payload }');
+    expect(hookTs).toContain("addEventListener('agent:record-action'");
+    expect(hookTs).toContain("pushTimeline('action', text);");
+    expect(homeTsx).not.toContain("'agent:submit-prompt'");
     expect(homeTsx).toContain("actionId === 'play_video'");
     expect(videoTsx).toContain("data-agent-payload={video.id}");
   });

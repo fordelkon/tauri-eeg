@@ -67,6 +67,25 @@ describe('eegSessionReducer', () => {
     expect(canStopDevice(disconnected)).toBe(false);
   });
 
+  it('keeps a saved recording visible when the stream stops right after', () => {
+    // The 停止设备 confirm flow routes through stop_record first; the banner
+    // requires recordStatus to still be 'stopped' once the device is off.
+    const streamingRecording = {
+      ...initialEegSessionState,
+      deviceStatus: 'streaming' as const,
+      recordStatus: 'recording' as const,
+    };
+    const saved = eegSessionReducer(streamingRecording, { type: 'stop_record' });
+    const stopping = eegSessionReducer(saved, { type: 'stop_device_requested' });
+    const disconnected = eegSessionReducer(stopping, { type: 'stop_device_succeeded' });
+
+    expect(saved).toMatchObject({ recordStatus: 'stopped' });
+    expect(disconnected).toMatchObject({
+      deviceStatus: 'disconnected',
+      recordStatus: 'stopped',
+    });
+  });
+
   it('can stop the TCP server while waiting for the first EEG frame', () => {
     const starting = {
       ...initialEegSessionState,
@@ -160,6 +179,32 @@ describe('eegSessionReducer', () => {
     });
 
     expect(afterEvent).toBe(stopping);
+  });
+
+  it('adopts an already-streaming backend when the provider mounts', () => {
+    // The connect event fired before this session existed; the mount-time
+    // get_eeg_status reconcile is what rescues the start gate.
+    const adopted = eegSessionReducer(initialEegSessionState, { type: 'device_stream_adopted' });
+
+    expect(adopted).toMatchObject({ deviceStatus: 'streaming', recordStatus: 'idle' });
+    expect(canStartRecord(adopted)).toBe(true);
+    expect(canStartDevice(adopted)).toBe(false);
+  });
+
+  it('keeps non-disconnected states on their own path during adoption', () => {
+    const starting = { ...initialEegSessionState, deviceStatus: 'starting' as const };
+    const streaming = { ...initialEegSessionState, deviceStatus: 'streaming' as const };
+    const error = {
+      ...initialEegSessionState,
+      deviceStatus: 'error' as const,
+      errorMessage: 'EEG device closed the connection.',
+    };
+
+    // Only a fresh mount is 'disconnected'; every other state must keep its
+    // own transition semantics (start timeout, explicit stop, error banner).
+    expect(eegSessionReducer(starting, { type: 'device_stream_adopted' })).toBe(starting);
+    expect(eegSessionReducer(streaming, { type: 'device_stream_adopted' })).toBe(streaming);
+    expect(eegSessionReducer(error, { type: 'device_stream_adopted' })).toBe(error);
   });
 });
 

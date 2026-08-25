@@ -11,8 +11,10 @@ mod video_library;
 use auth::UserProfile;
 use db::AppDb;
 use eeg::{
-    EegRecordingSession, EegStatus, EegStreamConfig, EegStreamInfo, EegStreamState,
-    StartEegRecordingInput,
+    BeginEegTrialInput, EegRecordingSession, EegStatus, EegStreamConfig, EegStreamInfo,
+    EegStreamState, FinalizeEegTrialInput, MarkEegTrialInput, ParadigmQueueInput,
+    ParadigmSessionSummary, ParadigmSummaryInput, ParadigmTrialPlanItem, ParadigmVideoLibrary,
+    ParadigmVideoLibraryInput, StartEegRecordingInput, TrialRecord, TrialSnapshot,
 };
 use music_history::MusicHistoryItem;
 use python_client::{
@@ -190,6 +192,110 @@ async fn list_eeg_sessions(
     })
     .await
     .map_err(|_| "Failed to load EEG sessions.".to_string())?
+}
+
+#[tauri::command]
+async fn load_paradigm_video_library(
+    input: ParadigmVideoLibraryInput,
+) -> Result<ParadigmVideoLibrary, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        eeg::paradigm_video::load_paradigm_video_library(&input.root_path)
+    })
+    .await
+    .map_err(|_| "Failed to load paradigm video library.".to_string())?
+}
+
+#[tauri::command]
+async fn build_paradigm_queue(
+    input: ParadigmQueueInput,
+) -> Result<Vec<ParadigmTrialPlanItem>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        eeg::paradigm_video::build_paradigm_queue_from_root(
+            &input.root_path,
+            &input.session_run_id,
+            input.session_kind,
+        )
+    })
+    .await
+    .map_err(|_| "Failed to build paradigm queue.".to_string())?
+}
+
+#[tauri::command]
+async fn begin_eeg_trial(
+    state: State<'_, EegStreamState>,
+    input: BeginEegTrialInput,
+) -> Result<TrialSnapshot, String> {
+    let state = state.inner().clone();
+
+    tauri::async_runtime::spawn_blocking(move || eeg::paradigm_controller::begin_eeg_trial(&state, input))
+        .await
+        .map_err(|_| "Failed to begin EEG trial.".to_string())?
+}
+
+#[tauri::command]
+async fn mark_eeg_trial(
+    state: State<'_, EegStreamState>,
+    input: MarkEegTrialInput,
+) -> Result<TrialSnapshot, String> {
+    let state = state.inner().clone();
+
+    tauri::async_runtime::spawn_blocking(move || eeg::paradigm_controller::mark_eeg_trial(&state, input))
+        .await
+        .map_err(|_| "Failed to mark EEG trial.".to_string())?
+}
+
+#[tauri::command]
+async fn end_eeg_trial(state: State<'_, EegStreamState>) -> Result<TrialSnapshot, String> {
+    let state = state.inner().clone();
+
+    tauri::async_runtime::spawn_blocking(move || eeg::paradigm_controller::end_eeg_trial(&state))
+        .await
+        .map_err(|_| "Failed to end EEG trial.".to_string())?
+}
+
+#[tauri::command]
+async fn finalize_eeg_trial(
+    state: State<'_, EegStreamState>,
+    input: FinalizeEegTrialInput,
+) -> Result<TrialRecord, String> {
+    let state = state.inner().clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        eeg::paradigm_controller::finalize_eeg_trial(&state, input)
+    })
+    .await
+    .map_err(|_| "Failed to finalize EEG trial.".to_string())?
+}
+
+#[tauri::command]
+async fn get_active_paradigm_trial(
+    state: State<'_, EegStreamState>,
+) -> Result<Option<TrialSnapshot>, String> {
+    let state = state.inner().clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        eeg::paradigm_controller::get_active_paradigm_trial(&state)
+    })
+    .await
+    .map_err(|_| "Failed to load active paradigm trial.".to_string())?
+}
+
+#[tauri::command]
+async fn get_paradigm_session_summary(
+    db: State<'_, AppDb>,
+    input: ParadigmSummaryInput,
+) -> Result<ParadigmSessionSummary, String> {
+    let conn = db.conn.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        eeg::paradigm_db::get_paradigm_session_summary(&conn, &input.session_id)
+    })
+    .await
+    .map_err(|_| "Failed to load paradigm session summary.".to_string())?
 }
 
 #[derive(Debug, Deserialize)]
@@ -432,6 +538,14 @@ pub fn run() {
             start_eeg_recording,
             stop_eeg_recording,
             list_eeg_sessions,
+            load_paradigm_video_library,
+            build_paradigm_queue,
+            begin_eeg_trial,
+            mark_eeg_trial,
+            end_eeg_trial,
+            finalize_eeg_trial,
+            get_active_paradigm_trial,
+            get_paradigm_session_summary,
             generate_music,
             get_music_service_health,
             plan_agent_action,

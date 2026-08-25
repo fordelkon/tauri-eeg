@@ -30,6 +30,7 @@ describe('eegSessionStore', () => {
     expect(settings.timeWindowSeconds).toBe(DEFAULT_TIME_WINDOW_SECONDS);
     expect(settings.timeWindowSeconds).toBe(10);
     expect(settings.amplitudeUvPerDiv).toBe(DEFAULT_AMPLITUDE_UV_PER_DIV);
+    expect(settings.displayMode).toBe('sweep');
     expect([...settings.visibleChannelIds]).toEqual(DEFAULT_VISIBLE_EEG_CHANNEL_IDS);
     expect(settings.visibleChannelIds.has('ch04')).toBe(true);
     expect(settings.visibleChannelIds.has('ch05')).toBe(false);
@@ -40,12 +41,12 @@ describe('eegSessionStore', () => {
 
     expect(DEFAULT_SAMPLE_RATE_HZ).toBe(1000);
     expect(snapshot.latestSequence).toBeNull();
-    expect(snapshot.x).toEqual([]);
+    expect(snapshot.x).toEqual(new Float64Array(0));
     expect(snapshot.visibleChannels.map((channel) => channel.id)).toEqual(
       DEFAULT_VISIBLE_EEG_CHANNEL_IDS,
     );
-    expect(snapshot.seriesByChannel.ch01).toEqual([]);
-    expect(snapshot.seriesByChannel.ch04).toEqual([]);
+    expect(snapshot.seriesByChannel.ch01).toEqual(new Float32Array(0));
+    expect(snapshot.seriesByChannel.ch04).toEqual(new Float32Array(0));
     expect(snapshot.seriesByChannel.ch05).toBeUndefined();
     expect(snapshot.markers).toEqual([]);
     expect(snapshot.retainedSampleCount).toBe(0);

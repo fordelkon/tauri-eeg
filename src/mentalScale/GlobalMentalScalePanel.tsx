@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { ECharts } from 'echarts';
+import type { EChartsType } from 'echarts/core';
 import type { ReactNode } from 'react';
 import {
   getMentalScaleStatusSnapshot,
@@ -33,7 +33,7 @@ const getScaleTitleLabel = (title: string) => scaleTitleLabels[title] ?? title;
 
 export default function GlobalMentalScalePanel({ children }: Props) {
   const chartRef = useRef<HTMLDivElement | null>(null);
-  const chartInstanceRef = useRef<ECharts | null>(null);
+  const chartInstanceRef = useRef<EChartsType | null>(null);
   const [isChartReady, setIsChartReady] = useState(false);
   const status = useSyncExternalStore(
     subscribeMentalScaleStatus,
@@ -48,7 +48,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
 
     let cancelled = false;
 
-    void import('echarts').then((echarts) => {
+    void import('./radarChart').then(({ default: echarts }) => {
       if (cancelled || !chartRef.current) {
         return;
       }

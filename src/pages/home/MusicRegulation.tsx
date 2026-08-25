@@ -30,6 +30,7 @@ import {
   setCurrentMusicRegulationTags,
   type CompactTagOption,
 } from '../../music/musicRegulationTags';
+import { describeFriendlyError } from '../../ui/friendlyError';
 import styles from './MusicRegulation.module.css';
 
 const bundledMusicFiles = [] as const;
@@ -351,44 +352,25 @@ function TagEditorSheet({
   );
 }
 
-// Owns the simulated generation progress timer so its 500ms ticks re-render
-// only this subtree instead of the whole page during a 40s+ generation.
+// Owns the generation wait timer so its 500ms ticks re-render only this
+// subtree instead of the whole page during a long generation. The backend has
+// no progress events (the /generate call resolves once, at completion), so this
+// is an honest elapsed-time counter rather than a simulated percentage. There
+// is also no cancel endpoint, so cancelling only gives up the wait — the job
+// keeps running server-side and still lands in history via MUSIC_GENERATED_EVENT.
 const GenerationProgressPanel = memo(function GenerationProgressPanel({
   deviceLabel,
+  onCancel,
 }: {
   deviceLabel: string;
+  onCancel: () => void;
 }) {
-  const [progress, setProgress] = useState(6);
-  const [stage, setStage] = useState('启动服务');
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
     const startedAt = Date.now();
-    let lastStage = '';
-    let lastProgress = -1;
     const intervalId = window.setInterval(() => {
-      const elapsedSeconds = (Date.now() - startedAt) / 1000;
-      let nextStage: string;
-      let nextProgress: number;
-
-      if (elapsedSeconds < 8) {
-        nextStage = '启动服务';
-        nextProgress = Math.min(28, 8 + elapsedSeconds * 2.5);
-      } else if (elapsedSeconds < 40) {
-        nextStage = '加载模型';
-        nextProgress = Math.min(64, 28 + (elapsedSeconds - 8) * 1.1);
-      } else {
-        nextStage = '生成 WAV';
-        nextProgress = Math.min(94, 64 + (elapsedSeconds - 40) * 0.6);
-      }
-
-      if (nextStage !== lastStage) {
-        lastStage = nextStage;
-        setStage(nextStage);
-      }
-      if (nextProgress !== lastProgress) {
-        lastProgress = nextProgress;
-        setProgress(nextProgress);
-      }
+      setElapsedSeconds((Date.now() - startedAt) / 1000);
     }, 500);
 
     return () => window.clearInterval(intervalId);
@@ -397,12 +379,15 @@ const GenerationProgressPanel = memo(function GenerationProgressPanel({
   return (
     <div className={`${styles.generationProgress} grid`} aria-live="polite">
       <div className={`${styles.generationProgressHeader} flex items-center justify-between`}>
-        <span>{stage} - {deviceLabel}</span>
-        <strong>{Math.round(progress)}%</strong>
+        <span>正在生成 WAV - {deviceLabel}</span>
+        <strong>已等待 {formatTime(elapsedSeconds)}</strong>
       </div>
-      <div className={styles.generationProgressTrack}>
-        <span style={{ width: `${progress}%` }} />
-      </div>
+      <p className={styles.generationHint}>
+        可以离开本页，任务会在后台继续生成，完成后曲目自动出现在「生成记录」中。
+      </p>
+      <button className={styles.cancelGenerationButton} type="button" onClick={onCancel}>
+        取消等待
+      </button>
     </div>
   );
 });
@@ -478,6 +463,11 @@ const PlaybackTimeline = memo(function PlaybackTimeline({
 export default function MusicRegulation() {
   const { currentUser } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Marks the awaited generateMusic call as abandoned so a late resolution or
+  // rejection after 「取消等待」 cannot clobber post-cancel state (or autoplay
+  // over whatever the user did next). One token per run also keeps a cancelled
+  // wait from interfering with a follow-up generation.
+  const generationWaitRef = useRef<{ abandoned: boolean } | null>(null);
   const bundledAssets = useMemo(() => createBundledMusicAssets(bundledMusicFiles), []);
   const [generatedItems, setGeneratedItems] = useState<Awaited<ReturnType<typeof listMusicHistory>>>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -495,6 +485,7 @@ export default function MusicRegulation() {
   const [detailTemplates, setDetailTemplates] = useState<string[]>([]);
   const [details, setDetails] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [generationNotice, setGenerationNotice] = useState<string | null>(null);
   const generatedAssets = useMemo(
     () => generatedItems.map((item) => createGeneratedMusicAsset(item, toPlayableFileUrl)),
     [generatedItems],
@@ -554,7 +545,7 @@ export default function MusicRegulation() {
       })
       .catch((reason: unknown) => {
         if (isMounted) {
-          setError(reason instanceof Error ? reason.message : String(reason));
+          setError(describeFriendlyError(reason, '加载生成记录'));
         }
       });
 
@@ -752,14 +743,32 @@ export default function MusicRegulation() {
         }
         : null;
 
+  // The service has no cancel endpoint, so this only gives up waiting: the
+  // invoke keeps running and its track still arrives in history via
+  // MUSIC_GENERATED_EVENT once the background job finishes.
+  const handleCancelGeneration = () => {
+    const waitState = generationWaitRef.current;
+
+    if (waitState) {
+      waitState.abandoned = true;
+    }
+
+    setIsGenerating(false);
+    setGenerationNotice('已取消等待，后台可能仍在生成；完成后曲目会出现在「生成记录」中。');
+  };
+
   const handleGenerate = async () => {
     if (!currentUser || isGenerating) {
       return;
     }
 
     setError(null);
+    setGenerationNotice(null);
     setIsGenerating(true);
     setGenerationDevice(null);
+    const waitState = { abandoned: false };
+    generationWaitRef.current = waitState;
+    const generationStartedAt = Date.now();
 
     try {
       void getMusicServiceHealth()
@@ -777,15 +786,31 @@ export default function MusicRegulation() {
         username: currentUser.username,
       });
 
+      if (waitState.abandoned) {
+        // The MUSIC_GENERATED_EVENT listener already filed the finished track
+        // into history; skip the notice and autoplay of an abandoned wait.
+        return;
+      }
+
       setGeneratedItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)].slice(0, MAX_GENERATED_ITEMS));
       setActiveIndex(0);
+      setGenerationNotice(`生成完成,耗时 ${formatTime((Date.now() - generationStartedAt) / 1000)}。`);
       window.setTimeout(() => {
         void playActiveAudio();
       }, 0);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      if (waitState.abandoned) {
+        console.error('[ui] 已取消等待的后台音乐生成失败:', reason);
+      } else {
+        setError(describeFriendlyError(reason, '生成 WAV'));
+      }
     } finally {
-      setIsGenerating(false);
+      // Only the currently awaited run may touch shared wait state; a late
+      // finishing run after cancel + regenerate must leave the new one alone.
+      if (generationWaitRef.current === waitState) {
+        generationWaitRef.current = null;
+        setIsGenerating(false);
+      }
     }
   };
 
@@ -819,7 +844,7 @@ export default function MusicRegulation() {
         return currentIndex;
       });
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(describeFriendlyError(reason, '删除曲目'));
     } finally {
       setDeletingItemId(null);
     }
@@ -842,6 +867,7 @@ export default function MusicRegulation() {
       </header>
 
       {error ? <div className={styles.errorBanner}>{error}</div> : null}
+      {!error && generationNotice ? <div className={styles.successBanner} role="status">{generationNotice}</div> : null}
 
       <div className={`${styles.contentGrid} grid`}>
         <form
@@ -911,7 +937,7 @@ export default function MusicRegulation() {
           </div>
 
           {isGenerating ? (
-            <GenerationProgressPanel deviceLabel={generationDeviceLabel} />
+            <GenerationProgressPanel deviceLabel={generationDeviceLabel} onCancel={handleCancelGeneration} />
           ) : null}
 
           <div className={`${styles.promptActions} grid items-end`}>

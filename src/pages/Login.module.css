@@ -260,6 +260,15 @@
   visibility: visible;
 }
 
+/* Persistent reset-success notice: mounted only while a message is set
+   (cleared once the user starts typing), so it needs no visibility toggle. */
+.successMsg {
+  color: #2e7d32;
+  font-size: 13px;
+  line-height: 1.35;
+  margin: -4px 0 0;
+}
+
 .submitButton {
   background: linear-gradient(180deg, #ff9b8d 0%, #f36d5a 100%);
   border-radius: 8px;

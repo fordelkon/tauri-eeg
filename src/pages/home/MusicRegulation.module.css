@@ -555,19 +555,40 @@
   font-weight: 760;
 }
 
-.generationProgressTrack {
-  background: rgba(23, 32, 38, 0.1);
-  border-radius: 999px;
-  height: 7px;
-  overflow: hidden;
+.generationHint {
+  color: rgba(23, 32, 38, 0.62);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
 }
 
-.generationProgressTrack span {
-  background: linear-gradient(90deg, #227d54, #65c18c);
-  border-radius: inherit;
-  display: block;
-  height: 100%;
-  transition: width 420ms ease;
+.cancelGenerationButton {
+  background: transparent;
+  border: 1px solid rgba(23, 32, 38, 0.22);
+  border-radius: 8px;
+  color: rgba(23, 32, 38, 0.72);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 740;
+  justify-self: start;
+  min-height: 28px;
+  padding: 0 12px;
+}
+
+.cancelGenerationButton:hover {
+  border-color: rgba(23, 32, 38, 0.42);
+  color: #172026;
+}
+
+.successBanner {
+  background: rgba(34, 125, 84, 0.1);
+  border: 1px solid rgba(34, 125, 84, 0.22);
+  border-radius: 8px;
+  color: #1c6a47;
+  font-size: 13px;
+  font-weight: 680;
+  padding: 10px 12px;
 }
 
 .lowerGrid {
@@ -1116,7 +1137,6 @@
     animation: none;
   }
 
-  .generationProgressTrack span,
   .tagChevron,
   .queueSelectButton {
     transition: none;

@@ -31,10 +31,10 @@ describe('eegWaveHexLogoAnimation', () => {
     expect(wavePath?.some((point) => Math.abs(point[1]) > 42)).toBe(false);
   });
 
-  it('loads the lottie light player to avoid the full player eval warning', () => {
+  it('lazily loads the lottie light player to avoid the full player eval warning', () => {
     const source = readFileSync(new URL('./LottieEegLogo.tsx', import.meta.url), 'utf8');
 
-    expect(source).toContain("from 'lottie-web/build/player/lottie_light'");
+    expect(source).toContain("import('lottie-web/build/player/lottie_light')");
     expect(source).not.toContain("from 'lottie-web';");
   });
 });

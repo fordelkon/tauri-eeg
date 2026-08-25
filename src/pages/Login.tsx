@@ -1,5 +1,4 @@
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
-import MailRoundedIcon from '@mui/icons-material/MailRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
@@ -14,7 +13,7 @@ import {
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { createMatterBackground } from '../components/matterBackground';
+import type { MatterBackground } from '../components/matterBackground';
 import styles from './Login.module.css';
 
 const translateAuthError = (error: unknown) => {
@@ -47,7 +46,6 @@ export default function Login() {
     y: 0.5,
   });
   const [account, setAccount] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [resetCode, setResetCode] = useState('');
@@ -56,6 +54,9 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [errorMessage, setErrorMessage] = useState('');
+  // Reset success is a persistent notice (green), not an error: it stays until
+  // the user starts typing again instead of vanishing on a timer.
+  const [successMessage, setSuccessMessage] = useState('');
   const [isExiting, setIsExiting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [exitStyle, setExitStyle] = useState<CSSProperties>({});
@@ -77,14 +78,48 @@ export default function Login() {
       return undefined;
     }
 
-    const background = createMatterBackground({
-      getTitle: () => 'EEG Ecosystem',
-      host,
-      pointerRef: pointerTargetRef,
-      titleFontSize: (width) => (width > 420 ? 31 : Math.max(20, Math.min(25, width * 0.072))),
-    });
+    let cancelled = false;
+    let background: MatterBackground | undefined;
 
-    return () => background.destroy();
+    // Defer the physics scene until the browser is idle: the matter-js vendor
+    // chunk (~84KB) must not block the login screen's first interaction.
+    const startBackground = () => {
+      void import('../components/matterBackground').then(({ createMatterBackground }) => {
+        if (cancelled || !matterHostRef.current) {
+          return;
+        }
+
+        background = createMatterBackground({
+          getTitle: () => 'EEG Ecosystem',
+          host,
+          pointerRef: pointerTargetRef,
+          titleFontSize: (width) => (width > 420 ? 31 : Math.max(20, Math.min(25, width * 0.072))),
+        });
+      });
+    };
+
+    // Optional in older engines, so detect through an intersection view of
+    // window instead of relying on the DOM lib's non-optional declarations.
+    const idleApi = window as Window & {
+      cancelIdleCallback?: (handle: number) => void;
+      requestIdleCallback?: (callback: () => void) => number;
+    };
+
+    const idleId = idleApi.requestIdleCallback
+      ? idleApi.requestIdleCallback(startBackground)
+      : window.setTimeout(startBackground, 200);
+
+    return () => {
+      cancelled = true;
+
+      if (idleApi.cancelIdleCallback) {
+        idleApi.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+
+      background?.destroy();
+    };
   }, []);
 
   useEffect(() => {
@@ -106,6 +141,7 @@ export default function Login() {
       return;
     }
 
+    setSuccessMessage('');
     const username = account.trim();
 
     if (!username || !password || (isSignup || isReset) && password !== confirmPassword) {
@@ -141,8 +177,9 @@ export default function Login() {
         setConfirmPassword('');
         setResetCode('');
         setShowPassword(false);
-        setErrorMessage('密码已重置，请使用新密码登录。');
-        setHasError(true);
+        setErrorMessage('');
+        setHasError(false);
+        setSuccessMessage('密码已重置，请使用新密码登录。');
         return;
       }
 
@@ -184,6 +221,7 @@ export default function Login() {
     setHasError(false);
     setIsShaking(false);
     setShowPassword(false);
+    setSuccessMessage('');
   };
 
   const handleLeftPanelPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -238,7 +276,10 @@ export default function Login() {
               <TextField
                 className={`${styles.textField} ${isShaking ? styles.isShaking : ''}`}
                 value={account}
-                onChange={(event) => setAccount(event.target.value)}
+                onChange={(event) => {
+                  setAccount(event.target.value);
+                  setSuccessMessage('');
+                }}
                 label="账号"
                 placeholder="请输入账号"
                 autoComplete="username"
@@ -256,34 +297,14 @@ export default function Login() {
                 }}
               />
 
-              {isSignup ? (
-                <TextField
-                  className={styles.textField}
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  label="邮箱"
-                  placeholder="请输入邮箱"
-                  autoComplete="email"
-                  fullWidth
-                  type="email"
-                  variant="outlined"
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <MailRoundedIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              ) : null}
-
               {isReset ? (
                 <TextField
                   className={styles.textField}
                   value={resetCode}
-                  onChange={(event) => setResetCode(event.target.value)}
+                  onChange={(event) => {
+                    setResetCode(event.target.value);
+                    setSuccessMessage('');
+                  }}
                   label="重置码"
                   placeholder="请输入管理员重置码"
                   autoComplete="off"
@@ -305,7 +326,10 @@ export default function Login() {
               <TextField
                 className={`${styles.textField} ${isShaking ? styles.isShaking : ''}`}
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setSuccessMessage('');
+                }}
                 label={isReset ? '新密码' : '密码'}
                 placeholder={isReset ? '请输入新密码' : '请输入密码'}
                 autoComplete={isSignup || isReset ? 'new-password' : 'current-password'}
@@ -364,6 +388,11 @@ export default function Login() {
               ) : null}
 
               <p className={`${styles.errorMsg} pl-2px`}>{errorMessage}</p>
+              {successMessage ? (
+                <p className={`${styles.successMsg} pl-2px`} role="status">
+                  {successMessage}
+                </p>
+              ) : null}
             </Box>
 
             <Button

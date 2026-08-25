@@ -5,6 +5,11 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { type CSSProperties, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { chooseVideoLibraryFolder } from '../../video/videoDirectoryPicker';
 import type { VideoLibrary } from '../../video/videoLibraryApi';
+import { loadVideoLibrary } from '../../video/videoLibraryApi';
+import {
+  readStoredLibraryRootPath,
+  writeStoredLibraryRootPath,
+} from '../../video/videoLibraryStorage';
 import {
   getDefaultVideoSelections,
   getAllVideoRegulationAssets,
@@ -21,6 +26,7 @@ import {
   videoSelectionSteps,
 } from '../../video/videoRegulationCatalog';
 import type { CompactTagOption } from '../../music/musicRegulationTags';
+import { describeFriendlyError } from '../../ui/friendlyError';
 import playerStyles from './VideoRegulationPlayer.module.css';
 import styles from './VideoRegulation.module.css';
 
@@ -246,6 +252,40 @@ export default function VideoRegulation() {
   const isPlaying = activeVideo !== null;
   const libraryRoot = videoLibrary?.root ?? videoLibraryPath;
 
+  // Restore the last loaded library root on mount (same best-effort memory as
+  // the paradigm setup panel). A directory that has gone missing or no longer
+  // yields assets silently degrades to the default library.
+  useEffect(() => {
+    const storedRootPath = readStoredLibraryRootPath();
+    if (!storedRootPath) {
+      return undefined;
+    }
+
+    let disposed = false;
+
+    loadVideoLibrary(storedRootPath)
+      .then((restored) => {
+        if (disposed) {
+          return;
+        }
+
+        if (restored.assets.length > 0) {
+          // Keep whichever library is already present (e.g. one the operator
+          // just picked while the restore was in flight).
+          setVideoLibrary((current) => current ?? restored);
+        } else {
+          writeStoredLibraryRootPath('');
+        }
+      })
+      .catch(() => {
+        // Directory unavailable (unplugged drive etc.); stay on the default.
+      });
+
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
   // Pause the playing video whenever it is closed, switched to another asset, or
   // the page unmounts; a removed <video> element would otherwise keep decoding.
   useEffect(() => {
@@ -315,11 +355,14 @@ export default function VideoRegulation() {
       const selectedLibrary = await chooseVideoLibraryFolder();
       if (selectedLibrary) {
         setVideoLibrary(selectedLibrary);
+        // Only loaded roots are remembered so the next launch restores a
+        // usable library.
+        writeStoredLibraryRootPath(selectedLibrary.root);
         setSelections(getDefaultVideoSelections());
         setActiveVideo(null);
       }
     } catch (error) {
-      setLibraryError(error instanceof Error ? error.message : String(error));
+      setLibraryError(describeFriendlyError(error, '加载视频库'));
     } finally {
       setLoadingLibrary(false);
     }

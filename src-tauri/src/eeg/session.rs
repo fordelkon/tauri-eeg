@@ -1,10 +1,15 @@
 use serde::{Deserialize, Serialize};
 
+use super::paradigm::ParadigmInfo;
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartEegRecordingInput {
     pub user_id: String,
     pub username: String,
+    /// Present when the recording follows the emotion induction paradigm.
+    #[serde(default)]
+    pub paradigm: Option<ParadigmInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

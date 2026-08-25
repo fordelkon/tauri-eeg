@@ -41,4 +41,16 @@ describe('MusicRegulation generated item refresh contract', () => {
     expect(source).toContain('setDetails(customDetails.join');
     expect(source).toContain('setGenerationDuration(detail.duration)');
   });
+
+  test('cancelling the wait abandons the run without clobbering late results', () => {
+    const source = readText(new URL('./MusicRegulation.tsx', import.meta.url));
+
+    expect(source).toContain('onCancel={handleCancelGeneration}');
+    expect(source).toContain('waitState.abandoned = true;');
+    expect(source).toContain("'已取消等待，后台可能仍在生成；完成后曲目会出现在「生成记录」中。'");
+    expect(source).toContain('if (waitState.abandoned) {');
+    // A late finishing run after cancel + regenerate must not touch the new
+    // run's wait state or the shared isGenerating flag.
+    expect(source).toContain('if (generationWaitRef.current === waitState) {');
+  });
 });

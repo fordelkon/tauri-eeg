@@ -9,17 +9,26 @@ import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded';
 import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded';
 import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   IconButton,
   List,
   ListItemButton,
   ListItemIcon,
 } from '@mui/material';
-import { type CSSProperties, type ElementType, type MouseEvent, useCallback, useEffect, useState } from 'react';
+import { type CSSProperties, type ElementType, type MouseEvent, Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import ExperimentAgentPanel from '../agent/ExperimentAgentPanel';
 import { useAuth } from '../auth/AuthContext';
-import MatterScene from '../components/MatterScene';
-import HomeIntroLogo from '../homeIntro/HomeIntroLogo';
+import { useEegSession } from '../eeg/EegSessionContext';
+// Lazy: MatterScene pulls in the matter-js vendor chunk and HomeIntroLogo the
+// lottie player; neither is needed until the menu opens or the intro plays.
+const MatterScene = lazy(() => import('../components/MatterScene'));
+const HomeIntroLogo = lazy(() => import('../homeIntro/HomeIntroLogo'));
 import { homeIntroPlayback } from '../homeIntro/homeIntroPlayback';
 import GlobalMentalScalePanel from '../mentalScale/GlobalMentalScalePanel';
 import {
@@ -31,8 +40,13 @@ import {
   type MentalScaleAnswerValue,
 } from '../mentalScale/mentalScaleGate';
 import { buildMentalScaleStatus, updateMentalScaleStatus } from '../mentalScale/mentalScaleStatus';
+import {
+  getParadigmSessionStatus,
+  useParadigmSessionStatus,
+} from '../eeg/paradigm/paradigmSessionStatus';
 import { chooseStorageRoot } from '../storage/storageDirectoryPicker';
 import { getStorageLocation, setStorageRoot, type StorageLocation } from '../storage/storageApi';
+import { describeFriendlyError } from '../ui/friendlyError';
 import styles from './Home.module.css';
 
 type NavigationItem = {
@@ -86,7 +100,7 @@ function StorageSettingsPanel({ onClose, username }: StorageSettingsPanelProps) 
       })
       .catch((reason: unknown) => {
         if (isMounted) {
-          setStorageError(reason instanceof Error ? reason.message : String(reason));
+          setStorageError(describeFriendlyError(reason, '读取存储路径'));
         }
       });
 
@@ -114,7 +128,7 @@ function StorageSettingsPanel({ onClose, username }: StorageSettingsPanelProps) 
       setStorageInput(location.root);
       onClose();
     } catch (reason) {
-      setStorageError(reason instanceof Error ? reason.message : String(reason));
+      setStorageError(describeFriendlyError(reason, '保存存储路径'));
     }
   };
 
@@ -126,7 +140,7 @@ function StorageSettingsPanel({ onClose, username }: StorageSettingsPanelProps) 
       setStorageLocation(location);
       setStorageInput(location.root);
     } catch (reason) {
-      setStorageError(reason instanceof Error ? reason.message : String(reason));
+      setStorageError(describeFriendlyError(reason, '恢复默认存储路径'));
     }
   };
 
@@ -140,7 +154,7 @@ function StorageSettingsPanel({ onClose, username }: StorageSettingsPanelProps) 
         setStorageInput(location.root);
       }
     } catch (reason) {
-      setStorageError(reason instanceof Error ? reason.message : String(reason));
+      setStorageError(describeFriendlyError(reason, '选择存储目录'));
     }
   };
 
@@ -198,6 +212,10 @@ type MentalScaleDialogProps = {
 
 function MentalScaleDialog({ onComplete, onClose, scale }: MentalScaleDialogProps) {
   const [scaleAnswers, setScaleAnswers] = useState<MentalScaleAnswers>({});
+  // Closing with answers already filled in asks for confirmation first; the
+  // answers live here, so the guard belongs next to them.
+  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
+  const hasAnyAnswer = Object.keys(scaleAnswers).length > 0;
   const isScaleReady = isMentalScaleComplete(scale, scaleAnswers);
 
   const handleAnswer = (questionId: string, value: MentalScaleAnswerValue) => {
@@ -205,6 +223,15 @@ function MentalScaleDialog({ onComplete, onClose, scale }: MentalScaleDialogProp
       ...answers,
       [questionId]: value,
     }));
+  };
+
+  const handleCloseRequest = () => {
+    if (hasAnyAnswer) {
+      setIsDiscardConfirmOpen(true);
+      return;
+    }
+
+    onClose();
   };
 
   const handleComplete = () => {
@@ -236,7 +263,7 @@ function MentalScaleDialog({ onComplete, onClose, scale }: MentalScaleDialogProp
             className={styles.scaleCloseButton}
             aria-label="关闭心理量表"
             size="small"
-            onClick={onClose}
+            onClick={handleCloseRequest}
           >
             <CloseRoundedIcon fontSize="small" />
           </IconButton>
@@ -285,6 +312,22 @@ function MentalScaleDialog({ onComplete, onClose, scale }: MentalScaleDialogProp
           </button>
         </div>
       </section>
+
+      {/* Portals to <body>, so nesting inside the overlay costs nothing. */}
+      <Dialog
+        open={isDiscardConfirmOpen}
+        onClose={() => setIsDiscardConfirmOpen(false)}
+        aria-labelledby="mental-scale-discard-title"
+      >
+        <DialogTitle id="mental-scale-discard-title">放弃本次作答?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>关闭后已填写的答案不会被保存。</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsDiscardConfirmOpen(false)}>继续作答</Button>
+          <Button color="error" onClick={onClose}>放弃并关闭</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }
@@ -293,6 +336,14 @@ export default function Home() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, signOut } = useAuth();
+  const eegSession = useEegSession();
+  const paradigmStatus = useParadigmSessionStatus();
+  // A free recording (or a paused one) also owns the EEG data path, so the
+  // same mis-tap guards as a paradigm session apply — with softer confirmations
+  // because the backend keeps recording independently of the page.
+  const freeRecordActive = (
+    eegSession.recordStatus === 'recording' || eegSession.recordStatus === 'paused'
+  );
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [pendingScale, setPendingScale] = useState<MentalScaleDefinition | null>(null);
@@ -319,6 +370,20 @@ export default function Home() {
       return;
     }
 
+    // A live paradigm session owns the EEG recording; leaving the page would
+    // break the trial timeline. Read the module store directly: the check is
+    // click-time only and does not need a subscription.
+    if (getParadigmSessionStatus().active) {
+      window.alert('范式 Session 进行中,请先结束 Session');
+      return;
+    }
+
+    // A free recording survives page changes (it lives in the backend), but
+    // leaving mid-recording is rarely intentional — ask first.
+    if (freeRecordActive && !window.confirm('正在记录 EEG 数据,确定要离开本页吗?记录将继续进行。')) {
+      return;
+    }
+
     const scale = getMentalScaleForPath(path);
 
     if (scale) {
@@ -328,7 +393,7 @@ export default function Home() {
     }
 
     navigate(path);
-  }, [location.pathname, navigate]);
+  }, [freeRecordActive, location.pathname, navigate]);
 
   const handleNavClick = (item: NavigationItem) => {
     requestNavigation(item.path);
@@ -348,14 +413,28 @@ export default function Home() {
     const actionId = actionElement?.dataset.agentAction;
     const payload = actionElement?.dataset.agentPayload;
 
+    // These page buttons already run their own behavior; the agent only gets
+    // a timeline record for later planning context. Submitting the synthetic
+    // id as a prompt used to burn a planner round on a string the local
+    // classifier cannot match and risk a second playback/generation.
     if (actionId === 'play_video' || actionId === 'generate_music') {
-      window.dispatchEvent(new CustomEvent('agent:submit-prompt', {
-        detail: { prompt: payload ? `${actionId}:${payload}` : actionId },
+      window.dispatchEvent(new CustomEvent('agent:record-action', {
+        detail: { actionId, payload },
       }));
     }
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    // Stop and save the running recording before tearing down the session;
+    // the paradigm case is hard-blocked by the disabled button instead.
+    if (freeRecordActive) {
+      if (!window.confirm('正在记录 EEG 数据,退出登录前将停止并保存本次记录。确定继续吗?')) {
+        return;
+      }
+
+      await eegSession.stopRecord();
+    }
+
     signOut();
     navigate('/login', { replace: true });
   };
@@ -460,6 +539,7 @@ export default function Home() {
               aria-label="存储路径设置"
               aria-expanded={isStorageOpen}
               size="small"
+              disabled={paradigmStatus.active || freeRecordActive}
               onClick={() => setIsStorageOpen((isOpen) => !isOpen)}
             >
               <FolderRoundedIcon fontSize="small" />
@@ -468,6 +548,7 @@ export default function Home() {
               className={styles.signOutButton}
               aria-label="退出登录"
               size="small"
+              disabled={paradigmStatus.active}
               onClick={handleSignOut}
             >
               <LogoutRoundedIcon fontSize="small" />
@@ -483,13 +564,17 @@ export default function Home() {
         </aside>
 
         <section className={styles.menuVisual} aria-hidden="true">
-          <MatterScene
-            className="absolute inset-0"
-            initialBallCount={10}
-            maxBallCount={18}
-            scale={1}
-            title={activeItem.label}
-          />
+          {isSidebarOpen ? (
+            <Suspense fallback={null}>
+              <MatterScene
+                className="absolute inset-0"
+                initialBallCount={10}
+                maxBallCount={18}
+                scale={1}
+                title={activeItem.label}
+              />
+            </Suspense>
+          ) : null}
         </section>
       </div>
 
@@ -524,7 +609,11 @@ export default function Home() {
         />
       ) : null}
 
-      {showHomeIntro ? <HomeIntroLogo onComplete={() => setShowHomeIntro(false)} /> : null}
+      {showHomeIntro ? (
+        <Suspense fallback={null}>
+          <HomeIntroLogo onComplete={() => setShowHomeIntro(false)} />
+        </Suspense>
+      ) : null}
     </main>
   );
 }

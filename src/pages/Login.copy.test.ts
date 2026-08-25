@@ -11,7 +11,10 @@ describe('Login copy', () => {
     expect(source).toContain('创建账号');
     expect(source).toContain('重置密码');
     expect(source).toContain('请输入账号');
-    expect(source).toContain('请输入邮箱');
+    expect(source).toContain('密码已重置');
+    // The register form collects no email: the backend users table has no
+    // email column, so the field must stay removed.
+    expect(source).not.toContain('请输入邮箱');
     expect(source).toContain('还没有账号？立即注册');
     expect(source).toContain('忘记密码？');
     expect(source).not.toContain('Sign in to continue.');

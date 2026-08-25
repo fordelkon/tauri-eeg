@@ -1,0 +1,821 @@
+/* Styles for the EEG emotion induction paradigm acquisition UI. Follows the
+   light workspace palette of EegAcquisition.module.css. */
+
+.panel {
+  color: #172026;
+  display: grid;
+  gap: 12px;
+}
+
+.panelSection {
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.sectionTitle {
+  color: #172026;
+  font-size: 13px;
+  font-weight: 760;
+  margin: 0;
+}
+
+.sectionHint {
+  color: rgba(23, 32, 38, 0.62);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Compact E-Prime style pill radios for the experiment type. */
+
+.pillRadioRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pillRadioLabel {
+  color: #172026;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.pillRadio {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(23, 32, 38, 0.18);
+  border-radius: 999px;
+  color: #172026;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 28px;
+  padding: 0 12px;
+}
+
+.pillRadio:hover {
+  border-color: #22613c;
+}
+
+.selectedPillRadio {
+  background: rgba(34, 139, 94, 0.12);
+  border-color: #22613c;
+  box-shadow: inset 0 0 0 1px #22613c;
+  color: #17633f;
+}
+
+/* Divider label inside the single startup card (── 视频素材 ── / ── 就绪 ──). */
+
+.subSectionRow {
+  align-items: center;
+  color: rgba(23, 32, 38, 0.55);
+  display: flex;
+  font-size: 12px;
+  font-weight: 740;
+  gap: 10px;
+  letter-spacing: 0.05em;
+}
+
+.subSectionRow::before,
+.subSectionRow::after {
+  background: rgba(23, 32, 38, 0.12);
+  content: '';
+  flex: 1;
+  height: 1px;
+}
+
+.fieldGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.fieldLabel {
+  color: #172026;
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.textInput {
+  background: #fff;
+  border: 1px solid rgba(23, 32, 38, 0.18);
+  border-radius: 6px;
+  color: #172026;
+  font-size: 13px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.textInput:focus {
+  border-color: #22613c;
+  outline: none;
+}
+
+.fieldError {
+  color: #8d1e1e;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* Bottom readiness row: mini device lights + start controls in one line. */
+
+.readinessRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.deviceLight {
+  align-items: center;
+  border-radius: 8px;
+  border: 1px solid rgba(84, 96, 104, 0.24);
+  background: rgba(84, 96, 104, 0.12);
+  color: #46525a;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.deviceLightDot {
+  background: #8a949b;
+  border-radius: 999px;
+  height: 10px;
+  width: 10px;
+}
+
+.connectedLight {
+  background: rgba(34, 139, 94, 0.12);
+  border-color: rgba(34, 139, 94, 0.24);
+  color: #17633f;
+}
+
+.connectedLightDot {
+  background: #22613c;
+  box-shadow: 0 0 8px rgba(34, 139, 94, 0.65);
+}
+
+/* Compact overrides for the readiness row (must follow the base classes). */
+
+.miniLight {
+  font-size: 12px;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 8px;
+}
+
+.miniLightDot {
+  height: 8px;
+  width: 8px;
+}
+
+.librarySummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.classChip {
+  background: rgba(45, 113, 184, 0.1);
+  border: 1px solid rgba(45, 113, 184, 0.22);
+  border-radius: 6px;
+  color: #245f9d;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 8px;
+}
+
+.classChip.isShort {
+  background: rgba(194, 121, 20, 0.12);
+  border-color: rgba(194, 121, 20, 0.26);
+  color: #8a560e;
+}
+
+/* Class not collected by the selected session kind. */
+.classChip.isUnused {
+  opacity: 0.45;
+}
+
+.problemList {
+  color: #8a560e;
+  display: grid;
+  font-size: 12px;
+  font-weight: 650;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.actionRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.primaryButton {
+  background: #22613c;
+  border: none;
+  border-radius: 8px;
+  color: #f8fbfc;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 720;
+  min-height: 38px;
+  padding: 0 16px;
+}
+
+.primaryButton:disabled {
+  background: rgba(84, 96, 104, 0.35);
+  cursor: not-allowed;
+}
+
+.secondaryButton {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(23, 32, 38, 0.2);
+  border-radius: 8px;
+  color: #172026;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.secondaryButton:disabled {
+  color: rgba(23, 32, 38, 0.4);
+  cursor: not-allowed;
+}
+
+/* Compact secondary button for the readiness row (must follow .secondaryButton). */
+
+.miniButton {
+  font-size: 12px;
+  min-height: 28px;
+  padding: 0 10px;
+}
+
+.dangerButton {
+  background: rgba(184, 45, 45, 0.08);
+  border: 1px solid rgba(184, 45, 45, 0.3);
+  border-radius: 8px;
+  color: #8d1e1e;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 720;
+  min-height: 38px;
+  padding: 0 14px;
+}
+
+.errorBanner {
+  background: rgba(184, 45, 45, 0.08);
+  border: 1px solid rgba(184, 45, 45, 0.18);
+  border-radius: 8px;
+  color: #8d1e1e;
+  display: grid;
+  font-size: 13px;
+  font-weight: 650;
+  gap: 8px;
+  padding: 10px 12px;
+  /* This z-index CANNOT lift the banner above the fullscreen trial stage:
+     those portals mount at document.body while the banner lives inside
+     .content, whose entrance transform creates a stacking context — every
+     z-index in here competes only within it and paints below the body-level
+     stage (z-index 30). Command failures during a stage are therefore
+     mirrored into the stage itself (StageNoticeBar with retry actions); this
+     banner only serves the windowed phases. */
+  position: relative;
+  z-index: 35;
+}
+
+.warningBanner {
+  background: rgba(194, 121, 20, 0.1);
+  border: 1px solid rgba(194, 121, 20, 0.26);
+  border-radius: 8px;
+  color: #8a560e;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+/* Trial stage: fullscreen black presentation, subject-facing (E-Prime style). */
+
+.stageHost {
+  background: #000;
+  color: #f5f0eb;
+  display: grid;
+  inset: 0;
+  overflow: hidden;
+  place-items: center;
+  position: fixed;
+  z-index: 30;
+}
+
+.stageTrialLabel {
+  color: rgba(245, 240, 235, 0.55);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  left: 20px;
+  position: absolute;
+  top: 16px;
+  z-index: 2;
+}
+
+.stageEndButton {
+  background: transparent;
+  border: 1px solid rgba(245, 240, 235, 0.28);
+  border-radius: 6px;
+  color: rgba(245, 240, 235, 0.72);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  min-height: 28px;
+  padding: 0 10px;
+  position: absolute;
+  right: 20px;
+  top: 14px;
+  z-index: 2;
+}
+
+.stageEndButton:hover {
+  border-color: rgba(245, 240, 235, 0.55);
+  color: #f5f0eb;
+}
+
+.stageMessage {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  padding: 24px;
+  text-align: center;
+  z-index: 2;
+}
+
+.stageTitle {
+  font-size: 20px;
+  font-weight: 720;
+  letter-spacing: 0.02em;
+}
+
+.stageHintText {
+  color: rgba(245, 240, 235, 0.72);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.stageActionButton {
+  background: rgba(34, 139, 94, 0.92);
+  border: none;
+  border-radius: 8px;
+  color: #f5f0eb;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 38px;
+  padding: 0 18px;
+}
+
+.stageActionButton:hover {
+  background: rgba(34, 139, 94, 1);
+}
+
+.stageCountdown {
+  font-size: 44px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+}
+
+.fixationCross {
+  height: 72px;
+  position: relative;
+  width: 72px;
+}
+
+.fixationCross::before,
+.fixationCross::after {
+  background: #f5f0eb;
+  content: '';
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.fixationCross::before {
+  height: 2px;
+  width: 100%;
+}
+
+.fixationCross::after {
+  height: 100%;
+  width: 2px;
+}
+
+.stageVideo {
+  background: #000;
+  height: 100%;
+  object-fit: contain;
+  position: absolute;
+  width: 100%;
+}
+
+/* Hidden pre-warm player for the imminent trial video (baseline/hint only):
+   visibility:hidden keeps every pixel unpainted while preload="auto" still
+   fetches and initializes the decoder during the countdown lead-in. */
+.stagePreheatVideo {
+  height: 1px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  visibility: hidden;
+  width: 1px;
+}
+
+.stageVideoBadge {
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(194, 121, 20, 0.5);
+  border-radius: 6px;
+  bottom: 12px;
+  color: #e3a22c;
+  font-size: 12px;
+  font-weight: 700;
+  left: 50%;
+  padding: 6px 10px;
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+/* Load-failure escape hatch on the video stage: keeps the operator out of the
+   dead black screen without ending the whole session. */
+.stageVideoErrorBar {
+  align-items: center;
+  background: rgba(20, 8, 8, 0.82);
+  border: 1px solid rgba(214, 84, 66, 0.6);
+  border-radius: 8px;
+  bottom: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  left: 50%;
+  max-width: min(92vw, 720px);
+  padding: 12px 16px;
+  position: absolute;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.stageVideoErrorBar span {
+  color: #f2b8ad;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.stageDangerActionButton {
+  background: rgba(178, 58, 44, 0.92);
+}
+
+.stageDangerActionButton:hover {
+  background: rgba(198, 66, 50, 1);
+}
+
+/* Command failures shown inside the fullscreen stage, with retry actions; the
+   panel-level banner sits behind the portal and would otherwise stay
+   invisible (and its buttons unclickable). */
+.stageNoticeBar {
+  align-items: center;
+  background: rgba(20, 8, 8, 0.82);
+  border: 1px solid rgba(214, 84, 66, 0.6);
+  border-radius: 6px;
+  color: #f2b8ad;
+  display: flex;
+  flex-wrap: wrap;
+  left: 50%;
+  max-width: min(92vw, 720px);
+  padding: 8px 14px;
+  position: absolute;
+  top: 56px;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.stageNoticeBar span {
+  color: #f2b8ad;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+/* The action buttons reuse .stageActionButton; tighten them to bar height. */
+.stageNoticeBar .stageActionButton {
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+.runnerHeader {
+  align-items: center;
+  color: rgba(23, 32, 38, 0.78);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.runnerProgress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Self-report dialog, mirrors the mental scale dialog look. */
+
+.dialogOverlay {
+  background: rgba(12, 18, 22, 0.55);
+  inset: 0;
+  position: fixed;
+  z-index: 40;
+}
+
+.dialog {
+  background: #f5f0eb;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(12, 18, 22, 0.35);
+  color: #172026;
+  display: grid;
+  gap: 16px;
+  max-height: 90dvh;
+  max-width: 640px;
+  overflow-y: auto;
+  padding: 20px;
+  width: calc(100vw - 32px);
+}
+
+.dialogHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.dialogEyebrow {
+  color: rgba(23, 32, 38, 0.58);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dialogTitle {
+  font-size: 20px;
+  font-weight: 740;
+  margin: 0;
+}
+
+.dialogDescription {
+  color: rgba(23, 32, 38, 0.62);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ratingScale {
+  border: 1px solid rgba(23, 32, 38, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+}
+
+.ratingLegend {
+  font-size: 13px;
+  font-weight: 740;
+  padding: 0;
+}
+
+.ratingOptions {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+}
+
+.ratingOption {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(23, 32, 38, 0.16);
+  border-radius: 6px;
+  color: #172026;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 740;
+  min-height: 44px;
+}
+
+.selectedRatingOption {
+  background: rgba(34, 139, 94, 0.16);
+  border-color: #22613c;
+  box-shadow: inset 0 0 0 1px #22613c;
+}
+
+.dialogFooter {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.dialogFooterHint {
+  color: rgba(23, 32, 38, 0.6);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+/* Session summary */
+
+.summaryTable {
+  border-collapse: collapse;
+  font-size: 13px;
+  font-weight: 650;
+  width: 100%;
+}
+
+.summaryTable th,
+.summaryTable td {
+  border-bottom: 1px solid rgba(23, 32, 38, 0.1);
+  padding: 6px 8px;
+  text-align: right;
+}
+
+.summaryTable th:first-child,
+.summaryTable td:first-child {
+  text-align: left;
+}
+
+.summaryTable thead th {
+  color: rgba(23, 32, 38, 0.6);
+  font-size: 12px;
+}
+
+.summaryMeans {
+  color: rgba(23, 32, 38, 0.78);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 12px;
+}
+
+.summaryWarnings {
+  color: #8a560e;
+  display: grid;
+  font-size: 12px;
+  font-weight: 650;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* Setup: per-class video file lists (click to preview in paradigm style). */
+
+.videoListDetails {
+  display: grid;
+  gap: 10px;
+}
+
+.videoListSummary {
+  color: rgba(23, 32, 38, 0.68);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  min-height: 28px;
+}
+
+.videoListSummary:hover {
+  color: #172026;
+}
+
+.videoListGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.videoListGroup {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.videoListHeader {
+  color: #172026;
+  font-size: 12px;
+  font-weight: 740;
+}
+
+.videoListRow {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(23, 32, 38, 0.14);
+  border-radius: 6px;
+  color: #172026;
+  cursor: pointer;
+  display: flex;
+  font-size: 12px;
+  font-weight: 650;
+  gap: 8px;
+  justify-content: space-between;
+  min-height: 32px;
+  padding: 0 10px;
+  text-align: left;
+}
+
+.videoListRow:hover {
+  border-color: #22613c;
+}
+
+.videoListName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectedVideoBadge {
+  background: rgba(34, 139, 94, 0.14);
+  border: 1px solid rgba(34, 139, 94, 0.4);
+  border-radius: 4px;
+  color: #17633f;
+  flex: none;
+  font-size: 11px;
+  font-weight: 720;
+  padding: 1px 6px;
+}
+
+/* Paradigm-style fullscreen video preview from the setup lists. */
+
+.previewOverlay {
+  background: rgba(0, 0, 0, 0.96);
+  display: grid;
+  inset: 0;
+  place-items: center;
+  position: fixed;
+  z-index: 50;
+}
+
+.previewTopBar {
+  align-items: center;
+  color: rgba(245, 240, 235, 0.85);
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 16px;
+  justify-content: space-between;
+  left: 0;
+  padding: 14px 20px;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.previewTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.previewCloseButton {
+  background: transparent;
+  border: 1px solid rgba(245, 240, 235, 0.3);
+  border-radius: 6px;
+  color: rgba(245, 240, 235, 0.8);
+  cursor: pointer;
+  flex: none;
+  font-size: 12px;
+  font-weight: 650;
+  min-height: 30px;
+  padding: 0 12px;
+}
+
+.previewCloseButton:hover {
+  border-color: rgba(245, 240, 235, 0.55);
+  color: #f5f0eb;
+}
+
+.previewVideo {
+  background: #000;
+  max-height: calc(100vh - 96px);
+  max-width: calc(100vw - 64px);
+  width: 100%;
+}

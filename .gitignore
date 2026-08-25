@@ -76,3 +76,5 @@ ruvector.db
 .env.*.local
 
 video_database/
+video_paradigm/
+.alma-snapshots

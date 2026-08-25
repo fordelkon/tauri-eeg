@@ -17,6 +17,9 @@ export type EegSessionAction =
   | { type: 'stop_device_failed'; message: string }
   | { type: 'device_connected' }
   | { type: 'device_disconnected'; message: string }
+  /** Mount-time reconciliation: the backend was already streaming before this
+   * session existed, so no connect event will ever arrive. */
+  | { type: 'device_stream_adopted' }
   | { type: 'start_record' }
   | { type: 'start_record_failed'; message: string }
   | { type: 'pause_record' }
@@ -88,7 +91,14 @@ export function eegSessionReducer(
       return { ...state, deviceStatus: 'stopping', errorMessage: null };
 
     case 'stop_device_succeeded':
-      return { ...state, deviceStatus: 'disconnected', recordStatus: 'idle', errorMessage: null };
+      return {
+        ...state,
+        deviceStatus: 'disconnected',
+        // A recording that was stopped-and-saved just before the stream halt
+        // keeps its terminal state so the result banner stays visible.
+        recordStatus: state.recordStatus === 'stopped' ? state.recordStatus : 'idle',
+        errorMessage: null,
+      };
 
     case 'stop_device_failed':
       return { ...state, deviceStatus: 'error', errorMessage: action.message };
@@ -99,6 +109,14 @@ export function eegSessionReducer(
         return { ...state, deviceStatus: 'streaming', recordStatus: 'idle', errorMessage: null };
       }
       if (state.deviceStatus === 'error') {
+        return { ...state, deviceStatus: 'streaming', errorMessage: null };
+      }
+      return state;
+
+    case 'device_stream_adopted':
+      // Only the fresh-mount 'disconnected' state adopts; an explicit user or
+      // error path must keep its own transition semantics.
+      if (state.deviceStatus === 'disconnected') {
         return { ...state, deviceStatus: 'streaming', errorMessage: null };
       }
       return state;
