@@ -20,6 +20,7 @@ import {
 import { useRealtimeEeg } from '../../eeg/useRealtimeEeg';
 import ParadigmSessionPanel from '../../eeg/paradigm/ParadigmSessionPanel';
 import { useParadigmSessionStatus } from '../../eeg/paradigm/paradigmSessionStatus';
+import { isTauriAvailable } from '../../ui/tauriEnvironment';
 import styles from './EegAcquisition.module.css';
 
 const deviceStatusLabels = {
@@ -59,10 +60,10 @@ function RealtimeMonitor() {
           timeWindowSeconds={eeg.settings.timeWindowSeconds}
         />
       </div>
+      {/* Only the stream-health numbers the toolbar above cannot show; the
+          display settings (刷新/窗口/幅度) are already visible in the
+          toolbar and used to be duplicated here. */}
       <footer className={`${styles.footer} flex flex-wrap`}>
-        <span>刷新 {eeg.settings.displayMode === 'sweep' ? '扫描' : '滚动'}</span>
-        <span>窗口 {eeg.settings.timeWindowSeconds}s</span>
-        <span>幅度 {eeg.settings.amplitudeUvPerDiv} uV/div</span>
         <span>缓存 {eeg.snapshot.retainedSampleCount} 样本</span>
         <span>序列 {eeg.snapshot.latestSequence ?? '-'}</span>
       </footer>
@@ -239,7 +240,29 @@ export default function EegAcquisition() {
             onTimeWindowChange={eeg.setTimeWindowSeconds}
           />
 
-          {eeg.errorMessage ? <div className={styles.errorMessage}>{eeg.errorMessage}</div> : null}
+          {eeg.errorMessage ? (
+            isTauriAvailable() ? (
+              <div className={styles.errorMessage} role="alert">
+                <span className={styles.errorMessageText}>{eeg.errorMessage}</span>
+                {eeg.lastFailedAction ? (
+                  <button
+                    type="button"
+                    className={styles.retryButton}
+                    onClick={() => void eeg.retryLastFailedAction()}
+                  >
+                    重试
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              // Browser preview: device commands cannot succeed here, so the
+              // failure degrades to a calm environment note (no scary alert,
+              // no retry that would only fail again).
+              <div className={styles.environmentNotice} role="status">
+                当前为浏览器预览,脑电设备与记录功能需在桌面应用中使用。
+              </div>
+            )
+          ) : null}
 
           {/* Result of the just-stopped recording; disappears when the next
               recording starts (recordStatus leaves 'stopped'). */}

@@ -138,11 +138,18 @@
   line-height: 1.1;
 }
 
-.subtitle {
-  color: #9d9a98;
-  font-size: 13px;
-  line-height: 1.5;
-  margin-top: 10px;
+.subtitle {
+  color: #9d9a98;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Margins ride on .formPanel because MUI's Typography reset
+   (.MuiTypography-root { margin: 0 }) is injected after this sheet and
+   flattens single-class margins — the subtitle used to sit flush against
+   the h1 with zero gap. */
+.formPanel .subtitle {
+  margin: 14px 0 34px;
 }
 
 .fieldGroup {
@@ -163,6 +170,29 @@
   color: #67615e;
   font-size: 13px;
   font-weight: 520;
+}
+
+/* Field labels become real block headings above each input with a
+   consistent 6px gap: MUI's notch-straddling float glued the label onto the
+   border (and up into the subtitle above the first field). Three-class
+   specificity so the override beats MUI's injected transform/position. */
+.textField :global(.MuiInputLabel-root.MuiInputLabel-outlined) {
+  display: block;
+  margin: 0 0 6px;
+  max-width: none;
+  position: static;
+  transform: none;
+  white-space: normal;
+}
+
+.textField :global(.MuiInputLabel-root.MuiInputLabel-shrink) {
+  transform: none;
+}
+
+/* The notch legend only carves a border gap for the floating label; with a
+   block label the outline renders continuous. */
+.textField :global(.MuiOutlinedInput-notchedOutline) legend {
+  display: none;
 }
 
 .textField :global(.MuiInputLabel-root.Mui-focused) {

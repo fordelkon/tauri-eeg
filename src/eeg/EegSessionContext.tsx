@@ -32,6 +32,7 @@ import {
   canStopRecord,
   eegSessionReducer,
   initialEegSessionState,
+  type EegFailedAction,
 } from './eegSessionState';
 import {
   DEFAULT_SAMPLE_RATE_HZ,
@@ -69,6 +70,7 @@ type EegSessionContextValue = {
   deviceStatus: typeof initialEegSessionState.deviceStatus;
   errorMessage: string | null;
   getLatestSequence: () => number | null;
+  lastFailedAction: EegFailedAction | null;
   lastRecording: EegRecordingSession | null;
   pauseRecord: () => boolean;
   recordStatus: typeof initialEegSessionState.recordStatus;
@@ -86,6 +88,10 @@ type EegSessionContextValue = {
    */
   reportPlotWidthPx: (widthPx: number | null) => void;
   resetBuffer: () => void;
+  /** Re-runs the command that produced the current errorMessage; the error
+   * banner's 重试 button. Resolves false when nothing is retryable or the
+   * state machine refuses the re-run. */
+  retryLastFailedAction: () => Promise<boolean>;
   resumeRecord: () => boolean;
   sampleRateHz: number;
   settings: EegDisplaySettings;
@@ -372,6 +378,21 @@ export function EegProvider({ children }: { children: ReactNode }) {
     dispatchSession({ type: 'reset_error' });
   }, []);
 
+  const retryLastFailedAction = useCallback((): Promise<boolean> => {
+    switch (sessionState.lastFailedAction) {
+      case 'startDevice':
+        return startDevice();
+      case 'stopDevice':
+        return stopDevice();
+      case 'startRecord':
+        return startRecord();
+      case 'stopRecord':
+        return stopRecord();
+      default:
+        return Promise.resolve(false);
+    }
+  }, [sessionState.lastFailedAction, startDevice, startRecord, stopDevice, stopRecord]);
+
   const setTimeWindowSeconds = useCallback((timeWindowSeconds: number) => {
     setSettings((current) => ({ ...current, timeWindowSeconds }));
   }, []);
@@ -431,12 +452,14 @@ export function EegProvider({ children }: { children: ReactNode }) {
     deviceStatus: sessionState.deviceStatus,
     errorMessage: sessionState.errorMessage,
     getLatestSequence,
+    lastFailedAction: sessionState.lastFailedAction,
     lastRecording,
     pauseRecord,
     recordStatus: sessionState.recordStatus,
     reportPlotWidthPx,
     resetBuffer,
     resetError,
+    retryLastFailedAction,
     resumeRecord,
     sampleRateHz: streamInfo?.sampleRateHz ?? DEFAULT_SAMPLE_RATE_HZ,
     settings,
@@ -458,6 +481,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
     reportPlotWidthPx,
     resetBuffer,
     resetError,
+    retryLastFailedAction,
     resumeRecord,
     sessionState,
     settings,

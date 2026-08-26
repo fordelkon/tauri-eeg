@@ -99,10 +99,53 @@
 }
 
 .errorMessage {
+  align-items: center;
   background: rgba(184, 45, 45, 0.08);
   border: 1px solid rgba(184, 45, 45, 0.18);
   border-radius: 8px;
   color: #8d1e1e;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 650;
+  gap: 8px 12px;
+  padding: 10px 12px;
+}
+
+.errorMessageText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.retryButton {
+  background: transparent;
+  border: 1px solid rgba(184, 45, 45, 0.45);
+  border-radius: 6px;
+  color: #8d1e1e;
+  cursor: pointer;
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 720;
+  min-height: 28px;
+  padding: 0 12px;
+  transition:
+    background-color 140ms ease-out,
+    border-color 140ms ease-out;
+}
+
+.retryButton:hover {
+  background: rgba(184, 45, 45, 0.1);
+  border-color: rgba(184, 45, 45, 0.65);
+}
+
+/* Browser-preview degradation for device failures: informational, not an
+   alarm — the environment cannot run the device stack at all. */
+.environmentNotice {
+  background: rgba(45, 113, 184, 0.08);
+  border: 1px solid rgba(45, 113, 184, 0.2);
+  border-radius: 8px;
+  color: #245f9d;
   font-size: 13px;
   font-weight: 650;
   padding: 10px 12px;
@@ -137,7 +180,10 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
+  /* Row gap exceeds the column gap because a small outlined select floats
+     its label ~9px above the box; wrapped rows need that much clearance. */
   gap: 10px;
+  row-gap: 20px;
 }
 
 .modeSwitch {
@@ -183,8 +229,27 @@
   text-transform: none;
 }
 
+/* Tertiary view action: neutral ghost so it never competes with the solid
+   primary device/record commands. Two-class specificity because MUI's
+   late-injected .MuiButton-root color would flatten a single class. */
+.controlStrip .ghostButton {
+  color: rgba(23, 32, 38, 0.64);
+}
+
+.controlStrip .ghostButton:hover {
+  background: rgba(23, 32, 38, 0.06);
+  color: #172026;
+}
+
 .controlSelect {
+  margin-top: 2px;
   min-width: 132px;
+}
+
+/* MUI glues a small outlined select's floating label to the top border
+   (-7px), which reads as one cramped blob; lift the label clear of the box. */
+.controlSelect :global(.MuiInputLabel-root.MuiInputLabel-shrink) {
+  transform: translate(14px, -11px) scale(0.75);
 }
 
 .monitorGrid {

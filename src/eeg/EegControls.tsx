@@ -112,7 +112,15 @@ function EegControls({
       >
         停止记录
       </Button>
-      <Button className={styles.controlButton} variant="outlined" startIcon={<RestartAltRoundedIcon />} onClick={onReset}>
+      {/* Ghost styling: a view utility, not a peer of the device/record
+          commands — the outlined blue variant used to fight the solid
+          启动设备 for attention. */}
+      <Button
+        className={`${styles.controlButton} ${styles.ghostButton}`}
+        variant="text"
+        startIcon={<RestartAltRoundedIcon />}
+        onClick={onReset}
+      >
         重置视图
       </Button>
       <TextField

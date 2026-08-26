@@ -264,10 +264,12 @@ export default function Login() {
       <Box className={`${styles.rightPanel} box-border flex flex-1 items-center justify-center overflow-hidden opacity-0`}>
         <Box className={`${styles.formPanel} flex w-full max-w-360px flex-col items-center opacity-0`}>
           <span className={styles.brandMark} aria-hidden="true" />
-          <Typography variant="h4" component="h1" className={`${styles.title} mb-8px text-center`}>
+          <Typography variant="h4" component="h1" className={`${styles.title} text-center`}>
             EEG Ecosystem
           </Typography>
-          <Typography variant="body2" className={`${styles.subtitle} mb-34px text-center`}>
+          {/* Spacing lives in .formPanel .subtitle: MUI's Typography reset
+              flattens margin utilities like mb-34px on this element. */}
+          <Typography variant="body2" className={`${styles.subtitle} text-center`}>
             {isSignup ? '创建账号以开始使用。' : isReset ? '重置你的登录密码。' : '登录后继续实验。'}
           </Typography>
 

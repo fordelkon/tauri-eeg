@@ -696,9 +696,17 @@
 }
 
 @media (min-width: 981px) {
-  /* Rail owns navigation on wide screens; hide the floating hamburger. */
-  .mobileMenuButton {
+  /* Rail owns navigation on wide screens; hide the floating hamburger. The
+     doubled class out-specifies MUI's injected .MuiIconButton-root display,
+     which otherwise wins the cascade regardless of media queries. */
+  .mobileMenuButton.mobileMenuButton {
     display: none;
+  }
+
+  /* The rail floats above the page, so the content column must reserve its
+     width or every page's left edge (banners, cards, plots) slides under it. */
+  .content {
+    padding-left: 164px;
   }
 }
 
@@ -716,6 +724,11 @@
   .railItem {
     justify-content: center;
     padding: 8px;
+  }
+
+  /* Icon-only rail is narrower; a smaller reservation keeps the gap even. */
+  .content {
+    padding-left: 96px;
   }
 }
 

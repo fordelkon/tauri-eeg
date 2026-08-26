@@ -171,6 +171,33 @@ describe('eegSessionReducer', () => {
     });
   });
 
+  it('tracks the failed command so the banner retry can re-run it', () => {
+    const failedStart = eegSessionReducer(initialEegSessionState, {
+      type: 'start_device_failed',
+      message: 'Failed to start EEG stream.',
+    });
+    expect(failedStart.lastFailedAction).toBe('startDevice');
+
+    // A device drop maps to startDevice: reconnecting is the recovery path.
+    const streaming = { ...initialEegSessionState, deviceStatus: 'streaming' as const };
+    const dropped = eegSessionReducer(streaming, {
+      type: 'device_disconnected',
+      message: 'EEG device closed the connection.',
+    });
+    expect(dropped.lastFailedAction).toBe('startDevice');
+
+    const streamingIdle = { ...initialEegSessionState, deviceStatus: 'streaming' as const };
+    const failedRecord = eegSessionReducer(streamingIdle, {
+      type: 'start_record_failed',
+      message: 'Failed to start EEG recording.',
+    });
+    expect(failedRecord.lastFailedAction).toBe('startRecord');
+
+    // A successful command clears the retry target along with the error.
+    const recovered = eegSessionReducer(failedStart, { type: 'start_device_requested' });
+    expect(recovered).toMatchObject({ errorMessage: null, lastFailedAction: null });
+  });
+
   it('ignores status events that accompany an explicit user stop', () => {
     const stopping = { ...initialEegSessionState, deviceStatus: 'stopping' as const };
     const afterEvent = eegSessionReducer(stopping, {
