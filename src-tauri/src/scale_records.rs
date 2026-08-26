@@ -63,14 +63,10 @@ pub struct RegulationEffectSummary {
 impl RegulationEffectSummary {
     /// The loop target: the subject improved by at least the default
     /// threshold on average across comparable dimensions.
-    /// Part of the regulation-effect API; consumed by tests until the
-    /// evaluation round reads persisted pairs back.
-    #[allow(dead_code)]
     pub fn meets_threshold(&self) -> bool {
         self.meets_threshold_at(DEFAULT_IMPROVEMENT_THRESHOLD)
     }
 
-    #[allow(dead_code)]
     pub fn meets_threshold_at(&self, threshold: f64) -> bool {
         self.mean_improvement_rate
             .map_or(false, |mean| mean >= threshold)
@@ -198,7 +194,13 @@ pub fn list_scale_records(
         .collect()
 }
 
-pub fn delete_scale_record(conn: &Connection, id: &str) -> Result<ScaleRecord, String> {
+/// Loads one scale record by id (the read side pairs two saved records for
+/// the effect computation).
+pub fn get_scale_record(conn: &Connection, id: &str) -> Result<ScaleRecord, String> {
+    parse_record_row(fetch_record_row(conn, id)?)
+}
+
+fn fetch_record_row(conn: &Connection, id: &str) -> Result<RecordRow, String> {
     let mut stmt = conn
         .prepare_cached(
             "SELECT id, user_id, subject_id, scale_id, phase, dimension_scores, raw_answers, created_at
@@ -206,20 +208,23 @@ pub fn delete_scale_record(conn: &Connection, id: &str) -> Result<ScaleRecord, S
         )
         .map_err(|_| "Failed to load scale record.".to_string())?;
 
-    let row = stmt
-        .query_row(params![id], |row| {
-            Ok(RecordRow {
-                id: row.get(0)?,
-                user_id: row.get(1)?,
-                subject_id: row.get(2)?,
-                scale_id: row.get(3)?,
-                phase: row.get(4)?,
-                dimension_scores: row.get(5)?,
-                raw_answers: row.get(6)?,
-                created_at: row.get(7)?,
-            })
+    stmt.query_row(params![id], |row| {
+        Ok(RecordRow {
+            id: row.get(0)?,
+            user_id: row.get(1)?,
+            subject_id: row.get(2)?,
+            scale_id: row.get(3)?,
+            phase: row.get(4)?,
+            dimension_scores: row.get(5)?,
+            raw_answers: row.get(6)?,
+            created_at: row.get(7)?,
         })
-        .map_err(|_| "Scale record not found.".to_string())?;
+    })
+    .map_err(|_| "Scale record not found.".to_string())
+}
+
+pub fn delete_scale_record(conn: &Connection, id: &str) -> Result<ScaleRecord, String> {
+    let row = fetch_record_row(conn, id)?;
 
     conn.execute("DELETE FROM scale_records WHERE id = ?1", params![id])
         .map_err(|_| "Failed to delete scale record.".to_string())?;
@@ -230,9 +235,6 @@ pub fn delete_scale_record(conn: &Connection, id: &str) -> Result<ScaleRecord, S
 /// Compares one subject's baseline and post scale records dimension by
 /// dimension. Both records must carry the expected phase; when both carry a
 /// subject id they must agree (a missing id means "unknown" and passes).
-/// Part of the regulation-effect API; consumed by tests until the evaluation
-/// round reads persisted pairs back.
-#[allow(dead_code)]
 pub fn compute_regulation_effect_summary(
     baseline: &ScaleRecord,
     post: &ScaleRecord,
@@ -535,6 +537,30 @@ mod tests {
 
         assert_eq!(
             delete_scale_record(&conn, &saved.id).unwrap_err(),
+            "Scale record not found."
+        );
+    }
+
+    #[test]
+    fn gets_scale_record_by_id_and_rejects_missing_rows() {
+        let conn = setup_conn();
+        let saved = save_scale_record(
+            &conn,
+            &sample_input("user-1", Some("subject-1"), PHASE_POST),
+        )
+        .expect("save record");
+
+        let loaded = get_scale_record(&conn, &saved.id).expect("get record");
+        assert_eq!(loaded.id, saved.id);
+        assert_eq!(loaded.phase, PHASE_POST);
+        assert_eq!(loaded.subject_id.as_deref(), Some("subject-1"));
+        assert_eq!(
+            loaded.dimension_scores,
+            json!({ "anxiety": 75.0, "mood": 50.0 })
+        );
+
+        assert_eq!(
+            get_scale_record(&conn, "missing-id").unwrap_err(),
             "Scale record not found."
         );
     }

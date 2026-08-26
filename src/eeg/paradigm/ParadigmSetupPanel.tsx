@@ -8,6 +8,10 @@ import {
   writeStoredLibraryRootPath,
 } from './paradigmStorage';
 import {
+  readStoredSubjectId,
+  writeStoredSubjectId,
+} from '../../storage/currentSubject';
+import {
   PARADIGM_BLOCKS_BY_KIND,
   PARADIGM_EMOTION_DISPLAY_ORDER,
   PARADIGM_TRIALS_PER_CLASS,
@@ -39,8 +43,6 @@ type Props = {
   startError: string | null;
 };
 
-const SUBJECT_ID_STORAGE_KEY = 'paradigm.subjectId';
-
 const sessionKindDescriptions: Record<ParadigmSessionKind, string> = {
   personal_calibration: '只采集平静基准,用于训练被试个性化情绪模型。',
   held_out_generation: '依次诱发焦虑、抑郁、快乐三类情绪,按流程采集评价。',
@@ -65,23 +67,6 @@ const libraryClassKeys: Record<ParadigmEmotion, keyof Omit<ParadigmVideoLibrary,
 
 function toLibraryErrorMessage(error: unknown) {
   return typeof error === 'string' ? error : error instanceof Error ? error.message : 'Failed to load paradigm video library.';
-}
-
-/** Best-effort subject ID persistence (E-Prime StartupInfo style memory). */
-function readStoredSubjectId() {
-  try {
-    return window.localStorage.getItem(SUBJECT_ID_STORAGE_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function writeStoredSubjectId(value: string) {
-  try {
-    window.localStorage.setItem(SUBJECT_ID_STORAGE_KEY, value);
-  } catch {
-    // Storage may be unavailable; persistence is best-effort and silent.
-  }
 }
 
 /** Default run id, local time: run-YYYYMMDD-HHmm (e.g. run-20260823-1945). */

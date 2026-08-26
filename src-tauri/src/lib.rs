@@ -22,8 +22,8 @@ use python_client::{
     AgentPlannerRequest, AgentPlannerResponse, GenerateRequest, HealthResponse, PythonClient,
 };
 use python_service::PythonServiceManager;
-use scale_records::{SaveScaleRecordInput, ScaleRecord};
-use serde::Deserialize;
+use scale_records::{RegulationEffectSummary, SaveScaleRecordInput, ScaleRecord};
+use serde::{Deserialize, Serialize};
 use tauri::State;
 use uuid::Uuid;
 
@@ -306,6 +306,23 @@ struct DeleteScaleRecordInput {
     id: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ComputeRegulationEffectInput {
+    baseline_record_id: String,
+    post_record_id: String,
+}
+
+/// Read-side envelope for the regulation-effect loop: the computed summary
+/// plus the threshold verdict so the frontend never re-implements the rule.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RegulationEffectResult {
+    #[serde(flatten)]
+    summary: RegulationEffectSummary,
+    meets_threshold: bool,
+}
+
 #[tauri::command]
 async fn save_scale_record(
     db: State<'_, AppDb>,
@@ -359,6 +376,32 @@ async fn delete_scale_record(
     })
     .await
     .map_err(|_| "Failed to delete scale record.".to_string())?
+}
+
+#[tauri::command]
+async fn compute_regulation_effect(
+    db: State<'_, AppDb>,
+    input: ComputeRegulationEffectInput,
+) -> Result<RegulationEffectResult, String> {
+    let conn = db.conn.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        let baseline = scale_records::get_scale_record(&conn, input.baseline_record_id.trim())?;
+        let post = scale_records::get_scale_record(&conn, input.post_record_id.trim())?;
+        let summary = scale_records::compute_regulation_effect_summary(&baseline, &post)?;
+        let meets_threshold = summary.meets_threshold();
+
+        Ok(RegulationEffectResult {
+            summary,
+            meets_threshold,
+        })
+    })
+    .await
+    .map_err(|_| "Failed to compute regulation effect.".to_string())?
 }
 
 #[derive(Debug, Deserialize)]
@@ -612,6 +655,7 @@ pub fn run() {
             save_scale_record,
             list_scale_records,
             delete_scale_record,
+            compute_regulation_effect,
             generate_music,
             get_music_service_health,
             plan_agent_action,

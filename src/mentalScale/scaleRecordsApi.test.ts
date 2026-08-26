@@ -1,14 +1,21 @@
 import { invoke } from '@tauri-apps/api/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mentalScaleDefinitions, type MentalScaleAnswers } from './mentalScaleGate';
+import {
+  mentalScaleDefinitions,
+  type MentalScaleAnswers,
+  type MentalScaleDefinition,
+} from './mentalScaleGate';
 import {
   defaultMentalScaleStatus,
   getMentalScaleStatusSnapshot,
   updateMentalScaleStatus,
 } from './mentalScaleStatus';
 import {
+  computeRegulationEffect,
   persistMentalScaleSubmission,
+  savePhaseScaleRecord,
   saveScaleRecord,
+  type RegulationEffectSummaryView,
   type ScaleRecordInput,
 } from './scaleRecordsApi';
 
@@ -17,6 +24,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 const videoScale = mentalScaleDefinitions['/video-regulation'];
+const musicScale: MentalScaleDefinition = mentalScaleDefinitions['/music-regulation'];
 
 function lastSaveInput(): ScaleRecordInput {
   const calls = vi.mocked(invoke).mock.calls;
@@ -103,5 +111,113 @@ describe('scaleRecordsApi', () => {
 
     expect(warn).toHaveBeenCalledWith('[mentalScale] 量表记录落库失败:', expect.any(Error));
     warn.mockRestore();
+  });
+});
+
+describe('subject_id passthrough (R2 效果闭环)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** Installs a fake window whose localStorage backs the shared subject memory. */
+  function stubSharedSubjectMemory(subjectId: string | null) {
+    const entries = new Map<string, string>();
+    if (subjectId !== null) {
+      entries.set('paradigm.subjectId', subjectId);
+    }
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => entries.get(key) ?? null,
+        setItem: (key: string, value: string) => void entries.set(key, value),
+      },
+    });
+    return entries;
+  }
+
+  it('falls back to the shared subject memory when no explicit binding is given', () => {
+    stubSharedSubjectMemory('subj-paradigm');
+
+    persistMentalScaleSubmission(videoScale, { 'video-anxiety-tense': 1 }, 'user-1');
+
+    // Gate submissions (no options) inherit the operator's last subject.
+    expect(lastSaveInput().subjectId).toBe('subj-paradigm');
+  });
+
+  it('keeps null subject when the shared memory was never set', () => {
+    stubSharedSubjectMemory(null);
+
+    persistMentalScaleSubmission(videoScale, {}, 'user-1');
+
+    expect(lastSaveInput().subjectId).toBeNull();
+  });
+
+  it('lets an explicit blank binding win over the shared memory', () => {
+    stubSharedSubjectMemory('subj-paradigm');
+
+    // The wizard passes its own subject explicitly; an empty one must not be
+    // silently replaced by an unrelated stored value.
+    persistMentalScaleSubmission(videoScale, {}, 'user-1', { subjectId: '   ' });
+
+    expect(lastSaveInput().subjectId).toBeNull();
+  });
+
+  it('persists an explicit phase and trimmed subject for the wizard flow', async () => {
+    const answers: MentalScaleAnswers = {
+      'music-depression-low': 2,
+      'music-depression-sleep': 3,
+      'music-anxiety-relax': 1,
+    };
+
+    await savePhaseScaleRecord(musicScale, answers, {
+      userId: 'user-1',
+      subjectId: ' subj-009 ',
+      phase: 'post',
+    });
+
+    const input = lastSaveInput();
+    expect(input.subjectId).toBe('subj-009');
+    expect(input.phase).toBe('post');
+    expect(input.scaleId).toBe('/music-regulation');
+  });
+
+  it('resolves the saved record id so baseline/post can be paired', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce({
+      id: 'rec-post-1',
+      userId: 'user-1',
+      subjectId: 'subj-009',
+      scaleId: '/music-regulation',
+      phase: 'post',
+      dimensionScores: {},
+      rawAnswers: {},
+      createdAt: '2026-08-26T10:00:00+00:00',
+    });
+
+    const record = await savePhaseScaleRecord(musicScale, {}, {
+      userId: 'user-1',
+      subjectId: 'subj-009',
+      phase: 'post',
+    });
+
+    expect(record.id).toBe('rec-post-1');
+  });
+
+  it('invokes compute_regulation_effect with the camelCase record ids', async () => {
+    const summary: RegulationEffectSummaryView = {
+      subjectId: 'subj-009',
+      dimensions: [
+        { dimension: 'anxiety', baseline: 80, post: 48, improvementRate: 0.4 },
+      ],
+      meanImprovementRate: 0.4,
+      meetsThreshold: true,
+    };
+    vi.mocked(invoke).mockResolvedValueOnce(summary);
+
+    const result = await computeRegulationEffect('rec-baseline-1', 'rec-post-1');
+
+    expect(invoke).toHaveBeenCalledWith('compute_regulation_effect', {
+      input: { baselineRecordId: 'rec-baseline-1', postRecordId: 'rec-post-1' },
+    });
+    expect(result.meetsThreshold).toBe(true);
+    expect(result.meanImprovementRate).toBe(0.4);
   });
 });

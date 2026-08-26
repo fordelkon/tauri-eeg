@@ -1,6 +1,7 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
@@ -59,6 +60,7 @@ const navigationItems: NavigationItem[] = [
   { icon: VideocamRoundedIcon, label: '视频调控', path: '/video-regulation' },
   { icon: SportsEsportsRoundedIcon, label: 'VR调控', path: '/game-regulation' },
   { icon: MusicNoteRoundedIcon, label: '音乐调控', path: '/music-regulation' },
+  { icon: InsightsRoundedIcon, label: '效果评价', path: '/effect-evaluation' },
 ];
 
 const renderRollingText = (text: string, className?: string) => (

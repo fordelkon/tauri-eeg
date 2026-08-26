@@ -1,0 +1,334 @@
+.workspace {
+  animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  color: #172026;
+  gap: 16px;
+  margin: 0 auto;
+  max-width: 1080px;
+}
+
+@keyframes workspaceEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.header {
+  gap: 14px;
+}
+
+.eyebrow {
+  color: rgba(23, 32, 38, 0.58);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.title {
+  color: #172026;
+  font-size: 26px;
+  font-weight: 720;
+  line-height: 1.1;
+  margin: 4px 0 0;
+}
+
+.description {
+  color: rgba(23, 32, 38, 0.66);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 6px 0 0;
+  max-width: 720px;
+}
+
+.stepper {
+  background: transparent;
+  padding: 10px 4px 2px;
+}
+
+.panel {
+  border: 1px solid rgba(23, 32, 38, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(23, 32, 38, 0.06);
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.panelTitle {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.panelHint {
+  color: rgba(23, 32, 38, 0.62);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.fieldGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.fieldLabel {
+  display: grid;
+  gap: 6px;
+}
+
+.fieldLabelText {
+  color: rgba(23, 32, 38, 0.72);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.textInput,
+.selectInput {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(23, 32, 38, 0.18);
+  border-radius: 10px;
+  color: #172026;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.textInput:focus,
+.selectInput:focus {
+  border-color: rgba(223, 2, 3, 0.55);
+  outline: none;
+}
+
+.pillRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pillLabel {
+  color: rgba(23, 32, 38, 0.72);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.pillRadio {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(23, 32, 38, 0.18);
+  border-radius: 999px;
+  color: rgba(23, 32, 38, 0.78);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  min-height: 34px;
+  padding: 0 16px;
+}
+
+.pillRadio.isSelected {
+  background: #df0203;
+  border-color: #df0203;
+  color: #fff;
+}
+
+.actionsRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.primaryAction {
+  background: #df0203;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 42px;
+  padding: 0 20px;
+}
+
+.primaryAction:disabled {
+  background: rgba(23, 32, 38, 0.18);
+  color: rgba(23, 32, 38, 0.45);
+  cursor: not-allowed;
+}
+
+.secondaryAction {
+  background: transparent;
+  border: 1px solid rgba(23, 32, 38, 0.24);
+  border-radius: 10px;
+  color: rgba(23, 32, 38, 0.78);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  min-height: 38px;
+  padding: 0 16px;
+}
+
+.errorBanner {
+  background: rgba(223, 2, 3, 0.08);
+  border: 1px solid rgba(223, 2, 3, 0.35);
+  border-radius: 10px;
+  color: #a30102;
+  font-size: 13px;
+  padding: 10px 14px;
+}
+
+.configSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.configChip {
+  background: rgba(23, 32, 38, 0.06);
+  border: 1px solid rgba(23, 32, 38, 0.12);
+  border-radius: 999px;
+  color: rgba(23, 32, 38, 0.76);
+  font-size: 12.5px;
+  padding: 5px 12px;
+}
+
+.countdownWrap {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 10px 0 4px;
+}
+
+.countdownValue {
+  color: #172026;
+  font-size: 56px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+
+.countdownDone {
+  color: #df0203;
+}
+
+.progressTrack {
+  background: rgba(23, 32, 38, 0.1);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+  width: min(420px, 100%);
+}
+
+.progressBar {
+  background: linear-gradient(90deg, #fb7f6e, #df0203);
+  height: 100%;
+  transition: width 500ms linear;
+}
+
+.eegChip {
+  border-radius: 999px;
+  font-size: 12.5px;
+  padding: 5px 12px;
+}
+
+.eegSaved {
+  background: rgba(72, 168, 104, 0.14);
+  border: 1px solid rgba(72, 168, 104, 0.4);
+  color: #22683a;
+}
+
+.eegUnavailable {
+  background: rgba(84, 96, 104, 0.12);
+  border: 1px solid rgba(84, 96, 104, 0.28);
+  color: #46525a;
+}
+
+.eegRecording {
+  background: rgba(93, 143, 232, 0.14);
+  border: 1px solid rgba(93, 143, 232, 0.4);
+  color: #2b5bbf;
+}
+
+.statsRow {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.statCard {
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 14px;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.statLabel {
+  color: rgba(23, 32, 38, 0.6);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.statValue {
+  color: #172026;
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+
+.statValue.isPositive {
+  color: #22683a;
+}
+
+.statValue.isNegative {
+  color: #df0203;
+}
+
+.chartWrap {
+  height: 300px;
+  width: 100%;
+}
+
+.dimensionTable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.dimensionTable th,
+.dimensionTable td {
+  border-bottom: 1px solid rgba(23, 32, 38, 0.1);
+  color: rgba(23, 32, 38, 0.82);
+  font-size: 13.5px;
+  padding: 9px 10px;
+  text-align: left;
+}
+
+.dimensionTable th {
+  color: rgba(23, 32, 38, 0.58);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.rateCell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+}
+
+.rateCell.isPositive {
+  color: #22683a;
+}
+
+.rateCell.isNegative {
+  color: #df0203;
+}
