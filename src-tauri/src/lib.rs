@@ -5,6 +5,7 @@ mod eeg;
 mod music_history;
 mod python_client;
 mod python_service;
+mod scale_records;
 mod storage_paths;
 mod video_library;
 
@@ -21,6 +22,7 @@ use python_client::{
     AgentPlannerRequest, AgentPlannerResponse, GenerateRequest, HealthResponse, PythonClient,
 };
 use python_service::PythonServiceManager;
+use scale_records::{SaveScaleRecordInput, ScaleRecord};
 use serde::Deserialize;
 use tauri::State;
 use uuid::Uuid;
@@ -300,6 +302,67 @@ async fn get_paradigm_session_summary(
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct DeleteScaleRecordInput {
+    id: String,
+}
+
+#[tauri::command]
+async fn save_scale_record(
+    db: State<'_, AppDb>,
+    input: SaveScaleRecordInput,
+) -> Result<ScaleRecord, String> {
+    let conn = db.conn.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        scale_records::save_scale_record(&conn, &input)
+    })
+    .await
+    .map_err(|_| "Failed to save scale record.".to_string())?
+}
+
+#[tauri::command]
+async fn list_scale_records(
+    db: State<'_, AppDb>,
+    subject_id: Option<String>,
+    phase: Option<String>,
+) -> Result<Vec<ScaleRecord>, String> {
+    let conn = db.conn.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        scale_records::list_scale_records(&conn, subject_id.as_deref(), phase.as_deref())
+    })
+    .await
+    .map_err(|_| "Failed to load scale records.".to_string())?
+}
+
+#[tauri::command]
+async fn delete_scale_record(
+    db: State<'_, AppDb>,
+    input: DeleteScaleRecordInput,
+) -> Result<ScaleRecord, String> {
+    let conn = db.conn.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        scale_records::delete_scale_record(&conn, &input.id)
+    })
+    .await
+    .map_err(|_| "Failed to delete scale record.".to_string())?
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct MusicGenerationInput {
     user_id: String,
     username: String,
@@ -546,6 +609,9 @@ pub fn run() {
             finalize_eeg_trial,
             get_active_paradigm_trial,
             get_paradigm_session_summary,
+            save_scale_record,
+            list_scale_records,
+            delete_scale_record,
             generate_music,
             get_music_service_health,
             plan_agent_action,

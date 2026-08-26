@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 import {
   getMentalScaleForPath,
   type MentalScaleAnswers,
 } from './mentalScaleGate';
 import MentalScaleDialog from './MentalScaleDialog';
 import { buildMentalScaleStatus, updateMentalScaleStatus } from './mentalScaleStatus';
+import { persistMentalScaleSubmission } from './scaleRecordsApi';
 import {
   isScaleSatisfiedForPath,
   recordScaleCompletion,
@@ -22,6 +24,7 @@ import {
 export default function ScaleGateRoute() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const scale = getMentalScaleForPath(location.pathname);
   const [isAllowed, setIsAllowed] = useState(
     () => scale === null || isScaleSatisfiedForPath(scale.path),
@@ -40,6 +43,9 @@ export default function ScaleGateRoute() {
   const handleComplete = (answers: MentalScaleAnswers) => {
     updateMentalScaleStatus(buildMentalScaleStatus(scale, answers));
     recordScaleCompletion(scale.path);
+    // Mirror the submission into the backend scale_records table; a failure
+    // only logs so the gate flow keeps working offline.
+    persistMentalScaleSubmission(scale, answers, currentUser?.id ?? null);
     setIsAllowed(true);
   };
 

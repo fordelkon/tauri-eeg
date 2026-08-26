@@ -35,6 +35,7 @@ import {
   type MentalScaleDefinition,
 } from '../mentalScale/mentalScaleGate';
 import { buildMentalScaleStatus, updateMentalScaleStatus } from '../mentalScale/mentalScaleStatus';
+import { persistMentalScaleSubmission } from '../mentalScale/scaleRecordsApi';
 import { isScaleSatisfiedForPath, recordScaleCompletion, recordScaleSkip } from '../mentalScale/scaleCompletion';
 import {
   getParadigmSessionStatus,
@@ -343,6 +344,9 @@ export default function Home() {
     const nextPath = pendingScale.path;
     updateMentalScaleStatus(buildMentalScaleStatus(pendingScale, answers));
     recordScaleCompletion(nextPath);
+    // Mirror the submission into the backend scale_records table; a failure
+    // only logs so the gate flow keeps working offline.
+    persistMentalScaleSubmission(pendingScale, answers, currentUser?.id ?? null);
     setPendingScale(null);
     navigate(nextPath);
   };
