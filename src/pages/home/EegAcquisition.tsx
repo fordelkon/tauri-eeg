@@ -7,7 +7,7 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import EegChannelList from '../../eeg/EegChannelList';
 import EegControls from '../../eeg/EegControls';
@@ -40,8 +40,11 @@ const recordStatusLabels = {
 /**
  * Owns the 30Hz snapshot state so only this subtree re-renders per frame; the
  * controls strip and (thanks to React.memo) the channel checkboxes are skipped.
+ * The memo also shields this subtree from the parent's own re-renders — the
+ * recording clock ticks at 1Hz while a capture runs, and none of the monitor's
+ * inputs depend on that tick.
  */
-function RealtimeMonitor() {
+const RealtimeMonitor = memo(function RealtimeMonitor() {
   const eeg = useRealtimeEeg();
 
   return (
@@ -69,7 +72,7 @@ function RealtimeMonitor() {
       </footer>
     </>
   );
-}
+});
 
 type AcquisitionMode = 'free' | 'paradigm';
 

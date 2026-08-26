@@ -205,6 +205,34 @@
   padding: 0;
 }
 
+/* Idle-state guidance card: fills the empty activity area with phase-aware
+   orientation instead of leaving the input stranded on a blank panel. */
+.idleGuide {
+  border: 1px dashed rgba(44, 34, 24, 0.16);
+  border-radius: 8px;
+  display: grid;
+  flex: 0 0 auto;
+  gap: 7px;
+  padding: 10px;
+}
+
+.idleGuideItem {
+  color: rgba(44, 34, 24, 0.66);
+  display: flex;
+  font-size: 11px;
+  gap: 7px;
+  line-height: 1.45;
+}
+
+.idleGuideItem span {
+  background: rgba(44, 34, 24, 0.24);
+  border-radius: 999px;
+  flex: 0 0 auto;
+  height: 5px;
+  margin-top: 6px;
+  width: 5px;
+}
+
 .timeline li {
   display: grid;
   gap: 2px;

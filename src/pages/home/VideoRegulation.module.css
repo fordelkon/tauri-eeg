@@ -120,6 +120,18 @@
   font-weight: 760;
 }
 
+/* Browser-preview degradation for library loading: informational, not an
+   alarm — matches the EEG page's environment notice. */
+.libraryNotice .libraryEnvironmentNotice {
+  background: rgba(45, 113, 184, 0.08);
+  border: 1px solid rgba(45, 113, 184, 0.2);
+  border-radius: 8px;
+  color: #245f9d;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 8px 10px;
+}
+
 .idle {
   background: rgba(84, 96, 104, 0.12);
   border: 1px solid rgba(84, 96, 104, 0.24);

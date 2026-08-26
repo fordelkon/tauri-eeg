@@ -18,7 +18,10 @@ import { type CSSProperties, type ElementType, type MouseEvent, Suspense, lazy, 
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import ExperimentAgentPanel from '../agent/ExperimentAgentPanel';
 import { useAuth } from '../auth/AuthContext';
-import { useEegSession } from '../eeg/EegSessionContext';
+// Narrow slice: the shell only gates navigation/sign-out on the recording
+// state; a full-context subscription would re-render the whole app shell on
+// every EEG display tweak (see EegRecordingControlContext).
+import { useEegRecordingControl } from '../eeg/EegSessionContext';
 // Lazy: MatterScene pulls in the matter-js vendor chunk and HomeIntroLogo the
 // lottie player; neither is needed until the menu opens or the intro plays.
 const MatterScene = lazy(() => import('../components/MatterScene'));
@@ -202,14 +205,14 @@ export default function Home() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, signOut } = useAuth();
-  const eegSession = useEegSession();
+  const { recordStatus, stopRecord } = useEegRecordingControl();
   const paradigmStatus = useParadigmSessionStatus();
   const { confirm, confirmDialogElement } = useConfirmDialog();
   // A free recording (or a paused one) also owns the EEG data path, so the
   // same mis-tap guards as a paradigm session apply — with softer confirmations
   // because the backend keeps recording independently of the page.
   const freeRecordActive = (
-    eegSession.recordStatus === 'recording' || eegSession.recordStatus === 'paused'
+    recordStatus === 'recording' || recordStatus === 'paused'
   );
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
@@ -321,7 +324,7 @@ export default function Home() {
         return;
       }
 
-      await eegSession.stopRecord();
+      await stopRecord();
     }
 
     signOut();

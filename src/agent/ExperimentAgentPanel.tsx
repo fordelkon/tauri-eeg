@@ -11,6 +11,42 @@ import styles from './ExperimentAgentPanel.module.css';
 
 const formatThinkingSeconds = (durationMs: number) => `${(durationMs / 1000).toFixed(1)} s`;
 
+/**
+ * Idle-state guidance so the empty activity area reads as orientation rather
+ * than dead space (R2-7): the input stays anchored to the panel bottom, and
+ * this card fills the void until the first conversation entry replaces it.
+ */
+const phaseGuideItems: Record<AgentPhase, readonly string[]> = {
+  intro: [
+    '点击上方推荐操作，或直接输入“开始实验”',
+    '助手会按 采集 → 调控 → 恢复 引导完整实验流程',
+  ],
+  baseline: [
+    '启动设备后可开始或暂停基线采集',
+    '采集数据由我协助停止并保存',
+  ],
+  video_regulation: [
+    '让我播放一段放松视频',
+    '也可以指定场景，例如“播放森林放松视频”',
+  ],
+  game_regulation: [
+    '游戏调控暂未接入设备联动',
+    '可以让我跳过本环节，继续后续流程',
+  ],
+  music_regulation: [
+    '让我按当前状态生成一段调控音乐',
+    '可以指定乐器与风格，例如“生成钢琴舒缓音乐”',
+  ],
+  recovery: [
+    '临近流程尾声，可让我结束并保存数据',
+    '结束前会先停止并保存 EEG 记录',
+  ],
+  finish: [
+    '本次实验流程已完成',
+    '可前往各功能页查看生成的记录',
+  ],
+};
+
 let hasPreloadedMusicService = false;
 
 type Props = {
@@ -136,6 +172,19 @@ function ExperimentAgentPanelView({
 
       <div className={styles.activity} ref={activityRef}>
       <p className={styles.message} aria-live="polite">{message}</p>
+
+      {/* Empty-state guidance: only while nothing has happened yet, so the
+          first timeline entry / thinking panel takes over the space. */}
+      {recentTimeline.length === 0 && !isPlanning && thinkingDurationMs === null && !pendingConfirmation ? (
+        <div className={styles.idleGuide} aria-label="助手使用指引">
+          {phaseGuideItems[phase].map((item) => (
+            <div key={item} className={styles.idleGuideItem}>
+              <span aria-hidden="true" />
+              {item}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {recentTimeline.length > 0 ? (
         <ol className={styles.timeline} aria-label="最近助手记录">

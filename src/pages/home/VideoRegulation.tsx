@@ -27,6 +27,7 @@ import {
 } from '../../video/videoRegulationCatalog';
 import type { CompactTagOption } from '../../music/musicRegulationTags';
 import { describeFriendlyError } from '../../ui/friendlyError';
+import { isTauriAvailable } from '../../ui/tauriEnvironment';
 import playerStyles from './VideoRegulationPlayer.module.css';
 import styles from './VideoRegulation.module.css';
 
@@ -393,7 +394,18 @@ export default function VideoRegulation() {
       <div className={`${styles.libraryNotice} grid`}>
         <span>{videoLibrary ? '当前视频库' : '默认视频库'}</span>
         <code>{libraryRoot}</code>
-        {libraryError ? <strong>{libraryError}</strong> : null}
+        {libraryError ? (
+          isTauriAvailable() ? (
+            <strong role="alert">{libraryError}</strong>
+          ) : (
+            // Browser preview: the library picker and directory scan are Tauri
+            // commands, so the failure is the environment — calm info instead
+            // of an alarm.
+            <span className={styles.libraryEnvironmentNotice} role="status">
+              当前为浏览器预览,本地视频库选择需在桌面应用中使用。
+            </span>
+          )
+        ) : null}
       </div>
 
       <div className={`${styles.contentGrid} ${hasStartedSelection ? styles.withResults : ''} grid`}>

@@ -116,6 +116,20 @@ type EegSessionContextValue = {
 
 const EegSessionContext = createContext<EegSessionContextValue | null>(null);
 
+/**
+ * Narrow slice for chrome-level consumers (the Home shell) whose rendering
+ * depends only on whether a recording is running. Subscribing them to the
+ * full session value re-renders the entire app shell on every display tweak
+ * (channel toggles, amplitude, time window) even though the recording state
+ * did not change, because the merged value identity covers `settings`.
+ */
+type EegRecordingControlValue = {
+  recordStatus: typeof initialEegSessionState.recordStatus;
+  stopRecord: () => Promise<boolean>;
+};
+
+const EegRecordingControlContext = createContext<EegRecordingControlValue | null>(null);
+
 function eegStatusEventMessage(event: EegStatusEvent) {
   return describeEegError(event.reason, 'EEG device disconnected.');
 }
@@ -498,9 +512,19 @@ export function EegProvider({ children }: { children: ReactNode }) {
     triggerConnected,
   ]);
 
+  // Narrow slice for the recording-control context. stopRecord still changes
+  // identity with sessionState (rare, command-lifecycle only), but display
+  // settings updates never touch this value.
+  const recordingControlValue = useMemo<EegRecordingControlValue>(() => ({
+    recordStatus: sessionState.recordStatus,
+    stopRecord,
+  }), [sessionState.recordStatus, stopRecord]);
+
   return (
     <EegSessionContext.Provider value={value}>
-      {children}
+      <EegRecordingControlContext.Provider value={recordingControlValue}>
+        {children}
+      </EegRecordingControlContext.Provider>
     </EegSessionContext.Provider>
   );
 }
@@ -510,6 +534,16 @@ export function useEegSession() {
 
   if (!value) {
     throw new Error('useEegSession must be used inside EegProvider');
+  }
+
+  return value;
+}
+
+export function useEegRecordingControl() {
+  const value = useContext(EegRecordingControlContext);
+
+  if (!value) {
+    throw new Error('useEegRecordingControl must be used inside EegProvider');
   }
 
   return value;

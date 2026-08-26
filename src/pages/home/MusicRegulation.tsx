@@ -31,6 +31,7 @@ import {
   type CompactTagOption,
 } from '../../music/musicRegulationTags';
 import { describeFriendlyError } from '../../ui/friendlyError';
+import { isTauriAvailable } from '../../ui/tauriEnvironment';
 import styles from './MusicRegulation.module.css';
 
 const bundledMusicFiles = [] as const;
@@ -866,7 +867,17 @@ export default function MusicRegulation() {
         </div>
       </header>
 
-      {error ? <div className={styles.errorBanner}>{error}</div> : null}
+      {error ? (
+        isTauriAvailable() ? (
+          <div className={styles.errorBanner} role="alert">{error}</div>
+        ) : (
+          // Browser preview: generation and history live behind Tauri commands,
+          // so the failure is the environment — degrade to a calm notice.
+          <div className={styles.environmentNotice} role="status">
+            当前为浏览器预览,音乐生成与生成记录需在桌面应用中使用。
+          </div>
+        )
+      ) : null}
       {!error && generationNotice ? <div className={styles.successBanner} role="status">{generationNotice}</div> : null}
 
       <div className={`${styles.contentGrid} grid`}>
