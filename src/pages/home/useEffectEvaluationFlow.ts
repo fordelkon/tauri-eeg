@@ -19,13 +19,14 @@ import {
 } from '../../mentalScale/scaleRecordsApi';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import {
+  clearFlowStateFromStorage,
   createEffectEvaluationFlowState,
   describeMissingMeasurements,
-  parseFlowState,
+  readFlowStateFromStorage,
   regulationPathForMethod,
   remainingRegulationSeconds,
-  serializeFlowState,
   setupBlockingReason,
+  writeFlowStateToStorage,
   type EffectEvaluationFlowState,
 } from './effectEvaluationFlow';
 
@@ -40,30 +41,16 @@ import {
  * the same run with a wall-clock countdown.
  */
 
-const FLOW_STORAGE_KEY = 'effectEvaluation.flowState.v1';
-
 function readStoredFlowState(): EffectEvaluationFlowState | null {
-  try {
-    return parseFlowState(window.sessionStorage.getItem(FLOW_STORAGE_KEY));
-  } catch {
-    return null;
-  }
+  return readFlowStateFromStorage(window.sessionStorage);
 }
 
 function writeStoredFlowState(state: EffectEvaluationFlowState): void {
-  try {
-    window.sessionStorage.setItem(FLOW_STORAGE_KEY, serializeFlowState(state));
-  } catch {
-    // Best-effort only; an unavailable storage just disables run resume.
-  }
+  writeFlowStateToStorage(window.sessionStorage, state);
 }
 
 function clearStoredFlowState(): void {
-  try {
-    window.sessionStorage.removeItem(FLOW_STORAGE_KEY);
-  } catch {
-    // Ignore.
-  }
+  clearFlowStateFromStorage(window.sessionStorage);
 }
 
 export function useEffectEvaluationFlow() {
@@ -83,10 +70,22 @@ export function useEffectEvaluationFlow() {
   // Set when this flow started the EEG recording and still expects its session
   // id; a ref because stopRecord resolves before the context publishes the row.
   const awaitingSessionIdRef = useRef(false);
+  // Latest association status for callbacks that must act on it synchronously
+  // (the reset path) without waiting for a re-render.
+  const eegAssociationRef = useRef(state.eegAssociation);
+  // Bumped whenever the run is discarded; an in-flight EEG start from an
+  // earlier generation must not mark the fresh run as recording (and must
+  // stop the recording it just created) — otherwise a reset clicked while
+  // startRecord was pending leaks an unowned recording (R4/F3).
+  const flowGenerationRef = useRef(0);
 
   useEffect(() => {
     writeStoredFlowState(state);
   }, [state]);
+
+  useEffect(() => {
+    eegAssociationRef.current = state.eegAssociation;
+  }, [state.eegAssociation]);
 
   const isOnRegulationStep = state.step === 2;
 
@@ -115,6 +114,32 @@ export function useEffectEvaluationFlow() {
         : { ...current, eegSessionId: lastRecording.id, eegAssociation: 'saved' }
     ));
   }, [lastRecording?.id]);
+
+  // Latest method for callbacks that must act on it synchronously (the
+  // unmount safety net below) without waiting for a re-render.
+  const methodRef = useRef(state.method);
+
+  useEffect(() => {
+    methodRef.current = state.method;
+  }, [state.method]);
+
+  // Unmount safety net (R4/F3): the recording is allowed to outlive this
+  // component only for the designed jump to the run's regulation page. Any
+  // other unmount mid-recording (e.g. leaving through the sidebar) would leak
+  // an unowned recording that nobody can stop or associate anymore.
+  useEffect(() => {
+    return () => {
+      if (eegAssociationRef.current !== 'recording') {
+        return;
+      }
+
+      if (window.location.pathname !== regulationPathForMethod(methodRef.current)) {
+        eegAssociationRef.current = 'unavailable';
+        awaitingSessionIdRef.current = false;
+        void stopRecord();
+      }
+    };
+  }, [stopRecord]);
 
   const scaleForMethod: MentalScaleDefinition | null = useMemo(
     () => getMentalScaleForPath(regulationPathForMethod(state.method)),
@@ -177,6 +202,9 @@ export function useEffectEvaluationFlow() {
         // The skip marker only exists once the regulation leg ran; it rides
         // on the post record so reports/history can flag under-timed runs.
         regulationSkipped: phase === 'post' ? state.regulationSkipped : false,
+        // The EEG association is persisted on the post record (R4/F2) so the
+        // effect verdict links back to its neural data across restarts.
+        eegSessionId: phase === 'post' ? state.eegSessionId : null,
       });
 
       updateMentalScaleStatus(buildMentalScaleStatus(scale, answers));
@@ -197,6 +225,7 @@ export function useEffectEvaluationFlow() {
     isSavingScale,
     scaleForMethod,
     state.durationMinutes,
+    state.eegSessionId,
     state.emotion,
     state.regulationSkipped,
     state.subjectId,
@@ -223,12 +252,25 @@ export function useEffectEvaluationFlow() {
     setNowMs(Date.now());
 
     if (!canStartRecord || !currentUser) {
+      eegAssociationRef.current = 'unavailable';
       setState((current) => ({ ...current, eegAssociation: 'unavailable' }));
       return;
     }
 
+    const generation = flowGenerationRef.current;
     void startRecord()
       .then((started) => {
+        if (flowGenerationRef.current !== generation) {
+          // The run was reset while this start was in flight: the recording
+          // (if it came up) belongs to nobody now — stop it immediately
+          // instead of leaking it into the fresh run.
+          if (started) {
+            void stopRecord();
+          }
+          return;
+        }
+
+        eegAssociationRef.current = started ? 'recording' : 'unavailable';
         awaitingSessionIdRef.current = started;
         setState((current) => (
           started
@@ -237,9 +279,14 @@ export function useEffectEvaluationFlow() {
         ));
       })
       .catch(() => {
+        if (flowGenerationRef.current !== generation) {
+          return;
+        }
+
+        eegAssociationRef.current = 'unavailable';
         setState((current) => ({ ...current, eegAssociation: 'unavailable' }));
       });
-  }, [canStartRecord, currentUser, startRecord]);
+  }, [canStartRecord, currentUser, startRecord, stopRecord]);
 
   /**
    * Step 3 exit shared by the normal finish and the confirmed skip: stops
@@ -261,6 +308,7 @@ export function useEffectEvaluationFlow() {
     // remount after jumping to the regulation page).
     awaitingSessionIdRef.current = true;
     const stopped = await stopRecord();
+    eegAssociationRef.current = stopped ? 'saved' : 'unavailable';
 
     if (!stopped) {
       // No session row will arrive; don't leave the watcher armed for an
@@ -323,16 +371,29 @@ export function useEffectEvaluationFlow() {
     }
   }, [isLoadingSummary, loadSummary, state.step, summary, summaryError]);
 
-  /** Discards the current run (kept records stay in the database). */
+  /**
+   * Discards the current run (kept records stay in the database). A live EEG
+   * recording is stopped first (R4/F3): the abandoned run no longer owns it,
+   * and leaving it running would grow the file indefinitely with nobody left
+   * to associate or stop it.
+   */
   const resetFlow = useCallback(() => {
+    // Invalidate any in-flight EEG start before it can mark the fresh run.
+    flowGenerationRef.current += 1;
     awaitingSessionIdRef.current = false;
+
+    if (eegAssociationRef.current === 'recording') {
+      eegAssociationRef.current = 'unavailable';
+      void stopRecord();
+    }
+
     setActionError(null);
     setSummary(null);
     setSummaryError(null);
     setState(createEffectEvaluationFlowState());
     // The effect above re-writes storage; drop the key in case writes fail.
     clearStoredFlowState();
-  }, []);
+  }, [stopRecord]);
 
   const openRegulationPage = useCallback(() => {
     navigate(regulationPathForMethod(state.method));

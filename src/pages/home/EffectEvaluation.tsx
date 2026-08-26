@@ -15,6 +15,7 @@ import { useConfirmDialog } from '../../ui/useConfirmDialog';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import {
   buildEffectVerdictCopy,
+  describeMeasuredBasis,
   describeRegulationSkipped,
   EFFECT_EMOTION_OPTIONS,
   EFFECT_FLOW_STEPS,
@@ -159,6 +160,10 @@ export default function EffectEvaluation() {
     () => (flow.summary ? buildEffectVerdictCopy(flow.summary) : null),
     [flow.summary],
   );
+  // R4/F1 口径: marker-based means need no extra copy; legacy pairs computed
+  // over every stored key are flagged so the compared-dimension count is not
+  // mistaken for "all four dimensions were measured".
+  const measuredBasisNote = flow.summary ? describeMeasuredBasis(flow.summary) : null;
   const chartOption = useMemo(
     () => (flow.summary && flow.summary.dimensions.length > 0
       ? buildEffectChartOption(flow.summary)
@@ -487,11 +492,25 @@ export default function EffectEvaluation() {
               <span className={styles.statLabel}>达标阈值</span>
               <span className={styles.statValue}>10%</span>
             </div>
+            {/* R4/F1: only dimensions marked as measured on both sides enter
+                the mean, so this count is the honest comparison basis. */}
             <div className={styles.statCard}>
-              <span className={styles.statLabel}>可对比维度</span>
+              <span className={styles.statLabel}>实际纳入对比的维度数</span>
               <span className={styles.statValue}>{flow.summary.dimensions.length}</span>
             </div>
           </div>
+
+          {measuredBasisNote ? (
+            <p className={styles.panelHint} role="note">{measuredBasisNote}</p>
+          ) : null}
+
+          {state.eegSessionId ? (
+            <div className={styles.configSummary}>
+              <span className={styles.configChip} title={state.eegSessionId}>
+                关联 EEG 会话 {`${state.eegSessionId.slice(0, 8)}…`}
+              </span>
+            </div>
+          ) : null}
 
           {chartOption ? (
             <>

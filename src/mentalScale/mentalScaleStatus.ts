@@ -78,11 +78,11 @@ export function updateMentalScaleStatus(status: MentalScaleStatus): void {
   }
 }
 
-export function buildMentalScaleStatus(
+/** Groups each answered question's percent score by its dimension. */
+function collectDimensionAnswers(
   scale: MentalScaleDefinition,
   answers: MentalScaleAnswers,
-  updatedAt = Date.now(),
-): MentalScaleStatus {
+): Map<MentalScaleDimensionKey, number[]> {
   const dimensionValues = new Map<MentalScaleDimensionKey, number[]>();
 
   for (const question of scale.questions) {
@@ -97,6 +97,32 @@ export function buildMentalScaleStatus(
     values.push(Math.round((answer / 3) * 100));
     dimensionValues.set(dimensionKey, values);
   }
+
+  return dimensionValues;
+}
+
+/**
+ * Dimensions with at least one answered question, in canonical order. The
+ * persistence layer stores this marker alongside the scores so the effect
+ * computation can exclude never-measured placeholder dimensions (F1).
+ */
+export function measuredDimensionKeys(
+  scale: MentalScaleDefinition,
+  answers: MentalScaleAnswers,
+): MentalScaleDimensionKey[] {
+  const measured = collectDimensionAnswers(scale, answers);
+
+  return mentalScaleDimensions
+    .map((dimension) => dimension.key)
+    .filter((key) => measured.has(key));
+}
+
+export function buildMentalScaleStatus(
+  scale: MentalScaleDefinition,
+  answers: MentalScaleAnswers,
+  updatedAt = Date.now(),
+): MentalScaleStatus {
+  const dimensionValues = collectDimensionAnswers(scale, answers);
 
   return {
     dimensions: mentalScaleDimensions.map((dimension) => {

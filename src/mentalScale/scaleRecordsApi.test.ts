@@ -79,8 +79,10 @@ describe('scaleRecordsApi', () => {
 
     expect(invoke).toHaveBeenCalledTimes(1);
     // Per-question scores: 3 -> 100, 1 -> 33, 0 -> 0; each dimension averages
-    // its own questions (energy has none in this scale, so it keeps the
-    // neutral default).
+    // its own questions. All four keys are stored (energy keeps its neutral
+    // placeholder for radar/status display), but the R4/F1 marker list names
+    // only the dimensions that actually received answers so the effect
+    // computation can exclude the placeholder.
     expect(lastSaveInput()).toEqual({
       userId: 'user-1',
       subjectId: null,
@@ -88,7 +90,16 @@ describe('scaleRecordsApi', () => {
       phase: 'baseline',
       dimensionScores: { anxiety: 100, worry: 33, mood: 0, energy: 50 },
       rawAnswers: answers,
+      measuredDimensions: ['anxiety', 'worry', 'mood'],
     });
+  });
+
+  it('marks zero measured dimensions when nothing was answered (R4/F1)', () => {
+    persistMentalScaleSubmission(videoScale, {}, 'user-1');
+
+    // The explicit empty list is honest ("nothing was measured") and must not
+    // degrade to an unmarked legacy record.
+    expect(lastSaveInput().measuredDimensions).toEqual([]);
   });
 
   it('leaves the in-memory status cache untouched', () => {
@@ -182,6 +193,34 @@ describe('subject_id passthrough (R2 效果闭环)', () => {
     expect(input.scaleId).toBe('/music-regulation');
   });
 
+  it('marks measured dimensions and forwards the eeg session id (R4/F1+F2)', async () => {
+    const answers: MentalScaleAnswers = {
+      // Only the two mood/energy questions of the music scale.
+      'music-depression-low': 2,
+      'music-anxiety-relax': 0,
+    };
+
+    await savePhaseScaleRecord(musicScale, answers, {
+      userId: 'user-1',
+      subjectId: 'subj-009',
+      phase: 'post',
+      eegSessionId: 'eeg-run-42',
+    });
+
+    const input = lastSaveInput();
+    expect(input.eegSessionId).toBe('eeg-run-42');
+    expect(input.measuredDimensions).toEqual(['anxiety', 'mood']);
+
+    await savePhaseScaleRecord(musicScale, answers, {
+      userId: 'user-1',
+      subjectId: 'subj-009',
+      phase: 'baseline',
+      eegSessionId: null,
+    });
+
+    expect(lastSaveInput().eegSessionId).toBeNull();
+  });
+
   it('resolves the saved record id so baseline/post can be paired', async () => {
     vi.mocked(invoke).mockResolvedValueOnce({
       id: 'rec-post-1',
@@ -211,6 +250,7 @@ describe('subject_id passthrough (R2 效果闭环)', () => {
       ],
       meanImprovementRate: 0.4,
       meetsThreshold: true,
+      measuredOnly: true,
     };
     vi.mocked(invoke).mockResolvedValueOnce(summary);
 
@@ -221,6 +261,7 @@ describe('subject_id passthrough (R2 效果闭环)', () => {
     });
     expect(result.meetsThreshold).toBe(true);
     expect(result.meanImprovementRate).toBe(0.4);
+    expect(result.measuredOnly).toBe(true);
   });
 
   it('loads the paired history without arguments', async () => {

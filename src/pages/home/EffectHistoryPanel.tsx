@@ -38,6 +38,16 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
         {entry.regulationSkipped ? (
           <span className={styles.configChip}>已跳过剩余时长</span>
         ) : null}
+        {/* R4/F2: the persisted neural-data link survives restarts. */}
+        {entry.eegSessionId ? (
+          <span className={styles.configChip} title={entry.eegSessionId}>
+            EEG 会话 {`${entry.eegSessionId.slice(0, 8)}…`}
+          </span>
+        ) : null}
+        {/* R4/F1: flag pairs whose mean still covers unmarked stored keys. */}
+        {!entry.measuredOnly ? (
+          <span className={styles.configChip}>旧记录口径（未标注实测维度）</span>
+        ) : null}
       </div>
 
       {entry.dimensions.length > 0 ? (

@@ -14,6 +14,7 @@ function summaryFixture(): RegulationEffectSummaryView {
     ],
     meanImprovementRate: 0.15,
     meetsThreshold: true,
+    measuredOnly: true,
   };
 }
 
@@ -49,6 +50,7 @@ describe('buildEffectChartOption', () => {
       dimensions: [],
       meanImprovementRate: null,
       meetsThreshold: false,
+      measuredOnly: false,
     }) as { series: Array<{ data: number[] }>; xAxis: { data: string[] } };
 
     expect(option.xAxis.data).toEqual([]);

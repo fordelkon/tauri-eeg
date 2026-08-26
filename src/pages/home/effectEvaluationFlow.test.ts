@@ -1,21 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildEffectVerdictCopy,
+  clearFlowStateFromStorage,
   createEffectEvaluationFlowState,
+  describeMeasuredBasis,
   describeMissingMeasurements,
   describeRegulationSkipped,
   EFFECT_FLOW_STEP_COUNT,
   EFFECT_FLOW_STEPS,
   formatCountdown,
   formatImprovementRate,
+  isRegulationWindowOpen,
+  isRegulationWindowOpenInStorage,
   labelForDimension,
   parseFlowState,
+  readFlowStateFromStorage,
+  readRegulationPageContext,
   regulationDurationMs,
   regulationFinishModeFromRemaining,
+  regulationPageContextFor,
   regulationPathForMethod,
   remainingRegulationSeconds,
   serializeFlowState,
   setupBlockingReason,
+  writeFlowStateToStorage,
 } from './effectEvaluationFlow';
 
 /**
@@ -272,5 +280,111 @@ describe('improvement display logic', () => {
     expect(copy.severity).toBe('warning');
     expect(copy.title).toBe('未达到改善阈值');
     expect(copy.detail).toContain('-5%');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* R4/F4: regulation-page session context                              */
+/* ------------------------------------------------------------------ */
+
+/** In-memory sessionStorage stand-in for the node vitest environment. */
+function fakeStorage(initial: Record<string, string> = {}) {
+  const entries = new Map(Object.entries(initial));
+  return {
+    getItem: (key: string) => entries.get(key) ?? null,
+    setItem: (key: string, value: string) => void entries.set(key, value),
+    removeItem: (key: string) => void entries.delete(key),
+  };
+}
+
+/** A step-3 window that started at `startedAtMs` (5-minute default duration). */
+function runningWindowState(startedAtMs = 1_000_000) {
+  return {
+    ...createEffectEvaluationFlowState(),
+    step: 2 as const,
+    subjectId: 'subj-042',
+    emotion: 'anxiety' as const,
+    method: 'music' as const,
+    regulationStartedAtMs: startedAtMs,
+  };
+}
+
+describe('regulation window detection (R4/F4)', () => {
+  it('is only open on step 3 with a started wall clock', () => {
+    expect(isRegulationWindowOpen(runningWindowState())).toBe(true);
+    expect(isRegulationWindowOpen(createEffectEvaluationFlowState())).toBe(false);
+
+    // Started the clock but still on an earlier/ later step: not "open".
+    expect(isRegulationWindowOpen({ ...runningWindowState(), step: 1 })).toBe(false);
+    expect(isRegulationWindowOpen({ ...runningWindowState(), step: 3 })).toBe(false);
+  });
+
+  it('round-trips through storage and clears cleanly', () => {
+    const storage = fakeStorage();
+
+    writeFlowStateToStorage(storage, runningWindowState());
+    expect(isRegulationWindowOpenInStorage(storage)).toBe(true);
+    expect(readFlowStateFromStorage(storage)?.subjectId).toBe('subj-042');
+
+    clearFlowStateFromStorage(storage);
+    expect(isRegulationWindowOpenInStorage(storage)).toBe(false);
+    expect(readFlowStateFromStorage(storage)).toBeNull();
+  });
+
+  it('treats corrupt storage as a closed window instead of throwing', () => {
+    expect(isRegulationWindowOpenInStorage(fakeStorage({
+      'effectEvaluation.flowState.v1': '{broken',
+    }))).toBe(false);
+  });
+});
+
+describe('regulation page context (R4/F4 调控页消费会话上下文)', () => {
+  const START = 1_000_000;
+  const FIVE_MINUTES_MS = 300_000;
+
+  it('exposes emotion label and remaining seconds for the matching live method', () => {
+    const context = regulationPageContextFor(runningWindowState(START), 'music', START + 60_000);
+
+    expect(context).toEqual({ emotionLabel: '焦虑', remainingSeconds: 240 });
+  });
+
+  it('stays null for closed windows or a mismatched page method', () => {
+    // The video page must stay untouched while a music run is live.
+    expect(regulationPageContextFor(runningWindowState(START), 'video', START)).toBeNull();
+    // No live window: unrelated visits to the music page see nothing.
+    expect(regulationPageContextFor(createEffectEvaluationFlowState(), 'music', START)).toBeNull();
+    // Window finished long ago is still "open" until the wizard advances —
+    // remaining clamps to 0 so the page keeps its playback stopped.
+    expect(regulationPageContextFor(runningWindowState(START), 'music', START + FIVE_MINUTES_MS * 2))
+      .toEqual({ emotionLabel: '焦虑', remainingSeconds: 0 });
+  });
+
+  it('reads through storage so the unmounted wizard state reaches the page', () => {
+    const storage = fakeStorage();
+    expect(readRegulationPageContext(storage, 'music', Date.now())).toBeNull();
+
+    writeFlowStateToStorage(storage, { ...runningWindowState(START), emotion: 'fear', method: 'video' });
+
+    expect(readRegulationPageContext(storage, 'music', START)).toBeNull();
+    expect(readRegulationPageContext(storage, 'video', START + 30_000)).toEqual({
+      emotionLabel: '恐惧',
+      remainingSeconds: 270,
+    });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* R4/F1: measured-basis note                                          */
+/* ------------------------------------------------------------------ */
+
+describe('measured basis note (R4/F1 幻影维度口径)', () => {
+  it('adds no copy when the mean covered only dimensions marked measured', () => {
+    expect(describeMeasuredBasis({ measuredOnly: true })).toBeNull();
+  });
+
+  it('flags legacy pairs whose mean covers every stored key', () => {
+    const note = describeMeasuredBasis({ measuredOnly: false });
+    expect(note).toContain('未标注实测维度');
+    expect(note).toContain('占位维度');
   });
 });

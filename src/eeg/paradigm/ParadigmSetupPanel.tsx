@@ -1,6 +1,7 @@
 import { open } from '@tauri-apps/plugin-dialog';
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useEegSession } from '../EegSessionContext';
+import { isRegulationWindowOpenInStorage } from '../../pages/home/effectEvaluationFlow';
 import ParadigmVideoPreview from './ParadigmVideoPreview';
 import { buildParadigmQueue, loadParadigmVideoLibrary } from './paradigmApi';
 import {
@@ -297,6 +298,14 @@ export default function ParadigmSetupPanel({
 
   const startSession = useCallback(async () => {
     if (!library || !canStartSession) {
+      return;
+    }
+
+    // Reverse half of the paradigm/effect-evaluation mutual exclusion
+    // (R4/F4): a live regulation window owns the operator's attention and
+    // possibly the EEG recording, mirroring the wizard's own paradigm check.
+    if (isRegulationWindowOpenInStorage(window.sessionStorage)) {
+      setQueueError('效果评价调控进行中，请先回到「效果评价」结束或跳过本次调控，再开始范式采集。');
       return;
     }
 

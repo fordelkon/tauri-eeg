@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { MentalScaleAnswers, MentalScaleDefinition } from './mentalScaleGate';
-import { buildMentalScaleStatus, type MentalScaleDimensionKey } from './mentalScaleStatus';
+import { buildMentalScaleStatus, measuredDimensionKeys, type MentalScaleDimensionKey } from './mentalScaleStatus';
 import { readStoredSubjectId } from '../storage/currentSubject';
 
 /**
@@ -25,6 +25,14 @@ export type ScaleRecordInput = {
   durationMinutes?: number | null;
   /** True when part of the regulation window was explicitly skipped. */
   regulationSkipped?: boolean;
+  /**
+   * Dimension keys actually measured by this submission (R4/F1): the effect
+   * computation only compares keys marked on both sides so placeholder-filled
+   * dimensions cannot dilute the mean.
+   */
+  measuredDimensions?: string[];
+  /** EEG recording session linked to this run leg (the wizard's post leg). */
+  eegSessionId?: string | null;
 };
 
 /** camelCase mirror of the backend ScaleRecord. */
@@ -40,6 +48,8 @@ export type ScaleRecordView = {
   emotion: string | null;
   durationMinutes: number | null;
   regulationSkipped: boolean;
+  measuredDimensions: string[] | null;
+  eegSessionId: string | null;
 };
 
 export type RegulationDimensionImprovementView = {
@@ -55,6 +65,8 @@ export type RegulationEffectSummaryView = {
   dimensions: RegulationDimensionImprovementView[];
   meanImprovementRate: number | null;
   meetsThreshold: boolean;
+  /** True when the mean covered only dimensions marked as measured on both sides (R4/F1). */
+  measuredOnly: boolean;
 };
 
 function normalizeSubjectId(subjectId: string | null | undefined): string | null {
@@ -110,6 +122,9 @@ export function persistMentalScaleSubmission(
     phase: options.phase ?? 'baseline',
     dimensionScores: buildScaleDimensionScores(scale, answers),
     rawAnswers: answers,
+    // Gate submissions carry the same measured markers so a gate baseline
+    // paired with a wizard post keeps the marker-based comparison (R4/F1).
+    measuredDimensions: measuredDimensionKeys(scale, answers),
   }).catch((error: unknown) => {
     console.warn('[mentalScale] 量表记录落库失败:', error);
   });
@@ -119,7 +134,8 @@ export function persistMentalScaleSubmission(
  * Awaited save used by the effect-evaluation wizard: the caller needs the
  * persisted record id to pair baseline/post and compute the improvement.
  * The wizard's target emotion, planned duration, and (on the post leg) the
- * skip marker ride along for the history view and report exports.
+ * skip marker plus the associated EEG session id ride along for the history
+ * view and report exports.
  */
 export function savePhaseScaleRecord(
   scale: MentalScaleDefinition,
@@ -131,6 +147,7 @@ export function savePhaseScaleRecord(
     emotion?: string | null;
     durationMinutes?: number | null;
     regulationSkipped?: boolean;
+    eegSessionId?: string | null;
   },
 ): Promise<ScaleRecordView> {
   return saveScaleRecord({
@@ -143,6 +160,8 @@ export function savePhaseScaleRecord(
     emotion: context.emotion ?? null,
     durationMinutes: context.durationMinutes ?? null,
     regulationSkipped: context.regulationSkipped ?? false,
+    measuredDimensions: measuredDimensionKeys(scale, answers),
+    eegSessionId: context.eegSessionId ?? null,
   });
 }
 
@@ -173,6 +192,10 @@ export type EffectHistoryEntryView = {
   emotion: string | null;
   durationMinutes: number | null;
   regulationSkipped: boolean;
+  /** EEG recording session of the run (post leg first, baseline fallback). */
+  eegSessionId: string | null;
+  /** False when the mean was computed over unmarked legacy records. */
+  measuredOnly: boolean;
   meanImprovementRate: number | null;
   meetsThreshold: boolean;
   dimensions: RegulationDimensionImprovementView[];

@@ -28,6 +28,8 @@ import {
 import type { CompactTagOption } from '../../music/musicRegulationTags';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
+import { formatCountdown } from './effectEvaluationFlow';
+import { useEffectRegulationContext } from './useEffectRegulationContext';
 import playerStyles from './VideoRegulationPlayer.module.css';
 import styles from './VideoRegulation.module.css';
 
@@ -239,6 +241,14 @@ export default function VideoRegulation() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [selections, setSelections] = useState<VideoRegulationSelections>(() => getDefaultVideoSelections());
   const [activeVideo, setActiveVideo] = useState<VideoRegulationAsset | null>(null);
+  // Effect-evaluation session context (R4/F4): while this page hosts a live
+  // regulation window, the banner shows the target emotion and remaining
+  // time; at zero the player closes so playback stays stopped.
+  const regulationContext = useEffectRegulationContext('video', () => {
+    videoRef.current?.pause();
+    setActiveVideo(null);
+  });
+  const regulationElapsed = regulationContext !== null && regulationContext.remainingSeconds === 0;
   const [videoLibrary, setVideoLibrary] = useState<VideoLibrary | null>(null);
   const [libraryError, setLibraryError] = useState('');
   const [loadingLibrary, setLoadingLibrary] = useState(false);
@@ -390,6 +400,14 @@ export default function VideoRegulation() {
           </button>
         </div>
       </header>
+
+      {regulationContext ? (
+        <div className={styles.effectSessionBanner} role="status">
+          {regulationElapsed
+            ? '效果评价调控时长已达成，播放已自动停止。请回到「效果评价」页继续复测。'
+            : `效果评价调控进行中 · 目标情绪 ${regulationContext.emotionLabel} · 剩余时长 ${formatCountdown(regulationContext.remainingSeconds)}`}
+        </div>
+      ) : null}
 
       <div className={`${styles.libraryNotice} grid`}>
         <span>{videoLibrary ? '当前视频库' : '默认视频库'}</span>

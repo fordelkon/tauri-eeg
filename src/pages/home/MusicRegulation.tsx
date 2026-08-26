@@ -32,6 +32,8 @@ import {
 } from '../../music/musicRegulationTags';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
+import { formatCountdown } from './effectEvaluationFlow';
+import { useEffectRegulationContext } from './useEffectRegulationContext';
 import styles from './MusicRegulation.module.css';
 
 const bundledMusicFiles = [] as const;
@@ -464,6 +466,13 @@ const PlaybackTimeline = memo(function PlaybackTimeline({
 export default function MusicRegulation() {
   const { currentUser } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Effect-evaluation session context (R4/F4): while this page hosts a live
+  // regulation window, the banner shows the target emotion and remaining
+  // time, and the window's zero tick keeps playback stopped.
+  const regulationContext = useEffectRegulationContext('music', () => {
+    audioRef.current?.pause();
+  });
+  const regulationElapsed = regulationContext !== null && regulationContext.remainingSeconds === 0;
   // Marks the awaited generateMusic call as abandoned so a late resolution or
   // rejection after 「取消等待」 cannot clobber post-cancel state (or autoplay
   // over whatever the user did next). One token per run also keeps a cancelled
@@ -866,6 +875,14 @@ export default function MusicRegulation() {
           <span>{assets.length} 首 WAV</span>
         </div>
       </header>
+
+      {regulationContext ? (
+        <div className={styles.effectSessionBanner} role="status">
+          {regulationElapsed
+            ? '效果评价调控时长已达成，播放已自动停止。请回到「效果评价」页继续复测。'
+            : `效果评价调控进行中 · 目标情绪 ${regulationContext.emotionLabel} · 剩余时长 ${formatCountdown(regulationContext.remainingSeconds)}`}
+        </div>
+      ) : null}
 
       {error ? (
         isTauriAvailable() ? (

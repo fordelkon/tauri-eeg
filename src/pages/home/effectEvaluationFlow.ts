@@ -166,8 +166,97 @@ export function formatCountdown(totalSeconds: number): string {
 /* Session persistence (survives the jump to the regulation page)      */
 /* ------------------------------------------------------------------ */
 
+/** sessionStorage key shared by the wizard and every context consumer
+ * (regulation pages, paradigm start gate). */
+export const FLOW_STORAGE_KEY = 'effectEvaluation.flowState.v1';
+
+/** Minimal storage surface so node tests can pass plain objects. */
+type FlowStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+export function readFlowStateFromStorage(
+  storage: Pick<FlowStorage, 'getItem'>,
+): EffectEvaluationFlowState | null {
+  try {
+    return parseFlowState(storage.getItem(FLOW_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
 export function serializeFlowState(state: EffectEvaluationFlowState): string {
   return JSON.stringify(state);
+}
+
+/** Best-effort write; an unavailable storage just disables run resume. */
+export function writeFlowStateToStorage(storage: FlowStorage, state: EffectEvaluationFlowState): void {
+  try {
+    storage.setItem(FLOW_STORAGE_KEY, serializeFlowState(state));
+  } catch {
+    // Ignore.
+  }
+}
+
+export function clearFlowStateFromStorage(storage: FlowStorage): void {
+  try {
+    storage.removeItem(FLOW_STORAGE_KEY);
+  } catch {
+    // Ignore.
+  }
+}
+
+/**
+ * True while step 3's wall-clock window is running (started, not yet left).
+ * This is the "regulation is happening right now" fact consumed by the
+ * regulation pages (countdown banner, auto-stop) and the mutual-exclusion
+ * guards (shell navigation, paradigm start).
+ */
+export function isRegulationWindowOpen(state: EffectEvaluationFlowState): boolean {
+  return state.step === 2 && state.regulationStartedAtMs !== null;
+}
+
+export function isRegulationWindowOpenInStorage(storage: FlowStorage): boolean {
+  const state = readFlowStateFromStorage(storage);
+  return state !== null && isRegulationWindowOpen(state);
+}
+
+/* ------------------------------------------------------------------ */
+/* Regulation-page context (F4)                                        */
+/* ------------------------------------------------------------------ */
+
+export type RegulationPageContext = {
+  emotionLabel: string;
+  /** Seconds left in the window; 0 once the target duration is reached. */
+  remainingSeconds: number;
+};
+
+/**
+ * View-model for a regulation page playing this run's content: only live
+ * windows whose method matches the page expose a context, so unrelated visits
+ * to the music/video pages stay untouched.
+ */
+export function regulationPageContextFor(
+  state: EffectEvaluationFlowState,
+  method: EffectRegulationMethod,
+  nowMs: number,
+): RegulationPageContext | null {
+  if (!isRegulationWindowOpen(state) || state.method !== method) {
+    return null;
+  }
+
+  return {
+    emotionLabel: EFFECT_EMOTION_OPTIONS.find((option) => option.value === state.emotion)?.label
+      ?? state.emotion,
+    remainingSeconds: remainingRegulationSeconds(state, nowMs) ?? 0,
+  };
+}
+
+export function readRegulationPageContext(
+  storage: Pick<FlowStorage, 'getItem'>,
+  method: EffectRegulationMethod,
+  nowMs: number,
+): RegulationPageContext | null {
+  const state = readFlowStateFromStorage(storage);
+  return state === null ? null : regulationPageContextFor(state, method, nowMs);
 }
 
 /** Parses stored wizard state; any stale or corrupt payload yields null so
@@ -321,6 +410,20 @@ export function formatImprovementRate(rate: number): string {
   const sign = percent > 0 ? '+' : '';
 
   return `${sign}${percent}%`;
+}
+
+/**
+ * Basis note under the result stats (F1 口径): a marker-based mean is the
+ * honest default and needs no extra copy; a legacy pair computed over every
+ * stored key must be flagged because it can include unmeasured placeholder
+ * dimensions.
+ */
+export function describeMeasuredBasis(
+  summary: Pick<RegulationEffectSummaryView, 'measuredOnly'>,
+): string | null {
+  return summary.measuredOnly
+    ? null
+    : '本次配对包含未标注实测维度的旧记录，按两侧全部已存维度计算，可能包含未实测的占位维度。';
 }
 
 export const EFFECT_DIMENSION_LABELS: Record<string, string> = {

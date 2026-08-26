@@ -30,6 +30,15 @@ pub struct SaveScaleRecordInput {
     /// explicit confirmation (strong-duration-constraint escape hatch).
     #[serde(default)]
     pub regulation_skipped: bool,
+    /// Dimension keys actually measured by this submission; `None` on legacy
+    /// payloads that predate measured-dimension marking.
+    #[serde(default)]
+    pub measured_dimensions: Option<Vec<String>>,
+    /// EEG recording session associated with this run leg (the wizard stores
+    /// it on the post record so the effect verdict links back to its neural
+    /// data); `None` on gate submissions and legacy rows.
+    #[serde(default)]
+    pub eeg_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -46,6 +55,8 @@ pub struct ScaleRecord {
     pub emotion: Option<String>,
     pub duration_minutes: Option<i64>,
     pub regulation_skipped: bool,
+    pub measured_dimensions: Option<Vec<String>>,
+    pub eeg_session_id: Option<String>,
 }
 
 /// Per-dimension improvement between the baseline and post regulation
@@ -64,12 +75,21 @@ pub struct RegulationDimensionImprovement {
 /// Dimensions missing on either side (or with a zero baseline, which makes the
 /// improvement rate undefined) are excluded; the mean covers only comparable
 /// dimensions and is `None` when none remain.
+///
+/// When both records mark their measured dimensions (`measured_dimensions`),
+/// only keys marked on **both** sides enter the mean — placeholder-filled
+/// dimensions never dilute the threshold verdict. Pairs with at least one
+/// unmarked (legacy) record fall back to comparing every stored key, and
+/// `measured_only` is `false` so consumers can surface that degraded basis.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RegulationEffectSummary {
     pub subject_id: Option<String>,
     pub dimensions: Vec<RegulationDimensionImprovement>,
     pub mean_improvement_rate: Option<f64>,
+    /// True when the dimension set was restricted to keys marked as actually
+    /// measured on both sides; false = legacy comparison over all stored keys.
+    pub measured_only: bool,
 }
 
 impl RegulationEffectSummary {
@@ -120,7 +140,7 @@ fn ensure_scale_records_columns(conn: &Connection) -> Result<(), String> {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| "Failed to inspect scale records schema.".to_string())?;
 
-    const COLUMN_ADDITIONS: [(&str, &str); 3] = [
+    const COLUMN_ADDITIONS: [(&str, &str); 5] = [
         ("emotion", "ALTER TABLE scale_records ADD COLUMN emotion TEXT"),
         (
             "duration_minutes",
@@ -129,6 +149,14 @@ fn ensure_scale_records_columns(conn: &Connection) -> Result<(), String> {
         (
             "regulation_skipped",
             "ALTER TABLE scale_records ADD COLUMN regulation_skipped INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "measured_dimensions",
+            "ALTER TABLE scale_records ADD COLUMN measured_dimensions TEXT",
+        ),
+        (
+            "eeg_session_id",
+            "ALTER TABLE scale_records ADD COLUMN eeg_session_id TEXT",
         ),
     ];
 
@@ -163,6 +191,14 @@ pub fn save_scale_record(
     // Nonsense windows are dropped rather than stored (the wizard clamps
     // before saving; this guards direct API callers).
     let duration_minutes = input.duration_minutes.filter(|minutes| *minutes > 0);
+    // Markers are trimmed/deduplicated so storage stays canonical even for
+    // direct API callers; an explicit empty list is kept (it honestly says
+    // "nothing was measured" and must not degrade to the legacy fallback).
+    let measured_dimensions = input
+        .measured_dimensions
+        .as_ref()
+        .map(|keys| normalize_dimension_keys(keys));
+    let eeg_session_id = normalize_optional_text(input.eeg_session_id.as_deref());
 
     let id = Uuid::new_v4().to_string();
     let created_at = Utc::now().to_rfc3339();
@@ -170,12 +206,15 @@ pub fn save_scale_record(
         serde_json::to_string(&input.dimension_scores).unwrap_or_else(|_| "{}".to_string());
     let raw_answers =
         serde_json::to_string(&input.raw_answers).unwrap_or_else(|_| "{}".to_string());
+    let measured_dimensions_json = measured_dimensions
+        .as_ref()
+        .map(|keys| serde_json::to_string(keys).unwrap_or_else(|_| "[]".to_string()));
 
     conn.execute(
         "INSERT INTO scale_records
             (id, user_id, subject_id, scale_id, phase, dimension_scores, raw_answers, created_at,
-             emotion, duration_minutes, regulation_skipped)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+             emotion, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         params![
             id,
             user_id,
@@ -188,6 +227,8 @@ pub fn save_scale_record(
             emotion,
             duration_minutes,
             input.regulation_skipped,
+            measured_dimensions_json,
+            eeg_session_id,
         ],
     )
     .map_err(|_| "Failed to save scale record.".to_string())?;
@@ -204,7 +245,24 @@ pub fn save_scale_record(
         emotion: emotion.map(str::to_string),
         duration_minutes,
         regulation_skipped: input.regulation_skipped,
+        measured_dimensions,
+        eeg_session_id: eeg_session_id.map(str::to_string),
     })
+}
+
+/// Trims each key, drops blanks, and deduplicates while preserving order.
+fn normalize_dimension_keys(keys: &[String]) -> Vec<String> {
+    let mut normalized: Vec<String> = Vec::with_capacity(keys.len());
+
+    for key in keys {
+        let trimmed = key.trim();
+
+        if !trimmed.is_empty() && !normalized.iter().any(|existing| existing == trimmed) {
+            normalized.push(trimmed.to_string());
+        }
+    }
+
+    normalized
 }
 
 fn normalize_optional_text(value: Option<&str>) -> Option<&str> {
@@ -227,7 +285,7 @@ pub fn list_scale_records(
     let mut stmt = conn
         .prepare_cached(
             "SELECT id, user_id, subject_id, scale_id, phase, dimension_scores, raw_answers, created_at,
-                    emotion, duration_minutes, regulation_skipped
+                    emotion, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id
                 FROM scale_records
                 WHERE (?1 IS NULL OR subject_id = ?1)
                   AND (?2 IS NULL OR phase = ?2)
@@ -256,7 +314,7 @@ fn fetch_record_row(conn: &Connection, id: &str) -> Result<RecordRow, String> {
     let mut stmt = conn
         .prepare_cached(
             "SELECT id, user_id, subject_id, scale_id, phase, dimension_scores, raw_answers, created_at,
-                    emotion, duration_minutes, regulation_skipped
+                    emotion, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id
                 FROM scale_records WHERE id = ?1",
         )
         .map_err(|_| "Failed to load scale record.".to_string())?;
@@ -278,6 +336,8 @@ fn map_record_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RecordRow> {
         emotion: row.get(8)?,
         duration_minutes: row.get(9)?,
         regulation_skipped: row.get::<_, i64>(10)? != 0,
+        measured_dimensions: row.get(11)?,
+        eeg_session_id: row.get(12)?,
     })
 }
 
@@ -319,8 +379,26 @@ pub fn compute_regulation_effect_summary(
     let baseline_scores = parse_dimension_scores(&baseline.dimension_scores)?;
     let post_scores = parse_dimension_scores(&post.dimension_scores)?;
 
+    // R4 (F1): when both records mark which dimensions were actually
+    // measured, restrict the comparison to keys marked on both sides so a
+    // placeholder-filled dimension cannot dilute the mean. With any unmarked
+    // (legacy) side, keep the historical stored-key comparison and say so via
+    // `measured_only`.
+    let measured_only = baseline.measured_dimensions.is_some() && post.measured_dimensions.is_some();
+
     let mut dimensions = Vec::new();
     for (dimension, baseline_value) in &baseline_scores {
+        if measured_only {
+            let marked_on_both_sides = |keys: &Option<Vec<String>>| {
+                keys.as_ref()
+                    .is_some_and(|keys| keys.iter().any(|key| key == dimension))
+            };
+            if !marked_on_both_sides(&baseline.measured_dimensions)
+                || !marked_on_both_sides(&post.measured_dimensions)
+            {
+                continue;
+            }
+        }
         // Missing on the post side: no comparison possible for this dimension.
         let Some(post_value) = post_scores.get(dimension) else {
             continue;
@@ -354,6 +432,7 @@ pub fn compute_regulation_effect_summary(
         subject_id: baseline.subject_id.clone(),
         dimensions,
         mean_improvement_rate,
+        measured_only,
     })
 }
 
@@ -385,6 +464,10 @@ pub struct EffectHistoryEntry {
     pub emotion: Option<String>,
     pub duration_minutes: Option<i64>,
     pub regulation_skipped: bool,
+    /// EEG recording session of the run (post leg first, baseline fallback).
+    pub eeg_session_id: Option<String>,
+    /// False when the mean was computed over unmarked legacy records.
+    pub measured_only: bool,
     pub mean_improvement_rate: Option<f64>,
     pub meets_threshold: bool,
     pub dimensions: Vec<RegulationDimensionImprovement>,
@@ -427,6 +510,11 @@ pub fn build_effect_history(records: &[ScaleRecord]) -> Vec<EffectHistoryEntry> 
                             .or_else(|| baseline.emotion.clone()),
                         duration_minutes: record.duration_minutes.or(baseline.duration_minutes),
                         regulation_skipped: record.regulation_skipped || baseline.regulation_skipped,
+                        eeg_session_id: record
+                            .eeg_session_id
+                            .clone()
+                            .or_else(|| baseline.eeg_session_id.clone()),
+                        measured_only: summary.measured_only,
                         mean_improvement_rate: summary.mean_improvement_rate,
                         meets_threshold: summary.meets_threshold(),
                         dimensions: summary.dimensions,
@@ -471,6 +559,10 @@ pub struct SingleEffectReport {
     pub post_record_id: String,
     pub baseline_created_at: String,
     pub post_created_at: String,
+    /// EEG recording session of the run (post leg first, baseline fallback).
+    pub eeg_session_id: Option<String>,
+    /// False when the mean was computed over unmarked legacy records.
+    pub measured_only: bool,
     pub threshold: f64,
     pub mean_improvement_rate: Option<f64>,
     pub meets_threshold: bool,
@@ -497,6 +589,11 @@ pub fn build_single_effect_report(
         post_record_id: post.id.clone(),
         baseline_created_at: baseline.created_at.clone(),
         post_created_at: post.created_at.clone(),
+        eeg_session_id: post
+            .eeg_session_id
+            .clone()
+            .or_else(|| baseline.eeg_session_id.clone()),
+        measured_only: summary.measured_only,
         threshold: DEFAULT_IMPROVEMENT_THRESHOLD,
         mean_improvement_rate: summary.mean_improvement_rate,
         meets_threshold,
@@ -554,6 +651,8 @@ pub fn build_single_effect_report_csv(report: &SingleEffectReport) -> String {
         "threshold",
         "meets_threshold",
         "regulation_skipped",
+        "measured_only",
+        "eeg_session_id",
         "baseline_created_at",
         "post_created_at",
         "exported_at",
@@ -576,6 +675,8 @@ pub fn build_single_effect_report_csv(report: &SingleEffectReport) -> String {
                 report.threshold.to_string(),
                 report.meets_threshold.to_string(),
                 report.regulation_skipped.to_string(),
+                report.measured_only.to_string(),
+                csv_field(report.eeg_session_id.as_deref().unwrap_or("")),
                 csv_field(&report.baseline_created_at),
                 csv_field(&report.post_created_at),
                 csv_field(&report.exported_at),
@@ -602,6 +703,8 @@ pub fn build_batch_effect_report_csv(entries: &[EffectHistoryEntry]) -> String {
         "threshold",
         "meets_threshold",
         "dimension_count",
+        "measured_only",
+        "eeg_session_id",
         "baseline_created_at",
         "post_created_at",
         "exported_at",
@@ -623,6 +726,8 @@ pub fn build_batch_effect_report_csv(entries: &[EffectHistoryEntry]) -> String {
                 DEFAULT_IMPROVEMENT_THRESHOLD.to_string(),
                 entry.meets_threshold.to_string(),
                 entry.dimensions.len().to_string(),
+                entry.measured_only.to_string(),
+                csv_field(entry.eeg_session_id.as_deref().unwrap_or("")),
                 csv_field(&entry.baseline_created_at),
                 csv_field(&entry.post_created_at),
                 csv_field(&exported_at),
@@ -649,9 +754,22 @@ struct RecordRow {
     emotion: Option<String>,
     duration_minutes: Option<i64>,
     regulation_skipped: bool,
+    measured_dimensions: Option<String>,
+    eeg_session_id: Option<String>,
 }
 
 fn parse_record_row(row: RecordRow) -> Result<ScaleRecord, String> {
+    // Strict parse (matching dimension_scores): silently degrading a corrupt
+    // marker list would hide the row's real measurement basis from the
+    // effect computation below.
+    let measured_dimensions = match row.measured_dimensions {
+        Some(raw) => Some(
+            serde_json::from_str::<Vec<String>>(&raw)
+                .map_err(|_| "Failed to parse stored measured dimensions.".to_string())?,
+        ),
+        None => None,
+    };
+
     Ok(ScaleRecord {
         id: row.id,
         user_id: row.user_id,
@@ -668,6 +786,8 @@ fn parse_record_row(row: RecordRow) -> Result<ScaleRecord, String> {
         emotion: row.emotion,
         duration_minutes: row.duration_minutes,
         regulation_skipped: row.regulation_skipped,
+        measured_dimensions,
+        eeg_session_id: row.eeg_session_id,
     })
 }
 
@@ -718,6 +838,8 @@ mod tests {
             emotion: Some("anxiety".to_string()),
             duration_minutes: Some(5),
             regulation_skipped: false,
+            measured_dimensions: None,
+            eeg_session_id: None,
         }
     }
 
@@ -1085,6 +1207,236 @@ mod tests {
         assert!(summary.meets_threshold());
     }
 
+    /* ---------------- R4: measured-dimension markers + EEG session id ---------------- */
+
+    /// Saves a pair whose score maps are overridden after the insert (same
+    /// trick as `persisted_pair`) while carrying explicit marker lists.
+    fn marked_pair(
+        conn: &Connection,
+        baseline_scores: serde_json::Value,
+        baseline_markers: Option<Vec<&str>>,
+        post_scores: serde_json::Value,
+        post_markers: Option<Vec<&str>>,
+    ) -> (ScaleRecord, ScaleRecord) {
+        let mut baseline = save_scale_record(
+            conn,
+            &SaveScaleRecordInput {
+                measured_dimensions: baseline_markers
+                    .map(|keys| keys.iter().map(|key| key.to_string()).collect()),
+                ..sample_input("user-1", Some("subject-1"), PHASE_BASELINE)
+            },
+        )
+        .expect("save baseline");
+        baseline.dimension_scores = baseline_scores;
+
+        let mut post = save_scale_record(
+            conn,
+            &SaveScaleRecordInput {
+                measured_dimensions: post_markers
+                    .map(|keys| keys.iter().map(|key| key.to_string()).collect()),
+                ..sample_input("user-1", Some("subject-1"), PHASE_POST)
+            },
+        )
+        .expect("save post");
+        post.dimension_scores = post_scores;
+
+        (baseline, post)
+    }
+
+    #[test]
+    fn persists_measured_dimensions_and_eeg_session_id() {
+        let conn = setup_conn();
+
+        let mut input = sample_input("user-1", Some("subject-1"), PHASE_POST);
+        input.measured_dimensions = Some(vec![
+            " mood ".to_string(),
+            "anxiety".to_string(),
+            "mood".to_string(),
+            "   ".to_string(),
+        ]);
+        input.eeg_session_id = Some("  eeg-session-77 ".to_string());
+
+        let saved = save_scale_record(&conn, &input).expect("save record");
+
+        // Trimmed, deduplicated, blanks dropped, order preserved.
+        assert_eq!(
+            saved.measured_dimensions.as_deref(),
+            Some(&["mood".to_string(), "anxiety".to_string()][..])
+        );
+        assert_eq!(saved.eeg_session_id.as_deref(), Some("eeg-session-77"));
+
+        let loaded = get_scale_record(&conn, &saved.id).expect("reload record");
+        assert_eq!(
+            loaded.measured_dimensions,
+            Some(vec!["mood".to_string(), "anxiety".to_string()])
+        );
+        assert_eq!(loaded.eeg_session_id.as_deref(), Some("eeg-session-77"));
+
+        let listed = list_scale_records(&conn, None, None).expect("list records");
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].eeg_session_id.as_deref(), Some("eeg-session-77"));
+    }
+
+    #[test]
+    fn normalizes_blank_eeg_session_and_empty_marker_lists() {
+        let conn = setup_conn();
+
+        let mut blank_markers = sample_input("user-1", None, PHASE_BASELINE);
+        blank_markers.measured_dimensions = Some(vec!["   ".to_string()]);
+        blank_markers.eeg_session_id = Some("   ".to_string());
+        let saved = save_scale_record(&conn, &blank_markers).expect("save record");
+
+        // An all-blank marker list still counts as explicitly empty (it must
+        // not degrade to the unmarked legacy fallback), while a blank session
+        // id is stored as NULL like other optional text.
+        assert_eq!(saved.measured_dimensions, Some(Vec::new()));
+        assert_eq!(saved.eeg_session_id, None);
+    }
+
+    #[test]
+    fn measured_markers_exclude_placeholder_dimensions_from_the_mean() {
+        let conn = setup_conn();
+        // Both sides store the full legacy four-key shape including the
+        // never-measured `worry` placeholder at 50/50...
+        let (baseline, post) = marked_pair(
+            &conn,
+            json!({ "anxiety": 80.0, "worry": 50.0, "mood": 60.0 }),
+            Some(vec!["anxiety", "mood"]),
+            json!({ "anxiety": 48.0, "worry": 50.0, "mood": 30.0 }),
+            Some(vec!["anxiety", "mood"]),
+        );
+
+        let summary =
+            compute_regulation_effect_summary(&baseline, &post).expect("compute summary");
+
+        // ...but only the marked dimensions enter the comparison.
+        assert!(summary.measured_only);
+        let compared: Vec<&str> = summary
+            .dimensions
+            .iter()
+            .map(|item| item.dimension.as_str())
+            .collect();
+        assert_eq!(compared, vec!["anxiety", "mood"]);
+        let mean = summary.mean_improvement_rate.expect("mean present");
+        assert!((mean - 0.45).abs() < 1e-9);
+    }
+
+    #[test]
+    fn markers_override_stored_keys_in_both_directions() {
+        let conn = setup_conn();
+
+        // A stored key without a marker is dropped even though scores exist…
+        let (baseline, post) = marked_pair(
+            &conn,
+            json!({ "anxiety": 80.0, "energy": 40.0 }),
+            Some(vec!["anxiety"]),
+            json!({ "anxiety": 48.0, "energy": 20.0 }),
+            Some(vec!["anxiety"]),
+        );
+        let summary =
+            compute_regulation_effect_summary(&baseline, &post).expect("compute summary");
+        assert_eq!(summary.dimensions.len(), 1);
+        assert_eq!(summary.dimensions[0].dimension, "anxiety");
+
+        // …and a marked key missing from the stored scores is skipped by the
+        // regular missing-on-one-side rule instead of panicking.
+        let (baseline, post) = marked_pair(
+            &conn,
+            json!({ "anxiety": 80.0 }),
+            Some(vec!["anxiety", "mood"]),
+            json!({ "anxiety": 48.0, "mood": 30.0 }),
+            Some(vec!["anxiety", "mood"]),
+        );
+        let summary =
+            compute_regulation_effect_summary(&baseline, &post).expect("compute summary");
+        let compared: Vec<&str> = summary
+            .dimensions
+            .iter()
+            .map(|item| item.dimension.as_str())
+            .collect();
+        assert_eq!(compared, vec!["anxiety"]);
+    }
+
+    #[test]
+    fn legacy_pairs_without_markers_keep_the_stored_key_comparison() {
+        let conn = setup_conn();
+
+        // Pre-R4 rows carry no markers: the historical behavior applies and is
+        // reported through measured_only=false so UIs can flag the basis.
+        let (baseline, post) = marked_pair(
+            &conn,
+            json!({ "anxiety": 80.0, "worry": 50.0 }),
+            None,
+            json!({ "anxiety": 48.0, "worry": 50.0 }),
+            None,
+        );
+
+        let summary =
+            compute_regulation_effect_summary(&baseline, &post).expect("compute summary");
+
+        assert!(!summary.measured_only);
+        assert_eq!(summary.dimensions.len(), 2);
+    }
+
+    #[test]
+    fn mixed_marker_availability_falls_back_to_stored_keys() {
+        let conn = setup_conn();
+        let (baseline, post) = marked_pair(
+            &conn,
+            json!({ "anxiety": 80.0, "mood": 60.0 }),
+            Some(vec!["anxiety"]),
+            json!({ "anxiety": 48.0, "mood": 30.0 }),
+            None,
+        );
+
+        let summary =
+            compute_regulation_effect_summary(&baseline, &post).expect("compute summary");
+
+        // One unmarked side means the marker intersection would silently drop
+        // data; fall back to every shared stored key instead.
+        assert!(!summary.measured_only);
+        assert_eq!(summary.dimensions.len(), 2);
+    }
+
+    #[test]
+    fn effect_history_and_single_report_carry_eeg_session_and_basis() {
+        let conn = setup_conn();
+
+        let mut baseline = sample_input("user-1", Some("subj-link"), PHASE_BASELINE);
+        baseline.dimension_scores = BTreeMap::from([("anxiety".to_string(), 80.0)]);
+        baseline.measured_dimensions = Some(vec!["anxiety".to_string()]);
+        baseline.eeg_session_id = Some("eeg-baseline-only".to_string());
+
+        let mut post = sample_input("user-1", Some("subj-link"), PHASE_POST);
+        post.dimension_scores = BTreeMap::from([("anxiety".to_string(), 48.0)]);
+        post.measured_dimensions = Some(vec!["anxiety".to_string()]);
+        post.eeg_session_id = Some("eeg-post-leg".to_string());
+
+        let baseline = save_scale_record(&conn, &baseline).expect("save baseline");
+        let post = save_scale_record(&conn, &post).expect("save post");
+
+        let report =
+            build_single_effect_report(&baseline, &post).expect("build single report");
+        assert_eq!(report.eeg_session_id.as_deref(), Some("eeg-post-leg"));
+        assert!(report.measured_only);
+
+        let json = serde_json::to_value(&report).expect("serialize report");
+        assert_eq!(json["eegSessionId"], serde_json::json!("eeg-post-leg"));
+        assert_eq!(json["measuredOnly"], serde_json::Value::Bool(true));
+
+        let history = build_effect_history(
+            &list_scale_records(&conn, None, None).expect("list records"),
+        );
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].eeg_session_id.as_deref(), Some("eeg-post-leg"));
+        assert!(history[0].measured_only);
+
+        // The summary itself reports the restricted basis too.
+        let summary =
+            compute_regulation_effect_summary(&baseline, &post).expect("compute summary");
+        assert!(summary.measured_only);
+    }
+
     /* ---------------- R3: emotion/duration/skip persistence ---------------- */
 
     #[test]
@@ -1133,14 +1485,18 @@ mod tests {
         assert_eq!(loaded.emotion, None);
         assert_eq!(loaded.duration_minutes, None);
         assert!(!loaded.regulation_skipped);
+        // R4 columns degrade to the legacy semantics on pre-R4 rows.
+        assert_eq!(loaded.measured_dimensions, None);
+        assert_eq!(loaded.eeg_session_id, None);
 
         // The migrated table keeps accepting full saves.
-        let saved = save_scale_record(
-            &conn,
-            &sample_input("user-1", Some("subject-new"), PHASE_BASELINE),
-        )
-        .expect("save after migration");
+        let mut saved_input = sample_input("user-1", Some("subject-new"), PHASE_BASELINE);
+        saved_input.measured_dimensions = Some(vec!["anxiety".to_string()]);
+        saved_input.eeg_session_id = Some("eeg-session-9".to_string());
+        let saved = save_scale_record(&conn, &saved_input).expect("save after migration");
         assert_eq!(saved.emotion.as_deref(), Some("anxiety"));
+        assert_eq!(saved.measured_dimensions.as_deref(), Some(&["anxiety".to_string()][..]));
+        assert_eq!(saved.eeg_session_id.as_deref(), Some("eeg-session-9"));
     }
 
     #[test]
@@ -1354,6 +1710,8 @@ mod tests {
             post_record_id: "p".to_string(),
             baseline_created_at: "2026-08-26T10:00:00+00:00".to_string(),
             post_created_at: "2026-08-26T11:00:00+00:00".to_string(),
+            eeg_session_id: Some("eeg-run-42".to_string()),
+            measured_only: true,
             threshold: DEFAULT_IMPROVEMENT_THRESHOLD,
             mean_improvement_rate: Some(-0.25),
             meets_threshold: false,
@@ -1370,9 +1728,13 @@ mod tests {
         assert!(csv.starts_with(CSV_BOM));
         let lines: Vec<&str> = csv.trim_start_matches(CSV_BOM).split("\r\n").collect();
         assert_eq!(lines.len(), 2);
-        assert!(lines[0].starts_with("subject_id,emotion,dimension,dimension_label,baseline"));
+        assert!(lines[0].starts_with(
+            "subject_id,emotion,dimension,dimension_label,baseline",
+        ));
+        assert!(lines[0].contains("measured_only,eeg_session_id,baseline_created_at"));
         assert!(lines[1].contains("\"subj, \"\"quoted\"\"\""));
         assert!(lines[1].contains(",焦虑,"));
+        assert!(lines[1].contains(",true,eeg-run-42,2026-08-26T10:00:00+00:00,"));
         assert!(lines[1].ends_with(",2026-08-26T12:00:00+00:00"));
     }
 
@@ -1389,6 +1751,8 @@ mod tests {
                 emotion: Some("anxiety".to_string()),
                 duration_minutes: Some(5),
                 regulation_skipped: false,
+                eeg_session_id: Some("eeg-run-7".to_string()),
+                measured_only: true,
                 mean_improvement_rate: Some(0.4),
                 meets_threshold: true,
                 dimensions: vec![RegulationDimensionImprovement {
@@ -1408,6 +1772,8 @@ mod tests {
                 emotion: None,
                 duration_minutes: None,
                 regulation_skipped: true,
+                eeg_session_id: None,
+                measured_only: false,
                 mean_improvement_rate: None,
                 meets_threshold: false,
                 dimensions: Vec::new(),
@@ -1418,9 +1784,11 @@ mod tests {
         let lines: Vec<&str> = csv.trim_start_matches(CSV_BOM).split("\r\n").collect();
 
         assert_eq!(lines.len(), 3);
-        assert!(lines[0].starts_with("subject_id,emotion,duration_minutes,regulation_skipped"));
-        assert!(lines[1].starts_with("s1,anxiety,5,false,0.4,0.1,true,1,"));
+        assert!(lines[0].starts_with(
+            "subject_id,emotion,duration_minutes,regulation_skipped,mean_improvement_rate,threshold,meets_threshold,dimension_count,measured_only,eeg_session_id",
+        ));
+        assert!(lines[1].starts_with("s1,anxiety,5,false,0.4,0.1,true,1,true,eeg-run-7,"));
         // Empty emotion and duration collapse to bare separators.
-        assert!(lines[2].starts_with("s2,,,true,—,0.1,false,0,"));
+        assert!(lines[2].starts_with("s2,,,true,—,0.1,false,0,false,"));
     }
 }
