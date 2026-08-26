@@ -12,6 +12,8 @@ import {
 } from './mentalScaleStatus';
 import {
   computeRegulationEffect,
+  exportEffectReport,
+  listEffectHistory,
   persistMentalScaleSubmission,
   savePhaseScaleRecord,
   saveScaleRecord,
@@ -219,5 +221,49 @@ describe('subject_id passthrough (R2 效果闭环)', () => {
     });
     expect(result.meetsThreshold).toBe(true);
     expect(result.meanImprovementRate).toBe(0.4);
+  });
+
+  it('loads the paired history without arguments', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce([]);
+
+    await expect(listEffectHistory()).resolves.toEqual([]);
+    expect(invoke).toHaveBeenCalledWith('list_effect_history');
+  });
+
+  it('invokes export_effect_report with a camelCase single payload', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce({ path: 'C:/r.json', bytes: 12 });
+
+    const result = await exportEffectReport({
+      kind: 'single',
+      path: 'C:/r.json',
+      format: 'json',
+      baselineRecordId: 'rec-b',
+      postRecordId: 'rec-p',
+    });
+
+    expect(invoke).toHaveBeenCalledWith('export_effect_report', {
+      input: {
+        kind: 'single',
+        path: 'C:/r.json',
+        format: 'json',
+        baselineRecordId: 'rec-b',
+        postRecordId: 'rec-p',
+      },
+    });
+    expect(result).toEqual({ path: 'C:/r.json', bytes: 12 });
+  });
+
+  it('omits the format field on batch exports (the backend forces csv)', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce({ path: 'C:/summary.csv', bytes: 20 });
+
+    await exportEffectReport({ kind: 'batch', path: 'C:/summary.csv' });
+
+    const calls = vi.mocked(invoke).mock.calls;
+    const args = calls[calls.length - 1]?.[1];
+    expect((args as { input: Record<string, unknown> }).input).toEqual({
+      kind: 'batch',
+      path: 'C:/summary.csv',
+    });
+    expect('format' in (args as { input: Record<string, unknown> }).input).toBe(false);
   });
 });

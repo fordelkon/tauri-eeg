@@ -172,6 +172,11 @@ export function useEffectEvaluationFlow() {
         userId: currentUser?.id ?? null,
         subjectId: state.subjectId.trim(),
         phase,
+        emotion: state.emotion,
+        durationMinutes: state.durationMinutes,
+        // The skip marker only exists once the regulation leg ran; it rides
+        // on the post record so reports/history can flag under-timed runs.
+        regulationSkipped: phase === 'post' ? state.regulationSkipped : false,
       });
 
       updateMentalScaleStatus(buildMentalScaleStatus(scale, answers));
@@ -187,7 +192,15 @@ export function useEffectEvaluationFlow() {
     } finally {
       setIsSavingScale(false);
     }
-  }, [currentUser?.id, isSavingScale, scaleForMethod, state.subjectId]);
+  }, [
+    currentUser?.id,
+    isSavingScale,
+    scaleForMethod,
+    state.durationMinutes,
+    state.emotion,
+    state.regulationSkipped,
+    state.subjectId,
+  ]);
 
   /**
    * Step 3 entry: starts the wall-clock timer and best-effort associates an
@@ -228,13 +241,19 @@ export function useEffectEvaluationFlow() {
       });
   }, [canStartRecord, currentUser, startRecord]);
 
-  /** Step 3 exit: stops the associated recording, then moves to the post scale. */
-  const finishRegulation = useCallback(async () => {
+  /**
+   * Step 3 exit shared by the normal finish and the confirmed skip: stops
+   * the associated recording (when one is live), then moves to the post
+   * scale. `extraPatch` carries markers such as the skip flag.
+   */
+  const leaveRegulationStep = useCallback(async (
+    extraPatch?: Partial<Pick<EffectEvaluationFlowState, 'regulationSkipped'>>,
+  ) => {
     setActionError(null);
 
     if (state.eegAssociation !== 'recording') {
       awaitingSessionIdRef.current = false;
-      setState((current) => ({ ...current, step: 3 }));
+      setState((current) => ({ ...current, ...extraPatch, step: 3 }));
       return;
     }
 
@@ -251,10 +270,27 @@ export function useEffectEvaluationFlow() {
     // On success the session id lands via the watcher effect above.
     setState((current) => ({
       ...current,
+      ...extraPatch,
       step: 3,
       eegAssociation: stopped ? 'saved' : 'unavailable',
     }));
   }, [state.eegAssociation, stopRecord]);
+
+  /** Normal exit — the UI only offers it once the countdown reached zero. */
+  const finishRegulation = useCallback(
+    () => leaveRegulationStep(),
+    [leaveRegulationStep],
+  );
+
+  /**
+   * Escape hatch after a double confirmation: records the skip marker with
+   * the run (it rides on the post record into reports/history), then leaves
+   * through the same exit as the normal finish.
+   */
+  const skipRemainingRegulation = useCallback(
+    () => leaveRegulationStep({ regulationSkipped: true }),
+    [leaveRegulationStep],
+  );
 
   const loadSummary = useCallback(async () => {
     const missingCopy = describeMissingMeasurements(state);
@@ -316,6 +352,7 @@ export function useEffectEvaluationFlow() {
     remainingSeconds,
     resetFlow,
     scaleForMethod,
+    skipRemainingRegulation,
     startBaselineMeasurement,
     state,
     summary,

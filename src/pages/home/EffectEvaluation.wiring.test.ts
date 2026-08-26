@@ -77,3 +77,58 @@ describe('subject passthrough contract', () => {
     expect(apiSource).not.toContain('subjectId: null,');
   });
 });
+
+describe('strong duration constraint (R3 contract)', () => {
+  test('locks the finish exit until zero and routes early exits through a confirmed skip', () => {
+    const pageSource = readText(new URL('./EffectEvaluation.tsx', import.meta.url));
+    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
+
+    // The page derives the exit mode from the remaining countdown…
+    expect(pageSource).toContain('regulationFinishModeFromRemaining(flow.remainingSeconds)');
+    // …disables the primary exit while time remains…
+    expect(pageSource).toContain("disabled={finishMode.mode !== 'finish'}");
+    // …and offers the escape hatch only through a second confirmation.
+    expect(pageSource).toContain("title: '跳过剩余调控时长？'");
+    expect(pageSource).toContain('destructive: true');
+
+    // The confirmed skip records the marker before leaving step 3.
+    expect(hookSource).toContain('skipRemainingRegulation');
+    expect(hookSource).toContain('leaveRegulationStep({ regulationSkipped: true })');
+  });
+
+  test('persists emotion, duration, and the post-leg skip marker with phase records', () => {
+    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
+
+    expect(hookSource).toContain('emotion: state.emotion');
+    expect(hookSource).toContain('durationMinutes: state.durationMinutes');
+    expect(hookSource).toContain("phase === 'post' ? state.regulationSkipped : false");
+  });
+});
+
+describe('report export & history review (R3 contract)', () => {
+  test('exports single/batch reports through the save dialog and backend command', () => {
+    const pageSource = readText(new URL('./EffectEvaluation.tsx', import.meta.url));
+
+    expect(pageSource).toContain("from '@tauri-apps/plugin-dialog'");
+    expect(pageSource).toContain('buildSingleReportPayload');
+    expect(pageSource).toContain('buildBatchReportPayload');
+    expect(pageSource).toContain('exportEffectReport');
+    expect(pageSource).toContain('导出单次报告');
+    expect(pageSource).toContain('批量汇总导出');
+
+    const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
+    expect(apiSource).toContain("'list_effect_history'");
+    expect(apiSource).toContain("'export_effect_report'");
+  });
+
+  test('mounts the history review tab on the page', () => {
+    const pageSource = readText(new URL('./EffectEvaluation.tsx', import.meta.url));
+    const panelSource = readText(new URL('./EffectHistoryPanel.tsx', import.meta.url));
+
+    expect(pageSource).toContain('<EffectHistoryPanel');
+    expect(pageSource).toContain('历史记录');
+
+    // The panel reads history through the shared API layer.
+    expect(panelSource).toContain("'../../mentalScale/scaleRecordsApi'");
+  });
+});

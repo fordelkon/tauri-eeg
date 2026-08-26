@@ -406,6 +406,123 @@ async fn compute_regulation_effect(
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ExportEffectReportInput {
+    /// `single` exports one baseline/post pair; `batch` writes every
+    /// subject's most recent evaluation as CSV.
+    kind: String,
+    /// `json` or `csv`; single defaults to json and batch is always csv.
+    format: Option<String>,
+    /// Absolute destination chosen by the user through the save dialog.
+    path: String,
+    baseline_record_id: Option<String>,
+    post_record_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ExportEffectReportResult {
+    path: String,
+    bytes: u64,
+}
+
+#[tauri::command]
+async fn list_effect_history(
+    db: State<'_, AppDb>,
+) -> Result<Vec<scale_records::EffectHistoryEntry>, String> {
+    let conn = db.conn.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        let records = scale_records::list_scale_records(&conn, None, None)?;
+        Ok(scale_records::build_effect_history(&records))
+    })
+    .await
+    .map_err(|_| "Failed to load effect history.".to_string())?
+}
+
+#[tauri::command]
+async fn export_effect_report(
+    db: State<'_, AppDb>,
+    input: ExportEffectReportInput,
+) -> Result<ExportEffectReportResult, String> {
+    let path = input.path.trim().to_string();
+    if path.is_empty() {
+        return Err("Export path is required.".to_string());
+    }
+
+    let kind = input.kind.trim().to_string();
+    // Batch is CSV-only; an explicit csv on single switches its format.
+    let format = if kind == "batch" {
+        "csv".to_string()
+    } else {
+        input
+            .format
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("json")
+            .to_string()
+    };
+
+    let conn = db.conn.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let content = match kind.as_str() {
+            "single" => {
+                let required_id = |label: &str, value: Option<&String>| -> Result<String, String> {
+                    value
+                        .map(String::as_str)
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                        .map(str::to_string)
+                        .ok_or_else(|| format!("{label} record id is required."))
+                };
+                let baseline_id = required_id("Baseline", input.baseline_record_id.as_ref())?;
+                let post_id = required_id("Post", input.post_record_id.as_ref())?;
+
+                let conn = conn
+                    .lock()
+                    .map_err(|_| "Database is unavailable.".to_string())?;
+                let baseline = scale_records::get_scale_record(&conn, &baseline_id)?;
+                let post = scale_records::get_scale_record(&conn, &post_id)?;
+                let report = scale_records::build_single_effect_report(&baseline, &post)?;
+
+                if format == "csv" {
+                    scale_records::build_single_effect_report_csv(&report)
+                } else {
+                    serde_json::to_string_pretty(&report)
+                        .map_err(|_| "Failed to serialize the report.".to_string())?
+                }
+            }
+            "batch" => {
+                let conn = conn
+                    .lock()
+                    .map_err(|_| "Database is unavailable.".to_string())?;
+                let records = scale_records::list_scale_records(&conn, None, None)?;
+                let history = scale_records::build_effect_history(&records);
+
+                scale_records::build_batch_effect_report_csv(
+                    &scale_records::latest_entry_per_subject(&history),
+                )
+            }
+            other => return Err(format!("Unknown report kind '{other}'.")),
+        };
+
+        let bytes = content.len() as u64;
+        std::fs::write(&path, content)
+            .map_err(|_| "Failed to write the report file.".to_string())?;
+
+        Ok(ExportEffectReportResult { path, bytes })
+    })
+    .await
+    .map_err(|_| "Failed to export the report.".to_string())?
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct MusicGenerationInput {
     user_id: String,
     username: String,
@@ -656,6 +773,8 @@ pub fn run() {
             list_scale_records,
             delete_scale_record,
             compute_regulation_effect,
+            list_effect_history,
+            export_effect_report,
             generate_music,
             get_music_service_health,
             plan_agent_action,

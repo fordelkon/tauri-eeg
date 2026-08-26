@@ -19,6 +19,12 @@ export type ScaleRecordInput = {
   phase: ScalePhase;
   dimensionScores: Record<MentalScaleDimensionKey, number>;
   rawAnswers: MentalScaleAnswers;
+  /** Target emotion bound by the evaluation wizard; absent on gate saves. */
+  emotion?: string | null;
+  /** Configured regulation window in minutes; absent outside the wizard. */
+  durationMinutes?: number | null;
+  /** True when part of the regulation window was explicitly skipped. */
+  regulationSkipped?: boolean;
 };
 
 /** camelCase mirror of the backend ScaleRecord. */
@@ -31,6 +37,9 @@ export type ScaleRecordView = {
   dimensionScores: Record<string, number>;
   rawAnswers: Record<string, unknown>;
   createdAt: string;
+  emotion: string | null;
+  durationMinutes: number | null;
+  regulationSkipped: boolean;
 };
 
 export type RegulationDimensionImprovementView = {
@@ -109,11 +118,20 @@ export function persistMentalScaleSubmission(
 /**
  * Awaited save used by the effect-evaluation wizard: the caller needs the
  * persisted record id to pair baseline/post and compute the improvement.
+ * The wizard's target emotion, planned duration, and (on the post leg) the
+ * skip marker ride along for the history view and report exports.
  */
 export function savePhaseScaleRecord(
   scale: MentalScaleDefinition,
   answers: MentalScaleAnswers,
-  context: { userId: string | null; subjectId: string | null; phase: ScalePhase },
+  context: {
+    userId: string | null;
+    subjectId: string | null;
+    phase: ScalePhase;
+    emotion?: string | null;
+    durationMinutes?: number | null;
+    regulationSkipped?: boolean;
+  },
 ): Promise<ScaleRecordView> {
   return saveScaleRecord({
     userId: context.userId,
@@ -122,6 +140,9 @@ export function savePhaseScaleRecord(
     phase: context.phase,
     dimensionScores: buildScaleDimensionScores(scale, answers),
     rawAnswers: answers,
+    emotion: context.emotion ?? null,
+    durationMinutes: context.durationMinutes ?? null,
+    regulationSkipped: context.regulationSkipped ?? false,
   });
 }
 
@@ -139,4 +160,54 @@ export function computeRegulationEffect(
       postRecordId,
     },
   });
+}
+
+/** One completed evaluation run in the history review (list_effect_history). */
+export type EffectHistoryEntryView = {
+  subjectId: string;
+  baselineRecordId: string;
+  postRecordId: string;
+  baselineCreatedAt: string;
+  postCreatedAt: string;
+  scaleId: string;
+  emotion: string | null;
+  durationMinutes: number | null;
+  regulationSkipped: boolean;
+  meanImprovementRate: number | null;
+  meetsThreshold: boolean;
+  dimensions: RegulationDimensionImprovementView[];
+};
+
+/** camelCase mirror of the backend ExportEffectReportInput. */
+export type ExportEffectReportInput =
+  | {
+    kind: 'single';
+    path: string;
+    format?: 'json' | 'csv';
+    baselineRecordId: string;
+    postRecordId: string;
+  }
+  | { kind: 'batch'; path: string };
+
+export type ExportEffectReportResultView = {
+  path: string;
+  bytes: number;
+};
+
+/**
+ * Loads every completed baseline/post run, paired chronologically per
+ * subject on the backend (the history review tab's data source).
+ */
+export function listEffectHistory(): Promise<EffectHistoryEntryView[]> {
+  return invoke<EffectHistoryEntryView[]>('list_effect_history');
+}
+
+/**
+ * Writes one run's JSON/CSV report or the all-subjects batch CSV to a
+ * user-chosen path (picked through the save dialog before this call).
+ */
+export function exportEffectReport(
+  input: ExportEffectReportInput,
+): Promise<ExportEffectReportResultView> {
+  return invoke<ExportEffectReportResultView>('export_effect_report', { input });
 }

@@ -5,11 +5,17 @@ import Button from '@mui/material/Button';
 import Step from '@mui/material/Step';
 import StepLabel from '@mui/material/StepLabel';
 import Stepper from '@mui/material/Stepper';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
+import { save } from '@tauri-apps/plugin-dialog';
 import type { EChartsType } from 'echarts/core';
 import MentalScaleDialog from '../../mentalScale/MentalScaleDialog';
+import { exportEffectReport } from '../../mentalScale/scaleRecordsApi';
 import { useConfirmDialog } from '../../ui/useConfirmDialog';
+import { describeFriendlyError } from '../../ui/friendlyError';
 import {
   buildEffectVerdictCopy,
+  describeRegulationSkipped,
   EFFECT_EMOTION_OPTIONS,
   EFFECT_FLOW_STEPS,
   EFFECT_METHOD_OPTIONS,
@@ -17,12 +23,27 @@ import {
   formatImprovementRate,
   labelForDimension,
   regulationDurationMs,
+  regulationFinishModeFromRemaining,
 } from './effectEvaluationFlow';
+import {
+  buildBatchReportPayload,
+  buildSingleReportPayload,
+  suggestReportFileName,
+  type ExportReportFormat,
+} from './effectReportExport';
 import { buildEffectChartOption } from './effectResultChartOption';
+import EffectHistoryPanel from './EffectHistoryPanel';
 import { useEffectEvaluationFlow } from './useEffectEvaluationFlow';
 import styles from './EffectEvaluation.module.css';
 
 const DURATION_MINUTE_OPTIONS = [1, 3, 5, 10, 15, 30] as const;
+
+type PageTab = 'wizard' | 'history';
+
+type ExportNotice = {
+  severity: 'success' | 'error';
+  text: string;
+};
 
 /** Bar chart for the baseline/post comparison; echarts loads on demand. */
 function EffectResultChart({ option }: { option: Record<string, unknown> }) {
@@ -117,6 +138,9 @@ export default function EffectEvaluation() {
   // Steps 1/3 present the shared gate dialog on demand; closing it only
   // dismisses the dialog, it never touches the flow itself.
   const [isScaleDialogOpen, setIsScaleDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<PageTab>('wizard');
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState<ExportNotice | null>(null);
 
   const emotionLabel = EFFECT_EMOTION_OPTIONS.find(
     (option) => option.value === state.emotion,
@@ -124,6 +148,12 @@ export default function EffectEvaluation() {
   const methodLabel = EFFECT_METHOD_OPTIONS.find(
     (option) => option.value === state.method,
   )?.label ?? state.method;
+
+  // Strong duration constraint (R3): the countdown is a hard floor — the
+  // normal finish unlocks only at zero, earlier exits go through the
+  // double-confirmed skip which records the marker with the run.
+  const finishMode = regulationFinishModeFromRemaining(flow.remainingSeconds);
+  const skippedCopy = describeRegulationSkipped(state);
 
   const verdictCopy = useMemo(
     () => (flow.summary ? buildEffectVerdictCopy(flow.summary) : null),
@@ -136,22 +166,82 @@ export default function EffectEvaluation() {
     [flow.summary],
   );
 
+  /** Normal exit — only offered once the countdown reached zero. */
   const handleFinishRegulation = () => {
-    if (flow.remainingSeconds !== null && flow.remainingSeconds > 0) {
-      void confirm({
-        title: '提前结束调控？',
-        description: `调控计时还剩 ${formatCountdown(flow.remainingSeconds)}，提前结束可能低估调控效果。确定进入复测吗?`,
-        confirmText: '提前结束',
-        destructive: true,
-      }).then((confirmed) => {
-        if (confirmed) {
-          void flow.finishRegulation();
-        }
-      });
+    if (finishMode.mode === 'finish') {
+      void flow.finishRegulation();
+    }
+  };
+
+  /** Escape hatch requiring a second confirmation; marks the run as skipped. */
+  const handleSkipRemaining = () => {
+    if (finishMode.mode !== 'requires-skip') {
       return;
     }
 
-    void flow.finishRegulation();
+    void confirm({
+      title: '跳过剩余调控时长？',
+      description: `计时还剩 ${formatCountdown(finishMode.remainingSeconds)}，未达设定的最短时长。跳过后本次评价会记录“已跳过”标记，改善率可能低估实际效果。确定跳过并进入复测吗？`,
+      confirmText: '确认跳过',
+      destructive: true,
+    }).then((confirmed) => {
+      if (confirmed) {
+        void flow.skipRemainingRegulation();
+      }
+    });
+  };
+
+  const runSingleExport = async (format: ExportReportFormat) => {
+    setExportNotice(null);
+    setIsExporting(true);
+
+    try {
+      const path = await save({
+        title: format === 'csv' ? '导出单次报告（CSV）' : '导出单次报告（JSON）',
+        defaultPath: suggestReportFileName({ kind: 'single', format, subjectId: state.subjectId }),
+        filters: [{ name: format.toUpperCase(), extensions: [format] }],
+      });
+
+      if (typeof path !== 'string') {
+        return;
+      }
+
+      const result = await exportEffectReport(buildSingleReportPayload({
+        baselineRecordId: state.baselineRecordId,
+        postRecordId: state.postRecordId,
+        path,
+        format,
+      }));
+      setExportNotice({ severity: 'success', text: `单次报告已导出：${result.path}` });
+    } catch (error) {
+      setExportNotice({ severity: 'error', text: describeFriendlyError(error, '导出单次报告') });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const runBatchExport = async () => {
+    setExportNotice(null);
+    setIsExporting(true);
+
+    try {
+      const path = await save({
+        title: '批量汇总导出（所有被试最近一次评价）',
+        defaultPath: suggestReportFileName({ kind: 'batch' }),
+        filters: [{ name: 'CSV', extensions: ['csv'] }],
+      });
+
+      if (typeof path !== 'string') {
+        return;
+      }
+
+      const result = await exportEffectReport(buildBatchReportPayload({ path }));
+      setExportNotice({ severity: 'success', text: `批量汇总已导出：${result.path}` });
+    } catch (error) {
+      setExportNotice({ severity: 'error', text: describeFriendlyError(error, '导出批量汇总') });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const configSummary = (
@@ -234,6 +324,8 @@ export default function EffectEvaluation() {
         </p>
         {configSummary}
 
+        {!isBaseline && skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
+
         {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
 
         <div className={styles.actionsRow}>
@@ -309,9 +401,11 @@ export default function EffectEvaluation() {
             <p className={styles.panelHint}>
               {flow.remainingSeconds === 0
                 ? '调控时长已达成，可结束调控进入复测。'
-                : `剩余 ${formatCountdown(flow.remainingSeconds ?? 0)} · 计时在离开页面后仍继续。`}
+                : `未达最短时长：还剩 ${formatCountdown(flow.remainingSeconds ?? 0)}。计时结束后才能进入复测；确有特殊情况可跳过剩余时长（二次确认后记录标记）。`}
             </p>
           </div>
+
+          {skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
 
           {state.eegAssociation !== 'not-started' ? (
             <div className={styles.pillRow}>
@@ -337,8 +431,14 @@ export default function EffectEvaluation() {
             <Button variant="outlined" onClick={flow.openRegulationPage}>
               前往{methodLabel}
             </Button>
+            {finishMode.mode === 'requires-skip' ? (
+              <Button variant="outlined" color="warning" onClick={handleSkipRemaining}>
+                跳过剩余时长…
+              </Button>
+            ) : null}
             <Button
               variant="contained"
+              disabled={finishMode.mode !== 'finish'}
               onClick={handleFinishRegulation}
             >
               结束调控，进行复测
@@ -371,6 +471,8 @@ export default function EffectEvaluation() {
           <Alert severity={verdictCopy.severity}>
             <strong>{verdictCopy.title}</strong> —— {verdictCopy.detail}
           </Alert>
+
+          {skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
 
           <div className={styles.statsRow}>
             <div className={styles.statCard}>
@@ -421,6 +523,23 @@ export default function EffectEvaluation() {
               </table>
             </>
           ) : null}
+
+          <div className={styles.actionsRow}>
+            <Button
+              variant="outlined"
+              disabled={isExporting}
+              onClick={() => void runSingleExport('json')}
+            >
+              导出单次报告（JSON）
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={isExporting}
+              onClick={() => void runSingleExport('csv')}
+            >
+              导出单次报告（CSV）
+            </Button>
+          </div>
         </>
       ) : null}
     </section>
@@ -441,31 +560,66 @@ export default function EffectEvaluation() {
   return (
     <Box className={styles.workspace} aria-label="情绪调控效果评价">
       <header className={styles.header}>
-        <div className={styles.eyebrow}>效果评价闭环</div>
-        <h1 className={styles.title}>情绪调控效果评价</h1>
-        <p className={styles.description}>
-          按 基线量表 → 执行调控 → 调控后量表 的流程采集同一被试的两次量表，
-          自动计算各维度改善率并与 10% 阈值比较。
-        </p>
+        <div className={styles.headerMain}>
+          <div>
+            <div className={styles.eyebrow}>效果评价闭环</div>
+            <h1 className={styles.title}>情绪调控效果评价</h1>
+            <p className={styles.description}>
+              按 基线量表 → 执行调控 → 调控后量表 的流程采集同一被试的两次量表，
+              自动计算各维度改善率并与 10% 阈值比较。
+            </p>
+          </div>
+          <div className={styles.headerActions}>
+            <Button
+              variant="outlined"
+              disabled={isExporting}
+              onClick={() => void runBatchExport()}
+            >
+              批量汇总导出（CSV）
+            </Button>
+          </div>
+        </div>
       </header>
 
-      <Stepper activeStep={state.step} alternativeLabel className={styles.stepper}>
-        {EFFECT_FLOW_STEPS.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
-
-      {stepContent[state.step]}
-
-      {state.step > 0 ? (
-        <div className={styles.actionsRow}>
-          <button type="button" className={styles.secondaryAction} onClick={flow.resetFlow}>
-            重置流程
-          </button>
-        </div>
+      {exportNotice ? (
+        <Alert severity={exportNotice.severity} onClose={() => setExportNotice(null)}>
+          {exportNotice.text}
+        </Alert>
       ) : null}
+
+      <Tabs
+        value={activeTab}
+        onChange={(_event, next: PageTab) => setActiveTab(next)}
+        aria-label="效果评价视图切换"
+        className={styles.tabBar}
+      >
+        <Tab value="wizard" label="评价向导" />
+        <Tab value="history" label="历史记录" />
+      </Tabs>
+
+      {activeTab === 'wizard' ? (
+        <>
+          <Stepper activeStep={state.step} alternativeLabel className={styles.stepper}>
+            {EFFECT_FLOW_STEPS.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+
+          {stepContent[state.step]}
+
+          {state.step > 0 ? (
+            <div className={styles.actionsRow}>
+              <button type="button" className={styles.secondaryAction} onClick={flow.resetFlow}>
+                重置流程
+              </button>
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <EffectHistoryPanel />
+      )}
 
       {confirmDialogElement}
     </Box>

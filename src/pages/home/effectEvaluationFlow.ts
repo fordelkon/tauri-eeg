@@ -52,7 +52,7 @@ const EEG_ASSOCIATION_VALUES: EffectEegAssociation[] = [
   'unavailable',
 ];
 
-const FLOW_STATE_VERSION = 1;
+const FLOW_STATE_VERSION = 2;
 
 export type EffectEvaluationFlowState = {
   version: typeof FLOW_STATE_VERSION;
@@ -64,6 +64,8 @@ export type EffectEvaluationFlowState = {
   baselineRecordId: string | null;
   postRecordId: string | null;
   regulationStartedAtMs: number | null;
+  /** True when the operator explicitly skipped part of the window. */
+  regulationSkipped: boolean;
   eegSessionId: string | null;
   eegAssociation: EffectEegAssociation;
 };
@@ -79,6 +81,7 @@ export function createEffectEvaluationFlowState(): EffectEvaluationFlowState {
     baselineRecordId: null,
     postRecordId: null,
     regulationStartedAtMs: null,
+    regulationSkipped: false,
     eegSessionId: null,
     eegAssociation: 'not-started',
   };
@@ -112,6 +115,41 @@ export function remainingRegulationSeconds(
 
   const elapsedMs = Math.max(0, nowMs - state.regulationStartedAtMs);
   return Math.max(0, Math.ceil((regulationDurationMs(state) - elapsedMs) / 1000));
+}
+
+/* ------------------------------------------------------------------ */
+/* Strong duration constraint                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How the regulation step may exit, derived from the remaining time. The
+ * countdown is a hard floor: `finish` unlocks only once it reaches zero,
+ * and leaving early requires the double-confirmed skip flow.
+ */
+export type RegulationFinishMode =
+  | { mode: 'not-started' }
+  | { mode: 'finish' }
+  | { mode: 'requires-skip'; remainingSeconds: number };
+
+export function regulationFinishModeFromRemaining(
+  remainingSeconds: number | null,
+): RegulationFinishMode {
+  if (remainingSeconds === null) {
+    return { mode: 'not-started' };
+  }
+
+  return remainingSeconds === 0
+    ? { mode: 'finish' }
+    : { mode: 'requires-skip', remainingSeconds };
+}
+
+/** Warning copy shown after a confirmed skip; null while unskipped. */
+export function describeRegulationSkipped(state: EffectEvaluationFlowState): string | null {
+  if (!state.regulationSkipped || state.regulationStartedAtMs === null) {
+    return null;
+  }
+
+  return '本次调控跳过了剩余时长（已二次确认），改善率可能低估实际效果。';
 }
 
 /** mm:ss countdown text; negative or non-finite input clamps to 00:00. */
@@ -207,6 +245,11 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
     regulationStartedAtMs = candidate.regulationStartedAtMs;
   }
 
+  if (typeof candidate.regulationSkipped !== 'boolean') {
+    return null;
+  }
+  const regulationSkipped: boolean = candidate.regulationSkipped;
+
   const eegSessionId = optionalString(candidate.eegSessionId);
   if (eegSessionId === undefined) {
     return null;
@@ -227,6 +270,7 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
     baselineRecordId,
     postRecordId,
     regulationStartedAtMs,
+    regulationSkipped,
     eegSessionId,
     eegAssociation,
   };

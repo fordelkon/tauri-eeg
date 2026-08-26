@@ -22,6 +22,21 @@
   gap: 14px;
 }
 
+.headerMain {
+  align-items: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 6px;
+}
+
 .eyebrow {
   color: rgba(23, 32, 38, 0.58);
   font-size: 12px;
@@ -49,6 +64,130 @@
 .stepper {
   background: transparent;
   padding: 10px 4px 2px;
+}
+
+.tabBar {
+  border-bottom: 1px solid rgba(23, 32, 38, 0.12);
+}
+
+.historyToolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.historyToolbarControls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.historySearch {
+  max-width: 260px;
+  min-width: 180px;
+}
+
+.historyGroups {
+  display: grid;
+  gap: 14px;
+}
+
+.historyGroup {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.historyGroupHead {
+  color: #172026;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.historyGroupCount {
+  color: rgba(23, 32, 38, 0.55);
+  font-size: 12.5px;
+  font-weight: 650;
+  margin-left: 8px;
+}
+
+.historyRows {
+  display: grid;
+  gap: 8px;
+}
+
+.historyRowWrap {
+  display: grid;
+}
+
+.historyRow {
+  align-items: center;
+  background: transparent;
+  border: 1px solid rgba(23, 32, 38, 0.14);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.historyRow:hover {
+  border-color: rgba(223, 2, 3, 0.45);
+}
+
+.historyRowTime {
+  color: #172026;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-width: 130px;
+}
+
+.historyRowRate {
+  color: rgba(23, 32, 38, 0.78);
+  font-variant-numeric: tabular-nums;
+}
+
+.outcomeChip {
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: auto;
+  padding: 3px 12px;
+}
+
+.outcomePass {
+  background: rgba(72, 168, 104, 0.14);
+  border: 1px solid rgba(72, 168, 104, 0.4);
+  color: #22683a;
+}
+
+.outcomeFail {
+  background: rgba(223, 2, 3, 0.08);
+  border: 1px solid rgba(223, 2, 3, 0.35);
+  color: #a30102;
+}
+
+.outcomeUnknown {
+  background: rgba(84, 96, 104, 0.12);
+  border: 1px solid rgba(84, 96, 104, 0.28);
+  color: #46525a;
+}
+
+.historyDetail {
+  border-top: 1px dashed rgba(23, 32, 38, 0.18);
+  display: grid;
+  gap: 10px;
+  padding: 12px 4px 4px;
 }
 
 .panel {

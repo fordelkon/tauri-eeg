@@ -3,6 +3,7 @@ import {
   buildEffectVerdictCopy,
   createEffectEvaluationFlowState,
   describeMissingMeasurements,
+  describeRegulationSkipped,
   EFFECT_FLOW_STEP_COUNT,
   EFFECT_FLOW_STEPS,
   formatCountdown,
@@ -10,6 +11,7 @@ import {
   labelForDimension,
   parseFlowState,
   regulationDurationMs,
+  regulationFinishModeFromRemaining,
   regulationPathForMethod,
   remainingRegulationSeconds,
   serializeFlowState,
@@ -83,6 +85,55 @@ describe('regulation countdown', () => {
     expect(formatCountdown(0)).toBe('00:00');
     expect(formatCountdown(-3)).toBe('00:00');
     expect(formatCountdown(Number.NaN)).toBe('00:00');
+  });
+});
+
+describe('strong duration constraint (R3)', () => {
+  it('keeps the exit locked before the countdown starts', () => {
+    expect(regulationFinishModeFromRemaining(null)).toEqual({ mode: 'not-started' });
+  });
+
+  it('unlocks the normal finish only when the countdown reaches zero', () => {
+    expect(regulationFinishModeFromRemaining(0)).toEqual({ mode: 'finish' });
+  });
+
+  it('forces the double-confirmed skip path while time remains', () => {
+    expect(regulationFinishModeFromRemaining(1)).toEqual({
+      mode: 'requires-skip',
+      remainingSeconds: 1,
+    });
+    expect(regulationFinishModeFromRemaining(300)).toEqual({
+      mode: 'requires-skip',
+      remainingSeconds: 300,
+    });
+  });
+
+  it('surfaces the skip warning copy only for a started run that was skipped', () => {
+    const state = createEffectEvaluationFlowState();
+    expect(describeRegulationSkipped(state)).toBeNull();
+
+    // The marker without a started regulation leg is meaningless.
+    const skippedNotStarted = { ...state, regulationSkipped: true };
+    expect(describeRegulationSkipped(skippedNotStarted)).toBeNull();
+
+    const skippedStarted = { ...skippedNotStarted, regulationStartedAtMs: 1_000 };
+    const copy = describeRegulationSkipped(skippedStarted);
+    expect(copy).toContain('跳过');
+    expect(copy).toContain('二次确认');
+  });
+
+  it('round-trips the skip marker and rejects corrupt stored values', () => {
+    const skipped = {
+      ...createEffectEvaluationFlowState(),
+      regulationStartedAtMs: 1_000,
+      regulationSkipped: true,
+    };
+    expect(parseFlowState(serializeFlowState(skipped))?.regulationSkipped).toBe(true);
+    expect(parseFlowState(serializeFlowState(createEffectEvaluationFlowState()))?.regulationSkipped)
+      .toBe(false);
+
+    const valid = JSON.parse(serializeFlowState(createEffectEvaluationFlowState()));
+    expect(parseFlowState(JSON.stringify({ ...valid, regulationSkipped: 'yes' }))).toBeNull();
   });
 });
 
