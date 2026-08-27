@@ -505,7 +505,7 @@ async fn export_effect_report(
                 let history = scale_records::build_effect_history(&records);
 
                 scale_records::build_batch_effect_report_csv(
-                    &scale_records::latest_entry_per_subject(&history),
+                    &scale_records::latest_entry_per_subject_emotion(&history),
                 )
             }
             other => return Err(format!("Unknown report kind '{other}'.")),

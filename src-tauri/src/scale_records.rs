@@ -528,14 +528,23 @@ pub fn build_effect_history(records: &[ScaleRecord]) -> Vec<EffectHistoryEntry> 
     entries
 }
 
-/// Collapses the full history to each subject's most recent run for the
-/// batch export; the result is ordered by subject id for stable output.
-pub fn latest_entry_per_subject(entries: &[EffectHistoryEntry]) -> Vec<EffectHistoryEntry> {
-    let mut latest: BTreeMap<String, EffectHistoryEntry> = BTreeMap::new();
+/// Collapses the full history to each subject-emotion pair's most recent
+/// run for the batch export: the acceptance outline judges anxiety,
+/// depression, and fear separately per subject, so one row survives per
+/// (subject, emotion) combination. The result is ordered by subject id and
+/// emotion for stable output.
+pub fn latest_entry_per_subject_emotion(
+    entries: &[EffectHistoryEntry],
+) -> Vec<EffectHistoryEntry> {
+    let mut latest: BTreeMap<(String, Option<String>), EffectHistoryEntry> = BTreeMap::new();
 
     for entry in entries {
-        // Entries arrive chronologically, so later ones overwrite earlier ones.
-        latest.insert(entry.subject_id.clone(), entry.clone());
+        // Entries arrive chronologically, so later ones overwrite earlier
+        // ones within the same (subject, emotion) pair.
+        latest.insert(
+            (entry.subject_id.clone(), entry.emotion.clone()),
+            entry.clone(),
+        );
     }
 
     latest.into_values().collect()
@@ -559,6 +568,13 @@ pub struct SingleEffectReport {
     pub post_record_id: String,
     pub baseline_created_at: String,
     pub post_created_at: String,
+    /// Raw item scores of the baseline leg (kept JSON-shaped so the single
+    /// report stays self-contained and auditable; the CSV stays flat and
+    /// deliberately omits them - embedded JSON would need quoting/escaping
+    /// that breaks spreadsheet import).
+    pub baseline_raw_answers: serde_json::Value,
+    /// Raw item scores of the post leg; same JSON-vs-CSV tradeoff as above.
+    pub post_raw_answers: serde_json::Value,
     /// EEG recording session of the run (post leg first, baseline fallback).
     pub eeg_session_id: Option<String>,
     /// False when the mean was computed over unmarked legacy records.
@@ -589,6 +605,8 @@ pub fn build_single_effect_report(
         post_record_id: post.id.clone(),
         baseline_created_at: baseline.created_at.clone(),
         post_created_at: post.created_at.clone(),
+        baseline_raw_answers: baseline.raw_answers.clone(),
+        post_raw_answers: post.raw_answers.clone(),
         eeg_session_id: post
             .eeg_session_id
             .clone()
@@ -692,7 +710,7 @@ pub fn build_single_effect_report_csv(report: &SingleEffectReport) -> String {
     format!("{CSV_BOM}{}", lines.join("\r\n"))
 }
 
-/// Batch summary: every subject's most recent evaluation on one row.
+/// Batch summary: each subject-emotion pair's most recent evaluation on one row.
 pub fn build_batch_effect_report_csv(entries: &[EffectHistoryEntry]) -> String {
     let header = [
         "subject_id",
@@ -1622,7 +1640,7 @@ mod tests {
     }
 
     #[test]
-    fn latest_entry_per_subject_keeps_only_each_subjects_newest_run() {
+    fn latest_entry_per_subject_emotion_keeps_newest_run_per_pair() {
         let conn = setup_conn();
         let records = vec![
             history_record(&conn, Some("s1"), PHASE_BASELINE, None, false, "2026-08-01T09:00:00+00:00"),
@@ -1636,13 +1654,40 @@ mod tests {
         let entries = build_effect_history(&records);
         assert_eq!(entries.len(), 3);
 
-        let latest = latest_entry_per_subject(&entries);
+        let latest = latest_entry_per_subject_emotion(&entries);
         assert_eq!(latest.len(), 2);
         // Ordered by subject id for stable batch output.
         assert_eq!(latest[0].subject_id, "s1");
         assert_eq!(latest[0].post_created_at, "2026-08-03T10:00:00+00:00");
         assert_eq!(latest[1].subject_id, "s2");
         assert_eq!(latest[1].post_created_at, "2026-08-02T10:00:00+00:00");
+    }
+
+    #[test]
+    fn latest_entry_per_subject_emotion_keeps_both_emotions_of_one_subject() {
+        let conn = setup_conn();
+        let records = vec![
+            // Same subject completes an anxiety run, then a fear run, then
+            // repeats only the fear run.
+            history_record(&conn, Some("s1"), PHASE_BASELINE, Some("anxiety"), false, "2026-08-01T09:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_POST, Some("anxiety"), false, "2026-08-01T10:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_BASELINE, Some("fear"), false, "2026-08-02T09:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_POST, Some("fear"), false, "2026-08-02T10:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_BASELINE, Some("fear"), false, "2026-08-03T09:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_POST, Some("fear"), false, "2026-08-03T10:00:00+00:00"),
+        ];
+
+        let entries = build_effect_history(&records);
+        assert_eq!(entries.len(), 3);
+
+        let latest = latest_entry_per_subject_emotion(&entries);
+        // Both emotions survive for the subject (outline 6.4 judges each
+        // emotion separately), and the older fear run is dropped.
+        assert_eq!(latest.len(), 2);
+        assert_eq!(latest[0].emotion.as_deref(), Some("anxiety"));
+        assert_eq!(latest[0].post_created_at, "2026-08-01T10:00:00+00:00");
+        assert_eq!(latest[1].emotion.as_deref(), Some("fear"));
+        assert_eq!(latest[1].post_created_at, "2026-08-03T10:00:00+00:00");
     }
 
     /* ---------------- R3: report content ---------------- */
@@ -1682,6 +1727,16 @@ mod tests {
         assert_eq!(json["meetsThreshold"], serde_json::Value::Bool(true));
         assert_eq!(json["dimensions"][0]["baseline"], serde_json::json!(80.0));
         assert_eq!(json["threshold"], serde_json::json!(DEFAULT_IMPROVEMENT_THRESHOLD));
+        // Outline 6.3.5: the exported report carries the raw item scores of
+        // both legs so it stays self-contained and auditable.
+        assert_eq!(
+            json["baselineRawAnswers"],
+            serde_json::json!({ "video-anxiety-tense": 2 })
+        );
+        assert_eq!(
+            json["postRawAnswers"],
+            serde_json::json!({ "video-anxiety-tense": 2 })
+        );
     }
 
     #[test]
@@ -1710,6 +1765,8 @@ mod tests {
             post_record_id: "p".to_string(),
             baseline_created_at: "2026-08-26T10:00:00+00:00".to_string(),
             post_created_at: "2026-08-26T11:00:00+00:00".to_string(),
+            baseline_raw_answers: serde_json::json!({ "video-anxiety-tense": 2 }),
+            post_raw_answers: serde_json::json!({ "video-anxiety-tense": 1 }),
             eeg_session_id: Some("eeg-run-42".to_string()),
             measured_only: true,
             threshold: DEFAULT_IMPROVEMENT_THRESHOLD,
@@ -1739,7 +1796,7 @@ mod tests {
     }
 
     #[test]
-    fn batch_csv_lists_one_row_per_subject_with_latest_results() {
+    fn batch_csv_lists_one_row_per_subject_emotion_with_latest_results() {
         let entries = vec![
             EffectHistoryEntry {
                 subject_id: "s1".to_string(),
@@ -1790,5 +1847,30 @@ mod tests {
         assert!(lines[1].starts_with("s1,anxiety,5,false,0.4,0.1,true,1,true,eeg-run-7,"));
         // Empty emotion and duration collapse to bare separators.
         assert!(lines[2].starts_with("s2,,,true,—,0.1,false,0,false,"));
+    }
+    #[test]
+    fn batch_csv_keeps_both_emotions_of_one_subject_after_dedup() {
+        let conn = setup_conn();
+        let records = vec![
+            history_record(&conn, Some("s1"), PHASE_BASELINE, Some("anxiety"), false, "2026-08-01T09:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_POST, Some("anxiety"), false, "2026-08-01T10:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_BASELINE, Some("fear"), false, "2026-08-02T09:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_POST, Some("fear"), false, "2026-08-02T10:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_BASELINE, Some("fear"), false, "2026-08-03T09:00:00+00:00"),
+            history_record(&conn, Some("s1"), PHASE_POST, Some("fear"), false, "2026-08-03T10:00:00+00:00"),
+        ];
+
+        let history = build_effect_history(&records);
+        let csv = build_batch_effect_report_csv(&latest_entry_per_subject_emotion(&history));
+        let lines: Vec<&str> = csv.trim_start_matches(CSV_BOM).split("
+").collect();
+
+        // One row per (subject, emotion): the subject keeps both its anxiety
+        // and fear verdicts, and only the newest fear run survives.
+        assert_eq!(lines.len(), 3);
+        assert!(lines[1].starts_with("s1,anxiety,"));
+        assert!(lines[2].starts_with("s1,fear,"));
+        assert!(lines[2].contains("2026-08-03T10:00:00+00:00"));
+        assert!(!lines.iter().any(|line| line.contains("2026-08-02T10:00:00+00:00")));
     }
 }
