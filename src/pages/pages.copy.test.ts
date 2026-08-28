@@ -15,8 +15,8 @@ describe('page Chinese copy', () => {
       readText(new URL('./home/GameRegulation.tsx', import.meta.url)),
       readText(new URL('./home/MusicRegulation.tsx', import.meta.url)),
       readText(new URL('./home/VideoRegulation.tsx', import.meta.url)),
-      readText(new URL('../mentalScale/mentalScaleGate.ts', import.meta.url)),
-      readText(new URL('../mentalScale/MentalScaleDialog.tsx', import.meta.url)),
+      readText(new URL('../mentalScale/mentalScaleGate.ts', import.meta.url)),
+      readText(new URL('../mentalScale/MentalScaleDialog.tsx', import.meta.url)),
     ].join('\n');
 
     [
@@ -102,7 +102,7 @@ describe('page Chinese copy', () => {
       '实验信息',
       '个人校准',
       '独立诱发调控',
-      '依次诱发焦虑、抑郁、快乐三类情绪',
+      '依次诱发焦虑、抑郁、恐惧三类情绪',
       '被试 ID',
       '会话运行 ID',
       '连续随机播放',
@@ -133,6 +133,7 @@ describe('page Chinese copy', () => {
       '抑郁',
       '焦虑',
       '平静',
+      '恐惧',
       '快乐',
       '接纳',
       '不确定',

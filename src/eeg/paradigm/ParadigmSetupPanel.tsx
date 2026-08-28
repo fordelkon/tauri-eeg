@@ -46,7 +46,7 @@ type Props = {
 
 const sessionKindDescriptions: Record<ParadigmSessionKind, string> = {
   personal_calibration: '只采集平静基准,用于训练被试个性化情绪模型。',
-  held_out_generation: '依次诱发焦虑、抑郁、快乐三类情绪,按流程采集评价。',
+  held_out_generation: '依次诱发焦虑、抑郁、恐惧三类情绪,按流程采集评价。',
 };
 
 const sessionKindShortLabels: Record<ParadigmSessionKind, string> = {
@@ -63,6 +63,7 @@ const libraryClassKeys: Record<ParadigmEmotion, keyof Omit<ParadigmVideoLibrary,
   anxiety: 'anxiety',
   calm: 'calm',
   depression: 'depression',
+  fear: 'fear',
   happy: 'happy',
 };
 

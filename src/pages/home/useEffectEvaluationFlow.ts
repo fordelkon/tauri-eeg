@@ -215,9 +215,10 @@ export function useEffectEvaluationFlow() {
     }
 
     const rootPath = readStoredLibraryRootPath();
+    // R8: every wizard emotion maps onto a scheduled paradigm class.
     const poolKey = paradigmPoolKeyForEmotion(state.emotion);
 
-    if (rootPath.length === 0 || poolKey === null) {
+    if (rootPath.length === 0) {
       setInductionPool(null);
       setIsInductionPoolLoading(false);
       return undefined;

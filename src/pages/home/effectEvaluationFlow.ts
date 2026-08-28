@@ -215,17 +215,13 @@ export function formatCountdown(totalSeconds: number): string {
 
 /**
  * video_paradigm library pool feeding the induction step for each target
- * emotion. Fear has no pool yet (恐惧素材待接入): it maps to `null` so the
- * step blocks with an explicit message instead of silently skipping.
+ * emotion. R8: the library carries a first-class Fear pool (快乐素材已改造为
+ * 恐惧占位), so every wizard emotion maps onto a scheduled class.
  */
 export function paradigmPoolKeyForEmotion(
   emotion: EffectTargetEmotion,
-): 'anxiety' | 'depression' | null {
-  if (emotion === 'anxiety' || emotion === 'depression') {
-    return emotion;
-  }
-
-  return null;
+): 'anxiety' | 'depression' | 'fear' {
+  return emotion;
 }
 
 export type InductionPoolStatus =
@@ -236,23 +232,18 @@ export type InductionPoolStatus =
  * Whether the induction step may play, derived from the target emotion and
  * the loaded pool (null = library missing/invalid). Every blocked case
  * carries an explicit operator-facing reason - the induction is a hard
- * precondition of the 大纲 flow, never silently skippable.
+ * precondition of the 大纲 flow, never silently skippable. Since R8 every
+ * wizard emotion is a scheduled paradigm class, so the verdict depends only
+ * on the pool; the emotion parameter stays on the contract for callers.
  *
  * `pickIndex` selects the pool entry (default: random) and is injectable so
  * tests stay deterministic.
  */
 export function describeInductionPoolStatus(
-  emotion: EffectTargetEmotion,
+  _emotion: EffectTargetEmotion,
   pool: readonly ParadigmVideoEntry[] | null,
   pickIndex: () => number = Math.random,
 ): InductionPoolStatus {
-  if (emotion === 'fear') {
-    return {
-      kind: 'blocked',
-      copy: '恐惧素材待接入：video_paradigm 素材库暂无恐惧类别素材，本步骤为流程硬前置，不提供跳过。请先完成焦虑/抑郁情绪的评价，或等待恐惧素材接入。',
-    };
-  }
-
   if (pool === null) {
     return {
       kind: 'blocked',

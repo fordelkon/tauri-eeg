@@ -105,6 +105,10 @@ fn in_class_region(emotion: ParadigmEmotion, v: i32, a: i32) -> bool {
         ParadigmEmotion::Depression => v <= 4 && a <= 5,
         ParadigmEmotion::Anxiety => v <= 4 && a >= 6,
         ParadigmEmotion::Calm => v >= 5 && a <= 4,
+        // Provisional fear region (negative valence + high arousal, more
+        // extreme than anxiety to keep the classes separable; 研究组可调的临
+        // 时口径): v <= 3 && a >= 7.
+        ParadigmEmotion::Fear => v <= 3 && a >= 7,
         ParadigmEmotion::Happy => v >= 6 && (5..=8).contains(&a),
     }
 }
@@ -114,6 +118,8 @@ fn near_class_boundary(emotion: ParadigmEmotion, v: i32, a: i32) -> bool {
         ParadigmEmotion::Depression => (v <= 4 && a == 6) || (v == 5 && a <= 5),
         ParadigmEmotion::Anxiety => (v <= 4 && a == 5) || (v == 5 && a >= 6),
         ParadigmEmotion::Calm => (v == 4 && a <= 4) || (v >= 5 && a == 5),
+        // Provisional fear boundary (研究组可调的临时口径).
+        ParadigmEmotion::Fear => (v <= 3 && a == 6) || (v == 4 && a >= 7),
         ParadigmEmotion::Happy => (v == 5 && (5..=8).contains(&a)) || (v >= 6 && a == 4),
     }
 }
@@ -123,6 +129,9 @@ fn hard_reject(emotion: ParadigmEmotion, v: i32, a: i32) -> bool {
         ParadigmEmotion::Depression => v >= 7,
         ParadigmEmotion::Anxiety => false,
         ParadigmEmotion::Calm => a >= 6 || v <= 3,
+        // Provisional fear hard reject (研究组可调的临时口径): clearly
+        // positive valence is incompatible with a fear induction.
+        ParadigmEmotion::Fear => v >= 7,
         ParadigmEmotion::Happy => v <= 4 || a >= 9,
     }
 }
@@ -278,6 +287,14 @@ mod tests {
             (ParadigmEmotion::Happy, 5, 6, TrialQuality::Uncertain),
             (ParadigmEmotion::Happy, 8, 9, TrialQuality::Rejected),
             (ParadigmEmotion::Happy, 3, 7, TrialQuality::Rejected),
+            // Provisional fear regions (R8): extreme negative valence +
+            // high arousal; mirror of the frontend acceptance map.
+            (ParadigmEmotion::Fear, 2, 8, TrialQuality::Accepted),
+            (ParadigmEmotion::Fear, 2, 6, TrialQuality::Uncertain),
+            (ParadigmEmotion::Fear, 4, 8, TrialQuality::Uncertain),
+            (ParadigmEmotion::Fear, 5, 8, TrialQuality::Uncertain),
+            (ParadigmEmotion::Fear, 6, 2, TrialQuality::Rejected),
+            (ParadigmEmotion::Fear, 8, 8, TrialQuality::Rejected),
         ];
 
         for (emotion, valence, arousal, expected) in cases {

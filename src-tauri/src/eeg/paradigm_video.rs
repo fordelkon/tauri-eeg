@@ -2,9 +2,13 @@ use std::{fs, path::{Path, PathBuf}};
 
 use super::paradigm::{
     ParadigmEmotion, ParadigmSessionKind, ParadigmTrialPlanItem, ParadigmVideoEntry,
-    ParadigmVideoLibrary, blocks_for_session_kind, PARADIGM_EMOTIONS,
+    ParadigmVideoLibrary, blocks_for_session_kind, is_scheduled_emotion, PARADIGM_EMOTIONS,
 };
 
+/// Minimum pool size per scheduled class. Outline S-04 ultimately requires 50
+/// clips per class; 5 is the transitional threshold for the R8 pipeline
+/// shakedown (the repurposed happy clips are placeholders anyway - see the
+/// r8 summary).
 const MIN_VIDEOS_PER_CLASS: usize = 5;
 const TRIALS_PER_CLASS: usize = 5;
 const VIDEO_EXTENSION: &str = "mp4";
@@ -22,21 +26,29 @@ pub fn load_paradigm_video_library(root_path: &str) -> Result<ParadigmVideoLibra
         depression: Vec::new(),
         anxiety: Vec::new(),
         calm: Vec::new(),
+        fear: Vec::new(),
         happy: Vec::new(),
         valid: false,
         problems: Vec::new(),
     };
 
     for emotion in PARADIGM_EMOTIONS {
+        // Only classes in some acquisition schedule are validated (R8: Happy
+        // retired - its directory is typically gone and an empty/missing
+        // legacy pool must not fail the library). A leftover Happy directory
+        // is still scanned so old libraries keep reporting their contents.
+        let required = is_scheduled_emotion(emotion);
         let Some(directory) = find_emotion_subdirectory(&root, emotion)? else {
-            problems.push(format!(
-                "Missing video subdirectory: {}.",
-                emotion.display_name()
-            ));
+            if required {
+                problems.push(format!(
+                    "Missing video subdirectory: {}.",
+                    emotion.display_name()
+                ));
+            }
             continue;
         };
         let entries = collect_mp4_entries(&directory, emotion)?;
-        if entries.len() < MIN_VIDEOS_PER_CLASS {
+        if required && entries.len() < MIN_VIDEOS_PER_CLASS {
             problems.push(format!(
                 "{} requires at least {MIN_VIDEOS_PER_CLASS} MP4 files (found {}).",
                 emotion.display_name(),
@@ -47,6 +59,7 @@ pub fn load_paradigm_video_library(root_path: &str) -> Result<ParadigmVideoLibra
             ParadigmEmotion::Depression => library.depression = entries,
             ParadigmEmotion::Anxiety => library.anxiety = entries,
             ParadigmEmotion::Calm => library.calm = entries,
+            ParadigmEmotion::Fear => library.fear = entries,
             ParadigmEmotion::Happy => library.happy = entries,
         }
     }
@@ -79,7 +92,8 @@ pub fn build_paradigm_queue(
 
     // Blocked schedule driven by the session kind: personal calibration
     // collects only the calm baseline block; the held-out generation run
-    // induces anxiety, depression, and happy. Each block shuffles its class
+    // induces anxiety, depression, and fear (R8, 大纲 6.1; happy retired).
+    // Each block shuffles its class
     // pool with the run-seeded rng and plays its five videos back to back;
     // distinct run ids vary the videos inside a block but never the order or
     // composition of the blocks.
@@ -415,7 +429,7 @@ mod tests {
         for emotion in [
             ParadigmEmotion::Anxiety,
             ParadigmEmotion::Calm,
-            ParadigmEmotion::Happy,
+            ParadigmEmotion::Fear,
         ] {
             let dir = root.join(emotion.display_name());
             for index in MIN_VIDEOS_PER_CLASS..8 {
@@ -454,6 +468,83 @@ mod tests {
                 .iter()
                 .map(|emotion| vec![*emotion; TRIALS_PER_CLASS])
                 .collect::<Vec<_>>()
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn retired_happy_pool_is_never_required_but_fear_is() {
+        // R8 shape: the on-disk library has no Happy directory at all (assets
+        // were repurposed into Fear) - validation must stay green.
+        let root = temp_library_root("fear-pool");
+        for emotion in PARADIGM_EMOTIONS {
+            if emotion == ParadigmEmotion::Happy {
+                continue;
+            }
+            let dir = root.join(emotion.display_name());
+            fs::create_dir_all(&dir).expect("create class dir");
+            for index in 0..MIN_VIDEOS_PER_CLASS {
+                fs::write(
+                    dir.join(format!("{}_vid{:02}.mp4", emotion.wire_str(), index)),
+                    b"",
+                )
+                .expect("create mp4");
+            }
+        }
+
+        let library = load_paradigm_video_library(root.to_str().expect("utf8 path"))
+            .expect("load library");
+        assert!(library.valid);
+        assert!(library.problems.is_empty());
+        assert_eq!(library.fear.len(), MIN_VIDEOS_PER_CLASS);
+        assert_eq!(
+            library.fear[0].video_id, "fear_vid00",
+            "fear entries come from the Fear directory"
+        );
+        assert!(library.happy.is_empty(), "no Happy directory -> empty legacy pool");
+
+        // An empty-but-present Happy directory is equally tolerated.
+        fs::create_dir_all(root.join("Happy")).expect("create empty happy dir");
+        let library = load_paradigm_video_library(root.to_str().expect("utf8 path"))
+            .expect("reload library");
+        assert!(library.valid);
+        assert!(library.happy.is_empty());
+
+        // A missing Fear directory is a hard problem: fear is scheduled.
+        fs::remove_dir_all(root.join("Fear")).expect("remove fear dir");
+        let library = load_paradigm_video_library(root.to_str().expect("utf8 path"))
+            .expect("reload library");
+        assert!(!library.valid);
+        assert_eq!(
+            library.problems,
+            vec!["Missing video subdirectory: Fear.".to_string()]
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn fear_block_feeds_the_induction_queue_with_trigger_5() {
+        let root = temp_library_root("fear-queue");
+        seed_library(&root, MIN_VIDEOS_PER_CLASS);
+        let library = load_paradigm_video_library(root.to_str().expect("utf8 path"))
+            .expect("load library");
+
+        let queue =
+            build_paradigm_queue(&library, "fear-run-1", ParadigmSessionKind::HeldOutGeneration)
+                .expect("queue");
+        let fear_trials: Vec<_> = queue
+            .iter()
+            .filter(|item| item.emotion == ParadigmEmotion::Fear)
+            .collect();
+        assert_eq!(fear_trials.len(), TRIALS_PER_CLASS);
+        assert!(fear_trials.iter().all(|item| item.trigger_class == 5));
+        assert!(
+            queue
+                .iter()
+                .all(|item| item.emotion != ParadigmEmotion::Happy),
+            "happy never appears in an R8 queue"
         );
 
         let _ = fs::remove_dir_all(root);

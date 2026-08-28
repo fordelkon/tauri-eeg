@@ -472,10 +472,10 @@ describe('emotion induction pool gating (R6 素材池硬前置)', () => {
     { videoId: 'anx-2', fileName: 'anx-2.mp4', absolutePath: 'C:\\clips\\anx-2.mp4' },
   ];
 
-  it('maps anxiety/depression onto their paradigm pools and fear onto none yet', () => {
+  it('maps every wizard emotion onto its first-class paradigm pool (R8)', () => {
     expect(paradigmPoolKeyForEmotion('anxiety')).toBe('anxiety');
     expect(paradigmPoolKeyForEmotion('depression')).toBe('depression');
-    expect(paradigmPoolKeyForEmotion('fear')).toBeNull();
+    expect(paradigmPoolKeyForEmotion('fear')).toBe('fear');
   });
 
   it('picks a pool entry deterministically for a usable pool', () => {
@@ -490,12 +490,24 @@ describe('emotion induction pool gating (R6 素材池硬前置)', () => {
     });
   });
 
-  it('blocks fear outright and never offers a silent skip', () => {
-    const status = describeInductionPoolStatus('fear', pool, () => 0);
-    expect(status.kind).toBe('blocked');
-    if (status.kind === 'blocked') {
-      expect(status.copy).toContain('恐惧素材待接入');
-      expect(status.copy).toContain('不提供跳过');
+  it('reads a fear pool as ready now that fear is a scheduled class (R8)', () => {
+    const fearPool: ParadigmVideoEntry[] = [
+      { videoId: 'fear-1', fileName: 'fear_01.mp4', absolutePath: 'C:\\clips\\fear_01.mp4' },
+    ];
+
+    const status = describeInductionPoolStatus('fear', fearPool, () => 0);
+    expect(status).toEqual({ kind: 'ready', entry: fearPool[0] });
+  });
+
+  it('still blocks a fear run on a missing or empty pool without a silent skip', () => {
+    const missing = describeInductionPoolStatus('fear', null, () => 0);
+    expect(missing.kind).toBe('blocked');
+
+    const empty = describeInductionPoolStatus('fear', [], () => 0);
+    expect(empty.kind).toBe('blocked');
+    if (empty.kind === 'blocked') {
+      expect(empty.copy).toContain('素材池为空');
+      expect(empty.copy).toContain('不提供跳过');
     }
   });
 

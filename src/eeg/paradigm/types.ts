@@ -14,9 +14,15 @@ export type ParadigmSessionKind = 'personal_calibration' | 'held_out_generation'
 /** Full studySession union accepted by the backend ParadigmInfo. */
 export type ParadigmStudySession = ParadigmSessionKind | 'regulation_feedback';
 
-export type ParadigmEmotion = 'depression' | 'anxiety' | 'calm' | 'happy';
+/**
+ * R8 (大纲 6.1): fear is a first-class induction class. 'happy' is retired
+ * from every schedule but stays on the union so pre-R8 trial records,
+ * summaries, and legacy libraries keep parsing (mirrors the Rust enum).
+ */
+export type ParadigmEmotion = 'depression' | 'anxiety' | 'calm' | 'fear' | 'happy';
 
-export type ParadigmTriggerClass = 1 | 2 | 3 | 4;
+/** Wire values mirror the Rust trigger_code layout (fear took over slot 5). */
+export type ParadigmTriggerClass = 1 | 2 | 3 | 4 | 5;
 
 export type TrialQuality = 'accepted' | 'uncertain' | 'rejected' | 'artifact_rejected';
 
@@ -51,6 +57,8 @@ export type ParadigmVideoLibrary = {
   depression: ParadigmVideoEntry[];
   anxiety: ParadigmVideoEntry[];
   calm: ParadigmVideoEntry[];
+  fear: ParadigmVideoEntry[];
+  /** Legacy pool (Happy retired in R8): present only for old libraries. */
   happy: ParadigmVideoEntry[];
   valid: boolean;
   problems: string[];
@@ -119,11 +127,12 @@ export type ParadigmSessionSummary = {
   warnings: string[];
 };
 
-/** Chinese display labels for the four induction targets. */
+/** Chinese display labels for the induction targets (happy: legacy records). */
 export const paradigmEmotionLabels: Record<ParadigmEmotion, string> = {
   anxiety: '焦虑',
   calm: '平静',
   depression: '抑郁',
+  fear: '恐惧',
   happy: '快乐',
 };
 
@@ -169,6 +178,7 @@ export const PARADIGM_EMOTIONS: readonly ParadigmEmotion[] = [
   'depression',
   'anxiety',
   'calm',
+  'fear',
   'happy',
 ];
 
@@ -178,11 +188,12 @@ export const PARADIGM_TRIALS_PER_CLASS = 5;
 /**
  * Block schedule mirroring the Rust blocks_for_session_kind: personal
  * calibration collects only the calm baseline block; the held-out generation
- * run induces anxiety, depression, and happy in order.
+ * run induces anxiety, depression, and fear in order (R8, 大纲 6.1; happy
+ * retired from every schedule).
  */
 export const PARADIGM_BLOCKS_BY_KIND: Record<ParadigmSessionKind, readonly ParadigmEmotion[]> = {
   personal_calibration: ['calm'],
-  held_out_generation: ['anxiety', 'depression', 'happy'],
+  held_out_generation: ['anxiety', 'depression', 'fear'],
 };
 
 /** Display order for the setup page (calm first, then the induction classes). */
@@ -191,9 +202,14 @@ export const PARADIGM_EMOTION_DISPLAY_ORDER: readonly ParadigmEmotion[] = [
   ...PARADIGM_BLOCKS_BY_KIND.held_out_generation,
 ];
 
+/**
+ * Wire trigger codes mirroring the Rust trigger_code: fear took the new slot
+ * 5 in R8; happy keeps its historical 4 for legacy record compatibility.
+ */
 export const PARADIGM_TRIGGER_CLASSES: Record<ParadigmEmotion, ParadigmTriggerClass> = {
   anxiety: 2,
   calm: 3,
   depression: 1,
+  fear: 5,
   happy: 4,
 };

@@ -7,6 +7,7 @@ describe('evaluateParadigmAcceptance', () => {
     expect(evaluateParadigmAcceptance('anxiety', 2, 8)).toBe('accepted');
     expect(evaluateParadigmAcceptance('calm', 6, 2)).toBe('accepted');
     expect(evaluateParadigmAcceptance('happy', 7, 6)).toBe('accepted');
+    expect(evaluateParadigmAcceptance('fear', 2, 8)).toBe('accepted');
   });
 
   it('marks near-boundary self-reports as uncertain', () => {
@@ -16,6 +17,11 @@ describe('evaluateParadigmAcceptance', () => {
     expect(evaluateParadigmAcceptance('calm', 5, 5)).toBe('uncertain');
     expect(evaluateParadigmAcceptance('calm', 4, 2)).toBe('uncertain');
     expect(evaluateParadigmAcceptance('happy', 5, 6)).toBe('uncertain');
+    // Provisional fear boundary band (v <= 3 && a === 6) / (v === 4 && a >= 7);
+    // (5, 8) falls to uncertain via the catch-all, not any band.
+    expect(evaluateParadigmAcceptance('fear', 2, 6)).toBe('uncertain');
+    expect(evaluateParadigmAcceptance('fear', 4, 8)).toBe('uncertain');
+    expect(evaluateParadigmAcceptance('fear', 5, 8)).toBe('uncertain');
   });
 
   it('rejects self-reports inside another emotion region', () => {
@@ -23,11 +29,15 @@ describe('evaluateParadigmAcceptance', () => {
     expect(evaluateParadigmAcceptance('anxiety', 5, 2)).toBe('rejected');
     expect(evaluateParadigmAcceptance('calm', 6, 7)).toBe('rejected');
     expect(evaluateParadigmAcceptance('happy', 3, 7)).toBe('rejected');
+    // (6, 2) sits in the calm region; the fear own/boundary bands miss it.
+    expect(evaluateParadigmAcceptance('fear', 6, 2)).toBe('rejected');
   });
 
   it('applies the extra rejection rules beyond region overlap', () => {
     // (8, 9) is outside every region; happy's arousal >= 9 rule rejects it.
     expect(evaluateParadigmAcceptance('happy', 8, 9)).toBe('rejected');
+    // Fear's provisional hard reject: clearly positive valence (研究组可调临时口径).
+    expect(evaluateParadigmAcceptance('fear', 8, 8)).toBe('rejected');
   });
 
   it('covers the full valence/arousal grid with a stable verdict', () => {
@@ -37,7 +47,7 @@ describe('evaluateParadigmAcceptance', () => {
       rejected: 0,
       uncertain: 0,
     };
-    const emotions = ['depression', 'anxiety', 'calm', 'happy'] as const;
+    const emotions = ['depression', 'anxiety', 'calm', 'fear', 'happy'] as const;
 
     for (const emotion of emotions) {
       for (let valence = 1; valence <= 9; valence += 1) {
@@ -47,8 +57,8 @@ describe('evaluateParadigmAcceptance', () => {
       }
     }
 
-    // 4 emotions x 81 cells = 324 verdicts, all accounted for.
-    expect(counts.accepted + counts.rejected + counts.uncertain).toBe(324);
+    // 5 emotions x 81 cells = 405 verdicts, all accounted for.
+    expect(counts.accepted + counts.rejected + counts.uncertain).toBe(405);
   });
 
   it('keeps boundary checks ahead of other-region rejection', () => {

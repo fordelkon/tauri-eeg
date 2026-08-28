@@ -33,26 +33,35 @@ impl ParadigmSessionKind {
 }
 
 /// Emotion class induced by a trial video; trigger codes follow the hardware
-/// trigger layout (1-4 for the classes, 255 marks the end of a trial).
+/// trigger layout (1-5 for the classes, 255 marks the end of a trial). Fear
+/// took over Happy's slot in the acquisition schedules (R8, 大纲 6.1); Happy
+/// stays on the wire contract so legacy 'happy' records keep parsing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ParadigmEmotion {
     Depression,
     Anxiety,
     Calm,
+    Fear,
+    /// Retired from every acquisition schedule (R8): no block schedules it
+    /// and its video pool is neither required nor validated on library load.
+    /// Kept only so pre-R8 'happy' trial records and summaries still parse.
     Happy,
 }
 
-pub const PARADIGM_EMOTIONS: [ParadigmEmotion; 4] = [
+pub const PARADIGM_EMOTIONS: [ParadigmEmotion; 5] = [
     ParadigmEmotion::Depression,
     ParadigmEmotion::Anxiety,
     ParadigmEmotion::Calm,
+    ParadigmEmotion::Fear,
     ParadigmEmotion::Happy,
 ];
 
 /// Block schedule per session kind: personal calibration collects only the
-/// calm baseline block, while the held-out generation run induces the three
-/// emotion blocks (anxiety, depression, happy) in order. Each block shuffles
+/// calm baseline block, while the held-out generation and regulation feedback
+/// runs induce the three emotion blocks (anxiety, depression, fear) in order
+/// (R8, 大纲 6.1 焦虑/抑郁/恐惧; Happy has retired from every schedule and only
+/// survives on the wire contract for legacy records). Each block shuffles
 /// its class pool and plays its five videos back to back.
 pub fn blocks_for_session_kind(kind: ParadigmSessionKind) -> &'static [ParadigmEmotion] {
     match kind {
@@ -60,16 +69,30 @@ pub fn blocks_for_session_kind(kind: ParadigmSessionKind) -> &'static [ParadigmE
         ParadigmSessionKind::HeldOutGeneration => &[
             ParadigmEmotion::Anxiety,
             ParadigmEmotion::Depression,
-            ParadigmEmotion::Happy,
+            ParadigmEmotion::Fear,
         ],
         // Regulation feedback is not an acquisition run; if it ever reaches
         // the queue builder, treat it like the induction schedule.
         ParadigmSessionKind::RegulationFeedback => &[
             ParadigmEmotion::Anxiety,
             ParadigmEmotion::Depression,
-            ParadigmEmotion::Happy,
+            ParadigmEmotion::Fear,
         ],
     }
+}
+
+/// Whether the class participates in some acquisition schedule. Only
+/// scheduled classes require a video directory and a full pool on library
+/// load; retired classes (Happy) are loaded opportunistically when their
+/// directory happens to exist, but never validated.
+pub fn is_scheduled_emotion(emotion: ParadigmEmotion) -> bool {
+    [
+        ParadigmSessionKind::PersonalCalibration,
+        ParadigmSessionKind::HeldOutGeneration,
+        ParadigmSessionKind::RegulationFeedback,
+    ]
+    .iter()
+    .any(|kind| blocks_for_session_kind(*kind).contains(&emotion))
 }
 
 impl ParadigmEmotion {
@@ -78,6 +101,7 @@ impl ParadigmEmotion {
             ParadigmEmotion::Depression => 1,
             ParadigmEmotion::Anxiety => 2,
             ParadigmEmotion::Calm => 3,
+            ParadigmEmotion::Fear => 5,
             ParadigmEmotion::Happy => 4,
         }
     }
@@ -87,6 +111,7 @@ impl ParadigmEmotion {
             ParadigmEmotion::Depression => "Depression",
             ParadigmEmotion::Anxiety => "Anxiety",
             ParadigmEmotion::Calm => "Calm",
+            ParadigmEmotion::Fear => "Fear",
             ParadigmEmotion::Happy => "Happy",
         }
     }
@@ -96,6 +121,7 @@ impl ParadigmEmotion {
             ParadigmEmotion::Depression => "depression",
             ParadigmEmotion::Anxiety => "anxiety",
             ParadigmEmotion::Calm => "calm",
+            ParadigmEmotion::Fear => "fear",
             ParadigmEmotion::Happy => "happy",
         }
     }
@@ -105,6 +131,7 @@ impl ParadigmEmotion {
             "depression" => Ok(Self::Depression),
             "anxiety" => Ok(Self::Anxiety),
             "calm" => Ok(Self::Calm),
+            "fear" => Ok(Self::Fear),
             "happy" => Ok(Self::Happy),
             _ => Err("Unknown paradigm emotion.".to_string()),
         }
@@ -275,6 +302,9 @@ pub struct ParadigmVideoLibrary {
     pub depression: Vec<ParadigmVideoEntry>,
     pub anxiety: Vec<ParadigmVideoEntry>,
     pub calm: Vec<ParadigmVideoEntry>,
+    pub fear: Vec<ParadigmVideoEntry>,
+    /// Legacy pool (Happy retired in R8): populated only when an old library
+    /// still carries a Happy directory; never scheduled, never validated.
     pub happy: Vec<ParadigmVideoEntry>,
     pub valid: bool,
     pub problems: Vec<String>,
@@ -286,6 +316,7 @@ impl ParadigmVideoLibrary {
             ParadigmEmotion::Depression => &self.depression,
             ParadigmEmotion::Anxiety => &self.anxiety,
             ParadigmEmotion::Calm => &self.calm,
+            ParadigmEmotion::Fear => &self.fear,
             ParadigmEmotion::Happy => &self.happy,
         }
     }
@@ -401,6 +432,19 @@ mod tests {
             r#""depression""#
         );
         assert_eq!(
+            serde_json::to_string(&ParadigmEmotion::Fear).expect("serialize"),
+            r#""fear""#
+        );
+        assert_eq!(
+            serde_json::from_str::<ParadigmEmotion>(r#""fear""#).expect("deserialize"),
+            ParadigmEmotion::Fear
+        );
+        // Legacy pre-R8 'happy' records still parse on the wire contract.
+        assert_eq!(
+            serde_json::from_str::<ParadigmEmotion>(r#""happy""#).expect("deserialize"),
+            ParadigmEmotion::Happy
+        );
+        assert_eq!(
             serde_json::to_string(&TrialMarkKind::PostVideoRest).expect("serialize"),
             r#""post_video_rest""#
         );
@@ -419,11 +463,69 @@ mod tests {
     }
 
     #[test]
+    fn emotion_wire_strings_round_trip_and_reject_unknown_values() {
+        for emotion in PARADIGM_EMOTIONS {
+            assert_eq!(
+                ParadigmEmotion::from_db_str(emotion.wire_str()).expect("round trip"),
+                emotion,
+                "{emotion:?} wire round trip"
+            );
+        }
+        assert_eq!(
+            ParadigmEmotion::from_db_str("anger").unwrap_err(),
+            "Unknown paradigm emotion."
+        );
+    }
+
+    #[test]
     fn emotion_trigger_codes_follow_hardware_layout() {
         assert_eq!(ParadigmEmotion::Depression.trigger_code(), 1);
         assert_eq!(ParadigmEmotion::Anxiety.trigger_code(), 2);
         assert_eq!(ParadigmEmotion::Calm.trigger_code(), 3);
+        assert_eq!(ParadigmEmotion::Fear.trigger_code(), 5);
+        // Happy keeps its historical code 4 even though it is retired; every
+        // class must keep a unique code distinct from the 255 trial-end mark.
         assert_eq!(ParadigmEmotion::Happy.trigger_code(), 4);
+        let codes: Vec<u8> = PARADIGM_EMOTIONS.map(|emotion| emotion.trigger_code()).to_vec();
+        let mut unique = codes.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(codes.len(), unique.len(), "trigger codes must not collide");
+        assert!(
+            codes.iter().all(|code| *code != 255),
+            "255 is reserved for the trial-end mark"
+        );
+    }
+
+    #[test]
+    fn block_schedules_induce_the_outline_6_1_classes() {
+        assert_eq!(
+            blocks_for_session_kind(ParadigmSessionKind::PersonalCalibration),
+            &[ParadigmEmotion::Calm]
+        );
+        let induction = [
+            ParadigmEmotion::Anxiety,
+            ParadigmEmotion::Depression,
+            ParadigmEmotion::Fear,
+        ];
+        assert_eq!(
+            blocks_for_session_kind(ParadigmSessionKind::HeldOutGeneration),
+            &induction
+        );
+        assert_eq!(
+            blocks_for_session_kind(ParadigmSessionKind::RegulationFeedback),
+            &induction
+        );
+        // Happy retired in R8: never scheduled, still a valid wire value.
+        assert!(!is_scheduled_emotion(ParadigmEmotion::Happy));
+        for emotion in [
+            ParadigmEmotion::Calm,
+            ParadigmEmotion::Anxiety,
+            ParadigmEmotion::Depression,
+            ParadigmEmotion::Fear,
+        ] {
+            assert!(is_scheduled_emotion(emotion), "{emotion:?} must be scheduled");
+        }
     }
 
     #[test]
