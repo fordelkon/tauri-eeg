@@ -340,6 +340,16 @@
   padding: 5px 12px;
 }
 
+.inductionVideo {
+  background: #000;
+  border-radius: 12px;
+  display: block;
+  margin: 0 auto;
+  max-height: 420px;
+  max-width: 100%;
+  width: min(720px, 100%);
+}
+
 .countdownWrap {
   display: grid;
   gap: 10px;

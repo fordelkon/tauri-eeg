@@ -1,18 +1,25 @@
 import { describe, expect, it } from 'vitest';
+import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
 import {
+  buildConditionComparisonVerdictCopy,
   buildEffectVerdictCopy,
   clearFlowStateFromStorage,
+  CONDITION_COMPARISON_FORMULA_NOTE,
   createEffectEvaluationFlowState,
+  describeInductionPoolStatus,
   describeMeasuredBasis,
   describeMissingMeasurements,
   describeRegulationSkipped,
+  EFFECT_CONDITION_OPTIONS,
   EFFECT_FLOW_STEP_COUNT,
   EFFECT_FLOW_STEPS,
   formatCountdown,
   formatImprovementRate,
   isRegulationWindowOpen,
   isRegulationWindowOpenInStorage,
+  labelForCondition,
   labelForDimension,
+  paradigmPoolKeyForEmotion,
   parseFlowState,
   readFlowStateFromStorage,
   readRegulationPageContext,
@@ -301,7 +308,7 @@ function fakeStorage(initial: Record<string, string> = {}) {
 function runningWindowState(startedAtMs = 1_000_000) {
   return {
     ...createEffectEvaluationFlowState(),
-    step: 2 as const,
+    step: 3 as const,
     subjectId: 'subj-042',
     emotion: 'anxiety' as const,
     method: 'music' as const,
@@ -315,8 +322,14 @@ describe('regulation window detection (R4/F4)', () => {
     expect(isRegulationWindowOpen(createEffectEvaluationFlowState())).toBe(false);
 
     // Started the clock but still on an earlier/ later step: not "open".
-    expect(isRegulationWindowOpen({ ...runningWindowState(), step: 1 })).toBe(false);
-    expect(isRegulationWindowOpen({ ...runningWindowState(), step: 3 })).toBe(false);
+    expect(isRegulationWindowOpen({ ...runningWindowState(), step: 2 })).toBe(false);
+    expect(isRegulationWindowOpen({ ...runningWindowState(), step: 4 })).toBe(false);
+  });
+
+  it('stays open for both wizard conditions (R6: natural recovery also locks the shell)', () => {
+    // The default state runs the natural-recovery condition.
+    expect(isRegulationWindowOpen(runningWindowState())).toBe(true);
+    expect(isRegulationWindowOpen({ ...runningWindowState(), condition: 'regulation' })).toBe(true);
   });
 
   it('round-trips through storage and clears cleanly', () => {
@@ -343,27 +356,51 @@ describe('regulation page context (R4/F4 调控页消费会话上下文)', () =>
   const FIVE_MINUTES_MS = 300_000;
 
   it('exposes emotion label and remaining seconds for the matching live method', () => {
-    const context = regulationPageContextFor(runningWindowState(START), 'music', START + 60_000);
+    const context = regulationPageContextFor(
+      { ...runningWindowState(START), condition: 'regulation' as const },
+      'music',
+      START + 60_000,
+    );
 
     expect(context).toEqual({ emotionLabel: '焦虑', remainingSeconds: 240 });
   });
 
   it('stays null for closed windows or a mismatched page method', () => {
     // The video page must stay untouched while a music run is live.
-    expect(regulationPageContextFor(runningWindowState(START), 'video', START)).toBeNull();
+    expect(regulationPageContextFor(
+      { ...runningWindowState(START), condition: 'regulation' as const },
+      'video',
+      START,
+    )).toBeNull();
     // No live window: unrelated visits to the music page see nothing.
     expect(regulationPageContextFor(createEffectEvaluationFlowState(), 'music', START)).toBeNull();
     // Window finished long ago is still "open" until the wizard advances —
     // remaining clamps to 0 so the page keeps its playback stopped.
-    expect(regulationPageContextFor(runningWindowState(START), 'music', START + FIVE_MINUTES_MS * 2))
-      .toEqual({ emotionLabel: '焦虑', remainingSeconds: 0 });
+    expect(regulationPageContextFor(
+      { ...runningWindowState(START), condition: 'regulation' as const },
+      'music',
+      START + FIVE_MINUTES_MS * 2,
+    )).toEqual({ emotionLabel: '焦虑', remainingSeconds: 0 });
+  });
+
+  it('stays null for a live natural-recovery window (R6: that run never jumps)', () => {
+    // The natural-recovery condition runs its countdown inside the wizard
+    // page, so even the matching regulation page must never see a banner or
+    // stop its playback for it.
+    expect(regulationPageContextFor(runningWindowState(START), 'music', START + 60_000)).toBeNull();
+    expect(regulationPageContextFor(runningWindowState(START), 'video', START + 60_000)).toBeNull();
   });
 
   it('reads through storage so the unmounted wizard state reaches the page', () => {
     const storage = fakeStorage();
     expect(readRegulationPageContext(storage, 'music', Date.now())).toBeNull();
 
-    writeFlowStateToStorage(storage, { ...runningWindowState(START), emotion: 'fear', method: 'video' });
+    writeFlowStateToStorage(storage, {
+      ...runningWindowState(START),
+      emotion: 'fear' as const,
+      method: 'video' as const,
+      condition: 'regulation' as const,
+    });
 
     expect(readRegulationPageContext(storage, 'music', START)).toBeNull();
     expect(readRegulationPageContext(storage, 'video', START + 30_000)).toEqual({
@@ -386,5 +423,125 @@ describe('measured basis note (R4/F1 幻影维度口径)', () => {
     const note = describeMeasuredBasis({ measuredOnly: false });
     expect(note).toContain('未标注实测维度');
     expect(note).toContain('占位维度');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* R6, 大纲 6.2: condition split, induction pool, cross-condition copy   */
+/* ------------------------------------------------------------------ */
+
+describe('wizard condition selection (R6 实验条件)', () => {
+  it('defaults a fresh run to the natural-recovery baseline condition', () => {
+    expect(createEffectEvaluationFlowState().condition).toBe('natural_recovery');
+  });
+
+  it('offers exactly the two outline conditions in Chinese', () => {
+    expect(EFFECT_CONDITION_OPTIONS.map((option) => option.value)).toEqual([
+      'natural_recovery',
+      'regulation',
+    ]);
+    for (const option of EFFECT_CONDITION_OPTIONS) {
+      expect(option.label.length).toBeGreaterThan(0);
+      expect(labelForCondition(option.value)).toBe(option.label);
+    }
+  });
+
+  it('labels legacy null rows as the old regulation flow instead of hiding them', () => {
+    const legacy = labelForCondition(null);
+    expect(legacy).toContain('调控条件');
+    expect(legacy).toContain('legacy');
+    // Unknown values stay readable rather than being coerced.
+    expect(labelForCondition('sleep')).toBe('sleep');
+  });
+
+  it('round-trips the condition and rejects stored values outside the two options', () => {
+    const regulation = { ...createEffectEvaluationFlowState(), condition: 'regulation' as const };
+    expect(parseFlowState(serializeFlowState(regulation))?.condition).toBe('regulation');
+    expect(parseFlowState(serializeFlowState(createEffectEvaluationFlowState()))?.condition)
+      .toBe('natural_recovery');
+
+    const valid = JSON.parse(serializeFlowState(createEffectEvaluationFlowState()));
+    expect(parseFlowState(JSON.stringify({ ...valid, condition: 'sleep' }))).toBeNull();
+    expect(parseFlowState(JSON.stringify({ ...valid, condition: null }))).toBeNull();
+  });
+});
+
+describe('emotion induction pool gating (R6 素材池硬前置)', () => {
+  const pool: ParadigmVideoEntry[] = [
+    { videoId: 'anx-1', fileName: 'anx-1.mp4', absolutePath: 'C:\\clips\\anx-1.mp4' },
+    { videoId: 'anx-2', fileName: 'anx-2.mp4', absolutePath: 'C:\\clips\\anx-2.mp4' },
+  ];
+
+  it('maps anxiety/depression onto their paradigm pools and fear onto none yet', () => {
+    expect(paradigmPoolKeyForEmotion('anxiety')).toBe('anxiety');
+    expect(paradigmPoolKeyForEmotion('depression')).toBe('depression');
+    expect(paradigmPoolKeyForEmotion('fear')).toBeNull();
+  });
+
+  it('picks a pool entry deterministically for a usable pool', () => {
+    expect(describeInductionPoolStatus('anxiety', pool, () => 1)).toEqual({
+      kind: 'ready',
+      entry: pool[1],
+    });
+    // An out-of-range pick wraps around the pool length.
+    expect(describeInductionPoolStatus('anxiety', pool.slice(0, 1), () => 5)).toEqual({
+      kind: 'ready',
+      entry: pool[0],
+    });
+  });
+
+  it('blocks fear outright and never offers a silent skip', () => {
+    const status = describeInductionPoolStatus('fear', pool, () => 0);
+    expect(status.kind).toBe('blocked');
+    if (status.kind === 'blocked') {
+      expect(status.copy).toContain('恐惧素材待接入');
+      expect(status.copy).toContain('不提供跳过');
+    }
+  });
+
+  it('blocks on a missing or empty pool with operator-facing reasons', () => {
+    const missing = describeInductionPoolStatus('anxiety', null, () => 0);
+    expect(missing.kind).toBe('blocked');
+    if (missing.kind === 'blocked') {
+      expect(missing.copy).toContain('素材库');
+    }
+
+    const empty = describeInductionPoolStatus('depression', [], () => 0);
+    expect(empty.kind).toBe('blocked');
+    if (empty.kind === 'blocked') {
+      expect(empty.copy).toContain('素材池为空');
+      expect(empty.copy).toContain('不提供跳过');
+    }
+  });
+});
+
+describe('cross-condition comparison copy (R6 跨条件对比)', () => {
+  it('reports an undecidable verdict when no dimension is comparable', () => {
+    const copy = buildConditionComparisonVerdictCopy({ meanImprovementRate: null, meetsThreshold: false });
+    expect(copy.severity).toBe('warning');
+    expect(copy.title).toBe('无法判定跨条件改善');
+  });
+
+  it('announces success when the regulation condition beats the threshold', () => {
+    const copy = buildConditionComparisonVerdictCopy({ meanImprovementRate: 0.32, meetsThreshold: true });
+    expect(copy.severity).toBe('success');
+    expect(copy.title).toBe('调控条件优于基线条件（达标）');
+    expect(copy.detail).toContain('+32%');
+    expect(copy.detail).toContain('10%');
+    expect(copy.detail).toContain('自然恢复');
+  });
+
+  it('warns below the threshold and explains negative rates', () => {
+    const copy = buildConditionComparisonVerdictCopy({ meanImprovementRate: -0.05, meetsThreshold: false });
+    expect(copy.severity).toBe('warning');
+    expect(copy.title).toBe('调控条件未优于基线条件');
+    expect(copy.detail).toContain('-5%');
+    expect(copy.detail).toContain('不如自然恢复');
+  });
+
+  it('states the frozen formula note with its outline source', () => {
+    expect(CONDITION_COMPARISON_FORMULA_NOTE).toContain('B_post');
+    expect(CONDITION_COMPARISON_FORMULA_NOTE).toContain('T_post');
+    expect(CONDITION_COMPARISON_FORMULA_NOTE).toContain('B-1');
   });
 });

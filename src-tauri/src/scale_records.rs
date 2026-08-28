@@ -9,6 +9,14 @@ use uuid::Uuid;
 pub const PHASE_BASELINE: &str = "baseline";
 pub const PHASE_POST: &str = "post";
 
+/// Wizard condition of the run that produced a record (R6): `natural_recovery`
+/// is the baseline condition (诱发后不调控、自然恢复), `regulation` is the
+/// intervention condition. `NULL` marks pre-R6 rows saved by the legacy flow
+/// (no induction step, always a regulation leg) - consumers treat those as the
+/// regulation condition and surface a legacy note.
+pub const CONDITION_NATURAL_RECOVERY: &str = "natural_recovery";
+pub const CONDITION_REGULATION: &str = "regulation";
+
 /// Default relative improvement required to consider a regulation effective.
 pub const DEFAULT_IMPROVEMENT_THRESHOLD: f64 = 0.10;
 
@@ -24,6 +32,10 @@ pub struct SaveScaleRecordInput {
     /// Target emotion configured by the evaluation wizard; `None` on
     /// standalone gate submissions.
     pub emotion: Option<String>,
+    /// Wizard condition of this run (R6): `natural_recovery` or `regulation`;
+    /// `None` on standalone gate submissions and legacy payloads.
+    #[serde(default)]
+    pub condition: Option<String>,
     /// Planned regulation window in minutes; `None` outside the wizard.
     pub duration_minutes: Option<i64>,
     /// True when the operator skipped part of the regulation window after an
@@ -53,6 +65,7 @@ pub struct ScaleRecord {
     pub raw_answers: serde_json::Value,
     pub created_at: String,
     pub emotion: Option<String>,
+    pub condition: Option<String>,
     pub duration_minutes: Option<i64>,
     pub regulation_skipped: bool,
     pub measured_dimensions: Option<Vec<String>>,
@@ -140,8 +153,12 @@ fn ensure_scale_records_columns(conn: &Connection) -> Result<(), String> {
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| "Failed to inspect scale records schema.".to_string())?;
 
-    const COLUMN_ADDITIONS: [(&str, &str); 5] = [
+    const COLUMN_ADDITIONS: [(&str, &str); 6] = [
         ("emotion", "ALTER TABLE scale_records ADD COLUMN emotion TEXT"),
+        (
+            "condition",
+            "ALTER TABLE scale_records ADD COLUMN condition TEXT",
+        ),
         (
             "duration_minutes",
             "ALTER TABLE scale_records ADD COLUMN duration_minutes INTEGER",
@@ -188,6 +205,10 @@ pub fn save_scale_record(
     validate_phase(input.phase.trim())?;
 
     let emotion = normalize_optional_text(input.emotion.as_deref());
+    let condition = normalize_optional_text(input.condition.as_deref());
+    if let Some(condition) = condition.as_deref() {
+        validate_condition(condition)?;
+    }
     // Nonsense windows are dropped rather than stored (the wizard clamps
     // before saving; this guards direct API callers).
     let duration_minutes = input.duration_minutes.filter(|minutes| *minutes > 0);
@@ -213,8 +234,8 @@ pub fn save_scale_record(
     conn.execute(
         "INSERT INTO scale_records
             (id, user_id, subject_id, scale_id, phase, dimension_scores, raw_answers, created_at,
-             emotion, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+             emotion, condition, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
         params![
             id,
             user_id,
@@ -225,6 +246,7 @@ pub fn save_scale_record(
             raw_answers,
             created_at,
             emotion,
+            condition,
             duration_minutes,
             input.regulation_skipped,
             measured_dimensions_json,
@@ -243,6 +265,7 @@ pub fn save_scale_record(
         raw_answers: serde_json::from_str(&raw_answers).unwrap_or_default(),
         created_at,
         emotion: emotion.map(str::to_string),
+        condition: condition.map(str::to_string),
         duration_minutes,
         regulation_skipped: input.regulation_skipped,
         measured_dimensions,
@@ -285,7 +308,7 @@ pub fn list_scale_records(
     let mut stmt = conn
         .prepare_cached(
             "SELECT id, user_id, subject_id, scale_id, phase, dimension_scores, raw_answers, created_at,
-                    emotion, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id
+                    emotion, condition, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id
                 FROM scale_records
                 WHERE (?1 IS NULL OR subject_id = ?1)
                   AND (?2 IS NULL OR phase = ?2)
@@ -314,7 +337,7 @@ fn fetch_record_row(conn: &Connection, id: &str) -> Result<RecordRow, String> {
     let mut stmt = conn
         .prepare_cached(
             "SELECT id, user_id, subject_id, scale_id, phase, dimension_scores, raw_answers, created_at,
-                    emotion, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id
+                    emotion, condition, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id
                 FROM scale_records WHERE id = ?1",
         )
         .map_err(|_| "Failed to load scale record.".to_string())?;
@@ -334,10 +357,11 @@ fn map_record_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RecordRow> {
         raw_answers: row.get(6)?,
         created_at: row.get(7)?,
         emotion: row.get(8)?,
-        duration_minutes: row.get(9)?,
-        regulation_skipped: row.get::<_, i64>(10)? != 0,
-        measured_dimensions: row.get(11)?,
-        eeg_session_id: row.get(12)?,
+        condition: row.get(9)?,
+        duration_minutes: row.get(10)?,
+        regulation_skipped: row.get::<_, i64>(11)? != 0,
+        measured_dimensions: row.get(12)?,
+        eeg_session_id: row.get(13)?,
     })
 }
 
@@ -446,6 +470,16 @@ fn validate_phase(phase: &str) -> Result<(), String> {
     ))
 }
 
+fn validate_condition(condition: &str) -> Result<(), String> {
+    if condition == CONDITION_NATURAL_RECOVERY || condition == CONDITION_REGULATION {
+        return Ok(());
+    }
+
+    Err(format!(
+        "Scale record condition must be '{CONDITION_NATURAL_RECOVERY}' or '{CONDITION_REGULATION}'."
+    ))
+}
+
 /* ------------------------------------------------------------------ */
 /* History review (R3): chronological baseline/post pairing            */
 /* ------------------------------------------------------------------ */
@@ -462,6 +496,9 @@ pub struct EffectHistoryEntry {
     pub post_created_at: String,
     pub scale_id: String,
     pub emotion: Option<String>,
+    /// Wizard condition of the run (R6); `None` on legacy pre-R6 rows, which
+    /// consumers treat as the regulation condition of the old flow.
+    pub condition: Option<String>,
     pub duration_minutes: Option<i64>,
     pub regulation_skipped: bool,
     /// EEG recording session of the run (post leg first, baseline fallback).
@@ -508,6 +545,10 @@ pub fn build_effect_history(records: &[ScaleRecord]) -> Vec<EffectHistoryEntry> 
                             .emotion
                             .clone()
                             .or_else(|| baseline.emotion.clone()),
+                        condition: record
+                            .condition
+                            .clone()
+                            .or_else(|| baseline.condition.clone()),
                         duration_minutes: record.duration_minutes.or(baseline.duration_minutes),
                         regulation_skipped: record.regulation_skipped || baseline.regulation_skipped,
                         eeg_session_id: record
@@ -528,26 +569,206 @@ pub fn build_effect_history(records: &[ScaleRecord]) -> Vec<EffectHistoryEntry> 
     entries
 }
 
-/// Collapses the full history to each subject-emotion pair's most recent
-/// run for the batch export: the acceptance outline judges anxiety,
-/// depression, and fear separately per subject, so one row survives per
-/// (subject, emotion) combination. The result is ordered by subject id and
-/// emotion for stable output.
-pub fn latest_entry_per_subject_emotion(
+/// The condition a run belongs to for grouping purposes: an explicit
+/// `natural_recovery` marks the baseline condition, everything else (explicit
+/// `regulation` and legacy `NULL` rows alike) is the regulation condition of
+/// the same flow.
+pub fn effective_condition(condition: Option<&str>) -> &'static str {
+    match condition {
+        Some(CONDITION_NATURAL_RECOVERY) => CONDITION_NATURAL_RECOVERY,
+        _ => CONDITION_REGULATION,
+    }
+}
+
+/// Collapses the full history to each subject-emotion-condition triple's most
+/// recent run for the batch export: the acceptance outline judges the
+/// regulation condition against the natural-recovery baseline condition per
+/// subject and emotion, so one row survives per (subject, emotion, condition)
+/// combination (legacy NULL rows group with explicit `regulation` runs). The
+/// result is ordered by subject id, emotion, and condition for stable output.
+pub fn latest_entry_per_subject_emotion_condition(
     entries: &[EffectHistoryEntry],
 ) -> Vec<EffectHistoryEntry> {
-    let mut latest: BTreeMap<(String, Option<String>), EffectHistoryEntry> = BTreeMap::new();
+    let mut latest: BTreeMap<(String, Option<String>, String), EffectHistoryEntry> =
+        BTreeMap::new();
 
     for entry in entries {
         // Entries arrive chronologically, so later ones overwrite earlier
-        // ones within the same (subject, emotion) pair.
+        // ones within the same (subject, emotion, condition) triple.
         latest.insert(
-            (entry.subject_id.clone(), entry.emotion.clone()),
+            (
+                entry.subject_id.clone(),
+                entry.emotion.clone(),
+                effective_condition(entry.condition.as_deref()).to_string(),
+            ),
             entry.clone(),
         );
     }
 
     latest.into_values().collect()
+}
+
+/* ------------------------------------------------------------------ */
+/* Cross-condition comparison (R6, 大纲 6.2)                            */
+/* ------------------------------------------------------------------ */
+
+/// Per-dimension improvement of the regulation condition relative to the
+/// natural-recovery (baseline) condition, computed on each condition's post
+/// scores: `(B_post - T_post) / B_post` where B_post is the natural-recovery
+/// run's post score and T_post the regulation run's post score.
+///
+/// Formula source: 大纲 B-1 冻结项，默认口径，测试前可换。
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConditionDimensionComparison {
+    pub dimension: String,
+    /// B_post: post score of the natural-recovery (baseline) condition run.
+    pub natural_recovery_post: f64,
+    /// T_post: post score of the regulation condition run.
+    pub regulation_post: f64,
+    pub improvement_rate: f64,
+}
+
+/// Cross-condition regulation effect for one subject+emotion: how much better
+/// the regulation condition's final state is than the natural-recovery
+/// condition's, dimension by dimension plus the threshold verdict.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConditionEffectComparison {
+    pub subject_id: String,
+    pub emotion: Option<String>,
+    /// Post record of the natural-recovery run feeding B_post.
+    pub natural_recovery_post_record_id: String,
+    pub natural_recovery_post_created_at: String,
+    /// Post record of the regulation run feeding T_post (may be a legacy row).
+    pub regulation_post_record_id: String,
+    pub regulation_post_created_at: String,
+    pub dimensions: Vec<ConditionDimensionComparison>,
+    pub mean_improvement_rate: Option<f64>,
+    pub meets_threshold: bool,
+    /// True when both sides' means covered only dimensions marked as measured;
+    /// false = at least one legacy run compared over all stored keys.
+    pub measured_only: bool,
+}
+
+/// Compares the regulation condition's run against the natural-recovery
+/// (baseline) condition's run (大纲 6.2: 调控条件相对基线条件的改善).
+///
+/// Dimensions missing on either side are skipped (维度交集); a zero B_post
+/// makes the rate undefined and the dimension is skipped, mirroring the
+/// in-run pairing strategy. The mean covers only comparable dimensions and is
+/// `None` when none remain.
+pub fn build_condition_comparison(
+    natural_recovery: &EffectHistoryEntry,
+    regulation: &EffectHistoryEntry,
+) -> Result<ConditionEffectComparison, String> {
+    if natural_recovery.subject_id.trim() != regulation.subject_id.trim() {
+        return Err("The two condition runs belong to different subjects.".to_string());
+    }
+
+    let mut dimensions = Vec::new();
+    for natural_dimension in &natural_recovery.dimensions {
+        let Some(regulation_dimension) = regulation
+            .dimensions
+            .iter()
+            .find(|item| item.dimension == natural_dimension.dimension)
+        else {
+            // Not measured by both condition runs: no comparison possible.
+            continue;
+        };
+        // Zero B_post: the relative improvement would divide by zero, skip it.
+        if natural_dimension.post == 0.0 {
+            continue;
+        }
+
+        dimensions.push(ConditionDimensionComparison {
+            dimension: natural_dimension.dimension.clone(),
+            natural_recovery_post: natural_dimension.post,
+            regulation_post: regulation_dimension.post,
+            // (B_post - T_post) / B_post - 大纲 B-1 冻结项，默认口径，测试前可换。
+            improvement_rate: (natural_dimension.post - regulation_dimension.post)
+                / natural_dimension.post,
+        });
+    }
+
+    let mean_improvement_rate = if dimensions.is_empty() {
+        None
+    } else {
+        Some(
+            dimensions
+                .iter()
+                .map(|item| item.improvement_rate)
+                .sum::<f64>()
+                / dimensions.len() as f64,
+        )
+    };
+    let meets_threshold = mean_improvement_rate
+        .map_or(false, |mean| mean >= DEFAULT_IMPROVEMENT_THRESHOLD);
+
+    Ok(ConditionEffectComparison {
+        subject_id: natural_recovery.subject_id.clone(),
+        emotion: natural_recovery
+            .emotion
+            .clone()
+            .or_else(|| regulation.emotion.clone()),
+        natural_recovery_post_record_id: natural_recovery.post_record_id.clone(),
+        natural_recovery_post_created_at: natural_recovery.post_created_at.clone(),
+        regulation_post_record_id: regulation.post_record_id.clone(),
+        regulation_post_created_at: regulation.post_created_at.clone(),
+        dimensions,
+        mean_improvement_rate,
+        meets_threshold,
+        measured_only: natural_recovery.measured_only && regulation.measured_only,
+    })
+}
+
+/// Cross-condition summary for one subject+emotion: pairs the latest complete
+/// run of each condition (legacy `NULL` rows count as the regulation
+/// condition) and compares their post scores per dimension. Records are
+/// expected in `list_scale_records` order (created_at ASC).
+pub fn compute_condition_effect_comparison(
+    records: &[ScaleRecord],
+    subject_id: &str,
+    emotion: &str,
+) -> Result<ConditionEffectComparison, String> {
+    let subject_id = subject_id.trim();
+    if subject_id.is_empty() {
+        return Err("Subject id is required.".to_string());
+    }
+
+    let emotion = emotion.trim();
+    if emotion.is_empty() {
+        return Err("Emotion is required.".to_string());
+    }
+
+    let entries = build_effect_history(records);
+    let mut natural_recovery: Option<&EffectHistoryEntry> = None;
+    let mut regulation: Option<&EffectHistoryEntry> = None;
+
+    for entry in &entries {
+        if entry.subject_id.trim() != subject_id {
+            continue;
+        }
+        // Emotion travels post-first; runs without an emotion never match.
+        if entry.emotion.as_deref().map(str::trim) != Some(emotion) {
+            continue;
+        }
+
+        // Entries arrive chronologically, so the last match per condition wins.
+        match effective_condition(entry.condition.as_deref()) {
+            CONDITION_NATURAL_RECOVERY => natural_recovery = Some(entry),
+            _ => regulation = Some(entry),
+        }
+    }
+
+    let natural_recovery = natural_recovery.ok_or_else(|| {
+        "缺少基线条件（自然恢复）的完整评价 run：同被试同情绪需要自然恢复条件与调控条件各至少一条完整记录，才能进行跨条件对比。".to_string()
+    })?;
+    let regulation = regulation.ok_or_else(|| {
+        "缺少调控条件的完整评价 run（旧流程记录按调控条件计）：同被试同情绪需要自然恢复条件与调控条件各至少一条完整记录，才能进行跨条件对比。".to_string()
+    })?;
+
+    build_condition_comparison(natural_recovery, regulation)
 }
 
 /* ------------------------------------------------------------------ */
@@ -562,6 +783,9 @@ pub struct SingleEffectReport {
     pub subject_id: Option<String>,
     pub emotion: Option<String>,
     pub emotion_label: Option<String>,
+    /// Wizard condition of the exported run; `None` on legacy pre-R6 rows
+    /// (rendered as "legacy" in the CSV).
+    pub condition: Option<String>,
     pub duration_minutes: Option<i64>,
     pub regulation_skipped: bool,
     pub baseline_record_id: String,
@@ -591,6 +815,10 @@ pub fn build_single_effect_report(
 ) -> Result<SingleEffectReport, String> {
     let summary = compute_regulation_effect_summary(baseline, post)?;
     let emotion = post.emotion.clone().or_else(|| baseline.emotion.clone());
+    let condition = post
+        .condition
+        .clone()
+        .or_else(|| baseline.condition.clone());
     // Read before the fields below are moved out of the summary.
     let meets_threshold = summary.meets_threshold();
 
@@ -599,6 +827,7 @@ pub fn build_single_effect_report(
         subject_id: summary.subject_id,
         emotion_label: emotion.as_deref().map(emotion_label),
         emotion,
+        condition,
         duration_minutes: post.duration_minutes.or(baseline.duration_minutes),
         regulation_skipped: post.regulation_skipped || baseline.regulation_skipped,
         baseline_record_id: baseline.id.clone(),
@@ -660,6 +889,7 @@ pub fn build_single_effect_report_csv(report: &SingleEffectReport) -> String {
     let header = [
         "subject_id",
         "emotion",
+        "condition",
         "dimension",
         "dimension_label",
         "baseline",
@@ -684,6 +914,8 @@ pub fn build_single_effect_report_csv(report: &SingleEffectReport) -> String {
             [
                 csv_field(report.subject_id.as_deref().unwrap_or("")),
                 csv_field(report.emotion.as_deref().unwrap_or("")),
+                // NULL conditions are pre-R6 rows of the old regulation flow.
+                csv_field(report.condition.as_deref().unwrap_or("legacy")),
                 csv_field(&dimension.dimension),
                 csv_field(&dimension_label(&dimension.dimension)),
                 dimension.baseline.to_string(),
@@ -710,11 +942,13 @@ pub fn build_single_effect_report_csv(report: &SingleEffectReport) -> String {
     format!("{CSV_BOM}{}", lines.join("\r\n"))
 }
 
-/// Batch summary: each subject-emotion pair's most recent evaluation on one row.
+/// Batch summary: each subject-emotion-condition triple's most recent
+/// evaluation on one row (legacy NULL conditions render as "legacy").
 pub fn build_batch_effect_report_csv(entries: &[EffectHistoryEntry]) -> String {
     let header = [
         "subject_id",
         "emotion",
+        "condition",
         "duration_minutes",
         "regulation_skipped",
         "mean_improvement_rate",
@@ -736,6 +970,8 @@ pub fn build_batch_effect_report_csv(entries: &[EffectHistoryEntry]) -> String {
             [
                 csv_field(&entry.subject_id),
                 csv_field(entry.emotion.as_deref().unwrap_or("")),
+                // NULL conditions are pre-R6 rows of the old regulation flow.
+                csv_field(entry.condition.as_deref().unwrap_or("legacy")),
                 entry
                     .duration_minutes
                     .map_or(String::new(), |minutes| minutes.to_string()),
@@ -770,6 +1006,7 @@ struct RecordRow {
     raw_answers: String,
     created_at: String,
     emotion: Option<String>,
+    condition: Option<String>,
     duration_minutes: Option<i64>,
     regulation_skipped: bool,
     measured_dimensions: Option<String>,
@@ -802,6 +1039,7 @@ fn parse_record_row(row: RecordRow) -> Result<ScaleRecord, String> {
             .map_err(|_| "Failed to parse stored raw answers.".to_string())?,
         created_at: row.created_at,
         emotion: row.emotion,
+        condition: row.condition,
         duration_minutes: row.duration_minutes,
         regulation_skipped: row.regulation_skipped,
         measured_dimensions,
@@ -854,6 +1092,7 @@ mod tests {
             ]),
             raw_answers: json!({ "video-anxiety-tense": 2 }),
             emotion: Some("anxiety".to_string()),
+            condition: None,
             duration_minutes: Some(5),
             regulation_skipped: false,
             measured_dimensions: None,
@@ -1501,6 +1740,8 @@ mod tests {
 
         let loaded = get_scale_record(&conn, "legacy-1").expect("load legacy row");
         assert_eq!(loaded.emotion, None);
+        // R6: pre-R6 rows carry no condition and read back as legacy (NULL).
+        assert_eq!(loaded.condition, None);
         assert_eq!(loaded.duration_minutes, None);
         assert!(!loaded.regulation_skipped);
         // R4 columns degrade to the legacy semantics on pre-R4 rows.
@@ -1515,6 +1756,40 @@ mod tests {
         assert_eq!(saved.emotion.as_deref(), Some("anxiety"));
         assert_eq!(saved.measured_dimensions.as_deref(), Some(&["anxiety".to_string()][..]));
         assert_eq!(saved.eeg_session_id.as_deref(), Some("eeg-session-9"));
+    }
+
+    #[test]
+    fn persists_condition_and_rejects_unknown_values() {
+        let conn = setup_conn();
+
+        let mut input = sample_input("user-1", Some("subject-1"), PHASE_POST);
+        input.condition = Some(" natural_recovery ".to_string());
+
+        let saved = save_scale_record(&conn, &input).expect("save record");
+        assert_eq!(saved.condition.as_deref(), Some(CONDITION_NATURAL_RECOVERY));
+
+        let loaded = get_scale_record(&conn, &saved.id).expect("reload record");
+        assert_eq!(
+            loaded.condition.as_deref(),
+            Some(CONDITION_NATURAL_RECOVERY)
+        );
+
+        let listed = list_scale_records(&conn, None, None).expect("list records");
+        assert_eq!(listed[0].condition.as_deref(), Some(CONDITION_NATURAL_RECOVERY));
+
+        // A blank condition stays NULL like other optional text (legacy shape).
+        let mut blank = sample_input("user-1", Some("subject-1"), PHASE_POST);
+        blank.condition = Some("   ".to_string());
+        let saved_blank = save_scale_record(&conn, &blank).expect("save blank condition");
+        assert_eq!(saved_blank.condition, None);
+
+        // Direct API callers cannot smuggle in arbitrary condition values.
+        let mut unknown = sample_input("user-1", Some("subject-1"), PHASE_POST);
+        unknown.condition = Some("hypnosis".to_string());
+        assert_eq!(
+            save_scale_record(&conn, &unknown).unwrap_err(),
+            "Scale record condition must be 'natural_recovery' or 'regulation'."
+        );
     }
 
     #[test]
@@ -1654,7 +1929,7 @@ mod tests {
         let entries = build_effect_history(&records);
         assert_eq!(entries.len(), 3);
 
-        let latest = latest_entry_per_subject_emotion(&entries);
+        let latest = latest_entry_per_subject_emotion_condition(&entries);
         assert_eq!(latest.len(), 2);
         // Ordered by subject id for stable batch output.
         assert_eq!(latest[0].subject_id, "s1");
@@ -1680,7 +1955,7 @@ mod tests {
         let entries = build_effect_history(&records);
         assert_eq!(entries.len(), 3);
 
-        let latest = latest_entry_per_subject_emotion(&entries);
+        let latest = latest_entry_per_subject_emotion_condition(&entries);
         // Both emotions survive for the subject (outline 6.4 judges each
         // emotion separately), and the older fear run is dropped.
         assert_eq!(latest.len(), 2);
@@ -1705,6 +1980,7 @@ mod tests {
         let mut post = sample_input("user-1", Some("subj-r"), PHASE_POST);
         post.dimension_scores = BTreeMap::from([("anxiety".to_string(), 48.0)]);
         post.emotion = Some("anxiety".to_string());
+        post.condition = Some(CONDITION_NATURAL_RECOVERY.to_string());
         post.duration_minutes = Some(5);
         post.regulation_skipped = true;
         let post = save_scale_record(&conn, &post).expect("save post");
@@ -1715,6 +1991,8 @@ mod tests {
         assert_eq!(report.subject_id.as_deref(), Some("subj-r"));
         assert_eq!(report.emotion.as_deref(), Some("anxiety"));
         assert_eq!(report.emotion_label.as_deref(), Some("焦虑"));
+        // The condition travels post-first with the exported run.
+        assert_eq!(report.condition.as_deref(), Some(CONDITION_NATURAL_RECOVERY));
         assert_eq!(report.duration_minutes, Some(5));
         assert!(report.regulation_skipped);
         assert_eq!(report.threshold, DEFAULT_IMPROVEMENT_THRESHOLD);
@@ -1759,6 +2037,7 @@ mod tests {
             subject_id: Some("subj, \"quoted\"".to_string()),
             emotion: Some("anxiety".to_string()),
             emotion_label: Some("焦虑".to_string()),
+            condition: Some(CONDITION_REGULATION.to_string()),
             duration_minutes: Some(3),
             regulation_skipped: true,
             baseline_record_id: "b".to_string(),
@@ -1786,13 +2065,52 @@ mod tests {
         let lines: Vec<&str> = csv.trim_start_matches(CSV_BOM).split("\r\n").collect();
         assert_eq!(lines.len(), 2);
         assert!(lines[0].starts_with(
-            "subject_id,emotion,dimension,dimension_label,baseline",
+            "subject_id,emotion,condition,dimension,dimension_label,baseline",
         ));
         assert!(lines[0].contains("measured_only,eeg_session_id,baseline_created_at"));
         assert!(lines[1].contains("\"subj, \"\"quoted\"\"\""));
-        assert!(lines[1].contains(",焦虑,"));
+        // emotion,condition,dimension,dimension_label columns in order.
+        assert!(lines[1].contains(",anxiety,regulation,anxiety,焦虑,"));
         assert!(lines[1].contains(",true,eeg-run-42,2026-08-26T10:00:00+00:00,"));
         assert!(lines[1].ends_with(",2026-08-26T12:00:00+00:00"));
+    }
+
+    #[test]
+    fn single_report_csv_marks_legacy_rows_without_a_condition() {
+        let report = SingleEffectReport {
+            exported_at: "2026-08-26T12:00:00+00:00".to_string(),
+            subject_id: Some("subj-old".to_string()),
+            emotion: Some("fear".to_string()),
+            emotion_label: Some("恐惧".to_string()),
+            // Pre-R6 rows carry no condition: the CSV says "legacy" explicitly.
+            condition: None,
+            duration_minutes: None,
+            regulation_skipped: false,
+            baseline_record_id: "b".to_string(),
+            post_record_id: "p".to_string(),
+            baseline_created_at: "2026-08-26T10:00:00+00:00".to_string(),
+            post_created_at: "2026-08-26T11:00:00+00:00".to_string(),
+            baseline_raw_answers: serde_json::json!({}),
+            post_raw_answers: serde_json::json!({}),
+            eeg_session_id: None,
+            measured_only: false,
+            threshold: DEFAULT_IMPROVEMENT_THRESHOLD,
+            mean_improvement_rate: None,
+            meets_threshold: false,
+            dimensions: vec![RegulationDimensionImprovement {
+                dimension: "anxiety".to_string(),
+                baseline: 40.0,
+                post: 50.0,
+                improvement_rate: -0.25,
+            }],
+        };
+
+        let csv = build_single_effect_report_csv(&report);
+        let lines: Vec<&str> = csv.trim_start_matches(CSV_BOM).split("\r\n").collect();
+
+        assert!(csv.starts_with(CSV_BOM));
+        // emotion,condition in order: fear + legacy for a pre-R6 row.
+        assert!(lines[1].contains(",fear,legacy,"));
     }
 
     #[test]
@@ -1806,6 +2124,7 @@ mod tests {
                 post_created_at: "2026-08-01T10:00:00+00:00".to_string(),
                 scale_id: "/music-regulation".to_string(),
                 emotion: Some("anxiety".to_string()),
+                condition: Some(CONDITION_REGULATION.to_string()),
                 duration_minutes: Some(5),
                 regulation_skipped: false,
                 eeg_session_id: Some("eeg-run-7".to_string()),
@@ -1827,6 +2146,7 @@ mod tests {
                 post_created_at: "2026-08-02T10:00:00+00:00".to_string(),
                 scale_id: "/video-regulation".to_string(),
                 emotion: None,
+                condition: None,
                 duration_minutes: None,
                 regulation_skipped: true,
                 eeg_session_id: None,
@@ -1842,11 +2162,12 @@ mod tests {
 
         assert_eq!(lines.len(), 3);
         assert!(lines[0].starts_with(
-            "subject_id,emotion,duration_minutes,regulation_skipped,mean_improvement_rate,threshold,meets_threshold,dimension_count,measured_only,eeg_session_id",
+            "subject_id,emotion,condition,duration_minutes,regulation_skipped,mean_improvement_rate,threshold,meets_threshold,dimension_count,measured_only,eeg_session_id",
         ));
-        assert!(lines[1].starts_with("s1,anxiety,5,false,0.4,0.1,true,1,true,eeg-run-7,"));
-        // Empty emotion and duration collapse to bare separators.
-        assert!(lines[2].starts_with("s2,,,true,—,0.1,false,0,false,"));
+        assert!(lines[1].starts_with("s1,anxiety,regulation,5,false,0.4,0.1,true,1,true,eeg-run-7,"));
+        // Empty emotion collapses to a bare separator; legacy NULL conditions
+        // render as "legacy" (the old regulation flow).
+        assert!(lines[2].starts_with("s2,,legacy,,true,—,0.1,false,0,false,"));
     }
     #[test]
     fn batch_csv_keeps_both_emotions_of_one_subject_after_dedup() {
@@ -1861,16 +2182,313 @@ mod tests {
         ];
 
         let history = build_effect_history(&records);
-        let csv = build_batch_effect_report_csv(&latest_entry_per_subject_emotion(&history));
-        let lines: Vec<&str> = csv.trim_start_matches(CSV_BOM).split("
-").collect();
+        let csv = build_batch_effect_report_csv(&latest_entry_per_subject_emotion_condition(&history));
+        let lines: Vec<&str> = csv.trim_start_matches(CSV_BOM).split("\r\n").collect();
 
-        // One row per (subject, emotion): the subject keeps both its anxiety
-        // and fear verdicts, and only the newest fear run survives.
+        // One row per (subject, emotion, condition): the subject keeps both
+        // its anxiety and fear verdicts, and only the newest fear run survives.
         assert_eq!(lines.len(), 3);
         assert!(lines[1].starts_with("s1,anxiety,"));
         assert!(lines[2].starts_with("s1,fear,"));
         assert!(lines[2].contains("2026-08-03T10:00:00+00:00"));
         assert!(!lines.iter().any(|line| line.contains("2026-08-02T10:00:00+00:00")));
+    }
+
+    /* ---------------- R6: cross-condition comparison ---------------- */
+
+    /// Saves one record with pinned scores and timestamp for the
+    /// cross-condition fixtures; emotion and condition ride on the record.
+    fn condition_record(
+        conn: &Connection,
+        subject: &str,
+        phase: &str,
+        emotion: &str,
+        condition: Option<&str>,
+        scores: serde_json::Value,
+        stamp: &str,
+    ) -> ScaleRecord {
+        let mut input = sample_input("user-1", Some(subject), phase);
+        input.emotion = Some(emotion.to_string());
+        input.condition = condition.map(str::to_string);
+        let saved = save_scale_record(conn, &input).expect("save condition record");
+
+        conn.execute(
+            "UPDATE scale_records SET dimension_scores = ?1, created_at = ?2 WHERE id = ?3",
+            params![scores.to_string(), stamp, saved.id],
+        )
+        .expect("pin condition record");
+        get_scale_record(conn, &saved.id).expect("reload pinned record")
+    }
+
+    /// One complete run (baseline + post) under a condition with pinned scores.
+    fn condition_run(
+        conn: &Connection,
+        subject: &str,
+        emotion: &str,
+        condition: Option<&str>,
+        baseline_scores: serde_json::Value,
+        post_scores: serde_json::Value,
+        day: &str,
+    ) -> Vec<ScaleRecord> {
+        vec![
+            condition_record(
+                conn,
+                subject,
+                PHASE_BASELINE,
+                emotion,
+                condition,
+                baseline_scores,
+                &format!("2026-08-{day}T09:00:00+00:00"),
+            ),
+            condition_record(
+                conn,
+                subject,
+                PHASE_POST,
+                emotion,
+                condition,
+                post_scores,
+                &format!("2026-08-{day}T10:00:00+00:00"),
+            ),
+        ]
+    }
+
+    #[test]
+    fn effective_condition_maps_legacy_null_to_the_regulation_condition() {
+        assert_eq!(effective_condition(None), CONDITION_REGULATION);
+        assert_eq!(
+            effective_condition(Some(CONDITION_REGULATION)),
+            CONDITION_REGULATION
+        );
+        assert_eq!(
+            effective_condition(Some(CONDITION_NATURAL_RECOVERY)),
+            CONDITION_NATURAL_RECOVERY
+        );
+    }
+
+    #[test]
+    fn latest_entry_per_subject_emotion_condition_keeps_one_row_per_triple() {
+        let conn = setup_conn();
+        // s1 anxiety: two regulation runs (legacy NULL + explicit), one
+        // natural-recovery run, plus one fear regulation run.
+        let mut records = condition_run(&conn, "s1", "anxiety", None, json!({ "anxiety": 80.0 }), json!({ "anxiety": 48.0 }), "01");
+        records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 60.0 }), "02"));
+        records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 70.0 }), "03"));
+        records.extend(condition_run(&conn, "s1", "fear", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 40.0 }), "04"));
+
+        let entries = build_effect_history(&records);
+        let latest = latest_entry_per_subject_emotion_condition(&entries);
+
+        // The legacy NULL run and the explicit regulation run collapse into
+        // the same (subject, emotion, regulation) triple - the newer one wins.
+        assert_eq!(latest.len(), 3);
+        let triples: Vec<(String, Option<String>, String)> = latest
+            .iter()
+            .map(|entry| {
+                (
+                    entry.subject_id.clone(),
+                    entry.emotion.clone(),
+                    effective_condition(entry.condition.as_deref()).to_string(),
+                )
+            })
+            .collect();
+        assert!(triples.contains(&(
+            "s1".to_string(),
+            Some("anxiety".to_string()),
+            CONDITION_REGULATION.to_string()
+        )));
+        assert!(triples.contains(&(
+            "s1".to_string(),
+            Some("anxiety".to_string()),
+            CONDITION_NATURAL_RECOVERY.to_string()
+        )));
+        assert!(triples.contains(&(
+            "s1".to_string(),
+            Some("fear".to_string()),
+            CONDITION_REGULATION.to_string()
+        )));
+
+        let regulation_row = latest
+            .iter()
+            .find(|entry| entry.emotion.as_deref() == Some("anxiety")
+                && effective_condition(entry.condition.as_deref()) == CONDITION_REGULATION)
+            .expect("find anxiety regulation row");
+        assert_eq!(regulation_row.post_created_at, "2026-08-02T10:00:00+00:00");
+    }
+
+    #[test]
+    fn build_effect_history_carries_the_runs_condition_post_first() {
+        let conn = setup_conn();
+
+        // Post carries the condition; baseline without one falls back to it.
+        let mut records = condition_run(&conn, "s9", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 70.0 }), "01");
+        // Blank the baseline's condition post-save to prove the fallback.
+        conn.execute(
+            "UPDATE scale_records SET condition = NULL WHERE id = ?1",
+            params![records[0].id],
+        )
+        .expect("clear baseline condition");
+
+        let entries = build_effect_history(&list_scale_records(&conn, None, None).expect("list"));
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].condition.as_deref(), Some(CONDITION_NATURAL_RECOVERY));
+    }
+
+    #[test]
+    fn condition_comparison_uses_the_latest_run_of_each_condition() {
+        let conn = setup_conn();
+        let mut records = condition_run(&conn, "s1", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 48.0 }), "01");
+        records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 60.0 }), "02"));
+        records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 70.0 }), "03"));
+
+        let comparison =
+            compute_condition_effect_comparison(&records, "s1", "anxiety").expect("compare");
+
+        assert_eq!(comparison.subject_id, "s1");
+        assert_eq!(comparison.emotion.as_deref(), Some("anxiety"));
+        // The regulation side is the newest run (08-02), not the 08-01 one.
+        assert_eq!(comparison.regulation_post_created_at, "2026-08-02T10:00:00+00:00");
+        assert_eq!(comparison.natural_recovery_post_created_at, "2026-08-03T10:00:00+00:00");
+        // (B_post - T_post) / B_post = (70 - 60) / 70.
+        assert_eq!(comparison.dimensions.len(), 1);
+        assert_eq!(comparison.dimensions[0].dimension, "anxiety");
+        assert_eq!(comparison.dimensions[0].natural_recovery_post, 70.0);
+        assert_eq!(comparison.dimensions[0].regulation_post, 60.0);
+        assert!((comparison.dimensions[0].improvement_rate - 10.0 / 70.0).abs() < 1e-9);
+
+        let mean = comparison.mean_improvement_rate.expect("mean present");
+        assert!((mean - 10.0 / 70.0).abs() < 1e-9);
+        assert!(comparison.meets_threshold);
+    }
+
+    #[test]
+    fn condition_comparison_counts_legacy_rows_as_the_regulation_condition() {
+        let conn = setup_conn();
+        // The regulation run is a legacy pre-R6 pair (condition NULL).
+        let mut records = condition_run(&conn, "s1", "anxiety", None, json!({ "anxiety": 80.0 }), json!({ "anxiety": 40.0 }), "01");
+        records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 50.0 }), "02"));
+
+        let comparison =
+            compute_condition_effect_comparison(&records, "s1", "anxiety").expect("compare");
+
+        // B_post=50, T_post=40 -> (50-40)/50 = 0.2.
+        assert_eq!(comparison.dimensions[0].regulation_post, 40.0);
+        assert_eq!(comparison.dimensions[0].natural_recovery_post, 50.0);
+        assert!((comparison.dimensions[0].improvement_rate - 0.2).abs() < 1e-9);
+        // Both runs are unmarked legacy pairs, so the basis flag is false.
+        assert!(!comparison.measured_only);
+    }
+
+    #[test]
+    fn condition_comparison_requires_a_complete_run_of_both_conditions() {
+        let conn = setup_conn();
+        let regulation_only = condition_run(&conn, "s1", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 40.0 }), "01");
+        let natural_only = condition_run(&conn, "s2", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 50.0 }), "01");
+        let other_emotion = condition_run(&conn, "s1", "fear", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 50.0 }), "02");
+
+        // Regulation runs only: the natural-recovery side is missing.
+        let missing_natural =
+            compute_condition_effect_comparison(&regulation_only, "s1", "anxiety").unwrap_err();
+        assert!(missing_natural.contains("自然恢复"));
+
+        // Natural-recovery runs only (and a different emotion never matches).
+        let missing_regulation = compute_condition_effect_comparison(
+            &[natural_only.clone(), other_emotion].concat(),
+            "s2",
+            "anxiety",
+        )
+        .unwrap_err();
+        assert!(missing_regulation.contains("调控条件"));
+
+        // Blank identifiers are rejected before any pairing.
+        assert_eq!(
+            compute_condition_effect_comparison(&natural_only, "   ", "anxiety").unwrap_err(),
+            "Subject id is required."
+        );
+        assert_eq!(
+            compute_condition_effect_comparison(&natural_only, "s2", "  ").unwrap_err(),
+            "Emotion is required."
+        );
+    }
+
+    #[test]
+    fn condition_comparison_skips_zero_b_post_and_unshared_dimensions() {
+        let conn = setup_conn();
+        // mood is missing on the regulation post, anxiety has a zero B_post.
+        let mut records = condition_run(&conn, "s1", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0, "mood": 60.0 }), json!({ "anxiety": 70.0, "mood": 0.0 }), "01");
+        records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0, "mood": 60.0 }), json!({ "anxiety": 60.0 }), "02"));
+
+        let comparison =
+            compute_condition_effect_comparison(&records, "s1", "anxiety").expect("compare");
+
+        // Only anxiety survives (mood missing on one post, zero on the other).
+        let compared: Vec<&str> = comparison
+            .dimensions
+            .iter()
+            .map(|item| item.dimension.as_str())
+            .collect();
+        assert_eq!(compared, vec!["anxiety"]);
+
+        // With every B_post at zero the mean is undefined and nothing passes.
+        let mut all_zero = condition_run(&conn, "s2", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 0.0 }), "01");
+        all_zero.extend(condition_run(&conn, "s2", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 60.0 }), "02"));
+        let undecidable =
+            compute_condition_effect_comparison(&all_zero, "s2", "anxiety").expect("compare");
+        assert!(undecidable.dimensions.is_empty());
+        assert_eq!(undecidable.mean_improvement_rate, None);
+        assert!(!undecidable.meets_threshold);
+    }
+
+    #[test]
+    fn condition_comparison_threshold_boundary_includes_the_threshold_itself() {
+        let conn = setup_conn();
+        // (B_post - T_post) / B_post = (100 - 90) / 100 = exactly 0.10.
+        let mut records = condition_run(&conn, "s1", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 100.0 }), "01");
+        records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 90.0 }), "02"));
+
+        let comparison =
+            compute_condition_effect_comparison(&records, "s1", "anxiety").expect("compare");
+
+        assert_eq!(comparison.dimensions[0].improvement_rate, DEFAULT_IMPROVEMENT_THRESHOLD);
+        assert_eq!(comparison.mean_improvement_rate, Some(DEFAULT_IMPROVEMENT_THRESHOLD));
+        assert!(comparison.meets_threshold);
+    }
+
+    #[test]
+    fn condition_comparison_propagates_the_measured_only_basis() {
+        let conn = setup_conn();
+        // Both conditions mark their measured dimensions.
+        let marked = |phase: &str, condition: &str, scores: serde_json::Value, stamp: &str| {
+            let mut input = sample_input("user-1", Some("s1"), phase);
+            input.emotion = Some("anxiety".to_string());
+            input.condition = Some(condition.to_string());
+            input.measured_dimensions = Some(vec!["anxiety".to_string()]);
+            let saved = save_scale_record(&conn, &input).expect("save marked record");
+            conn.execute(
+                "UPDATE scale_records SET dimension_scores = ?1, created_at = ?2 WHERE id = ?3",
+                params![scores.to_string(), stamp, saved.id],
+            )
+            .expect("pin marked record");
+            get_scale_record(&conn, &saved.id).expect("reload marked record")
+        };
+
+        let records = vec![
+            marked(PHASE_BASELINE, CONDITION_NATURAL_RECOVERY, json!({ "anxiety": 80.0, "worry": 50.0 }), "2026-08-01T09:00:00+00:00"),
+            marked(PHASE_POST, CONDITION_NATURAL_RECOVERY, json!({ "anxiety": 70.0, "worry": 50.0 }), "2026-08-01T10:00:00+00:00"),
+            marked(PHASE_BASELINE, CONDITION_REGULATION, json!({ "anxiety": 80.0, "worry": 50.0 }), "2026-08-02T09:00:00+00:00"),
+            marked(PHASE_POST, CONDITION_REGULATION, json!({ "anxiety": 60.0, "worry": 50.0 }), "2026-08-02T10:00:00+00:00"),
+        ];
+        let comparison =
+            compute_condition_effect_comparison(&records, "s1", "anxiety").expect("compare");
+        // The placeholder `worry` never entered either side's dims.
+        assert!(comparison.measured_only);
+        assert_eq!(comparison.dimensions.len(), 1);
+
+        // One unmarked (legacy) side drops the flag back to false.
+        let mut mixed = records.clone();
+        mixed[2].measured_dimensions = None;
+        mixed[3].measured_dimensions = None;
+        let mixed_comparison =
+            compute_condition_effect_comparison(&mixed, "s1", "anxiety").expect("compare");
+        assert!(!mixed_comparison.measured_only);
     }
 }

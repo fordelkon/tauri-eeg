@@ -406,6 +406,38 @@ async fn compute_regulation_effect(
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ComputeConditionEffectInput {
+    subject_id: String,
+    emotion: String,
+}
+
+#[tauri::command]
+async fn compute_condition_effect(
+    db: State<'_, AppDb>,
+    input: ComputeConditionEffectInput,
+) -> Result<scale_records::ConditionEffectComparison, String> {
+    let conn = db.conn.clone();
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+
+        let records = scale_records::list_scale_records(&conn, None, None)?;
+        // 大纲 6.2: 调控条件相对基线条件（自然恢复）的改善，按 subject+emotion
+        // 取两条件各自最新完整 run 配对计算。
+        scale_records::compute_condition_effect_comparison(
+            &records,
+            input.subject_id.trim(),
+            input.emotion.trim(),
+        )
+    })
+    .await
+    .map_err(|_| "Failed to compute condition effect.".to_string())?
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ExportEffectReportInput {
     /// `single` exports one baseline/post pair; `batch` writes every
     /// subject's most recent evaluation as CSV.
@@ -505,7 +537,7 @@ async fn export_effect_report(
                 let history = scale_records::build_effect_history(&records);
 
                 scale_records::build_batch_effect_report_csv(
-                    &scale_records::latest_entry_per_subject_emotion(&history),
+                    &scale_records::latest_entry_per_subject_emotion_condition(&history),
                 )
             }
             other => return Err(format!("Unknown report kind '{other}'.")),
@@ -773,6 +805,7 @@ pub fn run() {
             list_scale_records,
             delete_scale_record,
             compute_regulation_effect,
+            compute_condition_effect,
             list_effect_history,
             export_effect_report,
             generate_music,

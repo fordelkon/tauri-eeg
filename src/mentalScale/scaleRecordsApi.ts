@@ -21,6 +21,13 @@ export type ScaleRecordInput = {
   rawAnswers: MentalScaleAnswers;
   /** Target emotion bound by the evaluation wizard; absent on gate saves. */
   emotion?: string | null;
+  /**
+   * Wizard condition of the run (R6, 大纲 6.2): `natural_recovery` (基线
+   * 条件：诱发后不调控) or `regulation` (调控条件); absent on gate saves and
+   * pre-R6 legacy rows (consumers treat legacy NULL as the regulation
+   * condition of the old flow).
+   */
+  condition?: string | null;
   /** Configured regulation window in minutes; absent outside the wizard. */
   durationMinutes?: number | null;
   /** True when part of the regulation window was explicitly skipped. */
@@ -46,6 +53,8 @@ export type ScaleRecordView = {
   rawAnswers: Record<string, unknown>;
   createdAt: string;
   emotion: string | null;
+  /** Wizard condition of the run; null on pre-R6 legacy rows. */
+  condition: string | null;
   durationMinutes: number | null;
   regulationSkipped: boolean;
   measuredDimensions: string[] | null;
@@ -66,6 +75,30 @@ export type RegulationEffectSummaryView = {
   meanImprovementRate: number | null;
   meetsThreshold: boolean;
   /** True when the mean covered only dimensions marked as measured on both sides (R4/F1). */
+  measuredOnly: boolean;
+};
+
+/** camelCase mirror of the backend ConditionEffectComparison (R6, 大纲 6.2). */
+export type ConditionDimensionComparisonView = {
+  dimension: string;
+  /** B_post: post score of the natural-recovery (baseline) condition run. */
+  naturalRecoveryPost: number;
+  /** T_post: post score of the regulation condition run. */
+  regulationPost: number;
+  improvementRate: number;
+};
+
+export type ConditionEffectComparisonView = {
+  subjectId: string;
+  emotion: string | null;
+  naturalRecoveryPostRecordId: string;
+  naturalRecoveryPostCreatedAt: string;
+  regulationPostRecordId: string;
+  regulationPostCreatedAt: string;
+  dimensions: ConditionDimensionComparisonView[];
+  meanImprovementRate: number | null;
+  meetsThreshold: boolean;
+  /** False when either side is an unmarked legacy run (all stored keys). */
   measuredOnly: boolean;
 };
 
@@ -133,9 +166,9 @@ export function persistMentalScaleSubmission(
 /**
  * Awaited save used by the effect-evaluation wizard: the caller needs the
  * persisted record id to pair baseline/post and compute the improvement.
- * The wizard's target emotion, planned duration, and (on the post leg) the
- * skip marker plus the associated EEG session id ride along for the history
- * view and report exports.
+ * The wizard's target emotion, run condition, planned duration, and (on the
+ * post leg) the skip marker plus the associated EEG session id ride along for
+ * the history view, cross-condition comparison, and report exports.
  */
 export function savePhaseScaleRecord(
   scale: MentalScaleDefinition,
@@ -145,6 +178,7 @@ export function savePhaseScaleRecord(
     subjectId: string | null;
     phase: ScalePhase;
     emotion?: string | null;
+    condition?: string | null;
     durationMinutes?: number | null;
     regulationSkipped?: boolean;
     eegSessionId?: string | null;
@@ -158,6 +192,7 @@ export function savePhaseScaleRecord(
     dimensionScores: buildScaleDimensionScores(scale, answers),
     rawAnswers: answers,
     emotion: context.emotion ?? null,
+    condition: context.condition ?? null,
     durationMinutes: context.durationMinutes ?? null,
     regulationSkipped: context.regulationSkipped ?? false,
     measuredDimensions: measuredDimensionKeys(scale, answers),
@@ -181,6 +216,23 @@ export function computeRegulationEffect(
   });
 }
 
+/**
+ * Cross-condition comparison (R6, 大纲 6.2, 公式来源：大纲 B-1 冻结项，默认口
+ * 径，测试前可换): pairs the latest complete run of each condition for one
+ * subject+emotion and computes the regulation condition's improvement
+ * relative to the natural-recovery baseline condition, per dimension
+ * `(B_post - T_post) / B_post`. Errors when either condition lacks a
+ * complete run.
+ */
+export function computeConditionEffect(
+  subjectId: string,
+  emotion: string,
+): Promise<ConditionEffectComparisonView> {
+  return invoke<ConditionEffectComparisonView>('compute_condition_effect', {
+    input: { subjectId, emotion },
+  });
+}
+
 /** One completed evaluation run in the history review (list_effect_history). */
 export type EffectHistoryEntryView = {
   subjectId: string;
@@ -190,6 +242,8 @@ export type EffectHistoryEntryView = {
   postCreatedAt: string;
   scaleId: string;
   emotion: string | null;
+  /** Wizard condition of the run; null on pre-R6 legacy rows (= regulation). */
+  condition: string | null;
   durationMinutes: number | null;
   regulationSkipped: boolean;
   /** EEG recording session of the run (post leg first, baseline fallback). */

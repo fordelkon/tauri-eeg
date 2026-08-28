@@ -87,8 +87,10 @@ describe('strong duration constraint (R3 contract)', () => {
     expect(pageSource).toContain('regulationFinishModeFromRemaining(flow.remainingSeconds)');
     // …disables the primary exit while time remains…
     expect(pageSource).toContain("disabled={finishMode.mode !== 'finish'}");
-    // …and offers the escape hatch only through a second confirmation.
-    expect(pageSource).toContain("title: '跳过剩余调控时长？'");
+    // …and offers the escape hatch only through a second confirmation. R6
+    // swaps the noun by condition: 静息 for natural recovery, 调控 otherwise.
+    expect(pageSource).toContain('title: `跳过剩余${windowNoun}时长？`');
+    expect(pageSource).toContain("const windowNoun = isNaturalRecovery ? '静息' : '调控'");
     expect(pageSource).toContain('destructive: true');
 
     // The confirmed skip records the marker before leaving step 3.
@@ -182,11 +184,15 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
     expect(hookSource).toContain('flowGenerationRef.current !== generation');
     expect(hookSource).toContain('flowGenerationRef.current += 1;');
 
-    // Unmounting off the designed regulation path mid-recording stops the
-    // recording too (sidebar abandonment would otherwise leak an unowned one).
+    // Unmounting off the designed regulation-path jump mid-recording stops
+    // the recording too (sidebar abandonment would otherwise leak an unowned
+    // one). R6: only the regulation condition's live window counts as the
+    // designed jump - a natural-recovery run never leaves the wizard page.
     expect(hookSource).toContain(
-      'window.location.pathname !== regulationPathForMethod(methodRef.current)',
+      'window.location.pathname === regulationPathForMethod(methodRef.current)',
     );
+    expect(hookSource).toContain("flowStateRef.current.condition === 'regulation'");
+    expect(hookSource).toContain('isRegulationWindowOpen(flowStateRef.current)');
   });
 
   test('F4: regulation pages consume the session context and the paradigm gate is mutual', () => {
@@ -203,5 +209,66 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
     );
     expect(paradigmSource).toContain('isRegulationWindowOpenInStorage(window.sessionStorage)');
     expect(paradigmSource).toContain('效果评价调控进行中');
+  });
+});
+
+describe('six-step flow & condition split (R6 contract)', () => {
+  test('the setup step selects the run condition and the induction step gates on the pool', () => {
+    const pageSource = readText(new URL('./EffectEvaluation.tsx', import.meta.url));
+    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
+
+    // The setup step offers both outline conditions with explanation copy.
+    expect(pageSource).toContain('EFFECT_CONDITION_OPTIONS');
+    expect(pageSource).toContain('实验条件');
+    expect(pageSource).toContain('condition: value');
+    expect(pageSource).toContain('基线条件（自然恢复）＝情绪诱发后不施加调控手段');
+
+    // The induction step renders the pure pool status (blocked copy is never
+    // silently skipped) and plays the picked entry through the same
+    // video_paradigm URL conversion the acquisition page uses.
+    expect(hookSource).toContain('describeInductionPoolStatus');
+    expect(pageSource).toContain('flow.inductionStatus');
+    expect(pageSource).toContain('status.copy');
+    expect(pageSource).toContain('toPlayableVideoUrl(status.entry.absolutePath, convertFileSrc)');
+    // The induction completion advances only when the video actually ended.
+    expect(pageSource).toContain('onEnded={() => flow.completeInduction()}');
+  });
+
+  test('the natural-recovery condition runs its countdown inside the wizard page', () => {
+    const pageSource = readText(new URL('./EffectEvaluation.tsx', import.meta.url));
+    const flowSource = readText(new URL('./effectEvaluationFlow.ts', import.meta.url));
+
+    // The page branches the condition step on the wizard condition…
+    expect(pageSource).toContain("state.condition === 'natural_recovery'");
+    // …renders the in-page rest countdown (静息 copy, strong duration
+    // constraint, confirmed skip)…
+    expect(pageSource).toContain("'开始静息'");
+    expect(pageSource).toContain("'结束静息，进行复测'");
+    // …and keeps the regulation-page jump inside the regulation branch only.
+    expect(pageSource).toContain('flow.openRegulationPage');
+    expect(pageSource).toContain("isNaturalRecovery ? null : (");
+
+    // The pure module keeps the regulation-page context null for
+    // natural-recovery windows so those pages never see a banner.
+    expect(flowSource).toContain("state.condition !== 'regulation'");
+  });
+
+  test('the result step renders the cross-condition comparison card', () => {
+    const pageSource = readText(new URL('./EffectEvaluation.tsx', import.meta.url));
+    const chartSource = readText(new URL('./effectResultChartOption.ts', import.meta.url));
+    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
+
+    // The hook fetches the backend cross-condition summary on the result step…
+    expect(hookSource).toContain('computeConditionEffect(state.subjectId.trim(), state.emotion)');
+    // …and the page renders the verdict, stats, chart, table, and the frozen
+    // formula note, plus guidance copy when a condition is still missing.
+    expect(pageSource).toContain('conditionComparison');
+    expect(pageSource).toContain('buildConditionComparisonVerdictCopy');
+    expect(pageSource).toContain('buildConditionComparisonChartOption');
+    expect(pageSource).toContain('CONDITION_COMPARISON_FORMULA_NOTE');
+    expect(pageSource).toContain('需完成基线条件（自然恢复）与调控条件各一次完整评价');
+    expect(pageSource).toContain('跨条件平均改善率');
+    expect(pageSource).toContain('基线条件 post');
+    expect(chartSource).toContain('buildConditionComparisonChartOption');
   });
 });

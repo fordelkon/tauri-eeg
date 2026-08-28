@@ -1,22 +1,40 @@
 import type { MentalScalePath } from '../../mentalScale/mentalScaleGate';
 import type { RegulationEffectSummaryView } from '../../mentalScale/scaleRecordsApi';
+import type { ConditionEffectComparisonView } from '../../mentalScale/scaleRecordsApi';
+import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
 
 /**
  * Pure state machine + view-model helpers for the effect-evaluation wizard
- * (基线 → 调控 → 调控后 → 结果). Kept free of React, Tauri, and DOM access so
- * the step gating, countdown math, and result copy are unit-testable in the
- * node vitest environment.
+ * (设置 → 情绪诱发 → 诱发后量表 → 条件执行 → 条件后量表 → 结果评价).
+ * Kept free of React, Tauri, and DOM access so the step gating, countdown
+ * math, and result copy are unit-testable in the node vitest environment.
  */
 
 export type EffectTargetEmotion = 'anxiety' | 'depression' | 'fear';
 
 export type EffectRegulationMethod = 'music' | 'video';
 
+/**
+ * Wizard condition of a run (R6, 大纲 6.2): `natural_recovery` is the 基线
+ * condition (诱发后不调控、自然恢复), `regulation` is the 调控 condition. Each
+ * wizard session runs exactly one condition; the result step's
+ * cross-condition comparison pairs one complete run of each condition.
+ */
+export type EffectCondition = 'natural_recovery' | 'regulation';
+
 export const EFFECT_EMOTION_OPTIONS = [
   { value: 'anxiety', label: '焦虑' },
   { value: 'depression', label: '抑郁' },
   { value: 'fear', label: '恐惧' },
 ] as const;
+
+export const EFFECT_CONDITION_OPTIONS = [
+  { value: 'natural_recovery', label: '基线条件（自然恢复）' },
+  { value: 'regulation', label: '调控条件' },
+] as const satisfies ReadonlyArray<{
+  value: EffectCondition;
+  label: string;
+}>;
 
 export const EFFECT_METHOD_OPTIONS = [
   { value: 'music', label: '音乐调控', path: '/music-regulation' },
@@ -27,12 +45,33 @@ export const EFFECT_METHOD_OPTIONS = [
   path: MentalScalePath;
 }>;
 
+/**
+ * Chinese label for a run's condition; `null` marks pre-R6 legacy rows of
+ * the old regulation-only flow, which consumers treat as the regulation
+ * condition and label explicitly so exports/history stay honest.
+ */
+export function labelForCondition(condition: string | null): string {
+  if (condition === null) {
+    return '调控条件（legacy 旧流程）';
+  }
+
+  return EFFECT_CONDITION_OPTIONS.find((option) => option.value === condition)?.label
+    ?? condition;
+}
+
 /** Wizard steps, in execution order. */
-export const EFFECT_FLOW_STEPS = ['选择被试', '基线量表', '执行调控', '调控后量表', '结果评价'] as const;
+export const EFFECT_FLOW_STEPS = [
+  '选择被试',
+  '情绪诱发',
+  '诱发后量表',
+  '条件执行',
+  '条件后量表',
+  '结果评价',
+] as const;
 
 export const EFFECT_FLOW_STEP_COUNT = EFFECT_FLOW_STEPS.length;
 
-export type EffectFlowStep = 0 | 1 | 2 | 3 | 4;
+export type EffectFlowStep = 0 | 1 | 2 | 3 | 4 | 5;
 
 export const DEFAULT_REGULATION_MINUTES = 5;
 export const MIN_REGULATION_MINUTES = 1;
@@ -52,7 +91,7 @@ const EEG_ASSOCIATION_VALUES: EffectEegAssociation[] = [
   'unavailable',
 ];
 
-const FLOW_STATE_VERSION = 2;
+const FLOW_STATE_VERSION = 3;
 
 export type EffectEvaluationFlowState = {
   version: typeof FLOW_STATE_VERSION;
@@ -60,6 +99,13 @@ export type EffectEvaluationFlowState = {
   subjectId: string;
   emotion: EffectTargetEmotion;
   method: EffectRegulationMethod;
+  /**
+   * Wizard condition of this run (R6): 基线条件（自然恢复） or 调控条件. The
+   * 大纲-aligned flow runs the natural-recovery condition first, so it is the
+   * default; records saved without a condition are pre-R6 legacy rows that
+   * consumers already treat as the regulation condition.
+   */
+  condition: EffectCondition;
   durationMinutes: number;
   baselineRecordId: string | null;
   postRecordId: string | null;
@@ -77,6 +123,7 @@ export function createEffectEvaluationFlowState(): EffectEvaluationFlowState {
     subjectId: '',
     emotion: 'anxiety',
     method: 'music',
+    condition: 'natural_recovery',
     durationMinutes: DEFAULT_REGULATION_MINUTES,
     baselineRecordId: null,
     postRecordId: null,
@@ -149,7 +196,7 @@ export function describeRegulationSkipped(state: EffectEvaluationFlowState): str
     return null;
   }
 
-  return '本次调控跳过了剩余时长（已二次确认），改善率可能低估实际效果。';
+  return '本次条件执行跳过了剩余时长（已二次确认），改善率可能低估实际效果。';
 }
 
 /** mm:ss countdown text; negative or non-finite input clamps to 00:00. */
@@ -160,6 +207,68 @@ export function formatCountdown(totalSeconds: number): string {
   const minutes = Math.floor(seconds / 60);
 
   return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+/* ------------------------------------------------------------------ */
+/* Emotion induction (R6, 大纲 6.2)                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * video_paradigm library pool feeding the induction step for each target
+ * emotion. Fear has no pool yet (恐惧素材待接入): it maps to `null` so the
+ * step blocks with an explicit message instead of silently skipping.
+ */
+export function paradigmPoolKeyForEmotion(
+  emotion: EffectTargetEmotion,
+): 'anxiety' | 'depression' | null {
+  if (emotion === 'anxiety' || emotion === 'depression') {
+    return emotion;
+  }
+
+  return null;
+}
+
+export type InductionPoolStatus =
+  | { kind: 'ready'; entry: ParadigmVideoEntry }
+  | { kind: 'blocked'; copy: string };
+
+/**
+ * Whether the induction step may play, derived from the target emotion and
+ * the loaded pool (null = library missing/invalid). Every blocked case
+ * carries an explicit operator-facing reason - the induction is a hard
+ * precondition of the 大纲 flow, never silently skippable.
+ *
+ * `pickIndex` selects the pool entry (default: random) and is injectable so
+ * tests stay deterministic.
+ */
+export function describeInductionPoolStatus(
+  emotion: EffectTargetEmotion,
+  pool: readonly ParadigmVideoEntry[] | null,
+  pickIndex: () => number = Math.random,
+): InductionPoolStatus {
+  if (emotion === 'fear') {
+    return {
+      kind: 'blocked',
+      copy: '恐惧素材待接入：video_paradigm 素材库暂无恐惧类别素材，本步骤为流程硬前置，不提供跳过。请先完成焦虑/抑郁情绪的评价，或等待恐惧素材接入。',
+    };
+  }
+
+  if (pool === null) {
+    return {
+      kind: 'blocked',
+      copy: '尚未加载有效的范式视频素材库（video_paradigm），无法播放诱发素材。请先在 EEG 采集页选择并校验素材库，再回到本页开始诱发。',
+    };
+  }
+
+  if (pool.length === 0) {
+    return {
+      kind: 'blocked',
+      copy: '该情绪类别的诱发素材池为空，无法播放诱发素材。请先在 EEG 采集页补充对应类别的素材，本步骤为流程硬前置，不提供跳过。',
+    };
+  }
+
+  const index = pickIndex() % pool.length;
+  return { kind: 'ready', entry: pool[index] };
 }
 
 /* ------------------------------------------------------------------ */
@@ -205,13 +314,14 @@ export function clearFlowStateFromStorage(storage: FlowStorage): void {
 }
 
 /**
- * True while step 3's wall-clock window is running (started, not yet left).
- * This is the "regulation is happening right now" fact consumed by the
- * regulation pages (countdown banner, auto-stop) and the mutual-exclusion
- * guards (shell navigation, paradigm start).
+ * True while the condition-execution step's wall-clock window is running
+ * (started, not yet left). This is the "a run leg is happening right now"
+ * fact consumed by the mutual-exclusion guards (shell navigation, paradigm
+ * start) - it holds for both conditions so a natural-recovery run blocks a
+ * paradigm session just like a regulation run does.
  */
 export function isRegulationWindowOpen(state: EffectEvaluationFlowState): boolean {
-  return state.step === 2 && state.regulationStartedAtMs !== null;
+  return state.step === 3 && state.regulationStartedAtMs !== null;
 }
 
 export function isRegulationWindowOpenInStorage(storage: FlowStorage): boolean {
@@ -231,15 +341,21 @@ export type RegulationPageContext = {
 
 /**
  * View-model for a regulation page playing this run's content: only live
- * windows whose method matches the page expose a context, so unrelated visits
- * to the music/video pages stay untouched.
+ * regulation-condition windows whose method matches the page expose a
+ * context, so unrelated visits to the music/video pages stay untouched and
+ * natural-recovery runs (which never leave the wizard page) never trigger
+ * the regulation-page banner/stop logic.
  */
 export function regulationPageContextFor(
   state: EffectEvaluationFlowState,
   method: EffectRegulationMethod,
   nowMs: number,
 ): RegulationPageContext | null {
-  if (!isRegulationWindowOpen(state) || state.method !== method) {
+  if (
+    !isRegulationWindowOpen(state)
+    || state.condition !== 'regulation'
+    || state.method !== method
+  ) {
     return null;
   }
 
@@ -309,6 +425,13 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
     return null;
   }
 
+  const condition = EFFECT_CONDITION_OPTIONS.find(
+    (option) => option.value === candidate.condition,
+  )?.value;
+  if (!condition) {
+    return null;
+  }
+
   const durationMinutes = clampDurationMinutes(candidate.durationMinutes);
 
   const baselineRecordId = optionalString(candidate.baselineRecordId);
@@ -355,6 +478,7 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
     subjectId,
     emotion,
     method,
+    condition,
     durationMinutes,
     baselineRecordId,
     postRecordId,
@@ -401,7 +525,9 @@ export function describeMissingMeasurements(state: EffectEvaluationFlowState): s
     return null;
   }
 
-  return `缺少${missing.join('与')}量表记录，无法计算改善率。请完整走完 基线 → 调控 → 调控后 流程。`;
+  // phase='baseline' 的语义自 R6 起为“诱发后、条件前”（诱发步完成后、条件执行
+  // 开始前测量）；文案保留“基线”叫法以与历史 phase 值一致。
+  return `缺少${missing.join('与')}量表记录，无法计算改善率。请完整走完 诱发 → 诱发后量表 → 条件执行 → 条件后量表 流程。`;
 }
 
 /** Signed percent with one decimal: +40%, -12.5%, 0%. */
@@ -470,5 +596,45 @@ export function buildEffectVerdictCopy(
     severity: 'warning',
     title: '未达到改善阈值',
     detail: `平均改善率 ${meanText}，低于 ${THRESHOLD_PERCENT_LABEL} 的目标阈值；负值表示情绪状态恶化。`,
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Cross-condition comparison copy (R6, 大纲 6.2)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Formula note rendered with the cross-condition card: the outline froze
+ * this default 口径 at B-1; it may be swapped before testing, so the UI
+ * states its source instead of presenting it as an immutable fact.
+ */
+export const CONDITION_COMPARISON_FORMULA_NOTE =
+  '改善口径：(B_post - T_post) / B_post，按维度取两条件 post 分之差再除以基线条件 post 分（大纲 B-1 冻结项，默认口径，测试前可换）。';
+
+export function buildConditionComparisonVerdictCopy(
+  comparison: Pick<ConditionEffectComparisonView, 'meanImprovementRate' | 'meetsThreshold'>,
+): EffectVerdictCopy {
+  if (comparison.meanImprovementRate === null) {
+    return {
+      severity: 'warning',
+      title: '无法判定跨条件改善',
+      detail: '两条件没有可对比的维度（维度缺失或基线条件 post 为 0），请检查量表数据。',
+    };
+  }
+
+  const meanText = formatImprovementRate(comparison.meanImprovementRate);
+
+  if (comparison.meetsThreshold) {
+    return {
+      severity: 'success',
+      title: '调控条件优于基线条件（达标）',
+      detail: `跨条件平均改善率 ${meanText}，不低于 ${THRESHOLD_PERCENT_LABEL} 阈值，调控条件的改善高于自然恢复基线条件。`,
+    };
+  }
+
+  return {
+    severity: 'warning',
+    title: '调控条件未优于基线条件',
+    detail: `跨条件平均改善率 ${meanText}，低于 ${THRESHOLD_PERCENT_LABEL} 阈值；负值表示调控后的情绪状态不如自然恢复。`,
   };
 }

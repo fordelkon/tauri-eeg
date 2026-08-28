@@ -23,6 +23,8 @@ function entry(overrides: Partial<EffectHistoryEntryView> = {}): EffectHistoryEn
     postCreatedAt: '2026-08-01T10:00:00+00:00',
     scaleId: '/video-regulation',
     emotion: 'anxiety',
+    // Pre-R6 legacy row by default; individual tests override it.
+    condition: null,
     durationMinutes: 5,
     regulationSkipped: false,
     eegSessionId: null,

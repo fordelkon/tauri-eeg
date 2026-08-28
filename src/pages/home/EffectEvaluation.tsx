@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -9,19 +10,25 @@ import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import { save } from '@tauri-apps/plugin-dialog';
 import type { EChartsType } from 'echarts/core';
+import { getParadigmSessionStatus } from '../../eeg/paradigm/paradigmSessionStatus';
 import MentalScaleDialog from '../../mentalScale/MentalScaleDialog';
 import { exportEffectReport } from '../../mentalScale/scaleRecordsApi';
 import { useConfirmDialog } from '../../ui/useConfirmDialog';
 import { describeFriendlyError } from '../../ui/friendlyError';
+import { toPlayableVideoUrl } from '../../video/videoRegulationCatalog';
 import {
+  buildConditionComparisonVerdictCopy,
   buildEffectVerdictCopy,
+  CONDITION_COMPARISON_FORMULA_NOTE,
   describeMeasuredBasis,
   describeRegulationSkipped,
+  EFFECT_CONDITION_OPTIONS,
   EFFECT_EMOTION_OPTIONS,
   EFFECT_FLOW_STEPS,
   EFFECT_METHOD_OPTIONS,
   formatCountdown,
   formatImprovementRate,
+  labelForCondition,
   labelForDimension,
   regulationDurationMs,
   regulationFinishModeFromRemaining,
@@ -32,7 +39,10 @@ import {
   suggestReportFileName,
   type ExportReportFormat,
 } from './effectReportExport';
-import { buildEffectChartOption } from './effectResultChartOption';
+import {
+  buildConditionComparisonChartOption,
+  buildEffectChartOption,
+} from './effectResultChartOption';
 import EffectHistoryPanel from './EffectHistoryPanel';
 import { useEffectEvaluationFlow } from './useEffectEvaluationFlow';
 import styles from './EffectEvaluation.module.css';
@@ -47,7 +57,13 @@ type ExportNotice = {
 };
 
 /** Bar chart for the baseline/post comparison; echarts loads on demand. */
-function EffectResultChart({ option }: { option: Record<string, unknown> }) {
+function EffectResultChart({
+  option,
+  ariaLabel,
+}: {
+  option: Record<string, unknown>;
+  ariaLabel?: string;
+}) {
   const chartRef = useRef<HTMLDivElement | null>(null);
   const chartInstanceRef = useRef<EChartsType | null>(null);
   const [isChartReady, setIsChartReady] = useState(false);
@@ -95,7 +111,7 @@ function EffectResultChart({ option }: { option: Record<string, unknown> }) {
       ref={chartRef}
       className={styles.chartWrap}
       role="img"
-      aria-label="基线与调控后量表得分对比图"
+      aria-label={ariaLabel ?? '基线与调控后量表得分对比图'}
     />
   );
 }
@@ -136,9 +152,12 @@ export default function EffectEvaluation() {
   const flow = useEffectEvaluationFlow();
   const { state } = flow;
   const { confirm, confirmDialogElement } = useConfirmDialog();
-  // Steps 1/3 present the shared gate dialog on demand; closing it only
+  // Steps 2/4 present the shared gate dialog on demand; closing it only
   // dismisses the dialog, it never touches the flow itself.
   const [isScaleDialogOpen, setIsScaleDialogOpen] = useState(false);
+  // The induction video only mounts after the operator explicitly starts the
+  // induction (EEG association + paradigm-session guard ride on that entry).
+  const [isInductionPlaying, setIsInductionPlaying] = useState(false);
   const [activeTab, setActiveTab] = useState<PageTab>('wizard');
   const [isExporting, setIsExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<ExportNotice | null>(null);
@@ -149,12 +168,24 @@ export default function EffectEvaluation() {
   const methodLabel = EFFECT_METHOD_OPTIONS.find(
     (option) => option.value === state.method,
   )?.label ?? state.method;
+  const isNaturalRecovery = state.condition === 'natural_recovery';
 
-  // Strong duration constraint (R3): the countdown is a hard floor — the
+  // Leaving the induction step (or resetting the flow) unmounts the player.
+  useEffect(() => {
+    if (state.step !== 1) {
+      setIsInductionPlaying(false);
+    }
+  }, [state.step]);
+
+  // Strong duration constraint (R3): the countdown is a hard floor - the
   // normal finish unlocks only at zero, earlier exits go through the
-  // double-confirmed skip which records the marker with the run.
+  // double-confirmed skip which records the marker with the run. The same
+  // constraint guards both R6 conditions (regulation jump / in-page rest).
   const finishMode = regulationFinishModeFromRemaining(flow.remainingSeconds);
   const skippedCopy = describeRegulationSkipped(state);
+  // Noun swapped in the countdown copy: 静息 for the natural-recovery
+  // condition, 调控 for the regulation condition.
+  const windowNoun = isNaturalRecovery ? '静息' : '调控';
 
   const verdictCopy = useMemo(
     () => (flow.summary ? buildEffectVerdictCopy(flow.summary) : null),
@@ -171,7 +202,24 @@ export default function EffectEvaluation() {
     [flow.summary],
   );
 
-  /** Normal exit — only offered once the countdown reached zero. */
+  // Cross-condition comparison (R6, 大纲 6.2): verdict, basis note, chart.
+  const comparisonVerdictCopy = useMemo(
+    () => (flow.conditionComparison
+      ? buildConditionComparisonVerdictCopy(flow.conditionComparison)
+      : null),
+    [flow.conditionComparison],
+  );
+  const comparisonMeasuredBasisNote = flow.conditionComparison
+    ? describeMeasuredBasis(flow.conditionComparison)
+    : null;
+  const comparisonChartOption = useMemo(
+    () => (flow.conditionComparison && flow.conditionComparison.dimensions.length > 0
+      ? buildConditionComparisonChartOption(flow.conditionComparison)
+      : null),
+    [flow.conditionComparison],
+  );
+
+  /** Normal exit - only offered once the countdown reached zero. */
   const handleFinishRegulation = () => {
     if (finishMode.mode === 'finish') {
       void flow.finishRegulation();
@@ -185,8 +233,8 @@ export default function EffectEvaluation() {
     }
 
     void confirm({
-      title: '跳过剩余调控时长？',
-      description: `计时还剩 ${formatCountdown(finishMode.remainingSeconds)}，未达设定的最短时长。跳过后本次评价会记录“已跳过”标记，改善率可能低估实际效果。确定跳过并进入复测吗？`,
+      title: `跳过剩余${windowNoun}时长？`,
+      description: `${windowNoun}计时还剩 ${formatCountdown(finishMode.remainingSeconds)}，未达设定的最短时长。跳过后本次评价会记录“已跳过”标记，改善率可能低估实际效果。确定跳过并进入复测吗？`,
       confirmText: '确认跳过',
       destructive: true,
     }).then((confirmed) => {
@@ -194,6 +242,21 @@ export default function EffectEvaluation() {
         void flow.skipRemainingRegulation();
       }
     });
+  };
+
+  /** Step 1 entry: starts the EEG association, then mounts the player. */
+  const handleBeginInduction = () => {
+    if (flow.inductionStatus.kind !== 'ready') {
+      return;
+    }
+
+    flow.beginInduction();
+
+    // A live paradigm session blocks the EEG association (the hook shows its
+    // own error banner); the video must not start behind that guard either.
+    if (!getParadigmSessionStatus().active) {
+      setIsInductionPlaying(true);
+    }
   };
 
   const runSingleExport = async (format: ExportReportFormat) => {
@@ -254,14 +317,42 @@ export default function EffectEvaluation() {
       <span className={styles.configChip}>被试 {state.subjectId.trim() || '未填写'}</span>
       <span className={styles.configChip}>目标情绪 {emotionLabel}</span>
       <span className={styles.configChip}>{methodLabel}</span>
+      <span className={styles.configChip}>{labelForCondition(state.condition)}</span>
     </div>
   );
 
+  /** EEG association chip shared by the induction and condition steps. */
+  const renderEegAssociationChip = () => {
+    if (state.eegAssociation === 'not-started') {
+      return null;
+    }
+
+    return (
+      <div className={styles.pillRow}>
+        <span
+          className={`${styles.eegChip} ${
+            state.eegAssociation === 'saved'
+              ? styles.eegSaved
+              : state.eegAssociation === 'recording'
+                ? styles.eegRecording
+                : styles.eegUnavailable
+          }`}
+        >
+          {state.eegAssociation === 'saved'
+            ? `EEG 记录已保存${state.eegSessionId ? `（会话 ${`${state.eegSessionId.slice(0, 8)}…`}）` : ''}`
+            : state.eegAssociation === 'recording'
+              ? '正在关联 EEG 记录'
+              : '设备不可用，本次未关联 EEG 记录'}
+        </span>
+      </div>
+    );
+  };
+
   const renderSetupStep = () => (
-    <section className={styles.panel} aria-label="选择被试与调控配置">
+    <section className={styles.panel} aria-label="选择被试与评价配置">
       <h2 className={styles.panelTitle}>选择被试</h2>
       <p className={styles.panelHint}>
-        被试 ID 会绑定到本轮的基线与调控后量表记录，用于配对计算改善率。
+        被试 ID 会绑定到本轮的诱发后与条件后量表记录，用于配对计算改善率。
       </p>
 
       <div className={styles.fieldGrid}>
@@ -276,7 +367,7 @@ export default function EffectEvaluation() {
           />
         </label>
         <label className={styles.fieldLabel}>
-          <span className={styles.fieldLabelText}>调控时长（分钟）</span>
+          <span className={styles.fieldLabelText}>条件时长（分钟）</span>
           <select
             className={styles.selectInput}
             value={state.durationMinutes}
@@ -296,11 +387,21 @@ export default function EffectEvaluation() {
         onSelect={(value) => flow.updateDraft({ emotion: value })}
       />
       <PillGroup
-        label="调控手段:"
+        label="调控手段（仅调控条件使用）:"
         options={EFFECT_METHOD_OPTIONS.map(({ value, label }) => ({ value, label }))}
         selectedValue={state.method}
         onSelect={(value) => flow.updateDraft({ method: value })}
       />
+      <PillGroup
+        label="实验条件:"
+        options={EFFECT_CONDITION_OPTIONS.map(({ value, label }) => ({ value, label }))}
+        selectedValue={state.condition}
+        onSelect={(value) => flow.updateDraft({ condition: value })}
+      />
+      <p className={styles.panelHint} role="note">
+        实验条件说明：基线条件（自然恢复）＝情绪诱发后不施加调控手段，静息自然恢复；
+        调控条件＝情绪诱发后施加所选调控手段（音乐/视频）。同被试同情绪完成两种条件各一次后，结果步会给出跨条件对比。
+      </p>
 
       {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
 
@@ -310,22 +411,81 @@ export default function EffectEvaluation() {
           disabled={state.subjectId.trim().length === 0}
           onClick={flow.startBaselineMeasurement}
         >
-          下一步：基线测量
+          下一步：情绪诱发
         </Button>
       </div>
     </section>
   );
 
+  const renderInductionStep = () => {
+    const status = flow.inductionStatus;
+
+    return (
+      <section className={styles.panel} aria-label="情绪诱发">
+        <h2 className={styles.panelTitle}>情绪诱发</h2>
+        <p className={styles.panelHint}>
+          播放目标情绪的诱发素材（来自 EEG 采集页校验过的 video_paradigm 素材库）；
+          开始诱发时在设备可用的情况下自动关联 EEG 记录，素材播放完毕后进入诱发后量表。
+        </p>
+        {configSummary}
+
+        {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
+
+        {flow.isInductionPoolLoading ? (
+          <p className={styles.panelHint}>正在加载诱发素材库…</p>
+        ) : status.kind === 'blocked' ? (
+          <Alert severity="warning">{status.copy}</Alert>
+        ) : isInductionPlaying && status.kind === 'ready' ? (
+          <>
+            <video
+              key={status.entry.videoId}
+              className={styles.inductionVideo}
+              src={toPlayableVideoUrl(status.entry.absolutePath, convertFileSrc)}
+              controls
+              autoPlay
+              playsInline
+              ref={(node) => {
+                if (node) {
+                  node.volume = 1;
+                }
+              }}
+              onEnded={() => flow.completeInduction()}
+            />
+            <p className={styles.panelHint}>
+              正在播放诱发素材「{status.entry.fileName}」，播放结束后自动进入诱发后量表。
+            </p>
+          </>
+        ) : status.kind === 'ready' ? (
+          <>
+            <div className={styles.actionsRow}>
+              <Button variant="contained" onClick={handleBeginInduction}>
+                播放诱发素材（{status.entry.fileName}）
+              </Button>
+            </div>
+            <p className={styles.panelHint}>
+              点击开始后播放素材并计时，同时在设备可用时自动关联本次 EEG 记录。
+            </p>
+          </>
+        ) : null}
+
+        {renderEegAssociationChip()}
+      </section>
+    );
+  };
+
   const renderScaleStep = (phase: 'baseline' | 'post') => {
     const isBaseline = phase === 'baseline';
 
     return (
-      <section className={styles.panel} aria-label={isBaseline ? '基线测量' : '调控后测量'}>
-        <h2 className={styles.panelTitle}>{isBaseline ? '基线量表' : '调控后复测'}</h2>
+      <section
+        className={styles.panel}
+        aria-label={isBaseline ? '诱发后量表' : '条件后量表'}
+      >
+        <h2 className={styles.panelTitle}>{isBaseline ? '诱发后量表' : '条件后复测'}</h2>
         <p className={styles.panelHint}>
           {isBaseline
-            ? '开始调控前，请先完成一次心理量表，作为本次调控的评价基线。'
-            : '调控已结束，请用同一份量表再测一次，用于计算各维度改善率。'}
+            ? '情绪诱发已完成，请先完成一次心理量表，作为本次条件执行前的评价基线（phase 记为 baseline）。'
+            : '条件执行已结束，请用同一份量表再测一次，用于计算各维度改善率。'}
         </p>
         {configSummary}
 
@@ -339,7 +499,7 @@ export default function EffectEvaluation() {
             disabled={flow.isSavingScale || !flow.scaleForMethod}
             onClick={() => setIsScaleDialogOpen(true)}
           >
-            打开{isBaseline ? '基线' : '复测'}量表
+            打开{isBaseline ? '诱发后' : '复测'}量表
           </Button>
         </div>
 
@@ -358,17 +518,28 @@ export default function EffectEvaluation() {
     );
   };
 
-  const renderRegulationStep = () => (
-    <section className={styles.panel} aria-label="执行调控">
-      <h2 className={styles.panelTitle}>执行调控</h2>
+  /**
+   * Step 3, condition branch (R6): the regulation condition jumps to the
+   * method's page under the wizard's wall-clock window; the natural-recovery
+   * (基线) condition runs its rest countdown inside this page only - no
+   * navigation, no regulation-page session context.
+   */
+  const renderConditionStep = () => (
+    <section className={styles.panel} aria-label="条件执行">
+      <h2 className={styles.panelTitle}>
+        {isNaturalRecovery ? '条件执行：自然恢复（基线条件）' : '执行调控'}
+      </h2>
       <p className={styles.panelHint}>
-        前往{methodLabel}页面进行调控，本页按设定的时长计时；结束后回到本页继续复测。
+        {isNaturalRecovery
+          ? '诱发后不施加任何调控手段：请让被试保持静息放松（减少眨眼与头动），按设定时长自然恢复，倒计时结束后进入复测。本步骤全程停留在本页。'
+          : `前往${methodLabel}页面进行调控，本页按设定的时长计时；结束后回到本页继续复测。`}
       </p>
 
       <div className={styles.configSummary}>
         <span className={styles.configChip}>被试 {state.subjectId.trim() || '未填写'}</span>
         <span className={styles.configChip}>目标情绪 {emotionLabel}</span>
         <span className={styles.configChip}>{methodLabel}</span>
+        <span className={styles.configChip}>{labelForCondition(state.condition)}</span>
         <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
         {state.eegSessionId ? (
           <span className={styles.configChip}>EEG 会话 {`${state.eegSessionId.slice(0, 8)}…`}</span>
@@ -381,7 +552,7 @@ export default function EffectEvaluation() {
             点击开始后计时，并在设备可用时自动关联本次 EEG 记录。
           </p>
           <Button variant="contained" onClick={flow.beginRegulation}>
-            开始调控
+            {isNaturalRecovery ? '开始静息' : '开始调控'}
           </Button>
         </Box>
       ) : (
@@ -396,7 +567,7 @@ export default function EffectEvaluation() {
             <div
               className={styles.progressTrack}
               role="progressbar"
-              aria-label="调控计时进度"
+              aria-label={`${windowNoun}计时进度`}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={regulationProgressPercent}
@@ -405,37 +576,21 @@ export default function EffectEvaluation() {
             </div>
             <p className={styles.panelHint}>
               {flow.remainingSeconds === 0
-                ? '调控时长已达成，可结束调控进入复测。'
+                ? `${windowNoun}时长已达成，可结束${windowNoun}进入复测。`
                 : `未达最短时长：还剩 ${formatCountdown(flow.remainingSeconds ?? 0)}。计时结束后才能进入复测；确有特殊情况可跳过剩余时长（二次确认后记录标记）。`}
             </p>
           </div>
 
           {skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
 
-          {state.eegAssociation !== 'not-started' ? (
-            <div className={styles.pillRow}>
-              <span
-                className={`${styles.eegChip} ${
-                  state.eegAssociation === 'saved'
-                    ? styles.eegSaved
-                    : state.eegAssociation === 'recording'
-                      ? styles.eegRecording
-                      : styles.eegUnavailable
-                }`}
-              >
-                {state.eegAssociation === 'saved'
-                  ? `EEG 记录已保存${state.eegSessionId ? `（会话 ${`${state.eegSessionId.slice(0, 8)}…`}）` : ''}`
-                  : state.eegAssociation === 'recording'
-                    ? '正在关联 EEG 记录'
-                    : '设备不可用，本次未关联 EEG 记录'}
-              </span>
-            </div>
-          ) : null}
+          {renderEegAssociationChip()}
 
           <div className={styles.actionsRow}>
-            <Button variant="outlined" onClick={flow.openRegulationPage}>
-              前往{methodLabel}
-            </Button>
+            {isNaturalRecovery ? null : (
+              <Button variant="outlined" onClick={flow.openRegulationPage}>
+                前往{methodLabel}
+              </Button>
+            )}
             {finishMode.mode === 'requires-skip' ? (
               <Button variant="outlined" color="warning" onClick={handleSkipRemaining}>
                 跳过剩余时长…
@@ -446,11 +601,111 @@ export default function EffectEvaluation() {
               disabled={finishMode.mode !== 'finish'}
               onClick={handleFinishRegulation}
             >
-              结束调控，进行复测
+              {isNaturalRecovery ? '结束静息，进行复测' : '结束调控，进行复测'}
             </Button>
           </div>
         </>
       )}
+    </section>
+  );
+
+  /** R6, 大纲 6.2: regulation vs natural-recovery runs of this subject+emotion. */
+  const renderConditionComparison = () => (
+    <section className={styles.panel} aria-label="跨条件对比">
+      <h2 className={styles.panelTitle}>跨条件对比（基线条件 vs 调控条件）</h2>
+      <p className={styles.panelHint}>
+        同被试同情绪分别完成 基线条件（自然恢复） 与 调控条件 各一次完整评价后，
+        此处自动对比两条件的条件后得分。
+      </p>
+
+      {flow.isLoadingConditionComparison ? (
+        <p className={styles.panelHint}>正在计算跨条件对比…</p>
+      ) : null}
+
+      {flow.conditionComparisonError ? (
+        <>
+          <Alert severity="info">
+            {flow.conditionComparisonError}
+            <br />
+            需完成基线条件（自然恢复）与调控条件各一次完整评价，本卡才会展示跨条件对比。
+          </Alert>
+          <div className={styles.actionsRow}>
+            <Button
+              variant="outlined"
+              onClick={() => void flow.loadConditionComparison()}
+            >
+              重试计算
+            </Button>
+          </div>
+        </>
+      ) : null}
+
+      {flow.conditionComparison && comparisonVerdictCopy && !flow.isLoadingConditionComparison ? (
+        <>
+          <Alert severity={comparisonVerdictCopy.severity}>
+            <strong>{comparisonVerdictCopy.title}</strong> -- {comparisonVerdictCopy.detail}
+          </Alert>
+
+          <div className={styles.statsRow}>
+            <div className={styles.statCard}>
+              <span className={styles.statLabel}>跨条件平均改善率</span>
+              <span className={styles.statValue}>
+                {flow.conditionComparison.meanImprovementRate === null
+                  ? '-'
+                  : formatImprovementRate(flow.conditionComparison.meanImprovementRate)}
+              </span>
+            </div>
+            <div className={styles.statCard}>
+              <span className={styles.statLabel}>达标阈值</span>
+              <span className={styles.statValue}>10%</span>
+            </div>
+            <div className={styles.statCard}>
+              <span className={styles.statLabel}>实际纳入对比的维度数</span>
+              <span className={styles.statValue}>{flow.conditionComparison.dimensions.length}</span>
+            </div>
+          </div>
+
+          <p className={styles.panelHint} role="note">{CONDITION_COMPARISON_FORMULA_NOTE}</p>
+
+          {comparisonMeasuredBasisNote ? (
+            <p className={styles.panelHint} role="note">{comparisonMeasuredBasisNote}</p>
+          ) : null}
+
+          {comparisonChartOption ? (
+            <>
+              <EffectResultChart
+                option={comparisonChartOption}
+                ariaLabel="基线条件与调控条件条件后得分对比图"
+              />
+              <table className={styles.dimensionTable}>
+                <thead>
+                  <tr>
+                    <th>维度</th>
+                    <th>基线条件 post</th>
+                    <th>调控条件 post</th>
+                    <th>改善率</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {flow.conditionComparison.dimensions.map((dimension) => (
+                    <tr key={dimension.dimension}>
+                      <td>{labelForDimension(dimension.dimension)}</td>
+                      <td>{Math.round(dimension.naturalRecoveryPost)}</td>
+                      <td>{Math.round(dimension.regulationPost)}</td>
+                      <td className={dimension.improvementRate >= 0
+                        ? `${styles.rateCell} ${styles.isPositive}`
+                        : `${styles.rateCell} ${styles.isNegative}`}
+                      >
+                        {formatImprovementRate(dimension.improvementRate)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : null}
+        </>
+      ) : null}
     </section>
   );
 
@@ -474,7 +729,7 @@ export default function EffectEvaluation() {
       {flow.summary && verdictCopy && !flow.isLoadingSummary ? (
         <>
           <Alert severity={verdictCopy.severity}>
-            <strong>{verdictCopy.title}</strong> —— {verdictCopy.detail}
+            <strong>{verdictCopy.title}</strong> -- {verdictCopy.detail}
           </Alert>
 
           {skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
@@ -484,7 +739,7 @@ export default function EffectEvaluation() {
               <span className={styles.statLabel}>平均改善率</span>
               <span className={styles.statValue}>
                 {flow.summary.meanImprovementRate === null
-                  ? '—'
+                  ? '-'
                   : formatImprovementRate(flow.summary.meanImprovementRate)}
               </span>
             </div>
@@ -570,8 +825,9 @@ export default function EffectEvaluation() {
 
   const stepContent: ReactNode[] = [
     renderSetupStep(),
+    renderInductionStep(),
     renderScaleStep('baseline'),
-    renderRegulationStep(),
+    renderConditionStep(),
     renderScaleStep('post'),
     renderResultStep(),
   ];
@@ -584,8 +840,8 @@ export default function EffectEvaluation() {
             <div className={styles.eyebrow}>效果评价闭环</div>
             <h1 className={styles.title}>情绪调控效果评价</h1>
             <p className={styles.description}>
-              按 基线量表 → 执行调控 → 调控后量表 的流程采集同一被试的两次量表，
-              自动计算各维度改善率并与 10% 阈值比较。
+              按 情绪诱发 → 诱发后量表 → 条件执行 → 条件后量表 的流程采集同一被试的两次量表，
+              自动计算各维度改善率并与 10% 阈值比较；基线条件（自然恢复）与调控条件各完成一次后可跨条件对比。
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -626,7 +882,11 @@ export default function EffectEvaluation() {
             ))}
           </Stepper>
 
-          {stepContent[state.step]}
+          {state.step === 5 ? (
+            <>{stepContent[5]}{renderConditionComparison()}</>
+          ) : (
+            stepContent[state.step]
+          )}
 
           {state.step > 0 ? (
             <div className={styles.actionsRow}>
