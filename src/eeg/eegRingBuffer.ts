@@ -10,7 +10,7 @@ import { displaySelectionBound, selectDisplayIndexesFromInterval } from './eegDi
 const CAP_WINDOW_MULTIPLIER = 1.5;
 const EMA_TIME_CONSTANT_SECONDS = 1;
 
-const MARKER_CLASSES: readonly EegTriggerCode[] = [1, 2, 3, 4, 255];
+const MARKER_CLASSES: readonly EegTriggerCode[] = [1, 2, 3, 4, 5, 255];
 
 /**
  * Copies `count` logical entries starting at physical index `physicalStart`

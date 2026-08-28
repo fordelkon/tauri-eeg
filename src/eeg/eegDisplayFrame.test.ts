@@ -5,7 +5,7 @@ import { toSweepDisplayData, toSweepPageData } from './eegSweepDisplay';
 import type { EegChannel, EegDisplayMode, EegDisplaySnapshot, EegTriggerCode } from './types';
 
 const MAX_DISPLAY_POINTS_PER_CHANNEL = 2000;
-const TRIGGER_CLASSES: readonly EegTriggerCode[] = [1, 2, 3, 4, 255];
+const TRIGGER_CLASSES: readonly EegTriggerCode[] = [1, 2, 3, 4, 5, 255];
 
 type FrameOptions = {
   timeWindowSeconds: number;

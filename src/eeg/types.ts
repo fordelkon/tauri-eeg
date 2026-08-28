@@ -135,4 +135,8 @@ export type EegMarker = {
   classId: EegTriggerCode;
 };
 
-export type EegTriggerCode = 1 | 2 | 3 | 4 | 255;
+/**
+ * 1-4 are the historical hardware classes (depression/anxiety/calm/happy);
+ * 5 is fear (R8 took the new slot); 255 is the noise/rest marker.
+ */
+export type EegTriggerCode = 1 | 2 | 3 | 4 | 5 | 255;

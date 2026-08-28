@@ -43,11 +43,13 @@ const TRACE_COLORS = [
   '#27a7a8',
 ];
 
-const TRIGGER_COLORS: Record<EegTriggerCode, string> = {
+export const TRIGGER_COLORS: Record<EegTriggerCode, string> = {
   1: '#2f9e74',
   2: '#d99b1f',
   3: '#b54a8f',
   4: '#27a7a8',
+  // Fear (R8 slot 5): alarm red, distinct from the warm trace salmon.
+  5: '#e5484d',
   255: '#7f8cff',
 };
 
