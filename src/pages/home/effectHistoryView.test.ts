@@ -6,6 +6,7 @@ import {
   formatRunTimestamp,
   groupHistoryBySubject,
   labelForEmotion,
+  labelForHistoryCondition,
   outcomeForEntry,
 } from './effectHistoryView';
 
@@ -133,5 +134,14 @@ describe('history display helpers', () => {
     // Later instants never format before earlier ones (same-zone rendering).
     const later = formatRunTimestamp('2027-01-15T10:00:00+00:00');
     expect(later > formatted).toBe(true);
+  });
+
+  // R7, feedback-003 P2-1: the history rows must distinguish the three
+  // condition families, with legacy rows annotated instead of blended in.
+  it('labels each condition family and tags legacy rows explicitly', () => {
+    expect(labelForHistoryCondition('natural_recovery')).toBe('基线条件（自然恢复）');
+    expect(labelForHistoryCondition('regulation')).toBe('调控条件');
+    expect(labelForHistoryCondition(null)).toContain('legacy');
+    expect(labelForHistoryCondition(null)).toContain('旧流程');
   });
 });

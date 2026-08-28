@@ -88,13 +88,31 @@ export type ConditionDimensionComparisonView = {
   improvementRate: number;
 };
 
+/** One condition's run feeding the comparison (camelCase mirror of the backend ConditionComparisonLeg). */
+export type ConditionComparisonLegView = {
+  /** Wizard condition of the leg's run; never null in a comparison pair
+   * (legacy NULL runs are rejected on the backend, 大纲 6.2 诱发后口径). */
+  condition: string;
+  emotion: string | null;
+  baselineRecordId: string;
+  postRecordId: string;
+  baselineCreatedAt: string;
+  postCreatedAt: string;
+  scaleId: string;
+  durationMinutes: number | null;
+  regulationSkipped: boolean;
+  eegSessionId: string | null;
+  /** False when this leg's in-run mean covered unmarked legacy records. */
+  measuredOnly: boolean;
+};
+
 export type ConditionEffectComparisonView = {
   subjectId: string;
   emotion: string | null;
-  naturalRecoveryPostRecordId: string;
-  naturalRecoveryPostCreatedAt: string;
-  regulationPostRecordId: string;
-  regulationPostCreatedAt: string;
+  /** Trace of the natural-recovery run feeding B_post. */
+  naturalRecoveryLeg: ConditionComparisonLegView;
+  /** Trace of the regulation run feeding T_post. */
+  regulationLeg: ConditionComparisonLegView;
   dimensions: ConditionDimensionComparisonView[];
   meanImprovementRate: number | null;
   meetsThreshold: boolean;
@@ -264,7 +282,16 @@ export type ExportEffectReportInput =
     baselineRecordId: string;
     postRecordId: string;
   }
-  | { kind: 'batch'; path: string };
+  | { kind: 'batch'; path: string }
+  | {
+    /** R7, 大纲 6.3 步骤 5: cross-condition comparison export with both
+     * legs' trace, the per-dimension inputs, and the frozen formula note. */
+    kind: 'comparison';
+    path: string;
+    format?: 'json' | 'csv';
+    subjectId: string;
+    emotion: string;
+  };
 
 export type ExportEffectReportResultView = {
   path: string;
@@ -280,7 +307,8 @@ export function listEffectHistory(): Promise<EffectHistoryEntryView[]> {
 }
 
 /**
- * Writes one run's JSON/CSV report or the all-subjects batch CSV to a
+ * Writes one run's JSON/CSV report, the all-subjects batch CSV, or the
+ * cross-condition comparison document of one subject+emotion to a
  * user-chosen path (picked through the save dialog before this call).
  */
 export function exportEffectReport(

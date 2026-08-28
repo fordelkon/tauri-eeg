@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildBatchReportPayload,
+  buildComparisonReportPayload,
   buildSingleReportPayload,
   DEFAULT_EXPORT_FORMAT,
   resolveExportFormat,
@@ -85,6 +86,54 @@ describe('buildBatchReportPayload', () => {
   });
 });
 
+// R7, 大纲 6.3 步骤 5: the cross-condition comparison export re-pairs the
+// legs on the backend from the wizard's subject+emotion binding.
+describe('buildComparisonReportPayload (跨条件对比导出 payload)', () => {
+  it('assembles a trimmed camelCase comparison payload with the default json format', () => {
+    expect(buildComparisonReportPayload({
+      subjectId: ' subj-001 ',
+      emotion: ' anxiety ',
+      path: ' C:/reports/effect-comparison.json ',
+    })).toEqual({
+      kind: 'comparison',
+      path: 'C:/reports/effect-comparison.json',
+      format: 'json',
+      subjectId: 'subj-001',
+      emotion: 'anxiety',
+    });
+  });
+
+  it('passes an explicit csv format through to the backend', () => {
+    const payload = buildComparisonReportPayload({
+      subjectId: 'subj-001',
+      emotion: 'anxiety',
+      path: 'C:/reports/effect-comparison.csv',
+      format: 'csv',
+    });
+    expect(payload.format).toBe('csv');
+  });
+
+  it('rejects blank bindings with the field named', () => {
+    expect(() => buildComparisonReportPayload({
+      subjectId: null,
+      emotion: 'anxiety',
+      path: 'C:/r.json',
+    })).toThrow('被试 ID');
+
+    expect(() => buildComparisonReportPayload({
+      subjectId: 'subj-001',
+      emotion: '   ',
+      path: 'C:/r.json',
+    })).toThrow('目标情绪');
+
+    expect(() => buildComparisonReportPayload({
+      subjectId: 'subj-001',
+      emotion: 'anxiety',
+      path: '',
+    })).toThrow('保存路径');
+  });
+});
+
 describe('suggestReportFileName', () => {
   const noon = new Date(2026, 7, 26, 9, 5); // local components → 20260826-0905
 
@@ -107,6 +156,24 @@ describe('suggestReportFileName', () => {
   it('builds the all-subjects batch summary name as csv', () => {
     expect(suggestReportFileName({ kind: 'batch', now: noon }))
       .toBe('effect-summary-all-20260826-0905.csv');
+  });
+
+  // R7: comparison exports get their own name family so the two document
+  // kinds never collide on disk.
+  it('builds the cross-condition comparison name per format and subject', () => {
+    expect(suggestReportFileName({
+      kind: 'comparison',
+      format: 'json',
+      subjectId: 'subj-001',
+      now: noon,
+    })).toBe('effect-comparison-subj-001-20260826-0905.json');
+
+    expect(suggestReportFileName({
+      kind: 'comparison',
+      format: 'csv',
+      subjectId: 'subj-001',
+      now: noon,
+    })).toBe('effect-comparison-subj-001-20260826-0905.csv');
   });
 
   it('falls back to a generic subject fragment when none was configured', () => {

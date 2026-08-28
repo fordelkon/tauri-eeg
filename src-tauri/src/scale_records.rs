@@ -512,22 +512,27 @@ pub struct EffectHistoryEntry {
 
 /// Pairs records into evaluation runs by walking them chronologically per
 /// subject: each post record pairs with the most recent unmatched baseline
-/// of the same subject, and a fresh baseline supersedes a dangling one.
-/// Records are expected in `list_scale_records` order (created_at ASC);
-/// subjects are keyed by their id, with unbound records grouped under "".
+/// of the same subject and the same wizard condition, and a fresh baseline
+/// supersedes a dangling one. Records are expected in `list_scale_records`
+/// order (created_at ASC); subjects are keyed by their id, with unbound
+/// records grouped under "". Conditions are keyed by their raw stored value
+/// (`""` for legacy NULL rows), so a post never consumes a baseline saved
+/// under another condition and legacy rows only pair among themselves.
 pub fn build_effect_history(records: &[ScaleRecord]) -> Vec<EffectHistoryEntry> {
-    let mut pending_baselines: BTreeMap<String, ScaleRecord> = BTreeMap::new();
+    let mut pending_baselines: BTreeMap<(String, String), ScaleRecord> = BTreeMap::new();
     let mut entries = Vec::new();
 
     for record in records {
         let subject_key = record.subject_id.clone().unwrap_or_default();
+        let condition_key = record.condition.clone().unwrap_or_default();
+        let pair_key = (subject_key.clone(), condition_key);
 
         match record.phase.as_str() {
             PHASE_BASELINE => {
-                pending_baselines.insert(subject_key, record.clone());
+                pending_baselines.insert(pair_key, record.clone());
             }
             PHASE_POST => {
-                let Some(baseline) = pending_baselines.remove(&subject_key) else {
+                let Some(baseline) = pending_baselines.remove(&pair_key) else {
                     continue;
                 };
 
@@ -629,6 +634,30 @@ pub struct ConditionDimensionComparison {
     pub improvement_rate: f64,
 }
 
+/// One condition's run feeding the cross-condition comparison: the full
+/// trace of both legs (record ids, timestamps, condition, EEG link, basis
+/// flags) so the result card and the export document stay auditable (大纲
+/// 6.3 步骤 5 - 配对记录与计算过程可复核).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConditionComparisonLeg {
+    /// Wizard condition of the run (`natural_recovery` / `regulation`); both
+    /// legs carry an explicit value because legacy NULL runs never enter a
+    /// comparison pair (大纲 6.2 诱发后口径).
+    pub condition: String,
+    pub emotion: Option<String>,
+    pub baseline_record_id: String,
+    pub post_record_id: String,
+    pub baseline_created_at: String,
+    pub post_created_at: String,
+    pub scale_id: String,
+    pub duration_minutes: Option<i64>,
+    pub regulation_skipped: bool,
+    pub eeg_session_id: Option<String>,
+    /// False when this leg's in-run mean covered unmarked legacy records.
+    pub measured_only: bool,
+}
+
 /// Cross-condition regulation effect for one subject+emotion: how much better
 /// the regulation condition's final state is than the natural-recovery
 /// condition's, dimension by dimension plus the threshold verdict.
@@ -637,12 +666,10 @@ pub struct ConditionDimensionComparison {
 pub struct ConditionEffectComparison {
     pub subject_id: String,
     pub emotion: Option<String>,
-    /// Post record of the natural-recovery run feeding B_post.
-    pub natural_recovery_post_record_id: String,
-    pub natural_recovery_post_created_at: String,
-    /// Post record of the regulation run feeding T_post (may be a legacy row).
-    pub regulation_post_record_id: String,
-    pub regulation_post_created_at: String,
+    /// Trace of the natural-recovery run feeding B_post.
+    pub natural_recovery_leg: ConditionComparisonLeg,
+    /// Trace of the regulation run feeding T_post.
+    pub regulation_leg: ConditionComparisonLeg,
     pub dimensions: Vec<ConditionDimensionComparison>,
     pub mean_improvement_rate: Option<f64>,
     pub meets_threshold: bool,
@@ -651,9 +678,37 @@ pub struct ConditionEffectComparison {
     pub measured_only: bool,
 }
 
+/// Message shared by every legacy-leg rejection: legacy rows predate the R6
+/// induction step, so their post scores are not 诱发后 measurements and pairing
+/// them would silently break the 大纲 6.2 comparison basis.
+fn legacy_leg_rejection(leg: &str) -> String {
+    format!(
+        "{leg}来自旧流程（legacy 记录，无情绪诱发步），不满足大纲 6.2 诱发后测量口径，不能参与跨条件对比。请用当前 6 步流程为该被试同情绪完成该条件的完整评价。"
+    )
+}
+
+fn comparison_leg(condition: &str, entry: &EffectHistoryEntry) -> ConditionComparisonLeg {
+    ConditionComparisonLeg {
+        condition: condition.to_string(),
+        emotion: entry.emotion.clone(),
+        baseline_record_id: entry.baseline_record_id.clone(),
+        post_record_id: entry.post_record_id.clone(),
+        baseline_created_at: entry.baseline_created_at.clone(),
+        post_created_at: entry.post_created_at.clone(),
+        scale_id: entry.scale_id.clone(),
+        duration_minutes: entry.duration_minutes,
+        regulation_skipped: entry.regulation_skipped,
+        eeg_session_id: entry.eeg_session_id.clone(),
+        measured_only: entry.measured_only,
+    }
+}
+
 /// Compares the regulation condition's run against the natural-recovery
 /// (baseline) condition's run (大纲 6.2: 调控条件相对基线条件的改善).
 ///
+/// Both legs must carry an explicit condition value (legacy NULL runs from the
+/// pre-R6 flow never enter the pair - their post scores were measured without
+/// the induction step) and the same scale id (same dimension semantics).
 /// Dimensions missing on either side are skipped (维度交集); a zero B_post
 /// makes the rate undefined and the dimension is skipped, mirroring the
 /// in-run pairing strategy. The mean covers only comparable dimensions and is
@@ -664,6 +719,21 @@ pub fn build_condition_comparison(
 ) -> Result<ConditionEffectComparison, String> {
     if natural_recovery.subject_id.trim() != regulation.subject_id.trim() {
         return Err("The two condition runs belong to different subjects.".to_string());
+    }
+
+    // 大纲 6.2 requires both legs to be measured after the induction step;
+    // legacy NULL-condition runs are pre-R6 rows and must not enter the pair.
+    if regulation.condition.is_none() {
+        return Err(legacy_leg_rejection("调控腿"));
+    }
+    if natural_recovery.condition.is_none() {
+        return Err(legacy_leg_rejection("基线条件腿"));
+    }
+    if natural_recovery.scale_id != regulation.scale_id {
+        return Err(format!(
+            "两条件 run 使用的量表不一致（基线条件 {} 与 调控条件 {}），维度含义不同，无法跨条件对比。请确保两条件使用同一量表。",
+            natural_recovery.scale_id, regulation.scale_id
+        ));
     }
 
     let mut dimensions = Vec::new();
@@ -711,10 +781,11 @@ pub fn build_condition_comparison(
             .emotion
             .clone()
             .or_else(|| regulation.emotion.clone()),
-        natural_recovery_post_record_id: natural_recovery.post_record_id.clone(),
-        natural_recovery_post_created_at: natural_recovery.post_created_at.clone(),
-        regulation_post_record_id: regulation.post_record_id.clone(),
-        regulation_post_created_at: regulation.post_created_at.clone(),
+        natural_recovery_leg: comparison_leg(
+            CONDITION_NATURAL_RECOVERY,
+            natural_recovery,
+        ),
+        regulation_leg: comparison_leg(CONDITION_REGULATION, regulation),
         dimensions,
         mean_improvement_rate,
         meets_threshold,
@@ -723,9 +794,12 @@ pub fn build_condition_comparison(
 }
 
 /// Cross-condition summary for one subject+emotion: pairs the latest complete
-/// run of each condition (legacy `NULL` rows count as the regulation
-/// condition) and compares their post scores per dimension. Records are
-/// expected in `list_scale_records` order (created_at ASC).
+/// run of each condition and compares their post scores per dimension.
+/// Legacy `NULL`-condition runs (pre-R6, no induction step) are never picked
+/// as a leg - 大纲 6.2 requires both conditions measured after induction - and
+/// when only such rows exist for the regulation side, the error names that
+/// as the reason instead of silently dropping them. Records are expected in
+/// `list_scale_records` order (created_at ASC).
 pub fn compute_condition_effect_comparison(
     records: &[ScaleRecord],
     subject_id: &str,
@@ -744,6 +818,9 @@ pub fn compute_condition_effect_comparison(
     let entries = build_effect_history(records);
     let mut natural_recovery: Option<&EffectHistoryEntry> = None;
     let mut regulation: Option<&EffectHistoryEntry> = None;
+    // Newest legacy run of the regulation side, kept only to explain why the
+    // regulation leg is missing when no explicit-condition run exists.
+    let mut legacy_regulation: Option<&EffectHistoryEntry> = None;
 
     for entry in &entries {
         if entry.subject_id.trim() != subject_id {
@@ -755,9 +832,12 @@ pub fn compute_condition_effect_comparison(
         }
 
         // Entries arrive chronologically, so the last match per condition wins.
-        match effective_condition(entry.condition.as_deref()) {
-            CONDITION_NATURAL_RECOVERY => natural_recovery = Some(entry),
-            _ => regulation = Some(entry),
+        match entry.condition.as_deref() {
+            Some(CONDITION_NATURAL_RECOVERY) => natural_recovery = Some(entry),
+            Some(CONDITION_REGULATION) => regulation = Some(entry),
+            // Legacy NULL rows are unusable legs (no induction step); they are
+            // remembered but never selected.
+            _ => legacy_regulation = Some(entry),
         }
     }
 
@@ -765,7 +845,11 @@ pub fn compute_condition_effect_comparison(
         "缺少基线条件（自然恢复）的完整评价 run：同被试同情绪需要自然恢复条件与调控条件各至少一条完整记录，才能进行跨条件对比。".to_string()
     })?;
     let regulation = regulation.ok_or_else(|| {
-        "缺少调控条件的完整评价 run（旧流程记录按调控条件计）：同被试同情绪需要自然恢复条件与调控条件各至少一条完整记录，才能进行跨条件对比。".to_string()
+        if legacy_regulation.is_some() {
+            "缺少满足口径的调控条件完整评价 run：同被试同情绪只找到旧流程（legacy，无情绪诱发步）记录，不满足大纲 6.2 诱发后测量口径，无法参与跨条件对比。请用当前 6 步流程完成一次调控条件评价。".to_string()
+        } else {
+            "缺少调控条件的完整评价 run：同被试同情绪需要自然恢复条件与调控条件各至少一条完整记录，才能进行跨条件对比。".to_string()
+        }
     })?;
 
     build_condition_comparison(natural_recovery, regulation)
@@ -985,6 +1069,142 @@ pub fn build_batch_effect_report_csv(entries: &[EffectHistoryEntry]) -> String {
                 csv_field(&entry.baseline_created_at),
                 csv_field(&entry.post_created_at),
                 csv_field(&exported_at),
+            ]
+            .join(",")
+        })
+        .collect::<Vec<_>>();
+
+    let mut lines = vec![header];
+    lines.extend(rows);
+
+    format!("{CSV_BOM}{}", lines.join("\r\n"))
+}
+
+/* ------------------------------------------------------------------ */
+/* Cross-condition comparison export (R7, 大纲 6.3 步骤 5)              */
+/* ------------------------------------------------------------------ */
+
+/// Formula statement embedded in the comparison export so the document
+/// carries its own calculation basis (大纲 B-1 冻结项，默认口径，测试前可换).
+pub const CONDITION_COMPARISON_FORMULA: &str =
+    "(B_post - T_post) / B_post，B_post 为基线条件（自然恢复）post 分，T_post 为调控条件 post 分（大纲 B-1 冻结项，默认口径，测试前可换）";
+
+/// Cross-condition comparison report document (JSON export shape and CSV row
+/// source): both legs' full trace, the per-dimension inputs and rates, the
+/// mean, the threshold verdict, and the formula statement - enough to
+/// reconstruct the calculation by hand (大纲 6.3 步骤 5).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConditionComparisonReport {
+    pub exported_at: String,
+    pub subject_id: String,
+    pub emotion: Option<String>,
+    pub emotion_label: Option<String>,
+    /// 计算口径说明 (R7): the frozen default formula with its outline source.
+    pub formula: String,
+    pub threshold: f64,
+    pub natural_recovery_leg: ConditionComparisonLeg,
+    pub regulation_leg: ConditionComparisonLeg,
+    pub dimensions: Vec<ConditionDimensionComparison>,
+    pub mean_improvement_rate: Option<f64>,
+    pub meets_threshold: bool,
+    /// False when either leg's in-run mean covered unmarked legacy records.
+    pub measured_only: bool,
+}
+
+pub fn build_condition_comparison_report(
+    comparison: &ConditionEffectComparison,
+) -> ConditionComparisonReport {
+    ConditionComparisonReport {
+        exported_at: Utc::now().to_rfc3339(),
+        subject_id: comparison.subject_id.clone(),
+        emotion_label: comparison.emotion.as_deref().map(emotion_label),
+        emotion: comparison.emotion.clone(),
+        formula: CONDITION_COMPARISON_FORMULA.to_string(),
+        threshold: DEFAULT_IMPROVEMENT_THRESHOLD,
+        natural_recovery_leg: comparison.natural_recovery_leg.clone(),
+        regulation_leg: comparison.regulation_leg.clone(),
+        dimensions: comparison.dimensions.clone(),
+        mean_improvement_rate: comparison.mean_improvement_rate,
+        meets_threshold: comparison.meets_threshold,
+        measured_only: comparison.measured_only,
+    }
+}
+
+/// One row per compared dimension with the legs' meta columns repeated, same
+/// flat style as the single-run report CSV.
+pub fn build_condition_comparison_report_csv(report: &ConditionComparisonReport) -> String {
+    let header = [
+        "subject_id",
+        "emotion",
+        "dimension",
+        "dimension_label",
+        "natural_recovery_post",
+        "regulation_post",
+        "improvement_rate",
+        "mean_improvement_rate",
+        "threshold",
+        "meets_threshold",
+        "measured_only",
+        "natural_recovery_duration_minutes",
+        "regulation_duration_minutes",
+        "regulation_skipped",
+        "natural_recovery_eeg_session_id",
+        "regulation_eeg_session_id",
+        "natural_recovery_post_record_id",
+        "regulation_post_record_id",
+        "natural_recovery_post_created_at",
+        "regulation_post_created_at",
+        "formula",
+        "exported_at",
+    ]
+    .join(",");
+
+    let rows = report
+        .dimensions
+        .iter()
+        .map(|dimension| {
+            [
+                csv_field(&report.subject_id),
+                csv_field(report.emotion.as_deref().unwrap_or("")),
+                csv_field(&dimension.dimension),
+                csv_field(&dimension_label(&dimension.dimension)),
+                dimension.natural_recovery_post.to_string(),
+                dimension.regulation_post.to_string(),
+                dimension.improvement_rate.to_string(),
+                format_optional_number(report.mean_improvement_rate),
+                report.threshold.to_string(),
+                report.meets_threshold.to_string(),
+                report.measured_only.to_string(),
+                report
+                    .natural_recovery_leg
+                    .duration_minutes
+                    .map_or(String::new(), |minutes| minutes.to_string()),
+                report
+                    .regulation_leg
+                    .duration_minutes
+                    .map_or(String::new(), |minutes| minutes.to_string()),
+                report.regulation_leg.regulation_skipped.to_string(),
+                csv_field(
+                    report
+                        .natural_recovery_leg
+                        .eeg_session_id
+                        .as_deref()
+                        .unwrap_or(""),
+                ),
+                csv_field(
+                    report
+                        .regulation_leg
+                        .eeg_session_id
+                        .as_deref()
+                        .unwrap_or(""),
+                ),
+                csv_field(&report.natural_recovery_leg.post_record_id),
+                csv_field(&report.regulation_leg.post_record_id),
+                csv_field(&report.natural_recovery_leg.post_created_at),
+                csv_field(&report.regulation_leg.post_created_at),
+                csv_field(&report.formula),
+                csv_field(&report.exported_at),
             ]
             .join(",")
         })
@@ -2316,21 +2536,30 @@ mod tests {
     }
 
     #[test]
-    fn build_effect_history_carries_the_runs_condition_post_first() {
+    fn build_effect_history_pairs_only_within_the_same_condition() {
         let conn = setup_conn();
 
-        // Post carries the condition; baseline without one falls back to it.
-        let mut records = condition_run(&conn, "s9", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 70.0 }), "01");
-        // Blank the baseline's condition post-save to prove the fallback.
+        // A legacy (NULL-condition) baseline must not feed a natural-recovery
+        // post (R7: the pairing key is subject+condition), and vice versa.
+        let records = condition_run(&conn, "s9", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 70.0 }), "01");
         conn.execute(
             "UPDATE scale_records SET condition = NULL WHERE id = ?1",
             params![records[0].id],
         )
         .expect("clear baseline condition");
+        let mixed = list_scale_records(&conn, None, None).expect("list");
+        assert_eq!(build_effect_history(&mixed).len(), 0);
+
+        // Same-condition legs pair and carry the run's condition.
+        let mut records = condition_run(&conn, "s9", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 70.0 }), "02");
+        records.extend(condition_run(&conn, "s9", "anxiety", None, json!({ "anxiety": 80.0 }), json!({ "anxiety": 60.0 }), "03"));
 
         let entries = build_effect_history(&list_scale_records(&conn, None, None).expect("list"));
-        assert_eq!(entries.len(), 1);
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].subject_id, "s9");
         assert_eq!(entries[0].condition.as_deref(), Some(CONDITION_NATURAL_RECOVERY));
+        // Legacy rows pair among themselves under the NULL key.
+        assert_eq!(entries[1].condition, None);
     }
 
     #[test]
@@ -2346,8 +2575,21 @@ mod tests {
         assert_eq!(comparison.subject_id, "s1");
         assert_eq!(comparison.emotion.as_deref(), Some("anxiety"));
         // The regulation side is the newest run (08-02), not the 08-01 one.
-        assert_eq!(comparison.regulation_post_created_at, "2026-08-02T10:00:00+00:00");
-        assert_eq!(comparison.natural_recovery_post_created_at, "2026-08-03T10:00:00+00:00");
+        assert_eq!(
+            comparison.regulation_leg.post_created_at,
+            "2026-08-02T10:00:00+00:00"
+        );
+        assert_eq!(
+            comparison.natural_recovery_leg.post_created_at,
+            "2026-08-03T10:00:00+00:00"
+        );
+        // R7: each leg carries the full trace of the run it was built from.
+        assert_eq!(comparison.natural_recovery_leg.condition, CONDITION_NATURAL_RECOVERY);
+        assert_eq!(comparison.regulation_leg.condition, CONDITION_REGULATION);
+        assert_eq!(comparison.natural_recovery_leg.emotion.as_deref(), Some("anxiety"));
+        assert!(comparison.regulation_leg.baseline_record_id.len() > 0);
+        assert!(comparison.regulation_leg.post_record_id.len() > 0);
+        assert_eq!(comparison.natural_recovery_leg.scale_id, comparison.regulation_leg.scale_id);
         // (B_post - T_post) / B_post = (70 - 60) / 70.
         assert_eq!(comparison.dimensions.len(), 1);
         assert_eq!(comparison.dimensions[0].dimension, "anxiety");
@@ -2361,21 +2603,59 @@ mod tests {
     }
 
     #[test]
-    fn condition_comparison_counts_legacy_rows_as_the_regulation_condition() {
+    fn condition_comparison_rejects_legacy_legs_with_an_explicit_reason() {
         let conn = setup_conn();
-        // The regulation run is a legacy pre-R6 pair (condition NULL).
+        // The regulation run is a legacy pre-R6 pair (condition NULL): it must
+        // not silently enter the comparison as the regulation leg.
         let mut records = condition_run(&conn, "s1", "anxiety", None, json!({ "anxiety": 80.0 }), json!({ "anxiety": 40.0 }), "01");
         records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 50.0 }), "02"));
 
-        let comparison =
-            compute_condition_effect_comparison(&records, "s1", "anxiety").expect("compare");
+        let error = compute_condition_effect_comparison(&records, "s1", "anxiety")
+            .expect_err("legacy regulation leg must be rejected");
+        assert!(error.contains("旧流程"));
+        assert!(error.contains("诱发"));
+        assert!(error.contains("大纲 6.2"));
 
-        // B_post=50, T_post=40 -> (50-40)/50 = 0.2.
-        assert_eq!(comparison.dimensions[0].regulation_post, 40.0);
-        assert_eq!(comparison.dimensions[0].natural_recovery_post, 50.0);
-        assert!((comparison.dimensions[0].improvement_rate - 0.2).abs() < 1e-9);
-        // Both runs are unmarked legacy pairs, so the basis flag is false.
-        assert!(!comparison.measured_only);
+        // Only legacy regulation rows exist: the missing-leg error names the
+        // legacy reason instead of a generic "missing regulation" line.
+        let legacy_only = condition_run(&conn, "s2", "anxiety", None, json!({ "anxiety": 80.0 }), json!({ "anxiety": 40.0 }), "01");
+        let error = compute_condition_effect_comparison(&legacy_only, "s2", "anxiety")
+            .expect_err("natural-recovery leg still missing");
+        // The natural-recovery leg is the missing side here; the legacy-only
+        // regulation side is surfaced once both conditions exist (above).
+        assert!(error.contains("自然恢复"));
+
+        let mut both_missing = legacy_only;
+        both_missing.extend(condition_run(&conn, "s2", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 50.0 }), "02"));
+        let error = compute_condition_effect_comparison(&both_missing, "s2", "anxiety")
+            .expect_err("regulation leg is legacy only");
+        assert!(error.contains("旧流程"));
+        assert!(error.contains("诱发后测量口径"));
+    }
+
+    #[test]
+    fn condition_comparison_rejects_legs_saved_with_different_scales() {
+        let conn = setup_conn();
+        let mut records = condition_run(&conn, "s1", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 70.0 }), "01");
+        records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 60.0 }), "02"));
+        // Retag the regulation run's rows as a different scale (music), as a
+        // same-named-dimension different-scale pairing would be.
+        for record in &records[2..] {
+            conn.execute(
+                "UPDATE scale_records SET scale_id = ?1 WHERE id = ?2",
+                params!["/music-regulation", record.id],
+            )
+            .expect("retag scale");
+        }
+        // Reload so the comparison sees the retagged rows, not the stale
+        // in-memory structs.
+        let records = list_scale_records(&conn, None, None).expect("reload records");
+
+        let error = compute_condition_effect_comparison(&records, "s1", "anxiety")
+            .expect_err("scale mismatch must be rejected");
+        assert!(error.contains("量表不一致"));
+        assert!(error.contains("/video-regulation"));
+        assert!(error.contains("/music-regulation"));
     }
 
     #[test]
@@ -2490,5 +2770,124 @@ mod tests {
         let mixed_comparison =
             compute_condition_effect_comparison(&mixed, "s1", "anxiety").expect("compare");
         assert!(!mixed_comparison.measured_only);
+    }
+
+    /* ---------------- R7: cross-condition comparison export ---------------- */
+
+    #[test]
+    fn comparison_report_carries_legs_formula_and_verdict() {
+        let conn = setup_conn();
+        // Post legs carry the run facts (skip marker, EEG link, duration) so
+        // the report document stays self-contained and auditable.
+        condition_run(&conn, "s1", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 100.0 }), "01");
+        let regulation = condition_run(&conn, "s1", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 90.0 }), "02");
+        for record in &regulation {
+            let record_id = record.id.clone();
+            conn.execute(
+                "UPDATE scale_records SET regulation_skipped = 1, eeg_session_id = ?1, duration_minutes = 5 WHERE id = ?2",
+                params!["eeg-run-42", record_id],
+            )
+            .expect("stamp regulation run facts");
+        }
+        // Reload so the comparison sees the stamped rows, not the stale
+        // in-memory structs.
+        let records = list_scale_records(&conn, None, None).expect("reload records");
+
+        let comparison =
+            compute_condition_effect_comparison(&records, "s1", "anxiety").expect("compare");
+        let report = build_condition_comparison_report(&comparison);
+
+        assert_eq!(report.subject_id, "s1");
+        assert_eq!(report.emotion.as_deref(), Some("anxiety"));
+        assert_eq!(report.emotion_label.as_deref(), Some("焦虑"));
+        assert_eq!(report.threshold, DEFAULT_IMPROVEMENT_THRESHOLD);
+        // (100 - 90) / 100 = exactly the threshold: verdict true.
+        assert_eq!(report.mean_improvement_rate, Some(DEFAULT_IMPROVEMENT_THRESHOLD));
+        assert!(report.meets_threshold);
+        // The formula statement names the frozen default 口径.
+        assert!(report.formula.contains("B_post"));
+        assert!(report.formula.contains("T_post"));
+        assert!(report.formula.contains("B-1"));
+        // Both legs' trace travels with the document.
+        assert_eq!(report.natural_recovery_leg.condition, CONDITION_NATURAL_RECOVERY);
+        assert_eq!(report.regulation_leg.condition, CONDITION_REGULATION);
+        assert_eq!(report.regulation_leg.eeg_session_id.as_deref(), Some("eeg-run-42"));
+        assert!(report.regulation_leg.regulation_skipped);
+        assert_eq!(report.regulation_leg.duration_minutes, Some(5));
+        assert!(!report.exported_at.is_empty());
+
+        // camelCase JSON shape (the export writes exactly this document).
+        let json = serde_json::to_value(&report).expect("serialize report");
+        assert_eq!(json["naturalRecoveryLeg"]["condition"], serde_json::json!("natural_recovery"));
+        assert_eq!(json["regulationLeg"]["eegSessionId"], serde_json::json!("eeg-run-42"));
+        assert_eq!(json["dimensions"][0]["naturalRecoveryPost"], serde_json::json!(100.0));
+        assert_eq!(json["meetsThreshold"], serde_json::Value::Bool(true));
+        assert!(json["formula"].as_str().expect("formula string").contains("B-1"));
+    }
+
+    #[test]
+    fn comparison_report_csv_repeats_leg_columns_and_the_formula() {
+        let comparison = ConditionEffectComparison {
+            subject_id: "subj, \"quoted\"".to_string(),
+            emotion: Some("anxiety".to_string()),
+            natural_recovery_leg: ConditionComparisonLeg {
+                condition: CONDITION_NATURAL_RECOVERY.to_string(),
+                emotion: Some("anxiety".to_string()),
+                baseline_record_id: "b-nr".to_string(),
+                post_record_id: "p-nr".to_string(),
+                baseline_created_at: "2026-08-28T09:00:00+00:00".to_string(),
+                post_created_at: "2026-08-28T10:00:00+00:00".to_string(),
+                scale_id: "/video-regulation".to_string(),
+                duration_minutes: Some(5),
+                regulation_skipped: false,
+                eeg_session_id: None,
+                measured_only: true,
+            },
+            regulation_leg: ConditionComparisonLeg {
+                condition: CONDITION_REGULATION.to_string(),
+                emotion: Some("anxiety".to_string()),
+                baseline_record_id: "b-reg".to_string(),
+                post_record_id: "p-reg".to_string(),
+                baseline_created_at: "2026-08-28T11:00:00+00:00".to_string(),
+                post_created_at: "2026-08-28T12:00:00+00:00".to_string(),
+                scale_id: "/video-regulation".to_string(),
+                duration_minutes: Some(5),
+                regulation_skipped: true,
+                eeg_session_id: Some("eeg-run-42".to_string()),
+                measured_only: true,
+            },
+            dimensions: vec![ConditionDimensionComparison {
+                dimension: "anxiety".to_string(),
+                natural_recovery_post: 50.0,
+                regulation_post: 40.0,
+                improvement_rate: 0.2,
+            }],
+            mean_improvement_rate: Some(0.2),
+            meets_threshold: true,
+            measured_only: true,
+        };
+        let report = build_condition_comparison_report(&comparison);
+        // Pin the timestamp so the row's trailing column is deterministic.
+        let report = ConditionComparisonReport { exported_at: "2026-08-28T12:30:00+00:00".to_string(), ..report };
+
+        let csv = build_condition_comparison_report_csv(&report);
+        let lines: Vec<&str> = csv.trim_start_matches(CSV_BOM).split("\r\n").collect();
+
+        assert!(csv.starts_with(CSV_BOM));
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].starts_with(
+            "subject_id,emotion,dimension,dimension_label,natural_recovery_post,regulation_post,improvement_rate",
+        ));
+        assert!(lines[0].contains("mean_improvement_rate,threshold,meets_threshold,measured_only"));
+        assert!(lines[0].contains("natural_recovery_post_record_id,regulation_post_record_id"));
+        assert!(lines[0].ends_with("formula,exported_at"));
+        // Meta columns repeat per dimension row, single-report style.
+        assert!(lines[1].contains("\"subj, \"\"quoted\"\"\""));
+        assert!(lines[1].contains(",anxiety,anxiety,焦虑,50,40,0.2,"));
+        assert!(lines[1].contains("5,5,true,,eeg-run-42,p-nr,p-reg,"));
+        assert!(lines[1].contains("2026-08-28T10:00:00+00:00,2026-08-28T12:00:00+00:00,"));
+        // The formula statement rides along as a (quoted) column value.
+        assert!(lines[1].contains("大纲 B-1 冻结项"));
+        assert!(lines[1].ends_with(",2026-08-28T12:30:00+00:00"));
     }
 }

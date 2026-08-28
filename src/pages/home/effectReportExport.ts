@@ -27,7 +27,18 @@ export type BatchReportPayload = {
   path: string;
 };
 
-export type ReportExportPayload = SingleReportPayload | BatchReportPayload;
+export type ComparisonReportPayload = {
+  kind: 'comparison';
+  path: string;
+  format: ExportReportFormat;
+  subjectId: string;
+  emotion: string;
+};
+
+export type ReportExportPayload =
+  | SingleReportPayload
+  | BatchReportPayload
+  | ComparisonReportPayload;
 
 const FORBIDDEN_FILE_CHARS = new Set(['\\', '/', ':', '*', '?', '"', '<', '>', '|']);
 
@@ -70,6 +81,27 @@ export function buildBatchReportPayload(input: {
   };
 }
 
+/**
+ * Assembles the `export_effect_report` payload for the cross-condition
+ * comparison export (R7, 大纲 6.3 步骤 5). The subject binding and target
+ * emotion come from the wizard state - they identify the two legs the
+ * backend re-pairs at export time.
+ */
+export function buildComparisonReportPayload(input: {
+  subjectId: string | null | undefined;
+  emotion: string | null | undefined;
+  path: string | null | undefined;
+  format?: string | null;
+}): ComparisonReportPayload {
+  return {
+    kind: 'comparison',
+    path: requireTrimmed(input.path, '保存路径为空，请重新选择保存位置。'),
+    format: resolveExportFormat(input.format),
+    subjectId: requireTrimmed(input.subjectId, '缺少被试 ID，无法导出跨条件对比报告。'),
+    emotion: requireTrimmed(input.emotion, '缺少目标情绪，无法导出跨条件对比报告。'),
+  };
+}
+
 /** Collapses a subject id into a file-name-safe fragment (CJK preserved). */
 export function slugifySubjectForFile(subjectId: string | null | undefined): string {
   const cleaned = (subjectId ?? '')
@@ -100,7 +132,7 @@ function formatFileStamp(date: Date): string {
  * Production omits `now`; tests pass a fixed date for deterministic names.
  */
 export function suggestReportFileName(options: {
-  kind: 'single' | 'batch';
+  kind: 'single' | 'batch' | 'comparison';
   format?: ExportReportFormat;
   subjectId?: string | null;
   now?: Date;
@@ -113,6 +145,10 @@ export function suggestReportFileName(options: {
 
   const extension = resolveExportFormat(options.format);
   const subject = slugifySubjectForFile(options.subjectId);
+
+  if (options.kind === 'comparison') {
+    return `effect-comparison-${subject}-${stamp}.${extension}`;
+  }
 
   return `effect-report-${subject}-${stamp}.${extension}`;
 }

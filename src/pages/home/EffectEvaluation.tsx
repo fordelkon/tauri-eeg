@@ -12,7 +12,10 @@ import { save } from '@tauri-apps/plugin-dialog';
 import type { EChartsType } from 'echarts/core';
 import { getParadigmSessionStatus } from '../../eeg/paradigm/paradigmSessionStatus';
 import MentalScaleDialog from '../../mentalScale/MentalScaleDialog';
-import { exportEffectReport } from '../../mentalScale/scaleRecordsApi';
+import {
+  exportEffectReport,
+  type ConditionComparisonLegView,
+} from '../../mentalScale/scaleRecordsApi';
 import { useConfirmDialog } from '../../ui/useConfirmDialog';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import { toPlayableVideoUrl } from '../../video/videoRegulationCatalog';
@@ -35,10 +38,12 @@ import {
 } from './effectEvaluationFlow';
 import {
   buildBatchReportPayload,
+  buildComparisonReportPayload,
   buildSingleReportPayload,
   suggestReportFileName,
   type ExportReportFormat,
 } from './effectReportExport';
+import { formatRunTimestamp } from './effectHistoryView';
 import {
   buildConditionComparisonChartOption,
   buildEffectChartOption,
@@ -158,6 +163,10 @@ export default function EffectEvaluation() {
   // The induction video only mounts after the operator explicitly starts the
   // induction (EEG association + paradigm-session guard ride on that entry).
   const [isInductionPlaying, setIsInductionPlaying] = useState(false);
+  // R7: a video that fails mid-run (file moved/corrupted) must not strand the
+  // induction step - the error branch offers a remount retry or a way back.
+  const [inductionVideoFailed, setInductionVideoFailed] = useState(false);
+  const [inductionRetryCount, setInductionRetryCount] = useState(0);
   const [activeTab, setActiveTab] = useState<PageTab>('wizard');
   const [isExporting, setIsExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<ExportNotice | null>(null);
@@ -174,6 +183,7 @@ export default function EffectEvaluation() {
   useEffect(() => {
     if (state.step !== 1) {
       setIsInductionPlaying(false);
+      setInductionVideoFailed(false);
     }
   }, [state.step]);
 
@@ -259,6 +269,17 @@ export default function EffectEvaluation() {
     }
   };
 
+  /**
+   * R7: remounts the player after a load failure (the retry counter rides on
+   * the element key so a fresh <video> re-fetches the file). The alternative
+   * exit - reset back to the setup step - is the flow reset below the wizard.
+   */
+  const handleRetryInductionVideo = () => {
+    setInductionVideoFailed(false);
+    setInductionRetryCount((count) => count + 1);
+    setIsInductionPlaying(true);
+  };
+
   const runSingleExport = async (format: ExportReportFormat) => {
     setExportNotice(null);
     setIsExporting(true);
@@ -307,6 +328,40 @@ export default function EffectEvaluation() {
       setExportNotice({ severity: 'success', text: `批量汇总已导出：${result.path}` });
     } catch (error) {
       setExportNotice({ severity: 'error', text: describeFriendlyError(error, '导出批量汇总') });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  /**
+   * R7, 大纲 6.3 步骤 5: the cross-condition comparison document (both legs'
+   * trace, per-dimension inputs, verdict, frozen formula note). The backend
+   * re-pairs the two legs from the wizard's subject+emotion at export time.
+   */
+  const runComparisonExport = async (format: ExportReportFormat) => {
+    setExportNotice(null);
+    setIsExporting(true);
+
+    try {
+      const path = await save({
+        title: format === 'csv' ? '导出跨条件对比报告（CSV）' : '导出跨条件对比报告（JSON）',
+        defaultPath: suggestReportFileName({ kind: 'comparison', format, subjectId: state.subjectId }),
+        filters: [{ name: format.toUpperCase(), extensions: [format] }],
+      });
+
+      if (typeof path !== 'string') {
+        return;
+      }
+
+      const result = await exportEffectReport(buildComparisonReportPayload({
+        subjectId: state.subjectId,
+        emotion: state.emotion,
+        path,
+        format,
+      }));
+      setExportNotice({ severity: 'success', text: `跨条件对比报告已导出：${result.path}` });
+    } catch (error) {
+      setExportNotice({ severity: 'error', text: describeFriendlyError(error, '导出跨条件对比报告') });
     } finally {
       setIsExporting(false);
     }
@@ -435,10 +490,28 @@ export default function EffectEvaluation() {
           <p className={styles.panelHint}>正在加载诱发素材库…</p>
         ) : status.kind === 'blocked' ? (
           <Alert severity="warning">{status.copy}</Alert>
+        ) : inductionVideoFailed && status.kind === 'ready' ? (
+          <>
+            {/* R7: a mid-run file failure (moved/corrupted) must not strand
+                the induction step - only onEnded advances, so onError needs
+                its own branch with a retry and a way back to the setup step. */}
+            <Alert severity="error">
+              诱发素材加载失败（文件可能已被移动或损坏），播放已中断。可重试加载；
+              若素材库文件已缺失，请先到 EEG 采集页补齐素材库，或重置流程返回设置步。
+            </Alert>
+            <div className={styles.actionsRow}>
+              <Button variant="outlined" onClick={handleRetryInductionVideo}>
+                重试加载素材
+              </Button>
+              <Button variant="outlined" color="warning" onClick={flow.resetFlow}>
+                重置并返回设置步
+              </Button>
+            </div>
+          </>
         ) : isInductionPlaying && status.kind === 'ready' ? (
           <>
             <video
-              key={status.entry.videoId}
+              key={`${status.entry.videoId}-${inductionRetryCount}`}
               className={styles.inductionVideo}
               src={toPlayableVideoUrl(status.entry.absolutePath, convertFileSrc)}
               controls
@@ -450,6 +523,7 @@ export default function EffectEvaluation() {
                 }
               }}
               onEnded={() => flow.completeInduction()}
+              onError={() => setInductionVideoFailed(true)}
             />
             <p className={styles.panelHint}>
               正在播放诱发素材「{status.entry.fileName}」，播放结束后自动进入诱发后量表。
@@ -609,6 +683,16 @@ export default function EffectEvaluation() {
     </section>
   );
 
+  /** R7, 大纲 6.3 步骤 5: one leg's record trace chip (id + timestamp). */
+  const renderComparisonLegTrace = (label: string, leg: ConditionComparisonLegView) => (
+    <span
+      className={styles.configChip}
+      title={`post 记录 ${leg.postRecordId}；基线记录 ${leg.baselineRecordId}；量表 ${leg.scaleId}`}
+    >
+      {label} post {`${leg.postRecordId.slice(0, 8)}…`} · {formatRunTimestamp(leg.postCreatedAt)}
+    </span>
+  );
+
   /** R6, 大纲 6.2: regulation vs natural-recovery runs of this subject+emotion. */
   const renderConditionComparison = () => (
     <section className={styles.panel} aria-label="跨条件对比">
@@ -667,6 +751,14 @@ export default function EffectEvaluation() {
 
           <p className={styles.panelHint} role="note">{CONDITION_COMPARISON_FORMULA_NOTE}</p>
 
+          {/* R7, 大纲 6.3 步骤 5: both legs' post-record ids and timestamps
+              stay visible on screen so the pairing is auditable without the
+              export document (the full ids ride on the chip tooltips). */}
+          <div className={styles.configSummary}>
+            {renderComparisonLegTrace('基线条件', flow.conditionComparison.naturalRecoveryLeg)}
+            {renderComparisonLegTrace('调控条件', flow.conditionComparison.regulationLeg)}
+          </div>
+
           {comparisonMeasuredBasisNote ? (
             <p className={styles.panelHint} role="note">{comparisonMeasuredBasisNote}</p>
           ) : null}
@@ -704,6 +796,26 @@ export default function EffectEvaluation() {
               </table>
             </>
           ) : null}
+
+          {/* R7, 大纲 6.3 步骤 5: the comparison's calculation process leaves
+              the page and lands in a file (JSON: full legs + formula; CSV:
+              per-dimension rows, single-report style). */}
+          <div className={styles.actionsRow}>
+            <Button
+              variant="outlined"
+              disabled={isExporting}
+              onClick={() => void runComparisonExport('json')}
+            >
+              导出跨条件对比报告（JSON）
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={isExporting}
+              onClick={() => void runComparisonExport('csv')}
+            >
+              导出跨条件对比报告（CSV）
+            </Button>
+          </div>
         </>
       ) : null}
     </section>

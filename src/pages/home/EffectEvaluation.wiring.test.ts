@@ -272,3 +272,58 @@ describe('six-step flow & condition split (R6 contract)', () => {
     expect(chartSource).toContain('buildConditionComparisonChartOption');
   });
 });
+
+describe('comparison export, leg trace & induction fallback (R7 contract)', () => {
+  test('the comparison card renders both legs\' record trace and export buttons', () => {
+    const pageSource = readText(new URL('./EffectEvaluation.tsx', import.meta.url));
+    const exportSource = readText(new URL('./effectReportExport.ts', import.meta.url));
+    const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
+
+    // 大纲 6.3 步骤 5: the pairing is auditable on screen - both legs'
+    // post-record ids and timestamps come from the backend comparison.
+    expect(pageSource).toContain('renderComparisonLegTrace');
+    expect(pageSource).toContain('flow.conditionComparison.naturalRecoveryLeg');
+    expect(pageSource).toContain('flow.conditionComparison.regulationLeg');
+    expect(pageSource).toContain('formatRunTimestamp');
+
+    // The export rides the existing save-dialog flow with its own payload
+    // builder and file-name family.
+    expect(pageSource).toContain("runComparisonExport('json')");
+    expect(pageSource).toContain("runComparisonExport('csv')");
+    expect(pageSource).toContain('buildComparisonReportPayload');
+    expect(exportSource).toContain('effect-comparison-');
+    expect(apiSource).toContain("kind: 'comparison'");
+  });
+
+  test('the backend leg shape travels into the view types', () => {
+    const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
+
+    // The camelCase mirror of the backend ConditionComparisonLeg keeps the
+    // record ids, timestamps, and run facts typed for the card.
+    expect(apiSource).toContain('naturalRecoveryLeg: ConditionComparisonLegView');
+    expect(apiSource).toContain('regulationLeg: ConditionComparisonLegView');
+  });
+
+  test('a failed induction video offers a retry and a way back to the setup step', () => {
+    const pageSource = readText(new URL('./EffectEvaluation.tsx', import.meta.url));
+
+    // R7, feedback-003 P2-3: only onEnded advances the flow, so a load
+    // failure needs its own branch - no silent dead end on step 1.
+    expect(pageSource).toContain('inductionVideoFailed && status.kind === \'ready\'');
+    expect(pageSource).toContain('onError={() => setInductionVideoFailed(true)}');
+    expect(pageSource).toContain('重试加载素材');
+    expect(pageSource).toContain('重置并返回设置步');
+    // The retry remounts a fresh element (the counter rides on the key).
+    expect(pageSource).toContain('`${status.entry.videoId}-${inductionRetryCount}`');
+  });
+
+  test('the history panel shows each run\'s condition with a legacy tag', () => {
+    const panelSource = readText(new URL('./EffectHistoryPanel.tsx', import.meta.url));
+    const viewSource = readText(new URL('./effectHistoryView.ts', import.meta.url));
+
+    // R7, feedback-003 P2-1: the row chip distinguishes natural-recovery /
+    // regulation / legacy runs.
+    expect(panelSource).toContain('labelForHistoryCondition(entry.condition)');
+    expect(viewSource).toContain('export function labelForHistoryCondition');
+  });
+});

@@ -13,6 +13,7 @@ import {
   formatRunTimestamp,
   groupHistoryBySubject,
   labelForEmotion,
+  labelForHistoryCondition,
   outcomeForEntry,
   type HistoryOutcome,
 } from './effectHistoryView';
@@ -190,6 +191,13 @@ export default function EffectHistoryPanel() {
                           {formatRunTimestamp(entry.postCreatedAt)}
                         </span>
                         <span className={styles.configChip}>情绪 {labelForEmotion(entry.emotion)}</span>
+                        {/* R7, feedback-003 P2-1: the condition chip makes
+                            natural-recovery / regulation / legacy runs
+                            distinguishable at a glance while checking that
+                            both conditions were completed. */}
+                        <span className={styles.configChip}>
+                          {labelForHistoryCondition(entry.condition)}
+                        </span>
                         <span className={styles.historyRowRate}>
                           改善率 {formatMeanImprovementRate(entry.meanImprovementRate)}
                         </span>

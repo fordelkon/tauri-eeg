@@ -440,14 +440,21 @@ async fn compute_condition_effect(
 #[serde(rename_all = "camelCase")]
 struct ExportEffectReportInput {
     /// `single` exports one baseline/post pair; `batch` writes every
-    /// subject's most recent evaluation as CSV.
+    /// subject's most recent evaluation as CSV; `comparison` writes the
+    /// cross-condition comparison of one subject+emotion (R7).
     kind: String,
-    /// `json` or `csv`; single defaults to json and batch is always csv.
+    /// `json` or `csv`; single/comparison default to json, batch is always csv.
     format: Option<String>,
     /// Absolute destination chosen by the user through the save dialog.
     path: String,
     baseline_record_id: Option<String>,
     post_record_id: Option<String>,
+    /// Subject binding of the comparison export (kind = `comparison`).
+    #[serde(default)]
+    subject_id: Option<String>,
+    /// Target emotion of the comparison export (kind = `comparison`).
+    #[serde(default)]
+    emotion: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -539,6 +546,39 @@ async fn export_effect_report(
                 scale_records::build_batch_effect_report_csv(
                     &scale_records::latest_entry_per_subject_emotion_condition(&history),
                 )
+            }
+            "comparison" => {
+                let required_field = |label: &str, value: Option<&String>| -> Result<String, String> {
+                    value
+                        .map(String::as_str)
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                        .map(str::to_string)
+                        .ok_or_else(|| format!("{label} is required."))
+                };
+                let subject_id = required_field("Subject id", input.subject_id.as_ref())?;
+                let emotion = required_field("Emotion", input.emotion.as_ref())?;
+
+                let conn = conn
+                    .lock()
+                    .map_err(|_| "Database is unavailable.".to_string())?;
+                let records = scale_records::list_scale_records(&conn, None, None)?;
+                // 大纲 6.3 步骤 5: the exported document carries both legs'
+                // trace, the per-dimension inputs, the verdict, and the frozen
+                // formula statement so the calculation can be re-derived.
+                let comparison = scale_records::compute_condition_effect_comparison(
+                    &records,
+                    &subject_id,
+                    &emotion,
+                )?;
+                let report = scale_records::build_condition_comparison_report(&comparison);
+
+                if format == "csv" {
+                    scale_records::build_condition_comparison_report_csv(&report)
+                } else {
+                    serde_json::to_string_pretty(&report)
+                        .map_err(|_| "Failed to serialize the report.".to_string())?
+                }
             }
             other => return Err(format!("Unknown report kind '{other}'.")),
         };
