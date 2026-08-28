@@ -499,6 +499,44 @@ describe('emotion induction pool gating (R6 素材池硬前置)', () => {
     expect(status).toEqual({ kind: 'ready', entry: fearPool[0] });
   });
 
+  // Regression for the R8 hotfix: the production default pickIndex is
+  // Math.random, whose value is FRACTIONAL in [0, 1). A bare modulo made
+  // pool[index] undefined and crashed the induction step render (white
+  // screen). Every injected picker in the older tests is an integer, which
+  // is why this never surfaced in CI.
+  it('survives the fractional Math.random default without crashing (R8 hotfix)', () => {
+    const fearPool: ParadigmVideoEntry[] = [
+      { videoId: 'fear-1', fileName: 'fear_01.mp4', absolutePath: 'C:' + String.fromCharCode(92) + '\clips' + String.fromCharCode(92) + 'fear_01.mp4' },
+      { videoId: 'fear-2', fileName: 'fear_02.mp4', absolutePath: 'C:' + String.fromCharCode(92) + '\clips' + String.fromCharCode(92) + 'fear_02.mp4' },
+      { videoId: 'fear-3', fileName: 'fear_03.mp4', absolutePath: 'C:' + String.fromCharCode(92) + '\clips' + String.fromCharCode(92) + 'fear_03.mp4' },
+    ];
+
+    // No injected picker: exercises the real Math.random default.
+    for (let round = 0; round < 50; round += 1) {
+      const status = describeInductionPoolStatus('fear', fearPool);
+      expect(status.kind).toBe('ready');
+      if (status.kind === 'ready') {
+        expect(fearPool).toContain(status.entry);
+      }
+    }
+
+    // A fractional injected picker scales by the pool length.
+    const fractional = describeInductionPoolStatus('fear', fearPool, () => 0.73);
+    expect(fractional.kind).toBe('ready');
+    if (fractional.kind === 'ready') {
+      expect(fractional.entry).toEqual(fearPool[Math.floor(0.73 * fearPool.length)]);
+    }
+  });
+
+
+  it('blocks when the pool is undefined at runtime, not just null (R8 hotfix)', () => {
+    const stale = describeInductionPoolStatus('fear', undefined as unknown as null, () => 0);
+    expect(stale.kind).toBe('blocked');
+    if (stale.kind === 'blocked') {
+      expect(stale.copy).toContain('素材库');
+    }
+  });
+
   it('still blocks a fear run on a missing or empty pool without a silent skip', () => {
     const missing = describeInductionPoolStatus('fear', null, () => 0);
     expect(missing.kind).toBe('blocked');

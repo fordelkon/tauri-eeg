@@ -233,7 +233,7 @@ export function useEffectEvaluationFlow() {
           return;
         }
 
-        setInductionPool(library.valid ? library[poolKey] : null);
+        setInductionPool(library.valid ? (library[poolKey] ?? null) : null);
       })
       .catch(() => {
         if (cancelled) {
