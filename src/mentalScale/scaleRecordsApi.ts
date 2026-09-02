@@ -306,6 +306,10 @@ export function listEffectHistory(): Promise<EffectHistoryEntryView[]> {
   return invoke<EffectHistoryEntryView[]>('list_effect_history');
 }
 
+export function deleteScaleRecord(id: string): Promise<ScaleRecordView> {
+  return invoke<ScaleRecordView>('delete_scale_record', { input: { id } });
+}
+
 /**
  * Writes one run's JSON/CSV report, the all-subjects batch CSV, or the
  * cross-condition comparison document of one subject+emotion to a
@@ -316,3 +320,5 @@ export function exportEffectReport(
 ): Promise<ExportEffectReportResultView> {
   return invoke<ExportEffectReportResultView>('export_effect_report', { input });
 }
+
+// PROBE-1788340860040

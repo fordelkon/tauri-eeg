@@ -493,6 +493,33 @@
   display: grid;
 }
 
+.historyRowLine {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.historyRowLine .historyRow {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.historyDeleteButton {
+  color: rgba(var(--ee-ink-rgb), 0.4);
+  flex: 0 0 auto;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.historyDeleteButton:hover {
+  background: rgba(179, 38, 30, 0.09);
+  color: #b3261e;
+}
+
+.historyDeleteButton:disabled {
+  opacity: 0.45;
+}
+
 .historyRow {
   align-items: center;
   background: rgba(255, 255, 255, 0.72);

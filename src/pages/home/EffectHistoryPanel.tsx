@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Collapse from '@mui/material/Collapse';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import IconButton from '@mui/material/IconButton';
+import DeleteOutlineRounded from '@mui/icons-material/DeleteOutlineRounded';
 import {
+  deleteScaleRecord,
   listEffectHistory,
   type EffectHistoryEntryView,
 } from '../../mentalScale/scaleRecordsApi';
@@ -97,6 +105,9 @@ export default function EffectHistoryPanel() {
   const [isLoading, setIsLoading] = useState(false);
   const [subjectQuery, setSubjectQuery] = useState('');
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<EffectHistoryEntryView | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const loadHistory = useCallback(async () => {
     setIsLoading(true);
@@ -124,6 +135,28 @@ export default function EffectHistoryPanel() {
 
   const toggleRow = (postId: string) => {
     setExpandedPostId((current) => (current === postId ? null : postId));
+  };
+
+  // A history entry is derived from its baseline+post record pair, so
+  // deleting a run removes BOTH legs; the pair disappears as one run.
+  const confirmDelete = async () => {
+    const entry = pendingDelete;
+    if (!entry || isDeleting) {
+      return;
+    }
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteScaleRecord(entry.postRecordId);
+      await deleteScaleRecord(entry.baselineRecordId);
+      setExpandedPostId((current) => (current === entry.postRecordId ? null : current));
+      setPendingDelete(null);
+      await loadHistory();
+    } catch (error) {
+      setDeleteError(describeFriendlyError(error, '删除历史评价记录'));
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (loadError) {
@@ -159,6 +192,12 @@ export default function EffectHistoryPanel() {
         </div>
       </div>
 
+      {deleteError ? (
+        <Alert severity="warning" onClose={() => setDeleteError(null)}>
+          {deleteError}
+        </Alert>
+      ) : null}
+
       {entries === null ? (
         <p className={`${styles.panelHint} ${styles.loadingHint}`}>{isLoading ? '正在加载历史评价…' : ''}</p>
       ) : filteredEntries.length === 0 ? (
@@ -183,6 +222,7 @@ export default function EffectHistoryPanel() {
 
                   return (
                     <div key={entry.postRecordId} className={styles.historyRowWrap}>
+                      <div className={styles.historyRowLine}>
                       <button
                         type="button"
                         className={styles.historyRow}
@@ -208,6 +248,19 @@ export default function EffectHistoryPanel() {
                         </span>
                       </button>
 
+                        <IconButton
+                          type="button"
+                          className={styles.historyDeleteButton}
+                          aria-label={`删除 ${formatRunTimestamp(entry.postCreatedAt)} 的评价记录`}
+                          title="删除这条评价记录"
+                          disabled={isDeleting}
+                          onClick={() => setPendingDelete(entry)}
+                          size="small"
+                        >
+                          <DeleteOutlineRounded fontSize="small" />
+                        </IconButton>
+                      </div>
+
                       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                         <RunDetailTable entry={entry} />
                       </Collapse>
@@ -219,6 +272,31 @@ export default function EffectHistoryPanel() {
           ))}
         </div>
       )}
+
+      <Dialog
+        open={pendingDelete !== null}
+        onClose={() => {
+          if (!isDeleting) {
+            setPendingDelete(null);
+          }
+        }}
+        aria-labelledby="history-delete-title"
+      >
+        <DialogTitle id="history-delete-title">删除这条历史评价?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            将同时删除该次评价对应的基线与复测量表记录，删除后无法恢复。
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDelete(null)} disabled={isDeleting}>
+            取消
+          </Button>
+          <Button color="error" disabled={isDeleting} onClick={() => void confirmDelete()}>
+            删除
+          </Button>
+        </DialogActions>
+      </Dialog>
     </section>
   );
 }
