@@ -54,6 +54,15 @@ import styles from './EffectEvaluation.module.css';
 
 const DURATION_MINUTE_OPTIONS = [1, 3, 5, 10, 15, 30] as const;
 
+/** Sign-tints the headline metric value green (improved) / brand red
+ *  (worse) - presentation only, mirroring the table's rate cells. */
+const metricValueClass = (rate: number | null) =>
+  `${styles.metricHeroValue}${rate !== null ? ` ${rate >= 0 ? styles.isPositive : styles.isNegative}` : ''}`;
+
+/** Clamps a scale score into the 0-100% width of the mini before/after
+ *  bars (the same axis range the result charts use). */
+const scoreBarPercent = (score: number) => Math.min(100, Math.max(0, Math.round(score)));
+
 type PageTab = 'wizard' | 'history';
 
 type ExportNotice = {
@@ -112,12 +121,66 @@ function EffectResultChart({
   }, [isChartReady, option]);
 
   return (
+    <div className={styles.chartWrap}>
+      {/* ECharts hosts on the inner box: zrender sizes the canvas from
+          clientWidth/Height and starts it in the content box, so the padded,
+          bordered frame must sit outside the chart element itself. */}
+      <div
+        ref={chartRef}
+        className={styles.chartCanvas}
+        role="img"
+        aria-label={ariaLabel ?? '基线与调控后量表得分对比图'}
+      />
+    </div>
+  );
+}
+
+/** Verdict hero for the result & comparison cards: a severity-tinted banner
+ *  with an icon disc, so the finish reads as a completed state instead of
+ *  an incidental message. The copy comes straight from the pure builders -
+ *  presentation only, the text is not modified here. */
+function VerdictBanner({
+  copy,
+}: {
+  copy: { severity: 'success' | 'warning'; title: string; detail: string };
+}) {
+  const isPass = copy.severity === 'success';
+
+  return (
     <div
-      ref={chartRef}
-      className={styles.chartWrap}
-      role="img"
-      aria-label={ariaLabel ?? '基线与调控后量表得分对比图'}
-    />
+      className={`${styles.resultHero} ${isPass ? styles.heroPass : styles.heroWarn}`}
+      role="status"
+    >
+      <span className={styles.heroIcon} aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="currentColor" focusable="false">
+          {isPass ? (
+            <path d="M9.55 17.57 4.88 12.9l1.41-1.41 3.26 3.25 8.16-8.16 1.41 1.42z" />
+          ) : (
+            <path d="M11 7h2v8h-2zm0 10h2v2h-2z" />
+          )}
+        </svg>
+      </span>
+      <p className={styles.heroCopy}>
+        <strong className={styles.heroTitle}>{copy.title}</strong>
+        <span className={styles.heroDetail}>{copy.detail}</span>
+      </p>
+    </div>
+  );
+}
+
+/** One score cell for the dimension tables: the number plus a mini 0-100
+ *  bar so 基线 vs 调控后 compare at a glance down the column. */
+function ScoreCell({ value, barClass }: { value: number; barClass?: string }) {
+  return (
+    <span className={styles.scoreCell}>
+      <span className={styles.scoreNum}>{Math.round(value)}</span>
+      <span className={styles.scoreTrack} aria-hidden="true">
+        <span
+          className={`${styles.scoreBar}${barClass ? ` ${barClass}` : ''}`}
+          style={{ width: `${scoreBarPercent(value)}%` }}
+        />
+      </span>
+    </span>
   );
 }
 
@@ -405,10 +468,12 @@ export default function EffectEvaluation() {
 
   const renderSetupStep = () => (
     <section className={styles.panel} aria-label="选择被试与评价配置">
-      <h2 className={styles.panelTitle}>选择被试</h2>
-      <p className={styles.panelHint}>
-        被试 ID 会绑定到本轮的诱发后与条件后量表记录，用于配对计算改善率。
-      </p>
+      <div className={styles.stepHeader}>
+        <h2 className={styles.panelTitle}>选择被试</h2>
+        <p className={styles.panelHint}>
+          被试 ID 会绑定到本轮的诱发后与条件后量表记录，用于配对计算改善率。
+        </p>
+      </div>
 
       <div className={styles.fieldGrid}>
         <label className={styles.fieldLabel}>
@@ -477,17 +542,19 @@ export default function EffectEvaluation() {
 
     return (
       <section className={styles.panel} aria-label="情绪诱发">
-        <h2 className={styles.panelTitle}>情绪诱发</h2>
-        <p className={styles.panelHint}>
-          播放目标情绪的诱发素材（来自 EEG 采集页校验过的 video_paradigm 素材库）；
-          开始诱发时在设备可用的情况下自动关联 EEG 记录，素材播放完毕后进入诱发后量表。
-        </p>
+        <div className={styles.stepHeader}>
+          <h2 className={styles.panelTitle}>情绪诱发</h2>
+          <p className={styles.panelHint}>
+            播放目标情绪的诱发素材（来自 EEG 采集页校验过的 video_paradigm 素材库）；
+            开始诱发时在设备可用的情况下自动关联 EEG 记录，素材播放完毕后进入诱发后量表。
+          </p>
+        </div>
         {configSummary}
 
         {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
 
         {flow.isInductionPoolLoading ? (
-          <p className={styles.panelHint}>正在加载诱发素材库…</p>
+          <p className={`${styles.panelHint} ${styles.loadingHint}`}>正在加载诱发素材库…</p>
         ) : status.kind === 'blocked' ? (
           <Alert severity="warning">{status.copy}</Alert>
         ) : inductionVideoFailed && status.kind === 'ready' ? (
@@ -552,15 +619,17 @@ export default function EffectEvaluation() {
 
     return (
       <section
-        className={styles.panel}
+        className={`${styles.panel} ${styles.panelImmersive}`}
         aria-label={isBaseline ? '诱发后量表' : '条件后量表'}
       >
-        <h2 className={styles.panelTitle}>{isBaseline ? '诱发后量表' : '条件后复测'}</h2>
-        <p className={styles.panelHint}>
-          {isBaseline
-            ? '情绪诱发已完成，请先完成一次心理量表，作为本次条件执行前的评价基线（phase 记为 baseline）。'
-            : '条件执行已结束，请用同一份量表再测一次，用于计算各维度改善率。'}
-        </p>
+        <div className={styles.stepHeader}>
+          <h2 className={styles.panelTitle}>{isBaseline ? '诱发后量表' : '条件后复测'}</h2>
+          <p className={styles.panelHint}>
+            {isBaseline
+              ? '情绪诱发已完成，请先完成一次心理量表，作为本次条件执行前的评价基线（phase 记为 baseline）。'
+              : '条件执行已结束，请用同一份量表再测一次，用于计算各维度改善率。'}
+          </p>
+        </div>
         {configSummary}
 
         {!isBaseline && skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
@@ -599,15 +668,17 @@ export default function EffectEvaluation() {
    * navigation, no regulation-page session context.
    */
   const renderConditionStep = () => (
-    <section className={styles.panel} aria-label="条件执行">
-      <h2 className={styles.panelTitle}>
-        {isNaturalRecovery ? '条件执行：自然恢复（基线条件）' : '执行调控'}
-      </h2>
-      <p className={styles.panelHint}>
-        {isNaturalRecovery
-          ? '诱发后不施加任何调控手段：请让被试保持静息放松（减少眨眼与头动），按设定时长自然恢复，倒计时结束后进入复测。本步骤全程停留在本页。'
-          : `前往${methodLabel}页面进行调控，本页按设定的时长计时；结束后回到本页继续复测。`}
-      </p>
+    <section className={`${styles.panel} ${styles.panelImmersive}`} aria-label="条件执行">
+      <div className={styles.stepHeader}>
+        <h2 className={styles.panelTitle}>
+          {isNaturalRecovery ? '条件执行：自然恢复（基线条件）' : '执行调控'}
+        </h2>
+        <p className={styles.panelHint}>
+          {isNaturalRecovery
+            ? '诱发后不施加任何调控手段：请让被试保持静息放松（减少眨眼与头动），按设定时长自然恢复，倒计时结束后进入复测。本步骤全程停留在本页。'
+            : `前往${methodLabel}页面进行调控，本页按设定的时长计时；结束后回到本页继续复测。`}
+        </p>
+      </div>
 
       <div className={styles.configSummary}>
         <span className={styles.configChip}>被试 {state.subjectId.trim() || '未填写'}</span>
@@ -683,10 +754,18 @@ export default function EffectEvaluation() {
     </section>
   );
 
-  /** R7, 大纲 6.3 步骤 5: one leg's record trace chip (id + timestamp). */
-  const renderComparisonLegTrace = (label: string, leg: ConditionComparisonLegView) => (
+  /** R7, 大纲 6.3 步骤 5: one leg's record trace card (id + timestamp).
+   *  The leading swatch matches the comparison chart's series color so the
+   *  on-screen pairing stays legible next to the chart. */
+  const renderComparisonLegTrace = (
+    label: string,
+    leg: ConditionComparisonLegView,
+    tone: 'baseline' | 'regulation',
+  ) => (
     <span
-      className={styles.configChip}
+      className={`${styles.legTrace} ${
+        tone === 'baseline' ? styles.legTraceBaseline : styles.legTraceRegulation
+      }`}
       title={`post 记录 ${leg.postRecordId}；基线记录 ${leg.baselineRecordId}；量表 ${leg.scaleId}`}
     >
       {label} post {`${leg.postRecordId.slice(0, 8)}…`} · {formatRunTimestamp(leg.postCreatedAt)}
@@ -695,15 +774,20 @@ export default function EffectEvaluation() {
 
   /** R6, 大纲 6.2: regulation vs natural-recovery runs of this subject+emotion. */
   const renderConditionComparison = () => (
-    <section className={styles.panel} aria-label="跨条件对比">
-      <h2 className={styles.panelTitle}>跨条件对比（基线条件 vs 调控条件）</h2>
-      <p className={styles.panelHint}>
-        同被试同情绪分别完成 基线条件（自然恢复） 与 调控条件 各一次完整评价后，
-        此处自动对比两条件的条件后得分。
-      </p>
+    <section
+      className={`${styles.panel} ${styles.resultPanel}`}
+      aria-label="跨条件对比"
+    >
+      <div className={styles.stepHeader}>
+        <h2 className={styles.panelTitle}>跨条件对比（基线条件 vs 调控条件）</h2>
+        <p className={styles.panelHint}>
+          同被试同情绪分别完成 基线条件（自然恢复） 与 调控条件 各一次完整评价后，
+          此处自动对比两条件的条件后得分。
+        </p>
+      </div>
 
       {flow.isLoadingConditionComparison ? (
-        <p className={styles.panelHint}>正在计算跨条件对比…</p>
+        <p className={`${styles.panelHint} ${styles.loadingHint}`}>正在计算跨条件对比…</p>
       ) : null}
 
       {flow.conditionComparisonError ? (
@@ -726,41 +810,49 @@ export default function EffectEvaluation() {
 
       {flow.conditionComparison && comparisonVerdictCopy && !flow.isLoadingConditionComparison ? (
         <>
-          <Alert severity={comparisonVerdictCopy.severity}>
-            <strong>{comparisonVerdictCopy.title}</strong> -- {comparisonVerdictCopy.detail}
-          </Alert>
+          <VerdictBanner copy={comparisonVerdictCopy} />
 
-          <div className={styles.statsRow}>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>跨条件平均改善率</span>
-              <span className={styles.statValue}>
+          <div className={styles.metricGrid}>
+            <div className={styles.metricHero}>
+              <span className={styles.metricLabel}>跨条件平均改善率</span>
+              <span className={metricValueClass(flow.conditionComparison.meanImprovementRate)}>
+                {flow.conditionComparison.meanImprovementRate === null ? null : (
+                  <span
+                    className={`${styles.deltaArrow} ${
+                      flow.conditionComparison.meanImprovementRate >= 0
+                        ? styles.deltaArrowUp
+                        : styles.deltaArrowDown
+                    }`}
+                    aria-hidden="true"
+                  />
+                )}
                 {flow.conditionComparison.meanImprovementRate === null
                   ? '-'
                   : formatImprovementRate(flow.conditionComparison.meanImprovementRate)}
               </span>
             </div>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>达标阈值</span>
-              <span className={styles.statValue}>10%</span>
+            <div className={styles.metricCard}>
+              <span className={styles.metricLabel}>达标阈值</span>
+              <span className={styles.metricValue}>10%</span>
             </div>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>实际纳入对比的维度数</span>
-              <span className={styles.statValue}>{flow.conditionComparison.dimensions.length}</span>
+            <div className={styles.metricCard}>
+              <span className={styles.metricLabel}>实际纳入对比的维度数</span>
+              <span className={styles.metricValue}>{flow.conditionComparison.dimensions.length}</span>
             </div>
           </div>
 
-          <p className={styles.panelHint} role="note">{CONDITION_COMPARISON_FORMULA_NOTE}</p>
+          <p className={styles.noteCallout} role="note">{CONDITION_COMPARISON_FORMULA_NOTE}</p>
 
           {/* R7, 大纲 6.3 步骤 5: both legs' post-record ids and timestamps
               stay visible on screen so the pairing is auditable without the
-              export document (the full ids ride on the chip tooltips). */}
-          <div className={styles.configSummary}>
-            {renderComparisonLegTrace('基线条件', flow.conditionComparison.naturalRecoveryLeg)}
-            {renderComparisonLegTrace('调控条件', flow.conditionComparison.regulationLeg)}
+              export document (the full ids ride on the card tooltips). */}
+          <div className={styles.legTraceGrid}>
+            {renderComparisonLegTrace('基线条件', flow.conditionComparison.naturalRecoveryLeg, 'baseline')}
+            {renderComparisonLegTrace('调控条件', flow.conditionComparison.regulationLeg, 'regulation')}
           </div>
 
           {comparisonMeasuredBasisNote ? (
-            <p className={styles.panelHint} role="note">{comparisonMeasuredBasisNote}</p>
+            <p className={styles.noteCallout} role="note">{comparisonMeasuredBasisNote}</p>
           ) : null}
 
           {comparisonChartOption ? (
@@ -769,38 +861,43 @@ export default function EffectEvaluation() {
                 option={comparisonChartOption}
                 ariaLabel="基线条件与调控条件条件后得分对比图"
               />
-              <table className={styles.dimensionTable}>
-                <thead>
-                  <tr>
-                    <th>维度</th>
-                    <th>基线条件 post</th>
-                    <th>调控条件 post</th>
-                    <th>改善率</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {flow.conditionComparison.dimensions.map((dimension) => (
-                    <tr key={dimension.dimension}>
-                      <td>{labelForDimension(dimension.dimension)}</td>
-                      <td>{Math.round(dimension.naturalRecoveryPost)}</td>
-                      <td>{Math.round(dimension.regulationPost)}</td>
-                      <td className={dimension.improvementRate >= 0
-                        ? `${styles.rateCell} ${styles.isPositive}`
-                        : `${styles.rateCell} ${styles.isNegative}`}
-                      >
-                        {formatImprovementRate(dimension.improvementRate)}
-                      </td>
+              <div className={styles.tableFrame}>
+                <table className={styles.dimensionTable}>
+                  <thead>
+                    <tr>
+                      <th>维度</th>
+                      <th>基线条件 post</th>
+                      <th>调控条件 post</th>
+                      <th>改善率</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {flow.conditionComparison.dimensions.map((dimension) => (
+                      <tr key={dimension.dimension}>
+                        <td>{labelForDimension(dimension.dimension)}</td>
+                        <td><ScoreCell value={dimension.naturalRecoveryPost} /></td>
+                        <td><ScoreCell
+                          value={dimension.regulationPost}
+                          barClass={dimension.improvementRate >= 0 ? styles.barUp : styles.barDown}
+                        /></td>
+                        <td className={dimension.improvementRate >= 0
+                          ? `${styles.rateCell} ${styles.isPositive}`
+                          : `${styles.rateCell} ${styles.isNegative}`}
+                        >
+                          {formatImprovementRate(dimension.improvementRate)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           ) : null}
 
           {/* R7, 大纲 6.3 步骤 5: the comparison's calculation process leaves
               the page and lands in a file (JSON: full legs + formula; CSV:
               per-dimension rows, single-report style). */}
-          <div className={styles.actionsRow}>
+          <div className={`${styles.actionsRow} ${styles.resultActions}`}>
             <Button
               variant="outlined"
               disabled={isExporting}
@@ -822,10 +919,15 @@ export default function EffectEvaluation() {
   );
 
   const renderResultStep = () => (
-    <section className={styles.panel} aria-label="结果评价">
+    <section
+      className={`${styles.panel} ${styles.resultPanel}`}
+      aria-label="结果评价"
+    >
       <h2 className={styles.panelTitle}>结果评价</h2>
 
-      {flow.isLoadingSummary ? <p className={styles.panelHint}>正在计算改善率…</p> : null}
+      {flow.isLoadingSummary ? (
+        <p className={`${styles.panelHint} ${styles.loadingHint}`}>正在计算改善率…</p>
+      ) : null}
 
       {flow.summaryError ? (
         <>
@@ -840,35 +942,43 @@ export default function EffectEvaluation() {
 
       {flow.summary && verdictCopy && !flow.isLoadingSummary ? (
         <>
-          <Alert severity={verdictCopy.severity}>
-            <strong>{verdictCopy.title}</strong> -- {verdictCopy.detail}
-          </Alert>
+          <VerdictBanner copy={verdictCopy} />
 
           {skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
 
-          <div className={styles.statsRow}>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>平均改善率</span>
-              <span className={styles.statValue}>
+          <div className={styles.metricGrid}>
+            <div className={styles.metricHero}>
+              <span className={styles.metricLabel}>平均改善率</span>
+              <span className={metricValueClass(flow.summary.meanImprovementRate)}>
+                {flow.summary.meanImprovementRate === null ? null : (
+                  <span
+                    className={`${styles.deltaArrow} ${
+                      flow.summary.meanImprovementRate >= 0
+                        ? styles.deltaArrowUp
+                        : styles.deltaArrowDown
+                    }`}
+                    aria-hidden="true"
+                  />
+                )}
                 {flow.summary.meanImprovementRate === null
                   ? '-'
                   : formatImprovementRate(flow.summary.meanImprovementRate)}
               </span>
             </div>
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>达标阈值</span>
-              <span className={styles.statValue}>10%</span>
+            <div className={styles.metricCard}>
+              <span className={styles.metricLabel}>达标阈值</span>
+              <span className={styles.metricValue}>10%</span>
             </div>
             {/* R4/F1: only dimensions marked as measured on both sides enter
                 the mean, so this count is the honest comparison basis. */}
-            <div className={styles.statCard}>
-              <span className={styles.statLabel}>实际纳入对比的维度数</span>
-              <span className={styles.statValue}>{flow.summary.dimensions.length}</span>
+            <div className={styles.metricCard}>
+              <span className={styles.metricLabel}>实际纳入对比的维度数</span>
+              <span className={styles.metricValue}>{flow.summary.dimensions.length}</span>
             </div>
           </div>
 
           {measuredBasisNote ? (
-            <p className={styles.panelHint} role="note">{measuredBasisNote}</p>
+            <p className={styles.noteCallout} role="note">{measuredBasisNote}</p>
           ) : null}
 
           {state.eegSessionId ? (
@@ -882,35 +992,40 @@ export default function EffectEvaluation() {
           {chartOption ? (
             <>
               <EffectResultChart option={chartOption} />
-              <table className={styles.dimensionTable}>
-                <thead>
-                  <tr>
-                    <th>维度</th>
-                    <th>基线</th>
-                    <th>调控后</th>
-                    <th>改善率</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {flow.summary.dimensions.map((dimension) => (
-                    <tr key={dimension.dimension}>
-                      <td>{labelForDimension(dimension.dimension)}</td>
-                      <td>{Math.round(dimension.baseline)}</td>
-                      <td>{Math.round(dimension.post)}</td>
-                      <td className={dimension.improvementRate >= 0
-                        ? `${styles.rateCell} ${styles.isPositive}`
-                        : `${styles.rateCell} ${styles.isNegative}`}
-                      >
-                        {formatImprovementRate(dimension.improvementRate)}
-                      </td>
+              <div className={styles.tableFrame}>
+                <table className={styles.dimensionTable}>
+                  <thead>
+                    <tr>
+                      <th>维度</th>
+                      <th>基线</th>
+                      <th>调控后</th>
+                      <th>改善率</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {flow.summary.dimensions.map((dimension) => (
+                      <tr key={dimension.dimension}>
+                        <td>{labelForDimension(dimension.dimension)}</td>
+                        <td><ScoreCell value={dimension.baseline} /></td>
+                        <td><ScoreCell
+                          value={dimension.post}
+                          barClass={dimension.improvementRate >= 0 ? styles.barUp : styles.barDown}
+                        /></td>
+                        <td className={dimension.improvementRate >= 0
+                          ? `${styles.rateCell} ${styles.isPositive}`
+                          : `${styles.rateCell} ${styles.isNegative}`}
+                        >
+                          {formatImprovementRate(dimension.improvementRate)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           ) : null}
 
-          <div className={styles.actionsRow}>
+          <div className={`${styles.actionsRow} ${styles.resultActions}`}>
             <Button
               variant="outlined"
               disabled={isExporting}
@@ -934,6 +1049,11 @@ export default function EffectEvaluation() {
   const regulationProgressPercent = Math.min(100, Math.max(0,
     100 - ((flow.remainingSeconds ?? 0) * 1000 / regulationDurationMs(state)) * 100,
   ));
+
+  // Steps 2-4 run immersive: the full stepper collapses into one fixed-height
+  // progress strip so the scale gate and the countdown stage keep every pixel
+  // of vertical space the tall stepper card was taking. 0/1/5 keep the stepper.
+  const isImmersiveStep = state.step >= 2 && state.step <= 4;
 
   const stepContent: ReactNode[] = [
     renderSetupStep(),
@@ -986,16 +1106,47 @@ export default function EffectEvaluation() {
 
       {activeTab === 'wizard' ? (
         <>
-          <Stepper activeStep={state.step} alternativeLabel className={styles.stepper}>
-            {EFFECT_FLOW_STEPS.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+          {isImmersiveStep ? (
+            /* Fixed-height one-line progress strip - the exact same element
+               across steps 2/3/4 (fixed 40px box, same sticky slot), so the
+               layout above the content never shifts when the flow advances.
+               Left: current step; right: a 6-segment tracker whose active
+               segment widens to carry the eye. */
+            <div className={styles.miniProgress}>
+              <span className={styles.miniProgressLabel}>
+                第 {state.step + 1} 步 · {EFFECT_FLOW_STEPS[state.step]}
+              </span>
+              <span className={styles.miniProgressTrack} aria-hidden="true">
+                {EFFECT_FLOW_STEPS.map((label, index) => (
+                  <span
+                    key={label}
+                    title={label}
+                    className={`${styles.miniProgressSeg} ${
+                      index < state.step
+                        ? styles.miniProgressSegDone
+                        : index === state.step
+                          ? styles.miniProgressSegActive
+                          : styles.miniProgressSegPending
+                    }`}
+                  />
+                ))}
+              </span>
+            </div>
+          ) : (
+            <Stepper activeStep={state.step} alternativeLabel className={styles.stepper}>
+              {EFFECT_FLOW_STEPS.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+          )}
 
           {state.step === 5 ? (
-            <>{stepContent[5]}{renderConditionComparison()}</>
+            <div className={styles.resultStep}>
+              {stepContent[5]}
+              {renderConditionComparison()}
+            </div>
           ) : (
             stepContent[state.step]
           )}

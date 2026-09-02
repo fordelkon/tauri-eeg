@@ -1,7 +1,49 @@
+/* ------------------------------------------------------------------ */
+/* Design tokens                                                       */
+/* ------------------------------------------------------------------ */
+/*
+ * Page-local tokens for the effect-evaluation wizard, aligned with the
+ * app-wide cream/ink/red language (MusicRegulation / GameRegulation):
+ * one ink, one brand red + gradient partner, a fixed radius scale
+ * (18 surfaces / 14 inner cards / 10 controls) and two layered card
+ * shadows. Keeping them on .workspace scopes the tokens to this page.
+ */
 .workspace {
-  animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  color: #172026;
-  gap: 16px;
+  --ee-ink: #172026;
+  --ee-ink-rgb: 23, 32, 38;
+  --ee-brand: #df0203;
+  --ee-brand-rgb: 223, 2, 3;
+  --ee-brand-soft: #fb7f6e;
+  --ee-brand-gradient: linear-gradient(135deg, #f0413a, #df0203);
+  --ee-brand-gradient-hover: linear-gradient(135deg, #e63730, #c60202);
+  --ee-line: rgba(var(--ee-ink-rgb), 0.1);
+  --ee-line-strong: rgba(var(--ee-ink-rgb), 0.18);
+  --ee-radius-surface: 18px;
+  --ee-radius-card: 14px;
+  --ee-radius-control: 10px;
+  --ee-shadow-card:
+    0 1px 2px rgba(var(--ee-ink-rgb), 0.04),
+    0 12px 32px rgba(var(--ee-ink-rgb), 0.07);
+  --ee-shadow-lift:
+    0 2px 6px rgba(var(--ee-ink-rgb), 0.06),
+    0 18px 40px rgba(var(--ee-ink-rgb), 0.12);
+
+  /* fill backwards, not both: the finished keyframe would pin
+     translate3d(0,0,0) scale(1) on .workspace forever, and a retained
+     transform turns the embedded MentalScaleDialog's position:fixed
+     into workspace-relative absolute - the modal lands mispositioned
+     behind the flow content. backwards releases the transform at
+     animation end (visually identical, no delay is set). */
+  animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  color: var(--ee-ink);
+  /* display + gap give the wizard its vertical rhythm; Box defaults to a
+     plain block where `gap` never applied, leaving sections stacked
+     edge-to-edge. */
+  /* flex column (not grid): a grid item's sticky offsets are clamped to
+     its grid area, which pins it in place - flex children stick freely. */
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
   margin: 0 auto;
   max-width: 1080px;
 }
@@ -14,11 +56,291 @@
 
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* MUI component re-theme (scoped to this page)                        */
+/* ------------------------------------------------------------------ */
+/*
+ * The page mixes custom controls with stock MUI (Button, Stepper, Alert).
+ * Without a theme provider those render in Material blue #1976d2, which
+ * fights the cream/ink/red language. These :global overrides pull every
+ * MUI piece on the page onto the token set; they are scoped under
+ * .workspace so other routes are untouched.
+ */
+.workspace :global(.MuiButton-root) {
+  border-radius: var(--ee-radius-control);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  min-height: 42px;
+  padding: 6px 18px;
+  text-transform: none;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+.workspace :global(.MuiButton-contained) {
+  background: var(--ee-brand-gradient);
+  box-shadow:
+    0 6px 16px rgba(var(--ee-brand-rgb), 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.workspace :global(.MuiButton-contained:hover) {
+  background: var(--ee-brand-gradient-hover);
+  box-shadow:
+    0 8px 20px rgba(var(--ee-brand-rgb), 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.workspace :global(.MuiButton-contained:active) {
+  box-shadow: 0 3px 10px rgba(var(--ee-brand-rgb), 0.26);
+}
+
+.workspace :global(.MuiButton-contained.Mui-disabled) {
+  background: rgba(var(--ee-ink-rgb), 0.14);
+  box-shadow: none;
+  color: rgba(var(--ee-ink-rgb), 0.44);
+}
+
+.workspace :global(.MuiButton-outlined) {
+  border: 1px solid rgba(var(--ee-ink-rgb), 0.26);
+  color: rgba(var(--ee-ink-rgb), 0.82);
+  box-shadow: none;
+}
+
+.workspace :global(.MuiButton-outlined:hover) {
+  background: rgba(var(--ee-ink-rgb), 0.05);
+  border-color: rgba(var(--ee-ink-rgb), 0.46);
+  box-shadow: none;
+}
+
+.workspace :global(.MuiButton-outlined.Mui-disabled) {
+  border-color: rgba(var(--ee-ink-rgb), 0.14);
+  color: rgba(var(--ee-ink-rgb), 0.4);
+}
+
+/* Warning-flavored secondary actions (skip / reset escapes) stay amber,
+   not Material blue, and never fill on hover. */
+.workspace :global(.MuiButton-outlinedWarning) {
+  border-color: rgba(196, 138, 24, 0.5);
+  color: #96640e;
+}
+
+.workspace :global(.MuiButton-outlinedWarning:hover) {
+  background: rgba(196, 138, 24, 0.08);
+  border-color: rgba(196, 138, 24, 0.7);
+}
+
+.workspace :global(.MuiButton-text) {
+  color: rgba(var(--ee-ink-rgb), 0.78);
+}
+
+/* Stepper: active/completed steps ride the brand red, pending steps stay
+   hairline gray, labels gain a weight step when their step activates.
+   The bar also pins to the top of the content scrollport: the result
+   step is tall, and without it the flow progress scrolls out of sight
+   while reviewing charts/history. Frosted glass keeps scrolled content
+   readable underneath. */
+.stepper {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-surface);
+  box-shadow: var(--ee-shadow-card);
+  padding: 16px 18px 10px;
+}
+
+.stepper :global(.MuiStepIcon-root) {
+  color: rgba(var(--ee-ink-rgb), 0.32);
+  transition: color 200ms ease;
+}
+
+.stepper :global(.MuiStepIcon-root.Mui-active) {
+  color: var(--ee-brand);
+}
+
+.stepper :global(.MuiStepIcon-root.Mui-active text) {
+  fill: #fff;
+}
+
+.stepper :global(.MuiStepIcon-root.Mui-completed) {
+  color: rgba(var(--ee-brand-rgb), 0.62);
+}
+
+.stepper :global(.MuiStepLabel-label) {
+  color: rgba(var(--ee-ink-rgb), 0.55);
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  transition: color 200ms ease;
+}
+
+.stepper :global(.MuiStepLabel-label.Mui-active) {
+  color: var(--ee-ink);
+  font-weight: 750;
+}
+
+.stepper :global(.MuiStepLabel-label.Mui-completed) {
+  color: rgba(var(--ee-ink-rgb), 0.72);
+}
+
+.stepper :global(.MuiStepConnector-line) {
+  border-color: rgba(var(--ee-ink-rgb), 0.16);
+}
+
+/* ------------------------------------------------------------------ */
+/* Immersive step strip (steps 2-4)                                    */
+/* ------------------------------------------------------------------ */
+/*
+ * The three mid-flow steps swap the full stepper card for this one-line
+ * strip. Height is a fixed 40px box (border included) and the element sits
+ * in the same sticky slot on every immersive step, so advancing 2 → 3 → 4
+ * never shifts anything below; all the height the stepper card used to take
+ * lands on the countdown stage and the scale gate instead.
+ */
+.miniProgress {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--ee-line);
+  border-radius: 999px;
+  box-shadow: var(--ee-shadow-card);
+  box-sizing: border-box;
+  display: flex;
+  gap: 16px;
+  height: 40px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0 20px;
+}
+
+.miniProgressLabel {
+  color: var(--ee-ink);
+  font-size: 13px;
+  font-weight: 720;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Six-segment tracker: completed steps carry a dimmed brand tint, the
+   active one the full brand gradient (and a wider pill - the one token of
+   emphasis this compact bar gets), pending ones a hairline gray. */
+.miniProgressTrack {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.miniProgressSeg {
+  border-radius: 999px;
+  display: block;
+  height: 6px;
+  transition:
+    background-color 240ms ease,
+    box-shadow 240ms ease,
+    width 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  width: 18px;
+}
+
+.miniProgressSegDone {
+  background: rgba(var(--ee-brand-rgb), 0.42);
+}
+
+.miniProgressSegActive {
+  background: var(--ee-brand-gradient);
+  box-shadow: 0 1px 5px rgba(var(--ee-brand-rgb), 0.4);
+  width: 26px;
+}
+
+.miniProgressSegPending {
+  background: rgba(var(--ee-ink-rgb), 0.15);
+}
+
+/* Alerts (verdict banners, gate hints, export notices) adopt the calm
+   banner palette the regulation pages already use, instead of MUI's
+   default saturated tints. */
+.workspace :global(.MuiAlert-root) {
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.55;
+  padding: 10px 14px;
+}
+
+.workspace :global(.MuiAlert-root .MuiAlert-message) {
+  padding: 2px 0;
+}
+
+.workspace :global(.MuiAlert-root .MuiAlert-message strong) {
+  font-weight: 760;
+  /* Breathing room before the "--" separator so the verdict's bold lead
+     reads as its own beat instead of running into the detail. */
+  margin-right: 2px;
+}
+
+.workspace :global(.MuiAlert-standardInfo) {
+  background: rgba(45, 113, 184, 0.08);
+  border: 1px solid rgba(45, 113, 184, 0.2);
+  color: #245f9d;
+}
+
+.workspace :global(.MuiAlert-standardInfo .MuiAlert-icon) {
+  color: #245f9d;
+}
+
+.workspace :global(.MuiAlert-standardWarning) {
+  background: rgba(217, 119, 6, 0.09);
+  border: 1px solid rgba(217, 119, 6, 0.24);
+  color: #8a5a10;
+}
+
+.workspace :global(.MuiAlert-standardWarning .MuiAlert-icon) {
+  color: #a4690f;
+}
+
+.workspace :global(.MuiAlert-standardError) {
+  background: rgba(196, 58, 48, 0.1);
+  border: 1px solid rgba(196, 58, 48, 0.22);
+  color: #8d2d25;
+}
+
+.workspace :global(.MuiAlert-standardError .MuiAlert-icon) {
+  color: #8d2d25;
+}
+
+.workspace :global(.MuiAlert-standardSuccess) {
+  background: rgba(34, 125, 84, 0.1);
+  border: 1px solid rgba(34, 125, 84, 0.22);
+  color: #1c6a47;
+}
+
+.workspace :global(.MuiAlert-standardSuccess .MuiAlert-icon) {
+  color: #1c6a47;
+}
+
+/* ------------------------------------------------------------------ */
+/* Header                                                              */
+/* ------------------------------------------------------------------ */
+
 .header {
+  display: grid;
   gap: 14px;
 }
 
@@ -34,19 +356,31 @@
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  padding-top: 6px;
+  padding-top: 8px;
 }
 
 .eyebrow {
-  color: rgba(23, 32, 38, 0.58);
+  align-items: center;
+  color: rgba(var(--ee-brand-rgb), 0.78);
+  display: flex;
   font-size: 12px;
   font-weight: 760;
+  gap: 7px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
+.eyebrow::before {
+  background: linear-gradient(135deg, #fb7f6e, #df0203);
+  border-radius: 999px;
+  content: "";
+  display: block;
+  height: 10px;
+  width: 10px;
+}
+
 .title {
-  color: #172026;
+  color: var(--ee-ink);
   font-size: 26px;
   font-weight: 720;
   line-height: 1.1;
@@ -54,21 +388,49 @@
 }
 
 .description {
-  color: rgba(23, 32, 38, 0.66);
-  font-size: 13px;
-  line-height: 1.5;
-  margin: 6px 0 0;
+  color: rgba(var(--ee-ink-rgb), 0.66);
+  font-size: 13.5px;
+  line-height: 1.6;
+  margin: 8px 0 0;
   max-width: 720px;
 }
 
-.stepper {
-  background: transparent;
-  padding: 10px 4px 2px;
-}
+/* ------------------------------------------------------------------ */
+/* Tabs                                                                */
+/* ------------------------------------------------------------------ */
 
 .tabBar {
-  border-bottom: 1px solid rgba(23, 32, 38, 0.12);
+  border-bottom: 1px solid rgba(var(--ee-ink-rgb), 0.12);
+  min-height: 44px;
 }
+
+.tabBar :global(.MuiTabs-indicator) {
+  background: linear-gradient(90deg, #fb7f6e, #df0203);
+  border-radius: 999px 999px 0 0;
+  height: 3px;
+}
+
+.tabBar :global(.MuiTab-root) {
+  border-radius: 8px 8px 0 0;
+  color: rgba(var(--ee-ink-rgb), 0.62);
+  font-weight: 680;
+  min-height: 44px;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.tabBar :global(.MuiTab-root:hover) {
+  background: rgba(var(--ee-ink-rgb), 0.04);
+  color: rgba(var(--ee-ink-rgb), 0.88);
+}
+
+.tabBar :global(.MuiTab-root.Mui-selected) {
+  color: var(--ee-brand);
+  font-weight: 740;
+}
+
+/* ------------------------------------------------------------------ */
+/* History list                                                        */
+/* ------------------------------------------------------------------ */
 
 .historyToolbar {
   align-items: center;
@@ -92,26 +454,31 @@
 
 .historyGroups {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
+/* Subject groups: a slightly deeper tint than the panel behind them so
+   the list reads as one nested level, with its own soft shadow. */
 .historyGroup {
-  background: rgba(255, 255, 255, 0.5);
-  border: 1px solid rgba(23, 32, 38, 0.1);
-  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-card);
+  box-shadow: 0 6px 20px rgba(var(--ee-ink-rgb), 0.04);
   display: grid;
   gap: 10px;
   padding: 14px 16px;
 }
 
 .historyGroupHead {
-  color: #172026;
-  font-size: 14px;
-  font-weight: 700;
+  align-items: baseline;
+  color: var(--ee-ink);
+  display: flex;
+  font-size: 14.5px;
+  font-weight: 720;
 }
 
 .historyGroupCount {
-  color: rgba(23, 32, 38, 0.55);
+  color: rgba(var(--ee-ink-rgb), 0.55);
   font-size: 12.5px;
   font-weight: 650;
   margin-left: 8px;
@@ -128,9 +495,9 @@
 
 .historyRow {
   align-items: center;
-  background: transparent;
-  border: 1px solid rgba(23, 32, 38, 0.14);
-  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(var(--ee-ink-rgb), 0.14);
+  border-radius: var(--ee-radius-control);
   cursor: pointer;
   display: flex;
   flex-wrap: wrap;
@@ -138,22 +505,45 @@
   gap: 10px;
   padding: 10px 12px;
   text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
   width: 100%;
 }
 
+/* Hover lifts the row a hair - the affordance for "this row expands". */
 .historyRow:hover {
-  border-color: rgba(223, 2, 3, 0.45);
+  background: #fff;
+  border-color: rgba(var(--ee-brand-rgb), 0.45);
+  box-shadow: 0 6px 18px rgba(var(--ee-ink-rgb), 0.08);
+  transform: translateY(-1px);
+}
+
+.historyRow:focus-visible {
+  border-color: rgba(var(--ee-brand-rgb), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.12);
+  outline: none;
+}
+
+/* The open row keeps its hover styling (minus the lift) so the expanded
+   detail below reads as part of the selected run. */
+.historyRow[aria-expanded='true'] {
+  background: #fff;
+  border-color: rgba(var(--ee-brand-rgb), 0.45);
+  box-shadow: 0 4px 12px rgba(var(--ee-ink-rgb), 0.05);
 }
 
 .historyRowTime {
-  color: #172026;
+  color: var(--ee-ink);
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   min-width: 130px;
 }
 
 .historyRowRate {
-  color: rgba(23, 32, 38, 0.78);
+  color: rgba(var(--ee-ink-rgb), 0.78);
   font-variant-numeric: tabular-nums;
 }
 
@@ -172,8 +562,8 @@
 }
 
 .outcomeFail {
-  background: rgba(223, 2, 3, 0.08);
-  border: 1px solid rgba(223, 2, 3, 0.35);
+  background: rgba(var(--ee-brand-rgb), 0.08);
+  border: 1px solid rgba(var(--ee-brand-rgb), 0.35);
   color: #a30102;
 }
 
@@ -183,34 +573,163 @@
   color: #46525a;
 }
 
+/* Expanded detail: an inset tinted well separates the drill-down data
+   from the row summary above it. */
 .historyDetail {
-  border-top: 1px dashed rgba(23, 32, 38, 0.18);
+  background: rgba(var(--ee-ink-rgb), 0.03);
+  border: 1px solid rgba(var(--ee-ink-rgb), 0.08);
+  border-radius: var(--ee-radius-control);
   display: grid;
   gap: 10px;
-  padding: 12px 4px 4px;
+  margin: 2px 0 4px;
+  padding: 12px;
 }
 
+/* ------------------------------------------------------------------ */
+/* Panels: the step/result cards                                       */
+/* ------------------------------------------------------------------ */
+/*
+ * White-on-tint surface card consistent with the other regulation pages:
+ * one hairline border, one layered soft shadow, generous padding. Static
+ * container - hover affordances are reserved for actual controls.
+ */
 .panel {
-  border: 1px solid rgba(23, 32, 38, 0.12);
-  border-radius: 16px;
-  box-shadow: 0 12px 32px rgba(23, 32, 38, 0.06);
+  /* backwards, not both: a retained end-of-animation transform keeps
+     .panel as a stacking context + fixed-containing-block forever,
+     which trapped the inline scale dialog under the sticky progress
+     bar. Same trap the workspace animation dodges above. */
+  animation: panelEnter 360ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-surface);
+  box-shadow: var(--ee-shadow-card);
   display: grid;
   gap: 16px;
-  padding: 22px;
+  padding: 24px 26px;
+}
+
+@keyframes panelEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .panelTitle {
-  font-size: 17px;
-  font-weight: 700;
+  align-items: center;
+  display: flex;
+  font-size: 18px;
+  font-weight: 720;
+  gap: 10px;
   margin: 0;
 }
 
-.panelHint {
-  color: rgba(23, 32, 38, 0.62);
-  font-size: 13px;
-  line-height: 1.55;
-  margin: 0;
+/* Small accent bar tying panel titles back to the brand red. */
+.panelTitle::before {
+  background: linear-gradient(180deg, #fb7f6e, #df0203);
+  border-radius: 999px;
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  height: 16px;
+  width: 4px;
 }
+
+/* Title + hint read as one heading unit (tight internal gap) that sits a
+   full panel gap above the content - the same heading rhythm on every
+   step panel, so the six steps share one vertical system. */
+.stepHeader {
+  display: grid;
+  gap: 6px;
+}
+
+/* Steps 2-4 (immersive): a tighter panel rhythm - the compact top strip
+   freed vertical space, and the panels hand it to the scale gate and the
+   countdown stage rather than reclaiming it as padding. */
+.panelImmersive {
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.panelHint {
+  color: rgba(var(--ee-ink-rgb), 0.62);
+  font-size: 13.5px;
+  line-height: 1.65;
+  margin: 0;
+  /* ~60 CJK glyphs per line keeps the long guidance copy at a comfortable
+     reading measure instead of stretching across the whole panel. */
+  max-width: 60em;
+}
+
+/* Loading hints get a quiet pulsing dot so "calculating…" reads as live. */
+.loadingHint {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.loadingHint::before {
+  animation: loadingPulse 1.1s ease-in-out infinite;
+  background: var(--ee-brand);
+  border-radius: 999px;
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  height: 7px;
+  width: 7px;
+}
+
+@keyframes loadingPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Empty states (no history yet / no match) get a calm dashed placeholder
+   instead of a bare line of gray text; a fading hairline above the copy
+   gives the box a quiet focal point. */
+.emptyState {
+  background: rgba(var(--ee-ink-rgb), 0.03);
+  border: 1px dashed rgba(var(--ee-ink-rgb), 0.2);
+  border-radius: var(--ee-radius-card);
+  color: rgba(var(--ee-ink-rgb), 0.58);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.55;
+  padding: 24px 20px 22px;
+  text-align: center;
+}
+
+.emptyState::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(var(--ee-ink-rgb), 0.22),
+    transparent
+  );
+  border-radius: 999px;
+  content: "";
+  display: block;
+  height: 3px;
+  margin: 0 auto 12px;
+  width: 36px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Form controls                                                       */
+/* ------------------------------------------------------------------ */
 
 .fieldGrid {
   display: grid;
@@ -224,26 +743,33 @@
 }
 
 .fieldLabelText {
-  color: rgba(23, 32, 38, 0.72);
+  color: rgba(var(--ee-ink-rgb), 0.72);
   font-size: 13px;
   font-weight: 650;
 }
 
 .textInput,
 .selectInput {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(23, 32, 38, 0.18);
-  border-radius: 10px;
-  color: #172026;
+  background: #fff;
+  border: 1px solid rgba(var(--ee-ink-rgb), 0.18);
+  border-radius: var(--ee-radius-control);
+  color: var(--ee-ink);
   font-size: 14px;
   min-height: 40px;
   padding: 8px 12px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
   width: 100%;
+}
+
+.textInput:hover,
+.selectInput:hover {
+  border-color: rgba(var(--ee-ink-rgb), 0.34);
 }
 
 .textInput:focus,
 .selectInput:focus {
-  border-color: rgba(223, 2, 3, 0.55);
+  border-color: rgba(var(--ee-brand-rgb), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.1);
   outline: none;
 }
 
@@ -255,27 +781,48 @@
 }
 
 .pillLabel {
-  color: rgba(23, 32, 38, 0.72);
+  color: rgba(var(--ee-ink-rgb), 0.72);
   font-size: 13px;
   font-weight: 650;
 }
 
 .pillRadio {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(23, 32, 38, 0.18);
+  background: #fff;
+  border: 1px solid rgba(var(--ee-ink-rgb), 0.18);
   border-radius: 999px;
-  color: rgba(23, 32, 38, 0.78);
+  color: rgba(var(--ee-ink-rgb), 0.78);
   cursor: pointer;
   font-size: 13px;
   font-weight: 650;
   min-height: 34px;
   padding: 0 16px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+.pillRadio:hover {
+  border-color: rgba(var(--ee-ink-rgb), 0.38);
+  color: var(--ee-ink);
+}
+
+.pillRadio:focus-visible {
+  border-color: rgba(var(--ee-brand-rgb), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.12);
+  outline: none;
 }
 
 .pillRadio.isSelected {
-  background: #df0203;
-  border-color: #df0203;
+  background: var(--ee-brand-gradient);
+  border-color: var(--ee-brand);
+  box-shadow: 0 6px 16px rgba(var(--ee-brand-rgb), 0.28);
   color: #fff;
+}
+
+.pillRadio.isSelected:hover {
+  background: var(--ee-brand-gradient-hover);
 }
 
 .actionsRow {
@@ -286,44 +833,45 @@
   justify-content: flex-end;
 }
 
-.primaryAction {
-  background: #df0203;
-  border: none;
-  border-radius: 10px;
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 700;
-  min-height: 42px;
-  padding: 0 20px;
-}
-
-.primaryAction:disabled {
-  background: rgba(23, 32, 38, 0.18);
-  color: rgba(23, 32, 38, 0.45);
-  cursor: not-allowed;
-}
-
+/* Ghost-tier action (reset flow) - the one custom button left on the
+   page; the MUI overrides above carry primary/secondary tiers. */
 .secondaryAction {
   background: transparent;
-  border: 1px solid rgba(23, 32, 38, 0.24);
-  border-radius: 10px;
-  color: rgba(23, 32, 38, 0.78);
+  border: 1px solid rgba(var(--ee-ink-rgb), 0.24);
+  border-radius: var(--ee-radius-control);
+  color: rgba(var(--ee-ink-rgb), 0.78);
   cursor: pointer;
   font-size: 13px;
   font-weight: 650;
   min-height: 38px;
   padding: 0 16px;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.secondaryAction:hover {
+  background: rgba(var(--ee-ink-rgb), 0.05);
+  border-color: rgba(var(--ee-ink-rgb), 0.42);
+  color: var(--ee-ink);
+}
+
+.secondaryAction:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.1);
+  outline: none;
 }
 
 .errorBanner {
-  background: rgba(223, 2, 3, 0.08);
-  border: 1px solid rgba(223, 2, 3, 0.35);
-  border-radius: 10px;
+  background: rgba(var(--ee-brand-rgb), 0.08);
+  border: 1px solid rgba(var(--ee-brand-rgb), 0.35);
+  border-radius: var(--ee-radius-control);
   color: #a30102;
   font-size: 13px;
+  font-weight: 650;
   padding: 10px 14px;
 }
+
+/* ------------------------------------------------------------------ */
+/* Config / EEG chips                                                  */
+/* ------------------------------------------------------------------ */
 
 .configSummary {
   display: flex;
@@ -332,17 +880,19 @@
 }
 
 .configChip {
-  background: rgba(23, 32, 38, 0.06);
-  border: 1px solid rgba(23, 32, 38, 0.12);
+  background: rgba(var(--ee-ink-rgb), 0.05);
+  border: 1px solid rgba(var(--ee-ink-rgb), 0.12);
   border-radius: 999px;
-  color: rgba(23, 32, 38, 0.76);
+  color: rgba(var(--ee-ink-rgb), 0.76);
   font-size: 12.5px;
+  font-weight: 650;
   padding: 5px 12px;
 }
 
 .inductionVideo {
   background: #000;
-  border-radius: 12px;
+  border-radius: var(--ee-radius-card);
+  box-shadow: 0 16px 36px rgba(var(--ee-ink-rgb), 0.16);
   display: block;
   margin: 0 auto;
   max-height: 420px;
@@ -350,28 +900,43 @@
   width: min(720px, 100%);
 }
 
+/* ------------------------------------------------------------------ */
+/* Countdown stage                                                     */
+/* ------------------------------------------------------------------ */
+/*
+ * Countdown sits in its own quiet stage so the big digits read as the focal
+ * point of the condition step.
+ */
 .countdownWrap {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.55));
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
   display: grid;
-  gap: 10px;
+  gap: 12px;
   justify-items: center;
-  padding: 10px 0 4px;
+  padding: 26px 24px 20px;
 }
 
 .countdownValue {
-  color: #172026;
+  color: var(--ee-ink);
   font-size: 56px;
   font-variant-numeric: tabular-nums;
   font-weight: 750;
   letter-spacing: 0.04em;
   line-height: 1;
+  transition: color 300ms ease;
 }
 
 .countdownDone {
-  color: #df0203;
+  background: linear-gradient(135deg, #fb7f6e, #df0203);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .progressTrack {
-  background: rgba(23, 32, 38, 0.1);
+  background: rgba(var(--ee-ink-rgb), 0.1);
   border-radius: 999px;
   height: 8px;
   overflow: hidden;
@@ -380,6 +945,8 @@
 
 .progressBar {
   background: linear-gradient(90deg, #fb7f6e, #df0203);
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(var(--ee-brand-rgb), 0.35);
   height: 100%;
   transition: width 500ms linear;
 }
@@ -387,6 +954,7 @@
 .eegChip {
   border-radius: 999px;
   font-size: 12.5px;
+  font-weight: 650;
   padding: 5px 12px;
 }
 
@@ -408,45 +976,326 @@
   color: #2b5bbf;
 }
 
-.statsRow {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+/* ------------------------------------------------------------------ */
+/* Result step: verdict hero, metrics, chart, tables                   */
+/* ------------------------------------------------------------------ */
+
+/* Step 5 mounts its two panels in a dedicated stack so the result area
+   breathes on a wider rhythm (24px) than the wizard steps above. */
+.resultStep {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
-.statCard {
-  background: rgba(255, 255, 255, 0.66);
-  border: 1px solid rgba(23, 32, 38, 0.1);
-  border-radius: 14px;
-  display: grid;
-  gap: 4px;
-  padding: 14px 16px;
+/* Result panels run a slightly deeper padding/gap than the input steps:
+   the output deserves the calmest container on the page. */
+.resultPanel {
+  gap: 20px;
+  padding: 26px 28px 28px;
 }
 
-.statLabel {
-  color: rgba(23, 32, 38, 0.6);
-  font-size: 12px;
+/* Verdict hero: replaces the stock Alert on the result/comparison cards.
+   A severity-tinted banner whose icon disc is the "completed" visual
+   anchor - the finish reads as an achievement, not a side note. */
+.resultHero {
+  animation: heroEnter 420ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  border: 1px solid transparent;
+  border-radius: var(--ee-radius-card);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto 1fr;
+  padding: 16px 18px;
+}
+
+@keyframes heroEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.heroPass {
+  background: linear-gradient(
+    135deg,
+    rgba(34, 125, 84, 0.1),
+    rgba(34, 125, 84, 0.035) 55%,
+    rgba(255, 255, 255, 0.6)
+  );
+  border-color: rgba(34, 125, 84, 0.26);
+}
+
+.heroWarn {
+  background: linear-gradient(
+    135deg,
+    rgba(217, 119, 6, 0.1),
+    rgba(217, 119, 6, 0.035) 55%,
+    rgba(255, 255, 255, 0.6)
+  );
+  border-color: rgba(217, 119, 6, 0.28);
+}
+
+.heroIcon {
+  align-items: center;
+  border-radius: 13px;
+  color: #fff;
+  display: flex;
+  flex: 0 0 auto;
+  height: 40px;
+  justify-content: center;
+  width: 40px;
+}
+
+.heroIcon svg {
+  display: block;
+  height: 22px;
+  width: 22px;
+}
+
+.heroPass .heroIcon {
+  background: linear-gradient(135deg, #2f9e63, #1c6a47);
+  box-shadow: 0 6px 16px rgba(34, 125, 84, 0.32);
+}
+
+.heroWarn .heroIcon {
+  background: linear-gradient(135deg, #f0a13a, #c07b13);
+  box-shadow: 0 6px 16px rgba(217, 119, 6, 0.3);
+}
+
+.heroCopy {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+
+.heroTitle {
+  color: var(--ee-ink);
+  display: block;
+  font-size: 16px;
+  font-weight: 740;
+  letter-spacing: 0.01em;
+}
+
+.heroDetail {
+  color: rgba(var(--ee-ink-rgb), 0.7);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* Metric grid: the headline rate card dominates (1.5fr + a size step up
+   + gradient-tinted value), the threshold/dimension cards stay clearly
+   subordinate. */
+.metricGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(150px, 1fr) minmax(150px, 1fr);
+}
+
+/* Metric cards share the data-output look: a gradient top hairline marks
+   them as output (vs. the plain white input panels above). */
+.metricCard,
+.metricHero {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-card);
+  box-shadow: 0 4px 14px rgba(var(--ee-ink-rgb), 0.05);
+  display: grid;
+  gap: 8px;
+  overflow: hidden;
+  padding: 16px 18px 15px;
+  position: relative;
+}
+
+.metricCard::before,
+.metricHero::before {
+  background: linear-gradient(90deg, #fb7f6e, rgba(var(--ee-brand-rgb), 0.7), transparent);
+  content: "";
+  display: block;
+  height: 3px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.metricLabel {
+  color: rgba(var(--ee-ink-rgb), 0.58);
+  font-size: 11.5px;
   font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
-.statValue {
-  color: #172026;
+.metricValue {
+  color: var(--ee-ink);
   font-size: 24px;
   font-variant-numeric: tabular-nums;
-  font-weight: 750;
+  font-weight: 730;
+  line-height: 1.15;
 }
 
-.statValue.isPositive {
-  color: #22683a;
+/* Headline metric: the number the whole page exists to produce. A brand
+   top hairline, radial tint and one giant size step make it the focal
+   datum; the value's color rides the sign system below. */
+.metricHero {
+  background:
+    radial-gradient(120% 110% at 88% -18%, rgba(var(--ee-brand-rgb), 0.05), transparent 60%),
+    linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.9));
+  box-shadow: 0 6px 20px rgba(var(--ee-ink-rgb), 0.07);
+  gap: 6px;
+  padding: 18px 22px 20px;
 }
 
-.statValue.isNegative {
-  color: #df0203;
+.metricHero::before {
+  background: var(--ee-brand-gradient);
 }
 
+.metricHeroValue {
+  align-items: center;
+  color: var(--ee-ink);
+  display: flex;
+  font-size: 46px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+  gap: 10px;
+  line-height: 1.05;
+}
+
+/* Sign-tinted gradient value: green when the mean improved, brand red
+   when it worsened - the gradient keeps the big numeral from reading
+   flat while staying inside the existing positive/negative system. */
+.metricHeroValue.isPositive {
+  background: linear-gradient(135deg, #3fb374, #1c6a47);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.metricHeroValue.isNegative {
+  background: var(--ee-brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Delta arrow beside the headline value - a plain CSS triangle tinted to
+   match the sign (explicit colors because the parent's gradient-clip
+   text makes currentColor transparent). */
+.deltaArrow {
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  flex: 0 0 auto;
+  height: 0;
+  width: 0;
+}
+
+.deltaArrowUp {
+  border-bottom: 12px solid #1c6a47;
+}
+
+.deltaArrowDown {
+  border-top: 12px solid var(--ee-brand);
+}
+
+/* Quiet left-accented callout for the 口径/口径-basis notes. */
+.noteCallout {
+  background: rgba(var(--ee-ink-rgb), 0.028);
+  border-left: 3px solid rgba(var(--ee-brand-rgb), 0.45);
+  border-radius: 0 10px 10px 0;
+  color: rgba(var(--ee-ink-rgb), 0.62);
+  font-size: 12.5px;
+  line-height: 1.55;
+  margin: 0;
+  padding: 9px 14px;
+}
+
+/* Chart frame: the ECharts canvas sits in a framed card with the same
+   top-hairline accent as the metric cards, so chart + table read as one
+   data-output family. The frame only carries chrome (border + padding +
+   shadow); the chart itself mounts on the inner .chartCanvas because
+   zrender measures clientWidth/Height and lays the canvas out from the
+   content box - padding on the host would push the canvas over the
+   frame's right/bottom border. */
 .chartWrap {
-  height: 300px;
+  background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.55));
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-card);
+  box-shadow: 0 4px 14px rgba(var(--ee-ink-rgb), 0.05);
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 14px 16px 12px;
+  position: relative;
   width: 100%;
+}
+
+.chartWrap::before {
+  background: linear-gradient(90deg, #fb7f6e, rgba(var(--ee-brand-rgb), 0.55), transparent);
+  content: "";
+  display: block;
+  height: 3px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.chartCanvas {
+  height: 330px;
+  width: 100%;
+}
+
+/* Leg trace cards: white mini-cards whose leading swatch matches the
+   comparison chart's series colors, keeping the on-screen pairing
+   legible next to the chart it belongs to. */
+.legTraceGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.legTrace {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-control);
+  color: rgba(var(--ee-ink-rgb), 0.78);
+  display: flex;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  gap: 9px;
+  padding: 8px 12px;
+}
+
+.legTrace::before {
+  border-radius: 3px;
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  height: 12px;
+  width: 12px;
+}
+
+.legTraceBaseline::before {
+  background: #8a93a6;
+}
+
+.legTraceRegulation::before {
+  background: var(--ee-brand);
+}
+
+/* Framed dimension tables (result / comparison / history detail): a
+   card-wrapped table with zebra rows instead of bare rows on the panel. */
+.tableFrame {
+  background: #fff;
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-card);
+  box-shadow: 0 4px 14px rgba(var(--ee-ink-rgb), 0.05);
+  overflow: hidden;
 }
 
 .dimensionTable {
@@ -456,17 +1305,97 @@
 
 .dimensionTable th,
 .dimensionTable td {
-  border-bottom: 1px solid rgba(23, 32, 38, 0.1);
-  color: rgba(23, 32, 38, 0.82);
+  color: rgba(var(--ee-ink-rgb), 0.82);
   font-size: 13.5px;
-  padding: 9px 10px;
+  padding: 10px 16px;
   text-align: left;
 }
 
+/* All three tables on the page share the same shape (维度 + three numeric
+   columns) - tabular figures right-aligned under right-aligned headers so
+   the scores and rates compare visually down each column. */
+.dimensionTable th:not(:first-child),
+.dimensionTable td:not(:first-child) {
+  text-align: right;
+}
+
 .dimensionTable th {
-  color: rgba(23, 32, 38, 0.58);
+  background: rgba(var(--ee-ink-rgb), 0.045);
+  border-bottom: 1px solid rgba(var(--ee-ink-rgb), 0.12);
+  color: rgba(var(--ee-ink-rgb), 0.58);
   font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 10px 16px 9px;
+}
+
+.dimensionTable td {
+  border-bottom: 1px solid rgba(var(--ee-ink-rgb), 0.07);
+}
+
+/* Dimension name reads as the row's subject: a weight step up and a
+   little extra inset from the frame edge. */
+.dimensionTable td:first-child {
+  font-weight: 660;
+  padding-left: 18px;
+}
+
+.dimensionTable th:first-child {
+  padding-left: 18px;
+}
+
+.dimensionTable tbody tr:nth-child(even) {
+  background: rgba(var(--ee-ink-rgb), 0.018);
+}
+
+.dimensionTable tbody tr {
+  transition: background-color 140ms ease;
+}
+
+.dimensionTable tbody tr:hover {
+  background: rgba(var(--ee-brand-rgb), 0.035);
+}
+
+.dimensionTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Score cells: number + a mini 0-100 bar so 基线 vs 调控后 compare at a
+   glance down the column (positive rate tints the post bar green,
+   negative brand red - the same sign system as the rate cells). */
+.scoreCell {
+  display: grid;
+  gap: 5px;
+  justify-items: end;
+}
+
+.scoreNum {
+  font-variant-numeric: tabular-nums;
+}
+
+.scoreTrack {
+  background: rgba(var(--ee-ink-rgb), 0.08);
+  border-radius: 999px;
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  width: 72px;
+}
+
+.scoreBar {
+  background: rgba(var(--ee-ink-rgb), 0.34);
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+  transition: width 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scoreBar.barUp {
+  background: linear-gradient(90deg, #3fb374, #1c6a47);
+}
+
+.scoreBar.barDown {
+  background: linear-gradient(90deg, #f0413a, #df0203);
 }
 
 .rateCell {
@@ -474,10 +1403,157 @@
   font-weight: 720;
 }
 
+/* Delta arrow before each rate value - the same triangle glyph as the
+   headline metric, one size smaller. */
+.rateCell::before {
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  content: "";
+  display: inline-block;
+  height: 0;
+  margin-right: 6px;
+  vertical-align: 2px;
+  width: 0;
+}
+
 .rateCell.isPositive {
   color: #22683a;
 }
 
+.rateCell.isPositive::before {
+  border-bottom: 7px solid #22683a;
+}
+
 .rateCell.isNegative {
-  color: #df0203;
+  color: var(--ee-brand);
+}
+
+.rateCell.isNegative::before {
+  border-top: 7px solid var(--ee-brand);
+}
+
+/* Result actions close their panel with a hairline divider so the export
+   row reads as the section's footer. */
+.resultActions {
+  border-top: 1px solid var(--ee-line);
+  margin-top: 4px;
+  padding-top: 18px;
+}
+
+/* Metric grid collapses gracefully: the hero spans the full width on its
+   own row, the two secondary cards pair up below it. */
+@media (max-width: 760px) {
+  .metricGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .metricHero {
+    grid-column: 1 / -1;
+  }
+
+  .metricHeroValue {
+    font-size: 38px;
+  }
+}
+
+/* Narrow windows / small screens: tighten the surface rhythm and let the
+   hero countdown and chart give up their spare height. */
+@media (max-width: 620px) {
+  .workspace {
+    gap: 14px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+
+  .panel {
+    padding: 18px 16px;
+  }
+
+  .panelImmersive {
+    padding: 16px 14px;
+  }
+
+  .miniProgress {
+    gap: 10px;
+    padding: 0 14px;
+  }
+
+  .miniProgressLabel {
+    font-size: 12.5px;
+  }
+
+  .miniProgressSeg {
+    width: 14px;
+  }
+
+  .miniProgressSegActive {
+    width: 20px;
+  }
+
+  .resultStep {
+    gap: 18px;
+  }
+
+  .resultPanel {
+    gap: 16px;
+    padding: 20px 16px 22px;
+  }
+
+  .metricGrid {
+    gap: 10px;
+  }
+
+  .scoreTrack {
+    width: 54px;
+  }
+
+  .dimensionTable th,
+  .dimensionTable td {
+    padding: 9px 10px;
+  }
+
+  .dimensionTable th:first-child,
+  .dimensionTable td:first-child {
+    padding-left: 14px;
+  }
+
+  .countdownWrap {
+    padding: 18px 16px 14px;
+  }
+
+  .countdownValue {
+    font-size: 44px;
+  }
+
+  .chartCanvas {
+    height: 240px;
+  }
+
+  .historyRowTime {
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace,
+  .panel,
+  .resultHero {
+    animation: none;
+  }
+
+  .loadingHint::before,
+  .progressBar,
+  .historyRow,
+  .historyRow::after,
+  .pillRadio,
+  .countdownValue,
+  .scoreBar,
+  .miniProgressSeg,
+  .workspace :global(.MuiButton-root),
+  .workspace :global(.MuiTab-root) {
+    animation: none;
+    transition: none;
+  }
 }

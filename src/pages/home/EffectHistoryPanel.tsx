@@ -52,31 +52,33 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
       </div>
 
       {entry.dimensions.length > 0 ? (
-        <table className={styles.dimensionTable}>
-          <thead>
-            <tr>
-              <th>维度</th>
-              <th>基线</th>
-              <th>调控后</th>
-              <th>改善率</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entry.dimensions.map((dimension) => (
-              <tr key={dimension.dimension}>
-                <td>{labelForDimension(dimension.dimension)}</td>
-                <td>{Math.round(dimension.baseline)}</td>
-                <td>{Math.round(dimension.post)}</td>
-                <td className={dimension.improvementRate >= 0
-                  ? `${styles.rateCell} ${styles.isPositive}`
-                  : `${styles.rateCell} ${styles.isNegative}`}
-                >
-                  {formatMeanImprovementRate(dimension.improvementRate)}
-                </td>
+        <div className={styles.tableFrame}>
+          <table className={styles.dimensionTable}>
+            <thead>
+              <tr>
+                <th>维度</th>
+                <th>基线</th>
+                <th>调控后</th>
+                <th>改善率</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {entry.dimensions.map((dimension) => (
+                <tr key={dimension.dimension}>
+                  <td>{labelForDimension(dimension.dimension)}</td>
+                  <td>{Math.round(dimension.baseline)}</td>
+                  <td>{Math.round(dimension.post)}</td>
+                  <td className={dimension.improvementRate >= 0
+                    ? `${styles.rateCell} ${styles.isPositive}`
+                    : `${styles.rateCell} ${styles.isNegative}`}
+                  >
+                    {formatMeanImprovementRate(dimension.improvementRate)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <p className={styles.panelHint}>该次评价没有可对比的维度（维度缺失或基线为 0）。</p>
       )}
@@ -158,13 +160,13 @@ export default function EffectHistoryPanel() {
       </div>
 
       {entries === null ? (
-        <p className={styles.panelHint}>{isLoading ? '正在加载历史评价…' : ''}</p>
+        <p className={`${styles.panelHint} ${styles.loadingHint}`}>{isLoading ? '正在加载历史评价…' : ''}</p>
       ) : filteredEntries.length === 0 ? (
-        <p className={styles.panelHint}>
+        <div className={styles.emptyState}>
           {entries.length === 0
             ? '还没有完成的评价：完整走完一次 基线 → 调控 → 调控后 流程后，这里会列出每次的结果。'
             : '没有匹配该被试 ID 的评价记录。'}
-        </p>
+        </div>
       ) : (
         <div className={styles.historyGroups}>
           {groups.map((group) => (

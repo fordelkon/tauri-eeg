@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { KeyboardEvent } from 'react';
 import type { SelfReport } from './types';
 import styles from './ParadigmSession.module.css';
@@ -191,7 +192,10 @@ export default function SamRatingDialog({
     focusable[nextIndex].focus();
   };
 
-  return (
+  // Portal to <body> so the fixed overlay can never be trapped by an
+  // ancestor stacking context or turned panel-relative by a retained
+  // animation transform.
+  return createPortal(
     <div className={`${styles.dialogOverlay} fixed inset-0 flex items-center justify-center p-22px`} role="presentation">
       <section
         className={styles.dialog}
@@ -264,6 +268,7 @@ export default function SamRatingDialog({
           </button>
         </footer>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

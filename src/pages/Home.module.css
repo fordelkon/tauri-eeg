@@ -515,12 +515,17 @@
 
 .content.isVisible {
   opacity: 1;
-  transform: translateX(0) scaleX(1);
+  /* none (not the identity transform): a non-none transform turns every
+     position:fixed descendant into an absolute one anchored here, which
+     re-anchors the nextPageButton to this scrolling column. */
+  transform: none;
 }
 
 .content.isWorkspace {
   align-items: center;
-  padding-bottom: 76px;
+  /* 104px clears the fixed nextPageButton (42px tall, up to 38px from the
+     bottom edge) so end-of-scroll actions never slide beneath it. */
+  padding-bottom: 104px;
   padding-top: 64px;
 }
 
@@ -548,7 +553,10 @@
   min-width: 0;
   padding: 0 16px;
   pointer-events: auto;
-  position: absolute;
+  /* fixed, not absolute: absolute resolves against this scroll container
+     and drifts upward with content on long pages (result step), covering
+     cards mid-scroll. */
+  position: fixed;
   right: clamp(18px, 3.2vw, 38px);
   text-transform: uppercase;
   transition:

@@ -1,6 +1,7 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton } from '@mui/material';
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   isMentalScaleComplete,
   mentalScaleAnswerOptions,
@@ -50,7 +51,11 @@ export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }
     onComplete(scaleAnswers);
   };
 
-  return (
+  // Portal to <body>: the overlay must not be trapped by an ancestor
+  // stacking context or reparented by a retained transform (a fixed
+  // overlay inside an animated panel lands mispositioned and UNDER
+  // sticky chrome, e.g. the wizard's progress bar).
+  return createPortal(
     <div
       className={`${styles.scaleOverlay} fixed inset-0 flex items-center justify-center p-22px`}
       role="presentation"
@@ -147,6 +152,7 @@ export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }
           <Button color="error" onClick={onClose}>放弃并关闭</Button>
         </DialogActions>
       </Dialog>
-    </div>
+    </div>,
+    document.body,
   );
 }
