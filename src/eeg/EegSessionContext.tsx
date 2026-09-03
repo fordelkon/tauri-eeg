@@ -202,13 +202,42 @@ export function EegProvider({ children }: { children: ReactNode }) {
     let disposed = false;
 
     getEegStatus()
-      .then((status) => {
+      .then(async (status) => {
         if (disposed) {
           return;
         }
         setTriggerConnected(status.triggerConnected);
-        if (status.eegConnected) {
-          dispatchSession({ type: 'device_stream_adopted' });
+        if (!status.eegConnected) {
+          return;
+        }
+
+        // A running stream serves whichever IPC channel registered last, so
+        // the reloaded webview must re-attach its channel to see live blocks
+        // again (start_eeg_stream on a running stream swaps the channel).
+        // A failure here falls back to state-only adoption: the controls and
+        // status stay correct, only the live waveform stays dark.
+        try {
+          const info = await startEegStream((block) => {
+            bufferRef.current.appendPayload(block);
+          });
+          if (disposed) {
+            return;
+          }
+          setStreamInfo(info);
+        } catch {
+          // State-only adoption below.
+        }
+
+        if (disposed) {
+          return;
+        }
+        dispatchSession({ type: 'device_stream_adopted' });
+
+        // The backend may also be mid-recording (reload during a free or
+        // effect-evaluation run): adopt it so the stop/pause controls exist
+        // and the run does not outlive the UI that owns it.
+        if (status.isRecording) {
+          dispatchSession({ type: 'recording_adopted' });
         }
       })
       .catch(() => {

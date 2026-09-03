@@ -26,6 +26,10 @@ export type EegSessionAction =
   /** Mount-time reconciliation: the backend was already streaming before this
    * session existed, so no connect event will ever arrive. */
   | { type: 'device_stream_adopted' }
+  /** Mount-time reconciliation: the backend was already recording before this
+   * session existed (reload during an active recording), so no start_record
+   * confirmation will ever arrive. */
+  | { type: 'recording_adopted' }
   | { type: 'start_record' }
   | { type: 'start_record_failed'; message: string }
   | { type: 'pause_record' }
@@ -143,6 +147,20 @@ export function eegSessionReducer(
           errorMessage: null,
           lastFailedAction: null,
         };
+      }
+      return state;
+
+    case 'recording_adopted':
+      // Mount-time mirror of device_stream_adopted, one step deeper: the
+      // backend was already recording when this UI came up (reload during an
+      // active free/effect-evaluation recording). Only a fresh-mount
+      // 'idle' record state adopts — explicitly started recordings already
+      // reflect reality, and 'stopped' belongs to the result banner until the
+      // next explicit start. Adoption must also survive device adoption order
+      // (the reconcile dispatches stream adoption first, so deviceStatus is
+      // already 'streaming' by the time this action lands).
+      if (state.deviceStatus === 'streaming' && state.recordStatus === 'idle') {
+        return { ...state, recordStatus: 'recording' };
       }
       return state;
 

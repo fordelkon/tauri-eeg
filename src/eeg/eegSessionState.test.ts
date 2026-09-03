@@ -233,6 +233,46 @@ describe('eegSessionReducer', () => {
     expect(eegSessionReducer(streaming, { type: 'device_stream_adopted' })).toBe(streaming);
     expect(eegSessionReducer(error, { type: 'device_stream_adopted' })).toBe(error);
   });
+
+  it('adopts an already-recording backend after a reload', () => {
+    // Mount reconcile order: stream adoption first, then the recording leg —
+    // the backend was recording when this UI came up, so the stop/pause
+    // guards must pass without any user action ever being taken here.
+    const adoptedStream = eegSessionReducer(initialEegSessionState, { type: 'device_stream_adopted' });
+    const adoptedRecording = eegSessionReducer(adoptedStream, { type: 'recording_adopted' });
+
+    expect(adoptedRecording).toMatchObject({
+      deviceStatus: 'streaming',
+      recordStatus: 'recording',
+    });
+    expect(canStopRecord(adoptedRecording)).toBe(true);
+    expect(canPauseRecord(adoptedRecording)).toBe(true);
+    expect(canStartRecord(adoptedRecording)).toBe(false);
+
+    // The adopted recording stops through the normal path.
+    const stopped = eegSessionReducer(adoptedRecording, { type: 'stop_record' });
+    expect(stopped).toMatchObject({ deviceStatus: 'streaming', recordStatus: 'stopped' });
+  });
+
+  it('ignores recording adoption from non-fresh record states', () => {
+    const streamingRecording = {
+      ...initialEegSessionState,
+      deviceStatus: 'streaming' as const,
+      recordStatus: 'recording' as const,
+    };
+    const streamingStopped = {
+      ...initialEegSessionState,
+      deviceStatus: 'streaming' as const,
+      recordStatus: 'stopped' as const,
+    };
+    const disconnected = initialEegSessionState;
+
+    // An explicitly started recording already reflects reality; 'stopped'
+    // belongs to the result banner; a fresh mount must adopt the stream first.
+    expect(eegSessionReducer(streamingRecording, { type: 'recording_adopted' })).toBe(streamingRecording);
+    expect(eegSessionReducer(streamingStopped, { type: 'recording_adopted' })).toBe(streamingStopped);
+    expect(eegSessionReducer(disconnected, { type: 'recording_adopted' })).toBe(disconnected);
+  });
 });
 
 describe('eegApi recording commands', () => {
