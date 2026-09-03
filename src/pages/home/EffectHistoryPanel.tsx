@@ -64,10 +64,10 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
           <table className={styles.dimensionTable}>
             <thead>
               <tr>
-                <th>维度</th>
-                <th>基线</th>
-                <th>调控后</th>
-                <th>改善率</th>
+                <th scope="col">维度</th>
+                <th scope="col">基线</th>
+                <th scope="col">调控后</th>
+                <th scope="col">改善率</th>
               </tr>
             </thead>
             <tbody>
@@ -136,6 +136,13 @@ export default function EffectHistoryPanel() {
   const toggleRow = (postId: string) => {
     setExpandedPostId((current) => (current === postId ? null : postId));
   };
+
+  // prefers-reduced-motion users get an instant expand (no height animation).
+  const collapseTimeout: 'auto' | 0 = typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 0
+    : 'auto';
 
   // A history entry is derived from its baseline+post record pair, so
   // deleting a run removes BOTH legs; the pair disappears as one run.
@@ -227,8 +234,13 @@ export default function EffectHistoryPanel() {
                         type="button"
                         className={styles.historyRow}
                         aria-expanded={isExpanded}
+                        aria-controls={`history-detail-${entry.postRecordId}`}
                         onClick={() => toggleRow(entry.postRecordId)}
                       >
+                        <span
+                          className={`${styles.expandIcon} ${isExpanded ? styles.expandIconOpen : ''}`}
+                          aria-hidden="true"
+                        />
                         <span className={styles.historyRowTime}>
                           {formatRunTimestamp(entry.postCreatedAt)}
                         </span>
@@ -261,8 +273,10 @@ export default function EffectHistoryPanel() {
                         </IconButton>
                       </div>
 
-                      <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                        <RunDetailTable entry={entry} />
+                      <Collapse in={isExpanded} timeout={collapseTimeout} unmountOnExit>
+                        <div id={`history-detail-${entry.postRecordId}`} role="region">
+                          <RunDetailTable entry={entry} />
+                        </div>
                       </Collapse>
                     </div>
                   );

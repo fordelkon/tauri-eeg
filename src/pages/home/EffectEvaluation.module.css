@@ -84,6 +84,12 @@
     color 160ms ease;
 }
 
+.workspace :global(.MuiButton-root:focus-visible) {
+  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.28);
+  outline: 2px solid rgba(var(--ee-brand-rgb), 0.65);
+  outline-offset: 1px;
+}
+
 .workspace :global(.MuiButton-contained) {
   background: var(--ee-brand-gradient);
   box-shadow:
@@ -231,12 +237,27 @@
 
 .miniProgressLabel {
   color: var(--ee-ink);
+  flex: 1 1 auto;
   font-size: 13px;
   font-weight: 720;
   letter-spacing: 0.01em;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Screen-reader-only text (mini progress, status announcements). */
+.srOnly {
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 /* Six-segment tracker: completed steps carry a dimmed brand tint, the
@@ -478,7 +499,7 @@
 }
 
 .historyGroupCount {
-  color: rgba(var(--ee-ink-rgb), 0.55);
+  color: rgba(var(--ee-ink-rgb), 0.66);
   font-size: 12.5px;
   font-weight: 650;
   margin-left: 8px;
@@ -506,14 +527,27 @@
 }
 
 .historyDeleteButton {
-  color: rgba(var(--ee-ink-rgb), 0.4);
+  align-items: center;
+  color: rgba(var(--ee-ink-rgb), 0.56);
+  display: inline-flex;
   flex: 0 0 auto;
-  transition: color 160ms ease, background-color 160ms ease;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 40px;
+  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
 }
 
 .historyDeleteButton:hover {
   background: rgba(179, 38, 30, 0.09);
   color: #b3261e;
+}
+
+.historyDeleteButton:focus-visible {
+  background: rgba(179, 38, 30, 0.09);
+  box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.25);
+  color: #b3261e;
+  outline: 2px solid rgba(179, 38, 30, 0.6);
+  outline-offset: 1px;
 }
 
 .historyDeleteButton:disabled {
@@ -538,6 +572,21 @@
     box-shadow 180ms ease,
     transform 180ms ease;
   width: 100%;
+}
+
+/* Persistent expand affordance (touch has no hover): chevron rotates open. */
+.expandIcon {
+  border-right: 2px solid rgba(var(--ee-ink-rgb), 0.5);
+  border-top: 2px solid rgba(var(--ee-ink-rgb), 0.5);
+  flex: 0 0 auto;
+  height: 8px;
+  transform: rotate(45deg);
+  transition: transform 180ms ease;
+  width: 8px;
+}
+
+.expandIconOpen {
+  transform: rotate(135deg);
 }
 
 /* Hover lifts the row a hair - the affordance for "this row expands". */
@@ -684,7 +733,7 @@
 }
 
 .panelHint {
-  color: rgba(var(--ee-ink-rgb), 0.62);
+  color: rgba(var(--ee-ink-rgb), 0.72);
   font-size: 13.5px;
   line-height: 1.65;
   margin: 0;
@@ -762,6 +811,15 @@
   display: grid;
   gap: 14px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* Setup step grouping: target-emotion stays top-level, method+condition
+   share one divided section so the dependency reads as a unit. */
+.setupSection {
+  border-top: 1px solid var(--ee-line);
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
 }
 
 .fieldLabel {
@@ -860,6 +918,12 @@
   justify-content: flex-end;
 }
 
+/* Footer-tier reset sits opposite the step CTA (left) so the primary
+   advance keeps the right edge to itself. */
+.actionsRowStart {
+  justify-content: flex-start;
+}
+
 /* Ghost-tier action (reset flow) - the one custom button left on the
    page; the MUI overrides above carry primary/secondary tiers. */
 .secondaryAction {
@@ -955,11 +1019,42 @@
   transition: color 300ms ease;
 }
 
+/* Countdown status pill: text + shape, not color alone (color-blind safe). */
+.statusPill {
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 720;
+  letter-spacing: 0.02em;
+  padding: 5px 14px;
+}
+
+.statusActive {
+  background: rgba(93, 143, 232, 0.14);
+  border: 1px solid rgba(93, 143, 232, 0.42);
+  color: #2b5bbf;
+}
+
+.statusDone {
+  background: rgba(34, 125, 84, 0.13);
+  border: 1px solid rgba(34, 125, 84, 0.42);
+  color: #1c6a47;
+}
+
 .countdownDone {
   background: linear-gradient(135deg, #fb7f6e, #df0203);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* High-contrast / forced-colors fallback: gradient-clip text would vanish. */
+@media (forced-colors: active) {
+  .countdownDone,
+  .metricHeroValue.isPositive,
+  .metricHeroValue.isNegative {
+    background: none;
+    color: CanvasText;
+  }
 }
 
 .progressTrack {
@@ -1001,6 +1096,19 @@
   background: rgba(93, 143, 232, 0.14);
   border: 1px solid rgba(93, 143, 232, 0.4);
   color: #2b5bbf;
+}
+
+/* Recording pulse: reuses the loading-dot language so "linking" reads live. */
+.eegRecording::before {
+  animation: loadingPulse 1.1s ease-in-out infinite;
+  background: currentColor;
+  border-radius: 999px;
+  content: "";
+  display: inline-block;
+  height: 7px;
+  margin-right: 2px;
+  vertical-align: 1px;
+  width: 7px;
 }
 
 /* ------------------------------------------------------------------ */
@@ -1185,7 +1293,7 @@
   align-items: center;
   color: var(--ee-ink);
   display: flex;
-  font-size: 46px;
+  font-size: 36px;
   font-variant-numeric: tabular-nums;
   font-weight: 760;
   gap: 10px;
@@ -1316,17 +1424,19 @@
 }
 
 /* Framed dimension tables (result / comparison / history detail): a
-   card-wrapped table with zebra rows instead of bare rows on the panel. */
+   card-wrapped table with zebra rows instead of bare rows on the panel.
+   The frame scrolls horizontally on narrow screens instead of clipping. */
 .tableFrame {
   background: #fff;
   border: 1px solid var(--ee-line);
   border-radius: var(--ee-radius-card);
   box-shadow: 0 4px 14px rgba(var(--ee-ink-rgb), 0.05);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .dimensionTable {
   border-collapse: collapse;
+  min-width: 420px;
   width: 100%;
 }
 
@@ -1349,7 +1459,7 @@
 .dimensionTable th {
   background: rgba(var(--ee-ink-rgb), 0.045);
   border-bottom: 1px solid rgba(var(--ee-ink-rgb), 0.12);
-  color: rgba(var(--ee-ink-rgb), 0.58);
+  color: rgba(var(--ee-ink-rgb), 0.68);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -1467,6 +1577,22 @@
   padding-top: 18px;
 }
 
+/* Tablet portrait and below: collapse the metric trio early so the 768px
+   breakpoint never squeezes three cards + a 6-label stepper. */
+@media (max-width: 900px) {
+  .metricGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .metricHero {
+    grid-column: 1 / -1;
+  }
+
+  .stepper {
+    padding: 12px 12px 8px;
+  }
+}
+
 /* Metric grid collapses gracefully: the hero spans the full width on its
    own row, the two secondary cards pair up below it. */
 @media (max-width: 760px) {
@@ -1479,7 +1605,7 @@
   }
 
   .metricHeroValue {
-    font-size: 38px;
+    font-size: 32px;
   }
 }
 
@@ -1488,10 +1614,34 @@
 @media (max-width: 620px) {
   .workspace {
     gap: 14px;
+    padding: 0 4px;
   }
 
   .title {
     font-size: 22px;
+  }
+
+  .headerMain {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .headerActions {
+    padding-top: 0;
+    width: 100%;
+  }
+
+  .headerActions :global(.MuiButton-root) {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .stepper {
+    padding: 10px 10px 6px;
+  }
+
+  .stepper :global(.MuiStepLabel-label) {
+    font-size: 12px;
   }
 
   .panel {
@@ -1532,8 +1682,10 @@
     gap: 10px;
   }
 
+  /* Below 620px the 54px mini bars carry <6px of real delta - drop the
+     decoration and let the numbers + rate column do the comparison. */
   .scoreTrack {
-    width: 54px;
+    display: none;
   }
 
   .dimensionTable th,
@@ -1552,6 +1704,10 @@
 
   .countdownValue {
     font-size: 44px;
+  }
+
+  .metricHeroValue {
+    font-size: 30px;
   }
 
   .chartCanvas {
@@ -1578,6 +1734,15 @@
   .countdownValue,
   .scoreBar,
   .miniProgressSeg,
+  .stepper :global(.MuiStepIcon-root),
+  .stepper :global(.MuiStepLabel-label),
+  .historyDeleteButton,
+  .expandIcon,
+  .textInput,
+  .selectInput,
+  .secondaryAction,
+  .dimensionTable tbody tr,
+  .eegRecording::before,
   .workspace :global(.MuiButton-root),
   .workspace :global(.MuiTab-root) {
     animation: none;

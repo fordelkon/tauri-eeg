@@ -16,13 +16,26 @@ export type EffectChartOption = Record<string, unknown>;
 const BASELINE_COLOR = '#8a93a6';
 const POST_COLOR = '#df0203';
 
+/** Honors prefers-reduced-motion for the chart's entry animation. */
+function chartAnimationDuration(): number {
+  try {
+    const query = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (query?.matches) {
+      return 0;
+    }
+  } catch {
+    // Non-DOM test environments fall through to the animated default.
+  }
+  return 520;
+}
+
 export function buildEffectChartOption(
   summary: RegulationEffectSummaryView,
 ): EffectChartOption {
   const categories = summary.dimensions.map((item) => labelForDimension(item.dimension));
 
   return {
-    animationDuration: 520,
+    animationDuration: chartAnimationDuration(),
     animationEasing: 'cubicOut',
     grid: {
       bottom: 28,
@@ -84,8 +97,8 @@ export function buildEffectChartOption(
 /* Cross-condition comparison chart (R6, 大纲 6.2)                     */
 /* ------------------------------------------------------------------ */
 
-const NATURAL_RECOVERY_SERIES_LABEL = '基线条件（自然恢复）post';
-const REGULATION_SERIES_LABEL = '调控条件 post';
+const NATURAL_RECOVERY_SERIES_LABEL = '基线 post';
+const REGULATION_SERIES_LABEL = '调控 post';
 
 /**
  * Bar chart comparing each condition's post scores (B_post vs T_post) per
@@ -99,7 +112,7 @@ export function buildConditionComparisonChartOption(
   const categories = comparison.dimensions.map((item) => labelForDimension(item.dimension));
 
   return {
-    animationDuration: 520,
+    animationDuration: chartAnimationDuration(),
     animationEasing: 'cubicOut',
     grid: {
       bottom: 28,

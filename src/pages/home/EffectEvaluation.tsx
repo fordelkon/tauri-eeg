@@ -308,7 +308,7 @@ export default function EffectEvaluation() {
     void confirm({
       title: `跳过剩余${windowNoun}时长？`,
       description: `${windowNoun}计时还剩 ${formatCountdown(finishMode.remainingSeconds)}，未达设定的最短时长。跳过后本次评价会记录“已跳过”标记，改善率可能低估实际效果。确定跳过并进入复测吗？`,
-      confirmText: '确认跳过',
+      confirmText: '确认跳过并进入复测',
       destructive: true,
     }).then((confirmed) => {
       if (confirmed) {
@@ -439,7 +439,7 @@ export default function EffectEvaluation() {
     </div>
   );
 
-  /** EEG association chip shared by the induction and condition steps. */
+  /** EEG association chip shared by the induction, scale-gate and condition steps. */
   const renderEegAssociationChip = () => {
     if (state.eegAssociation === 'not-started') {
       return null;
@@ -448,6 +448,7 @@ export default function EffectEvaluation() {
     return (
       <div className={styles.pillRow}>
         <span
+          role="status"
           className={`${styles.eegChip} ${
             state.eegAssociation === 'saved'
               ? styles.eegSaved
@@ -457,10 +458,10 @@ export default function EffectEvaluation() {
           }`}
         >
           {state.eegAssociation === 'saved'
-            ? `EEG 记录已保存${state.eegSessionId ? `（会话 ${`${state.eegSessionId.slice(0, 8)}…`}）` : ''}`
+            ? `✓ EEG 记录已保存${state.eegSessionId ? `（会话 ${`${state.eegSessionId.slice(0, 8)}…`}）` : ''}`
             : state.eegAssociation === 'recording'
-              ? '正在关联 EEG 记录'
-              : '设备不可用，本次未关联 EEG 记录'}
+              ? '● 正在关联 EEG 记录'
+              : '! 设备不可用，本次未关联 EEG 记录'}
         </span>
       </div>
     );
@@ -506,22 +507,24 @@ export default function EffectEvaluation() {
         selectedValue={state.emotion}
         onSelect={(value) => flow.updateDraft({ emotion: value })}
       />
-      <PillGroup
-        label="调控手段（仅调控条件使用）:"
-        options={EFFECT_METHOD_OPTIONS.map(({ value, label }) => ({ value, label }))}
-        selectedValue={state.method}
-        onSelect={(value) => flow.updateDraft({ method: value })}
-      />
-      <PillGroup
-        label="实验条件:"
-        options={EFFECT_CONDITION_OPTIONS.map(({ value, label }) => ({ value, label }))}
-        selectedValue={state.condition}
-        onSelect={(value) => flow.updateDraft({ condition: value })}
-      />
-      <p className={styles.panelHint} role="note">
-        实验条件说明：基线条件（自然恢复）＝情绪诱发后不施加调控手段，静息自然恢复；
-        调控条件＝情绪诱发后施加所选调控手段（音乐/视频）。同被试同情绪完成两种条件各一次后，结果步会给出跨条件对比。
-      </p>
+      <div className={styles.setupSection}>
+        <PillGroup
+          label="调控手段（仅调控条件使用）:"
+          options={EFFECT_METHOD_OPTIONS.map(({ value, label }) => ({ value, label }))}
+          selectedValue={state.method}
+          onSelect={(value) => flow.updateDraft({ method: value })}
+        />
+        <PillGroup
+          label="实验条件:"
+          options={EFFECT_CONDITION_OPTIONS.map(({ value, label }) => ({ value, label }))}
+          selectedValue={state.condition}
+          onSelect={(value) => flow.updateDraft({ condition: value })}
+        />
+        <p className={styles.noteCallout} role="note">
+          实验条件说明：基线条件（自然恢复）＝情绪诱发后不施加调控手段，静息自然恢复；
+          调控条件＝情绪诱发后施加所选调控手段（音乐/视频）。同被试同情绪完成两种条件各一次后，结果步会给出跨条件对比。
+        </p>
+      </div>
 
       {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
 
@@ -636,15 +639,25 @@ export default function EffectEvaluation() {
 
         {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
 
+        {!flow.scaleForMethod ? (
+          <Alert severity="warning" id={`scale-missing-hint-${phase}`}>
+            当前调控手段（{methodLabel}）尚未配置对应量表，无法继续{isBaseline ? '基线' : '复测'}评价。
+            请返回设置步更换手段，或联系管理员补齐量表定义。
+          </Alert>
+        ) : null}
+
         <div className={styles.actionsRow}>
           <Button
             variant="contained"
             disabled={flow.isSavingScale || !flow.scaleForMethod}
+            aria-describedby={!flow.scaleForMethod ? `scale-missing-hint-${phase}` : undefined}
             onClick={() => setIsScaleDialogOpen(true)}
           >
-            打开{isBaseline ? '诱发后' : '复测'}量表
+            {flow.isSavingScale ? '正在保存量表…' : `打开${isBaseline ? '诱发后' : '复测'}量表`}
           </Button>
         </div>
+
+        {renderEegAssociationChip()}
 
         {isScaleDialogOpen && flow.scaleForMethod ? (
           <MentalScaleDialog
@@ -704,6 +717,12 @@ export default function EffectEvaluation() {
         <>
           <div className={styles.countdownWrap}>
             <span
+              role="status"
+              className={`${styles.statusPill} ${flow.remainingSeconds === 0 ? styles.statusDone : styles.statusActive}`}
+            >
+              {flow.remainingSeconds === 0 ? `✓ ${windowNoun}时长已达成` : `● ${windowNoun}计时中`}
+            </span>
+            <span
               className={`${styles.countdownValue} ${flow.remainingSeconds === 0 ? styles.countdownDone : ''}`}
               aria-label={`剩余时间 ${formatCountdown(flow.remainingSeconds ?? 0)}`}
             >
@@ -719,7 +738,7 @@ export default function EffectEvaluation() {
             >
               <div className={styles.progressBar} style={{ width: `${regulationProgressPercent}%` }} />
             </div>
-            <p className={styles.panelHint}>
+            <p className={styles.panelHint} id="regulation-countdown-hint">
               {flow.remainingSeconds === 0
                 ? `${windowNoun}时长已达成，可结束${windowNoun}进入复测。`
                 : `未达最短时长：还剩 ${formatCountdown(flow.remainingSeconds ?? 0)}。计时结束后才能进入复测；确有特殊情况可跳过剩余时长（二次确认后记录标记）。`}
@@ -737,13 +756,14 @@ export default function EffectEvaluation() {
               </Button>
             )}
             {finishMode.mode === 'requires-skip' ? (
-              <Button variant="outlined" color="warning" onClick={handleSkipRemaining}>
+              <Button variant="outlined" color="error" onClick={handleSkipRemaining}>
                 跳过剩余时长…
               </Button>
             ) : null}
             <Button
               variant="contained"
               disabled={finishMode.mode !== 'finish'}
+              aria-describedby={finishMode.mode !== 'finish' ? 'regulation-countdown-hint' : undefined}
               onClick={handleFinishRegulation}
             >
               {isNaturalRecovery ? '结束静息，进行复测' : '结束调控，进行复测'}
@@ -865,10 +885,10 @@ export default function EffectEvaluation() {
                 <table className={styles.dimensionTable}>
                   <thead>
                     <tr>
-                      <th>维度</th>
-                      <th>基线条件 post</th>
-                      <th>调控条件 post</th>
-                      <th>改善率</th>
+                      <th scope="col">维度</th>
+                      <th scope="col">基线条件 post</th>
+                      <th scope="col">调控条件 post</th>
+                      <th scope="col">改善率</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -996,10 +1016,10 @@ export default function EffectEvaluation() {
                 <table className={styles.dimensionTable}>
                   <thead>
                     <tr>
-                      <th>维度</th>
-                      <th>基线</th>
-                      <th>调控后</th>
-                      <th>改善率</th>
+                      <th scope="col">维度</th>
+                      <th scope="col">基线</th>
+                      <th scope="col">调控后</th>
+                      <th scope="col">改善率</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1112,9 +1132,16 @@ export default function EffectEvaluation() {
                layout above the content never shifts when the flow advances.
                Left: current step; right: a 6-segment tracker whose active
                segment widens to carry the eye. */
-            <div className={styles.miniProgress}>
+            <div
+              className={styles.miniProgress}
+              role="status"
+              aria-label={`第 ${state.step + 1} 步，共 ${EFFECT_FLOW_STEPS.length} 步：${EFFECT_FLOW_STEPS[state.step]}`}
+            >
               <span className={styles.miniProgressLabel}>
                 第 {state.step + 1} 步 · {EFFECT_FLOW_STEPS[state.step]}
+              </span>
+              <span className={styles.srOnly}>
+                第 {state.step + 1} 步，共 {EFFECT_FLOW_STEPS.length} 步：{EFFECT_FLOW_STEPS[state.step]}
               </span>
               <span className={styles.miniProgressTrack} aria-hidden="true">
                 {EFFECT_FLOW_STEPS.map((label, index) => (
@@ -1152,7 +1179,7 @@ export default function EffectEvaluation() {
           )}
 
           {state.step > 0 ? (
-            <div className={styles.actionsRow}>
+            <div className={`${styles.actionsRow} ${styles.actionsRowStart}`}>
               <button type="button" className={styles.secondaryAction} onClick={flow.resetFlow}>
                 重置流程
               </button>
