@@ -250,6 +250,22 @@ export default function EffectEvaluation() {
     }
   }, [state.step]);
 
+  // Resetting discards the whole run (a linked EEG recording is stopped as
+  // part of it) — a destructive action on par with the skip flow, so it gets
+  // the same explicit confirmation instead of firing on a misclick.
+  const handleResetFlow = async () => {
+    const confirmed = await confirm({
+      title: '重置评价流程',
+      description: '重置将停止本次运行关联的 EEG 记录并丢弃当前进度；已保存的量表记录仍会保留在历史记录中。确定要重置吗？',
+      confirmText: '停止并重置',
+      destructive: true,
+    });
+
+    if (confirmed) {
+      flow.resetFlow();
+    }
+  };
+
   // Strong duration constraint (R3): the countdown is a hard floor - the
   // normal finish unlocks only at zero, earlier exits go through the
   // double-confirmed skip which records the marker with the run. The same
@@ -573,7 +589,7 @@ export default function EffectEvaluation() {
               <Button variant="outlined" onClick={handleRetryInductionVideo}>
                 重试加载素材
               </Button>
-              <Button variant="outlined" color="warning" onClick={flow.resetFlow}>
+              <Button variant="outlined" color="warning" onClick={handleResetFlow}>
                 重置并返回设置步
               </Button>
             </div>
@@ -1180,7 +1196,7 @@ export default function EffectEvaluation() {
 
           {state.step > 0 ? (
             <div className={`${styles.actionsRow} ${styles.actionsRowStart}`}>
-              <button type="button" className={styles.secondaryAction} onClick={flow.resetFlow}>
+              <button type="button" className={styles.secondaryAction} onClick={handleResetFlow}>
                 重置流程
               </button>
             </div>

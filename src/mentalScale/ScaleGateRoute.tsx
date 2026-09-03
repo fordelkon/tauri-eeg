@@ -9,6 +9,7 @@ import MentalScaleDialog from './MentalScaleDialog';
 import { buildMentalScaleStatus, updateMentalScaleStatus } from './mentalScaleStatus';
 import { persistMentalScaleSubmission } from './scaleRecordsApi';
 import {
+  consumeScaleSkip,
   isScaleSatisfiedForPath,
   recordScaleCompletion,
   recordScaleSkip,
@@ -36,6 +37,16 @@ export default function ScaleGateRoute() {
     setIsAllowed(scale === null || isScaleSatisfiedForPath(scale.path));
   }, [scale]);
 
+  // The skip pass is spent HERE, at the final checkpoint, once the gated page
+  // has actually mounted: the next navigation into a gated page re-prompts.
+  // Consume runs on every allowed passage, which is a no-op when the gate
+  // opened on a completion inside its grace window.
+  useEffect(() => {
+    if (scale !== null && isAllowed) {
+      consumeScaleSkip(scale.path);
+    }
+  }, [scale, isAllowed]);
+
   if (scale === null || isAllowed) {
     return <Outlet />;
   }
@@ -50,7 +61,8 @@ export default function ScaleGateRoute() {
   };
 
   const handleSkip = () => {
-    // Skip only lifts the gate for this attempt; the next navigation re-prompts.
+    // Skip only lifts the gate for this attempt; the effect above consumes it
+    // once the page mounts, so the next navigation re-prompts.
     recordScaleSkip(scale.path);
     setIsAllowed(true);
   };

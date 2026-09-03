@@ -43,6 +43,8 @@ import {
   useParadigmSessionStatus,
 } from '../eeg/paradigm/paradigmSessionStatus';
 import { chooseStorageRoot } from '../storage/storageDirectoryPicker';
+import { isRegulationWindowOpenInStorage } from './home/effectEvaluationFlow';
+import { shouldBypassRecordingConfirm } from './home/navigationGuards';
 import { getStorageLocation, setStorageRoot, type StorageLocation } from '../storage/storageApi';
 import { describeFriendlyError } from '../ui/friendlyError';
 import { useConfirmDialog } from '../ui/useConfirmDialog';
@@ -257,8 +259,18 @@ export default function Home() {
     }
 
     // A free recording survives page changes (it lives in the backend), but
-    // leaving mid-recording is rarely intentional — ask first.
-    if (freeRecordActive) {
+    // leaving mid-recording is rarely intentional — ask first. Exception:
+    // returning to the effect-evaluation wizard while its regulation window
+    // is live is the banner-instructed path and the recording belongs to that
+    // run, so it must not prompt (click-time storage read, like the paradigm
+    // store check above).
+    if (
+      freeRecordActive
+      && !shouldBypassRecordingConfirm(
+        path,
+        isRegulationWindowOpenInStorage(window.sessionStorage),
+      )
+    ) {
       const leaveConfirmed = await confirm({
         title: '正在记录 EEG 数据',
         description: '确定要离开本页吗?记录将继续进行。',

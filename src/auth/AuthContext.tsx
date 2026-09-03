@@ -6,6 +6,7 @@ import {
   useState,
 } from 'react';
 import { loginUser, registerUser, resetUserPassword } from './api';
+import { clearUserSessionState } from './signOutCleanup';
 import type { UserProfile } from './types';
 
 type AuthContextValue = {
@@ -63,6 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut: () => {
       setCurrentUser(null);
       window.localStorage.removeItem(STORAGE_KEY);
+      // Cross-user hygiene: the wizard run state, subject binding, and
+      // scale-gate memory are per-user but live outside the auth session;
+      // without this the next login inherits them.
+      clearUserSessionState();
     },
     signUp: async (username, password) => {
       const user = await registerUser(username, password);

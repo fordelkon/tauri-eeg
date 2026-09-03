@@ -45,6 +45,33 @@ describe('scaleCompletionStore', () => {
     expect(store.isSatisfied('/music-regulation', T0 + SCALE_GRACE_PERIOD_MS)).toBe(false);
   });
 
+  it('consuming a skip re-arms the gate without touching completions', () => {
+    store.recordSkip('/music-regulation');
+    store.record('/video-regulation', T0);
+
+    store.consumeSkip('/music-regulation');
+
+    expect(store.isSatisfied('/music-regulation', T0)).toBe(false);
+    // Consuming a pending skip on another path leaves that path's grace intact.
+    expect(store.isSatisfied('/video-regulation', T0 + 1000)).toBe(true);
+  });
+
+  it('consuming a skip with none pending is a no-op', () => {
+    store.record('/music-regulation', T0);
+    store.consumeSkip('/music-regulation');
+
+    expect(store.isSatisfied('/music-regulation', T0 + 1000)).toBe(true);
+  });
+
+  it('re-recording a skip after consumption satisfies the gate again', () => {
+    store.recordSkip('/music-regulation');
+    store.consumeSkip('/music-regulation');
+    expect(store.isSatisfied('/music-regulation', T0)).toBe(false);
+
+    store.recordSkip('/music-regulation');
+    expect(store.isSatisfied('/music-regulation', T0)).toBe(true);
+  });
+
   it('reset clears both completions and skips', () => {
     store.record('/video-regulation', T0);
     store.recordSkip('/game-regulation');

@@ -12,7 +12,7 @@
 
 export const SUBJECT_ID_STORAGE_KEY = 'paradigm.subjectId';
 
-export type SubjectIdStorage = Pick<Storage, 'getItem' | 'setItem'>;
+export type SubjectIdStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 function defaultStorage(): SubjectIdStorage | null {
   try {
@@ -49,5 +49,21 @@ export function writeStoredSubjectId(
     storage.setItem(SUBJECT_ID_STORAGE_KEY, value);
   } catch {
     // Storage may be unavailable; persistence is best-effort and silent.
+  }
+}
+
+/** Clears the subject memory (sign-out hygiene): the next user must not
+ * inherit the previous one's subject binding. Best-effort like the writes. */
+export function clearStoredSubjectId(
+  storage: SubjectIdStorage | null = defaultStorage(),
+): void {
+  if (!storage) {
+    return;
+  }
+
+  try {
+    storage.removeItem(SUBJECT_ID_STORAGE_KEY);
+  } catch {
+    // Storage may be unavailable; clearing is best-effort and silent.
   }
 }
