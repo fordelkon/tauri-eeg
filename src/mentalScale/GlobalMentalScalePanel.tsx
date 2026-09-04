@@ -31,6 +31,46 @@ const scaleTitleLabels: Record<string, string> = {
 const getDimensionLabel = (key: string, fallback: string) => dimensionLabels[key] ?? fallback;
 const getScaleTitleLabel = (title: string) => scaleTitleLabels[title] ?? title;
 
+/*
+ * Radar palette rides the global design tokens (src/styles/tokens.css) so the
+ * chart follows the brand without another hardcoded palette. Values are read
+ * once at module scope; every fallback equals the token value verbatim, so a
+ * not-yet-loaded stylesheet renders exactly the previous chart.
+ */
+const FALLBACK_BRAND = '#df0203';
+const FALLBACK_INK = '#2c2218';
+const FALLBACK_SURFACE = '#f5f0eb';
+
+function readTokenColor(name: string, fallback: string): string {
+  if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+    return fallback;
+  }
+  const value = window.getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+}
+
+function tokenRgba(tokenValue: string, fallback: string, alpha: number): string {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(tokenValue || fallback);
+  if (!match) {
+    return fallback;
+  }
+  const rgb = Number.parseInt(match[1], 16);
+  return `rgba(${(rgb >> 16) & 255}, ${(rgb >> 8) & 255}, ${rgb & 255}, ${alpha})`;
+}
+
+const radarBrand = readTokenColor('--brand', FALLBACK_BRAND);
+const radarInk = readTokenColor('--ink', FALLBACK_INK);
+const radarSurface = readTokenColor('--surface', FALLBACK_SURFACE);
+const radarBrandArea = tokenRgba(radarBrand, FALLBACK_BRAND, 0.18);
+const radarInkAxisName = tokenRgba(radarInk, FALLBACK_INK, 0.72);
+const radarInkAxisLine = tokenRgba(radarInk, FALLBACK_INK, 0.16);
+const radarInkSplitLine = tokenRgba(radarInk, FALLBACK_INK, 0.12);
+const radarInkTooltip = tokenRgba(radarInk, FALLBACK_INK, 0.92);
+const radarSplitAreas = [
+  'rgba(255, 255, 255, 0.38)',
+  tokenRgba(radarSurface, FALLBACK_SURFACE, 0.28),
+] as const;
+
 export default function GlobalMentalScalePanel({ children }: Props) {
   const chartRef = useRef<HTMLDivElement | null>(null);
   const chartInstanceRef = useRef<EChartsType | null>(null);
@@ -52,41 +92,58 @@ export default function GlobalMentalScalePanel({ children }: Props) {
     let frameHandle: number | null = null;
     let resizeCleanup: (() => void) | undefined;
 
-    void import('./radarChart').then(({ default: echarts }) => {
-      if (cancelled || !chartRef.current) {
-        return;
-      }
-
-      const chart = echarts.init(chartRef.current);
-      chartInstanceRef.current = chart;
-      setIsChartReady(true);
-
-      // ResizeObserver on the chart host with rAF-throttled resize(): unlike
-      // a window resize listener it also catches layout-driven width changes
-      // (e.g. a collapsible sidebar) without calling resize() per event.
-      const observer = new ResizeObserver(() => {
-        if (frameHandle !== null || cancelled) {
+    const startChartInit = () => {
+      void import('./radarChart').then(({ default: echarts }) => {
+        if (cancelled || !chartRef.current) {
           return;
         }
-        frameHandle = window.requestAnimationFrame(() => {
-          frameHandle = null;
-          if (!cancelled) {
-            chart.resize();
+
+        const chart = echarts.init(chartRef.current);
+        chartInstanceRef.current = chart;
+        setIsChartReady(true);
+
+        // ResizeObserver on the chart host with rAF-throttled resize(): unlike
+        // a window resize listener it also catches layout-driven width changes
+        // (e.g. a collapsible sidebar) without calling resize() per event.
+        const observer = new ResizeObserver(() => {
+          if (frameHandle !== null || cancelled) {
+            return;
           }
+          frameHandle = window.requestAnimationFrame(() => {
+            frameHandle = null;
+            if (!cancelled) {
+              chart.resize();
+            }
+          });
         });
+        observer.observe(host);
+        resizeCleanup = () => {
+          observer.disconnect();
+          if (frameHandle !== null) {
+            window.cancelAnimationFrame(frameHandle);
+            frameHandle = null;
+          }
+        };
       });
-      observer.observe(host);
-      resizeCleanup = () => {
-        observer.disconnect();
-        if (frameHandle !== null) {
-          window.cancelAnimationFrame(frameHandle);
-          frameHandle = null;
-        }
-      };
-    });
+    };
+
+    // The echarts chunk (~534 KB) must not compete with Home's first paint:
+    // the radar is secondary chrome, so the dynamic import waits for an idle
+    // frame (setTimeout fallback where requestIdleCallback is missing). The
+    // setOption effect below tolerates late readiness — it re-runs once
+    // isChartReady flips true after the deferred init resolves.
+    let cancelChartInit: () => void;
+    if (typeof window.requestIdleCallback === 'function') {
+      const idleHandle = window.requestIdleCallback(() => startChartInit());
+      cancelChartInit = () => window.cancelIdleCallback(idleHandle);
+    } else {
+      const timeoutHandle = window.setTimeout(() => startChartInit(), 1);
+      cancelChartInit = () => window.clearTimeout(timeoutHandle);
+    }
 
     return () => {
       cancelled = true;
+      cancelChartInit();
       resizeCleanup?.();
       chartInstanceRef.current?.dispose();
       chartInstanceRef.current = null;
@@ -103,7 +160,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
     chart.setOption({
       animationDuration: 520,
       animationEasing: 'cubicOut',
-      color: ['#df0203'],
+      color: [radarBrand],
       radar: {
         radius: '68%',
         center: ['50%', '52%'],
@@ -112,26 +169,23 @@ export default function GlobalMentalScalePanel({ children }: Props) {
           max: 100,
         })),
         axisName: {
-          color: 'rgba(44, 34, 24, 0.72)',
+          color: radarInkAxisName,
           fontSize: 12,
           fontWeight: 700,
         },
         axisLine: {
           lineStyle: {
-            color: 'rgba(44, 34, 24, 0.16)',
+            color: radarInkAxisLine,
           },
         },
         splitLine: {
           lineStyle: {
-            color: 'rgba(44, 34, 24, 0.12)',
+            color: radarInkSplitLine,
           },
         },
         splitArea: {
           areaStyle: {
-            color: [
-              'rgba(255, 255, 255, 0.38)',
-              'rgba(245, 240, 235, 0.28)',
-            ],
+            color: [...radarSplitAreas],
           },
         },
       },
@@ -143,17 +197,17 @@ export default function GlobalMentalScalePanel({ children }: Props) {
               value: status.dimensions.map((dimension) => dimension.value),
               name: '心理状态',
               areaStyle: {
-                color: 'rgba(223, 2, 3, 0.18)',
+                color: radarBrandArea,
               },
               lineStyle: {
-                color: '#df0203',
+                color: radarBrand,
                 width: 2,
               },
               symbol: 'circle',
               symbolSize: 6,
               itemStyle: {
-                color: '#df0203',
-                borderColor: '#f5f0eb',
+                color: radarBrand,
+                borderColor: radarSurface,
                 borderWidth: 2,
               },
             },
@@ -163,9 +217,9 @@ export default function GlobalMentalScalePanel({ children }: Props) {
       tooltip: {
         trigger: 'item',
         borderWidth: 0,
-        backgroundColor: 'rgba(44, 34, 24, 0.92)',
+        backgroundColor: radarInkTooltip,
         textStyle: {
-          color: '#f5f0eb',
+          color: radarSurface,
           fontSize: 12,
           fontWeight: 700,
         },

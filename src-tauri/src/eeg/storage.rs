@@ -35,6 +35,17 @@ const MAX_TRIGGER_OBSERVATIONS: usize = 4096;
 /// shutdown flag; bounds stop() latency without waking the thread while the
 /// sample stream is flowing.
 const WRITER_POLL_INTERVAL: Duration = Duration::from_millis(20);
+/// Admission capacity for the recording queue between the 1000 Hz ingest
+/// path and the writer thread: ~8 s of per-sample messages (8192 samples,
+/// ~1 MB worst case). Bounds how much data a disk stall can pin in memory
+/// instead of letting the queue grow for the whole session. See
+/// `RecordingQueueGate` for why the bound is an admission gate rather than
+/// `mpsc::sync_channel`.
+const RECORDING_CHANNEL_CAPACITY: usize = 8192;
+/// How often a sample send parked on the queue gate re-checks for a free
+/// slot. Only spins once the writer is already ~8 s behind, i.e. exactly in
+/// the degraded regime where backpressure is the point.
+const RECORDING_SLOT_POLL_INTERVAL: Duration = Duration::from_millis(5);
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -274,20 +285,34 @@ pub enum RecordingMessage {
 /// (via `stop`) makes the thread flush and finalize the session; the shutdown
 /// flag additionally ends the loop while an idle ingest thread still holds a
 /// cached sender clone (see the generation-checked cache in server.rs), so
-/// stop() stays deterministic even if that thread never sends again.
+/// stop() stays deterministic even if that thread never sends again. The
+/// queue is backpressured by `RecordingQueueGate`: the per-sample send blocks
+/// once ~8 s of samples are unwritten, and the gate reopens on writer exit so
+/// ingest can never hang after stop or an IO error.
 #[derive(Debug)]
 pub struct RecordingWorker {
     session: EegRecordingSession,
     sample_count: Arc<AtomicU64>,
     trigger_observations: Arc<Mutex<VecDeque<TriggerObservation>>>,
     sender: mpsc::Sender<RecordingMessage>,
+    gate: Arc<RecordingQueueGate>,
     shutdown: Arc<AtomicBool>,
     handle: Mutex<Option<JoinHandle<Result<EegRecordingSession, String>>>>,
 }
 
 impl RecordingWorker {
     pub fn start(writer: RecordingWriter) -> Self {
+        // Blocking-only backpressure policy (see RecordingQueueGate): the
+        // channel itself stays an unbounded mpsc::channel so every sender
+        // keeps a plain mpsc::Sender, and the per-sample send path is
+        // throttled by the gate to ~8 s of unwritten samples. Samples are
+        // never dropped — paradigm trial indexes point into the EEG file, so
+        // gaps would corrupt trial alignment — a disk stall blocks ingest
+        // instead, and the writer drains every queued message before
+        // honoring the shutdown flag, so a producer parked on the gate
+        // always completes and cannot deadlock against stop().
         let (sender, receiver) = mpsc::channel::<RecordingMessage>();
+        let gate = Arc::new(RecordingQueueGate::new(RECORDING_CHANNEL_CAPACITY));
         let sample_count = Arc::new(AtomicU64::new(0));
         let trigger_observations: Arc<Mutex<VecDeque<TriggerObservation>>> =
             Arc::new(Mutex::new(VecDeque::new()));
@@ -296,16 +321,24 @@ impl RecordingWorker {
         let shutdown = Arc::new(AtomicBool::new(false));
         let shutdown_for_thread = Arc::clone(&shutdown);
         let session = writer.session();
+        let gate_for_thread = Arc::clone(&gate);
         let handle = thread::Builder::new()
             .name("eeg-recording-writer".to_string())
             .spawn(move || {
                 let mut writer = writer;
+                // Closes the queue gate on every exit path (drain finished,
+                // write error via `?`, panic unwind) so a producer parked on
+                // backpressure can never outlive the writer thread.
+                let _gate_closer = GateCloser(Arc::clone(&gate_for_thread));
                 // Everything already queued is drained even after the stop flag
                 // is set; the flag only breaks the wait once the channel goes
                 // quiet (or fully disconnects).
                 loop {
                     match receiver.recv_timeout(WRITER_POLL_INTERVAL) {
                         Ok(message) => {
+                            // The message left the channel: credit the gate so
+                            // parked sample sends can proceed.
+                            gate_for_thread.note_written();
                             match message {
                                 RecordingMessage::Sample { samples, trigger } => {
                                     writer.write_sample(&samples, trigger)?;
@@ -347,6 +380,7 @@ impl RecordingWorker {
             sample_count,
             trigger_observations,
             sender,
+            gate,
             shutdown,
             handle: Mutex::new(Some(handle)),
         }
@@ -360,6 +394,12 @@ impl RecordingWorker {
 
     pub fn sender(&self) -> mpsc::Sender<RecordingMessage> {
         self.sender.clone()
+    }
+
+    /// Backpressure gate shared with the ingest hot path; see
+    /// `RecordingQueueGate` for the blocking policy.
+    pub(crate) fn queue_gate(&self) -> Arc<RecordingQueueGate> {
+        Arc::clone(&self.gate)
     }
 
     pub fn sample_count_handle(&self) -> Arc<AtomicU64> {
@@ -395,6 +435,86 @@ impl RecordingWorker {
         handle
             .join()
             .map_err(|_| "EEG recording writer thread failed.".to_string())?
+    }
+}
+
+/// Backpressure for the recording queue between the 1000 Hz ingest path and
+/// the writer thread.
+///
+/// The channel itself stays an unbounded `mpsc::channel` so every sender
+/// (server.rs sample path, paradigm events, manifest) keeps a plain
+/// `mpsc::Sender` — the std bounded channel's `SyncSender` would ripple type
+/// changes through every send site. The bound is enforced at admission
+/// instead: the per-sample send path calls `admit_sample`, which blocks while
+/// the unwritten backlog (`accepted - written`) is at
+/// `RECORDING_CHANNEL_CAPACITY` (~8 s of samples).
+///
+/// Policy is blocking-only for every run: paradigm trial indexes point into
+/// the EEG file, so dropping samples would corrupt trial alignment, and a
+/// disk stall must apply backpressure rather than grow memory without bound.
+/// Cold senders (trial events, manifest — a handful per session) bypass the
+/// gate; `written` counts every consumed message regardless of sender, so
+/// ungated messages only ever make the backlog estimate conservative (never
+/// over-blocks, never underflows).
+#[derive(Debug)]
+pub(crate) struct RecordingQueueGate {
+    capacity: usize,
+    accepted: AtomicU64,
+    written: AtomicU64,
+    closed: AtomicBool,
+}
+
+impl RecordingQueueGate {
+    fn new(capacity: usize) -> Self {
+        Self {
+            capacity,
+            accepted: AtomicU64::new(0),
+            written: AtomicU64::new(0),
+            closed: AtomicBool::new(false),
+        }
+    }
+
+    fn backlog(&self) -> u64 {
+        self.accepted
+            .load(Ordering::Relaxed)
+            .saturating_sub(self.written.load(Ordering::Relaxed))
+    }
+
+    /// Hot-path entry: parks while the unwritten backlog is at capacity, then
+    /// reserves one slot for the sample about to be sent. Polls instead of
+    /// parking on a condvar so the healthy path stays lock-free; it only
+    /// spins (at `RECORDING_SLOT_POLL_INTERVAL`) once the writer is already
+    /// ~8 s behind. Returns immediately once the writer thread is gone
+    /// (`close`), so a stalled or stopped writer can never hang ingest — the
+    /// subsequent send fails into the dropped receiver exactly as it did
+    /// before the gate existed.
+    pub(crate) fn admit_sample(&self) {
+        while self.backlog() >= self.capacity as u64 && !self.closed.load(Ordering::Relaxed) {
+            thread::sleep(RECORDING_SLOT_POLL_INTERVAL);
+        }
+        self.accepted.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Writer side: accounts one consumed message so parked producers can
+    /// proceed.
+    fn note_written(&self) {
+        self.written.fetch_add(1, Ordering::Relaxed);
+    }
+
+    /// Releases every parked producer when the writer thread exits, on any
+    /// path (normal drain, write error via the `?` operators, panic unwind).
+    fn close(&self) {
+        self.closed.store(true, Ordering::Relaxed);
+    }
+}
+
+/// Drops with the writer thread, closing the queue gate no matter how the
+/// thread exits.
+struct GateCloser(Arc<RecordingQueueGate>);
+
+impl Drop for GateCloser {
+    fn drop(&mut self) {
+        self.0.close();
     }
 }
 
@@ -767,6 +887,117 @@ mod tests {
                 .join("eeg_recordings")
                 .join(&session.id)
         ));
+
+        let _ = fs::remove_dir_all(base_dir);
+    }
+
+    #[test]
+    fn queue_gate_blocks_at_capacity_until_progress_or_close() {
+        let gate = Arc::new(RecordingQueueGate::new(4));
+
+        // Filling to exactly capacity never blocks (four slots, none taken).
+        for _ in 0..4 {
+            gate.admit_sample();
+        }
+
+        let parked = Arc::new(AtomicBool::new(false));
+        let parked_for_thread = Arc::clone(&parked);
+        let gate_for_thread = Arc::clone(&gate);
+        let waiter = thread::spawn(move || {
+            gate_for_thread.admit_sample(); // backlog at capacity: must park
+            parked_for_thread.store(true, Ordering::Relaxed);
+        });
+
+        thread::sleep(Duration::from_millis(50));
+        assert!(
+            !parked.load(Ordering::Relaxed),
+            "gate admitted a sample while the backlog was at capacity"
+        );
+
+        // One consumed message frees exactly one slot.
+        gate.note_written();
+        waiter.join().expect("waiter unblocked by writer progress");
+        assert!(parked.load(Ordering::Relaxed));
+
+        // A waiter parked past capacity is also released once the writer
+        // thread closes the gate on exit.
+        let released = Arc::new(AtomicBool::new(false));
+        let released_for_thread = Arc::clone(&released);
+        let gate_for_close = Arc::clone(&gate);
+        let closer_waiter = thread::spawn(move || {
+            gate_for_close.admit_sample();
+            released_for_thread.store(true, Ordering::Relaxed);
+        });
+        thread::sleep(Duration::from_millis(50));
+        assert!(
+            !released.load(Ordering::Relaxed),
+            "gate released a waiter before any progress or close"
+        );
+        gate.close();
+        closer_waiter
+            .join()
+            .expect("waiter unblocked by gate close");
+        assert!(released.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn gated_sample_path_blocks_at_capacity_and_drains_every_sample_before_stop() {
+        let conn = setup_conn();
+        let base_dir = temp_recording_dir();
+        let writer = RecordingWriter::start(
+            &conn,
+            &base_dir,
+            StartEegRecordingInput {
+                user_id: "user-1".to_string(),
+                username: "alice".to_string(),
+                paradigm: None,
+            },
+            &EegStreamConfig::default(),
+        )
+        .expect("start writer");
+
+        let worker = RecordingWorker::start(writer);
+        let sender = worker.sender();
+        let gate = worker.queue_gate();
+
+        // More samples than the gate capacity: the producer outruns the
+        // writer, fills the queue and parks inside admit_sample until the
+        // writer consumes. Every sample admitted before stop() is queued and
+        // the writer drains everything queued before finalizing, so the file
+        // must be complete and in send order.
+        let total = RECORDING_CHANNEL_CAPACITY as u64 + 1024;
+        let producer = thread::spawn(move || {
+            for index in 0..total {
+                let mut sample = [0.0_f32; EEG_CHANNEL_COUNT];
+                sample[0] = index as f32;
+                // Mirrors the server.rs hot path: wait for a slot, then send.
+                gate.admit_sample();
+                sender
+                    .send(RecordingMessage::Sample {
+                        samples: sample,
+                        trigger: 0,
+                    })
+                    .expect("send sample");
+            }
+        });
+
+        producer.join().expect(
+            "producer completes: the writer keeps consuming, so the gate cannot deadlock",
+        );
+
+        let session = worker.stop().expect("stop worker");
+
+        assert_eq!(session.sample_count, total);
+        let eeg_bytes =
+            fs::read(Path::new(&session.session_dir).join(EEG_FILE_NAME)).expect("read eeg binary");
+        let sample_stride = EEG_CHANNEL_COUNT * std::mem::size_of::<f32>();
+        assert_eq!(eeg_bytes.len(), total as usize * sample_stride);
+        assert_eq!(&eeg_bytes[0..4], &0.0_f32.to_le_bytes());
+        let last_offset = (total as usize - 1) * sample_stride;
+        assert_eq!(
+            &eeg_bytes[last_offset..(last_offset + 4)],
+            &((total - 1) as f32).to_le_bytes()
+        );
 
         let _ = fs::remove_dir_all(base_dir);
     }

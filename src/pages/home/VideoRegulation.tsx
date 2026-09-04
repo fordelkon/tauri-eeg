@@ -35,6 +35,18 @@ import styles from './VideoRegulation.module.css';
 
 const tagColors = ['#48a868', '#e16d4f', '#e3a22c', '#4d7fc8', '#9c6ade'] as const;
 
+// Deterministic per-card hue: the video's first tag picks a color from the
+// tag palette (stable hash, not list position) so neighbouring candidate
+// cards visually differ without new design tokens.
+function firstTagHue(video: VideoRegulationAsset): string {
+  const firstTag = video.tags[0] ?? video.segment.scene ?? '';
+  let hash = 0;
+  for (let index = 0; index < firstTag.length; index += 1) {
+    hash = (hash * 31 + firstTag.charCodeAt(index)) >>> 0;
+  }
+  return tagColors[hash % tagColors.length];
+}
+
 type TagOptionGroup = {
   label: string;
   values: readonly string[];
@@ -395,7 +407,12 @@ export default function VideoRegulation() {
             {isPlaying ? '播放中' : '就绪'}
           </span>
           <span>{hasStartedSelection ? `${videos.length} 个候选视频` : '等待选择'}</span>
-          <button className={styles.libraryButton} type="button" onClick={chooseLibraryFolder} disabled={loadingLibrary}>
+          <button
+            className={`${styles.libraryButton} ${loadingLibrary ? styles.isBusy : ''}`}
+            type="button"
+            onClick={chooseLibraryFolder}
+            disabled={loadingLibrary}
+          >
             {loadingLibrary ? '加载中' : '选择视频库'}
           </button>
         </div>
@@ -479,11 +496,15 @@ export default function VideoRegulation() {
               {videos.length > 0 ? (
               videos.map((video) => (
                 <article key={video.id} className={`${styles.videoCard} grid`}>
-                  <div className={`${styles.thumbnail} grid place-items-center`} aria-hidden="true">
+                  <div
+                    className={`${styles.thumbnail} grid place-items-center`}
+                    style={{ '--thumb-accent': firstTagHue(video) } as CSSProperties}
+                    aria-hidden="true"
+                  >
                     <PlayArrowRoundedIcon />
+                    <span className={styles.thumbnailDuration}>{video.durationLabel}</span>
                   </div>
                   <div className={`${styles.videoMeta} grid min-w-0`}>
-                    <span>{video.durationLabel}</span>
                     <h2>{video.title}</h2>
                     <p>{video.summary}</p>
                     <div className={`${styles.tagChipList} flex flex-wrap`}>

@@ -1,0 +1,58 @@
+/*
+ * Global design tokens.
+ * Values are distilled from the existing pages (warm ink shell, cool ink
+ * monitor pages, coral brand gradient, green acquisition dialect) so pages
+ * can adopt them incrementally without visual rewrites.
+ */
+:root {
+  /* Ink (text) */
+  --ink: #2c2218; /* warm — shell, login, regulation, agent, scale, game */
+  --ink-cool: #172026; /* cool — acquisition/paradigm monitor pages */
+
+  /* Surfaces */
+  --surface: #f5f0eb;
+  --surface-2: #fffaf3;
+  --surface-raised: #fff;
+
+  /* Brand */
+  --brand: #df0203;
+  --brand-coral: #fb7f6e;
+  --brand-grad: linear-gradient(135deg, #f0413a, #df0203);
+  --coral-grad: linear-gradient(180deg, #ff9b8d, #f36d5a);
+
+  /* Semantic */
+  --success: #1c6a47;
+  --success-tint: rgba(34, 125, 84, 0.12);
+  --info: #245f9d;
+  --info-tint: rgba(45, 113, 184, 0.08);
+  --danger: #b3261e;
+  --danger-ink: #8d2d25;
+  --warning-ink: #8a560e;
+
+  /* Radii */
+  --radius-control: 8px;
+  --radius-card: 14px;
+  --radius-surface: 18px;
+  --radius-overlay: 22px;
+
+  /* Elevation (two-layer recipes from EffectEvaluation) */
+  --shadow-card: 0 1px 2px rgba(28, 22, 14, 0.06), 0 12px 32px rgba(28, 22, 14, 0.1);
+  --shadow-lift: 0 2px 4px rgba(28, 22, 14, 0.08), 0 18px 44px rgba(28, 22, 14, 0.14);
+  --shadow-overlay: 0 24px 64px rgba(12, 18, 22, 0.28);
+
+  /* Scrims */
+  --scrim-form: rgba(44, 34, 24, 0.38);
+  --scrim-media: rgba(6, 10, 12, 0.66);
+
+  /* Focus */
+  --focus-ring: 0 0 0 2px #f5f0eb, 0 0 0 4px rgba(223, 2, 3, 0.55);
+  --ring: 0 0 0 3px rgba(223, 2, 3, 0.14);
+
+  /* Motion */
+  --dur-fast: 150ms;
+  --dur-med: 220ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Misc */
+  --disabled-opacity: 0.45;
+}

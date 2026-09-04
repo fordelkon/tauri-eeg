@@ -1,10 +1,26 @@
+/* Form-class scrim: the shared warm tone; the dialog keeps its blur while
+   the tint now comes from the global token. `backwards` fill releases the
+   end transform (the dialog portals the confirm dialog to <body>, and a
+   retained transform would trap it). */
 .scaleOverlay {
-  background: rgba(44, 34, 24, 0.34);
+  animation: scaleOverlayEnter 180ms var(--ease-out) backwards;
+  background: var(--scrim-form);
   backdrop-filter: blur(10px);
   z-index: 10;
 }
 
+@keyframes scaleOverlayEnter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .scaleDialog {
+  animation: scaleDialogEnter 220ms var(--ease-out) backwards;
   background: #f5f0eb;
   border: 1px solid rgba(44, 34, 24, 0.12);
   border-radius: 8px;
@@ -171,4 +187,31 @@
   border-color: rgba(44, 34, 24, 0.1);
   color: rgba(44, 34, 24, 0.38);
   cursor: not-allowed;
+}
+
+@keyframes scaleDialogEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scaleOverlay,
+  .scaleDialog {
+    animation: none;
+  }
+
+  .scaleOptions button {
+    transition: none;
+  }
+
+  .scaleOptions button:hover {
+    transform: none;
+  }
 }

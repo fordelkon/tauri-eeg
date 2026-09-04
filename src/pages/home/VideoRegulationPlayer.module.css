@@ -1,9 +1,26 @@
+/* Media-class scrim: the shared dark token + a light blur keeps the page
+   readable behind the player. `backwards` fill releases the end transform
+   so the modal never pins a containing block over fixed descendants. */
 .videoOverlay {
-  background: rgba(5, 8, 10, 0.78);
+  animation: videoOverlayEnter 180ms var(--ease-out) backwards;
+  background: var(--scrim-media);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   padding: 24px;
 }
 
+@keyframes videoOverlayEnter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .videoModal {
+  animation: videoModalEnter 220ms var(--ease-out) backwards;
   background: #101619;
   border: 1px solid rgba(255, 250, 243, 0.14);
   border-radius: 10px;
@@ -73,6 +90,18 @@
   font-size: 22px;
 }
 
+@keyframes videoModalEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 .videoFrame {
   background: #000;
   border-radius: 8px;
@@ -103,4 +132,11 @@
     min-height: 58vh;
   }
 
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .videoOverlay,
+  .videoModal {
+    animation: none;
+  }
 }

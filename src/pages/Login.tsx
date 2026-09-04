@@ -137,6 +137,31 @@ export default function Login() {
   }, []);
 
   useEffect(() => {
+    // Warm the post-login route chunks while the login screen is idle so the
+    // 940 ms exit-animation window isn't followed by a chunk-load spinner.
+    const warmRoutes = () => {
+      void import('./Home').catch(() => undefined);
+      void import('./home/HomeOverview').catch(() => undefined);
+      void import('../eeg/EegSessionContext').catch(() => undefined);
+    };
+    const idleApi = window as Window & {
+      cancelIdleCallback?: (handle: number) => void;
+      requestIdleCallback?: (callback: () => void) => number;
+    };
+    const idleId = idleApi.requestIdleCallback
+      ? idleApi.requestIdleCallback(warmRoutes)
+      : window.setTimeout(warmRoutes, 400);
+
+    return () => {
+      if (idleApi.cancelIdleCallback) {
+        idleApi.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasError) {
       return;
     }

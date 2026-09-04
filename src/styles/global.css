@@ -1,0 +1,33 @@
+/*
+ * Baseline reset replacing MUI's CssBaseline (which now lives below the lazy
+ * boundary in AppShell.tsx). Mirrors @mui/material's reset — html-level
+ * box-sizing + font smoothing, body margin/typography — expressed in the
+ * app's design tokens so the entry chunk stays MUI-free.
+ */
+html {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: inherit;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+strong,
+b {
+  font-weight: 700;
+}

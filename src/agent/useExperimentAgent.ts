@@ -108,7 +108,31 @@ function eegCommandFailureMessage(commandLabel: string): string {
 }
 
 export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentOptions) {
-  const eeg = useEegSession();
+  // The session context is destructured into the specific fields executeAction
+  // reads instead of being carried around as a whole object: the context value
+  // changes identity on every display-settings tweak (channel toggles,
+  // amplitude, time window) and session transition, and keying the
+  // executeAction → queueOrExecute → submitPrompt chain on that whole value
+  // re-created submitPrompt — rebinding the agent:submit-prompt and
+  // agent:record-action window listeners — on each of those changes. The
+  // narrowed deps keep the chain stable unless one of the fields below
+  // actually changes.
+  const {
+    canPauseRecord,
+    canResumeRecord,
+    canStartDevice,
+    canStartRecord,
+    canStopDevice,
+    canStopRecord,
+    deviceStatus,
+    pauseRecord,
+    recordStatus,
+    resumeRecord,
+    startDevice,
+    startRecord,
+    stopDevice,
+    stopRecord,
+  } = useEegSession();
   const { currentUser } = useAuth();
   const [phase, setPhase] = useState<AgentPhase>(() => getAgentPhaseForRoute(pathname));
   const [message, setMessage] = useState('可以输入“开始实验”或点击推荐操作。');
@@ -195,6 +219,18 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   }, [flushBufferedThinking]);
 
   const executeAction = useCallback(async (actionId: AgentActionId, params: AgentActionParams = {}) => {
+    // Guard view assembled at execution time from the captured primitives —
+    // the same committed values the whole session object used to carry here.
+    const eegGuardView = toAgentEegGuardView({
+      canPauseRecord,
+      canResumeRecord,
+      canStartDevice,
+      canStartRecord,
+      canStopDevice,
+      canStopRecord,
+      deviceStatus,
+      recordStatus,
+    });
     const validation = getAgentActionValidation(actionId, phase);
     if (!validation.ok) {
       setMessage(validation.reason);
@@ -211,20 +247,20 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
         return;
       }
       case 'start_eeg_device': {
-        const verdict = validateAgentStartDevice(toAgentEegGuardView(eeg));
+        const verdict = validateAgentStartDevice(eegGuardView);
         if (!verdict.ok) {
           setMessage(verdict.reason);
           return;
         }
 
-        const accepted = await eeg.startDevice();
+        const accepted = await startDevice();
         setMessage(accepted
           ? '已请求启动 EEG 设备。'
           : eegCommandFailureMessage('启动 EEG 设备'));
         return;
       }
       case 'stop_eeg_device': {
-        const verdict = validateAgentStopDevice(toAgentEegGuardView(eeg));
+        const verdict = validateAgentStopDevice(eegGuardView);
         if (!verdict.ok) {
           setMessage(verdict.reason);
           return;
@@ -233,71 +269,71 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
         // Same sequence as the manual guard on the EEG page: an active
         // recording is saved through the normal stop path first, and a failed
         // save aborts the shutdown instead of silently dropping the data.
-        const mustSaveFirst = eeg.canStopRecord;
+        const mustSaveFirst = canStopRecord;
         if (mustSaveFirst) {
-          const saved = await eeg.stopRecord();
+          const saved = await stopRecord();
           if (!saved) {
             setMessage('停止并保存 EEG 数据失败，设备保持连接，详情见 EEG 采集页错误提示。');
             return;
           }
         }
 
-        const stopped = await eeg.stopDevice();
+        const stopped = await stopDevice();
         setMessage(stopped
           ? (mustSaveFirst ? '已停止并保存 EEG 数据，设备已关闭。' : '已停止 EEG 设备。')
           : eegCommandFailureMessage('停止 EEG 设备'));
         return;
       }
       case 'start_eeg_recording': {
-        const verdict = validateAgentStartRecord(toAgentEegGuardView(eeg));
+        const verdict = validateAgentStartRecord(eegGuardView);
         if (!verdict.ok) {
           setMessage(verdict.reason);
           return;
         }
 
-        const started = await eeg.startRecord();
+        const started = await startRecord();
         setMessage(started
           ? (phase === 'recovery' ? '已开始恢复采集。' : '已开始基线采集。')
           : eegCommandFailureMessage('开始 EEG 采集'));
         return;
       }
       case 'pause_eeg_recording': {
-        const verdict = validateAgentPauseRecord(toAgentEegGuardView(eeg));
+        const verdict = validateAgentPauseRecord(eegGuardView);
         if (!verdict.ok) {
           setMessage(verdict.reason);
           return;
         }
 
-        setMessage(eeg.pauseRecord() ? '已暂停 EEG 采集。' : eegCommandFailureMessage('暂停 EEG 采集'));
+        setMessage(pauseRecord() ? '已暂停 EEG 采集。' : eegCommandFailureMessage('暂停 EEG 采集'));
         return;
       }
       case 'resume_eeg_recording': {
-        const verdict = validateAgentResumeRecord(toAgentEegGuardView(eeg));
+        const verdict = validateAgentResumeRecord(eegGuardView);
         if (!verdict.ok) {
           setMessage(verdict.reason);
           return;
         }
 
-        setMessage(eeg.resumeRecord() ? '已继续 EEG 采集。' : eegCommandFailureMessage('继续 EEG 采集'));
+        setMessage(resumeRecord() ? '已继续 EEG 采集。' : eegCommandFailureMessage('继续 EEG 采集'));
         return;
       }
       case 'stop_and_save_eeg_recording': {
-        const verdict = validateAgentStopAndSaveRecord(toAgentEegGuardView(eeg));
+        const verdict = validateAgentStopAndSaveRecord(eegGuardView);
         if (!verdict.ok) {
           setMessage(verdict.reason);
           return;
         }
 
-        const saved = await eeg.stopRecord();
+        const saved = await stopRecord();
         setMessage(saved
           ? '已停止并保存 EEG 数据。'
           : 'EEG 记录未能停止保存，数据尚未落盘，详情见 EEG 采集页错误提示。');
         return;
       }
       case 'start_eeg_device_and_record': {
-        if (eeg.canStartDevice) {
-          await eeg.startDevice();
-        } else if (eeg.deviceStatus === 'stopping') {
+        if (canStartDevice) {
+          await startDevice();
+        } else if (deviceStatus === 'stopping') {
           setMessage('EEG 设备正在停止中，请等待停止完成后再试。');
           return;
         }
@@ -306,26 +342,26 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
         // stream cannot be recording-ready yet, so this reports not-ready
         // (with the matching reason) instead of pretending capture began.
         // startRecord itself re-checks the same gate internally.
-        const recordVerdict = validateAgentStartRecord(toAgentEegGuardView(eeg));
+        const recordVerdict = validateAgentStartRecord(eegGuardView);
         if (!recordVerdict.ok) {
           setMessage(recordVerdict.reason);
           return;
         }
 
-        const started = await eeg.startRecord();
+        const started = await startRecord();
         setMessage(started
           ? (phase === 'recovery' ? '已启动设备并开始恢复采集。' : '已启动设备并开始基线采集。')
           : eegCommandFailureMessage('开始 EEG 采集'));
         return;
       }
       case 'stop_save_eeg_and_go_next': {
-        const verdict = validateAgentStopAndSaveRecord(toAgentEegGuardView(eeg));
+        const verdict = validateAgentStopAndSaveRecord(eegGuardView);
         if (!verdict.ok) {
           setMessage(verdict.reason);
           return;
         }
 
-        const saved = await eeg.stopRecord();
+        const saved = await stopRecord();
         if (!saved) {
           setMessage('EEG 记录未能停止保存，仍停留在当前阶段，详情见 EEG 采集页错误提示。');
           return;
@@ -411,7 +447,26 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
       default:
         setMessage('无法执行该操作。');
     }
-  }, [currentUser, eeg, navigateTo, phase, pushTimeline]);
+  }, [
+    canPauseRecord,
+    canResumeRecord,
+    canStartDevice,
+    canStartRecord,
+    canStopDevice,
+    canStopRecord,
+    currentUser,
+    deviceStatus,
+    navigateTo,
+    pauseRecord,
+    phase,
+    pushTimeline,
+    recordStatus,
+    resumeRecord,
+    startDevice,
+    startRecord,
+    stopDevice,
+    stopRecord,
+  ]);
 
   const queueOrExecute = useCallback(async (actionId: AgentActionId, forceConfirmation = false, params: AgentActionParams = {}) => {
     const action = getAgentAction(actionId);

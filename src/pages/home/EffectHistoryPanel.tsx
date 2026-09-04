@@ -300,7 +300,12 @@ export default function EffectHistoryPanel() {
             aria-label="按被试 ID 过滤"
             autoComplete="off"
           />
-          <Button variant="outlined" disabled={isLoading} onClick={() => void loadHistory()}>
+          <Button
+            variant="outlined"
+            disabled={isLoading}
+            className={isLoading ? styles.isBusy : undefined}
+            onClick={() => void loadHistory()}
+          >
             刷新
           </Button>
         </div>

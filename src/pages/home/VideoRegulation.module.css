@@ -91,6 +91,32 @@
   opacity: 0.64;
 }
 
+/* Busy state: inline spinner + unchanged 加载中 copy while the library scans. */
+.libraryButton.isBusy {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.libraryButton.isBusy::before {
+  animation: busySpin 700ms linear infinite;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  border-top-color: transparent;
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
+}
+
+@keyframes busySpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .libraryNotice {
   background: rgba(255, 255, 255, 0.68);
   border: 1px solid rgba(23, 32, 38, 0.1);
@@ -391,10 +417,16 @@
   padding: 10px;
 }
 
+/* Thumbnail tint is driven per card by --thumb-accent (the video's first
+   tag color), so adjacent candidates differ; the fallback keeps the
+   original green→blue duo when the variable is absent. */
 .thumbnail {
+  position: relative;
   aspect-ratio: 1;
   background:
-    linear-gradient(145deg, rgba(72, 168, 104, 0.78), rgba(77, 127, 200, 0.78)),
+    linear-gradient(145deg,
+      color-mix(in srgb, var(--thumb-accent, #48a868) 78%, transparent),
+      color-mix(in srgb, var(--thumb-accent, #4d7fc8) 38%, #172026)),
     #172026;
   border-radius: 8px;
   color: #fffaf3;
@@ -402,6 +434,22 @@
 
 .thumbnail svg {
   font-size: 25px;
+}
+
+/* Duration rides the thumbnail as a bottom-right dark chip, like a real
+   video card, instead of taking a meta line below it. */
+.thumbnailDuration {
+  background: rgba(6, 10, 12, 0.72);
+  border-radius: 6px;
+  bottom: 4px;
+  color: #fffaf3;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  line-height: 1;
+  padding: 3px 5px;
+  position: absolute;
+  right: 4px;
 }
 
 .videoMeta {
@@ -544,6 +592,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   .workspace {
+    animation: none;
+  }
+
+  .tagGroupSummary::before {
+    transition: none;
+  }
+
+  .libraryButton.isBusy::before {
     animation: none;
   }
 }

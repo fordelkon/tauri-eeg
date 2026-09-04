@@ -57,7 +57,10 @@ export function useConfirmDialog(): {
         <Button
           color={options.destructive ? 'error' : 'primary'}
           onClick={() => settle(true)}
-          autoFocus
+          // Destructive confirms (sign-out while recording, flow reset) must
+          // never fire from a stray Enter: focus stays off the confirm button,
+          // so the dialog defaults to cancel.
+          autoFocus={options.destructive ? false : true}
         >
           {options.confirmText ?? '确定'}
         </Button>

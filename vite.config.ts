@@ -15,6 +15,19 @@ const manualChunks = (id: string): string | undefined => {
     return undefined;
   }
 
+  // React must live outside vendor-mui: the entry imports react directly, and
+  // if Rollup absorbs it into the MUI chunk the entry statically depends on
+  // the whole 400KB+ vendor bundle again. The trailing slashes keep this from
+  // matching @emotion/react or react-router-dom.
+  if (
+    id.indexOf("node_modules/react/") !== -1 ||
+    id.indexOf("node_modules/react-dom/") !== -1 ||
+    id.indexOf("node_modules/react-is/") !== -1 ||
+    id.indexOf("node_modules/scheduler/") !== -1
+  ) {
+    return "vendor-react";
+  }
+
   if (id.indexOf("@mui") !== -1 || id.indexOf("@emotion") !== -1) {
     return "vendor-mui";
   }

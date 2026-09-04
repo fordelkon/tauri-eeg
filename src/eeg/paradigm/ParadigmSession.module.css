@@ -1,8 +1,11 @@
 /* Styles for the EEG emotion induction paradigm acquisition UI. Follows the
    light workspace palette of EegAcquisition.module.css. */
 
+/* App-wide design tokens (green acquisition dialect lives on the globals). */
+@import "../../styles/tokens.css";
+
 .panel {
-  color: #172026;
+  color: var(--ink-cool);
   display: grid;
   gap: 12px;
 }
@@ -30,7 +33,9 @@
   margin: 0;
 }
 
-/* Compact E-Prime style pill radios for the experiment type. */
+/* Compact E-Prime style pill radios for the experiment type. Unified with the
+   EegAcquisition mode switch: 999px capsule, 34px tall, 13px/700; selection
+   reads through the green acquisition tint instead of an inset ring. */
 
 .pillRadioRow {
   align-items: center;
@@ -40,7 +45,7 @@
 }
 
 .pillRadioLabel {
-  color: #172026;
+  color: var(--ink-cool);
   font-size: 13px;
   font-weight: 700;
 }
@@ -49,23 +54,32 @@
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(23, 32, 38, 0.18);
   border-radius: 999px;
-  color: #172026;
+  color: var(--ink-cool);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
-  min-height: 28px;
-  padding: 0 12px;
+  min-height: 34px;
+  padding: 0 14px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
-.pillRadio:hover {
-  border-color: #22613c;
+.pillRadio:hover:not(.selectedPillRadio) {
+  border-color: rgba(23, 32, 38, 0.34);
+}
+
+.pillRadio:active:not(.selectedPillRadio) {
+  transform: scale(0.98);
 }
 
 .selectedPillRadio {
-  background: rgba(34, 139, 94, 0.12);
-  border-color: #22613c;
-  box-shadow: inset 0 0 0 1px #22613c;
-  color: #17633f;
+  background: var(--success-tint);
+  border-color: var(--success);
+  color: var(--success);
+  font-weight: 720;
 }
 
 /* Divider label inside the single startup card (── 视频素材 ── / ── 就绪 ──). */
@@ -95,30 +109,41 @@
 }
 
 .fieldLabel {
-  color: #172026;
+  color: var(--ink-cool);
   display: grid;
   font-size: 13px;
   font-weight: 700;
   gap: 6px;
 }
 
+/* Standard field: 40px tall, cool-ink border that deepens on hover, and the
+   app-wide brand-tinted focus ring (the old green focus fought with the green
+   primary action next to it — green stays acquisition-primary only). */
 .textInput {
   background: #fff;
   border: 1px solid rgba(23, 32, 38, 0.18);
-  border-radius: 6px;
-  color: #172026;
+  border-radius: var(--radius-control);
+  color: var(--ink-cool);
   font-size: 13px;
-  min-height: 36px;
-  padding: 0 10px;
+  height: 40px;
+  padding: 0 12px;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.textInput:hover {
+  border-color: rgba(23, 32, 38, 0.34);
 }
 
 .textInput:focus {
-  border-color: #22613c;
+  border-color: rgba(223, 2, 3, 0.55);
+  box-shadow: var(--ring);
   outline: none;
 }
 
 .fieldError {
-  color: #8d1e1e;
+  color: var(--danger-ink);
   font-size: 12px;
   font-weight: 650;
 }
@@ -132,36 +157,38 @@
   gap: 10px;
 }
 
+/* Readiness lights use the unified status-pill capsule (28px, 999px radius). */
+
 .deviceLight {
   align-items: center;
-  border-radius: 8px;
-  border: 1px solid rgba(84, 96, 104, 0.24);
-  background: rgba(84, 96, 104, 0.12);
-  color: #46525a;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 32, 38, 0.2);
+  background: rgba(23, 32, 38, 0.08);
+  color: rgba(23, 32, 38, 0.66);
   display: inline-flex;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   gap: 8px;
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 4px 12px;
 }
 
 .deviceLightDot {
-  background: #8a949b;
+  background: rgba(23, 32, 38, 0.4);
   border-radius: 999px;
   height: 10px;
   width: 10px;
 }
 
 .connectedLight {
-  background: rgba(34, 139, 94, 0.12);
-  border-color: rgba(34, 139, 94, 0.24);
-  color: #17633f;
+  background: var(--success-tint);
+  border-color: rgba(28, 106, 71, 0.26);
+  color: var(--success);
 }
 
 .connectedLightDot {
-  background: #22613c;
-  box-shadow: 0 0 8px rgba(34, 139, 94, 0.65);
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(28, 106, 71, 0.65);
 }
 
 /* Compact overrides for the readiness row (must follow the base classes). */
@@ -185,10 +212,10 @@
 }
 
 .classChip {
-  background: rgba(45, 113, 184, 0.1);
+  background: var(--info-tint);
   border: 1px solid rgba(45, 113, 184, 0.22);
-  border-radius: 6px;
-  color: #245f9d;
+  border-radius: 999px;
+  color: var(--info);
   font-size: 12px;
   font-weight: 700;
   padding: 4px 8px;
@@ -197,7 +224,7 @@
 .classChip.isShort {
   background: rgba(194, 121, 20, 0.12);
   border-color: rgba(194, 121, 20, 0.26);
-  color: #8a560e;
+  color: var(--warning-ink);
 }
 
 /* Class not collected by the selected session kind. */
@@ -223,32 +250,58 @@
 }
 
 .primaryButton {
-  background: #22613c;
+  background: var(--success);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   color: #f8fbfc;
   cursor: pointer;
   font-size: 13px;
   font-weight: 720;
   min-height: 38px;
   padding: 0 16px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: #17513a;
+  box-shadow: 0 6px 16px rgba(28, 106, 71, 0.22);
+}
+
+.primaryButton:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .primaryButton:disabled {
-  background: rgba(84, 96, 104, 0.35);
+  background: rgba(23, 32, 38, 0.32);
   cursor: not-allowed;
 }
 
 .secondaryButton {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(23, 32, 38, 0.2);
-  border-radius: 8px;
-  color: #172026;
+  border-radius: var(--radius-control);
+  color: var(--ink-cool);
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
   min-height: 38px;
   padding: 0 14px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: #fff;
+  border-color: rgba(23, 32, 38, 0.34);
+}
+
+.secondaryButton:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .secondaryButton:disabled {
@@ -265,22 +318,35 @@
 }
 
 .dangerButton {
-  background: rgba(184, 45, 45, 0.08);
-  border: 1px solid rgba(184, 45, 45, 0.3);
-  border-radius: 8px;
-  color: #8d1e1e;
+  background: rgba(179, 38, 30, 0.08);
+  border: 1px solid rgba(179, 38, 30, 0.3);
+  border-radius: var(--radius-control);
+  color: var(--danger-ink);
   cursor: pointer;
   font-size: 13px;
   font-weight: 720;
   min-height: 38px;
   padding: 0 14px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.dangerButton:hover:not(:disabled) {
+  background: rgba(179, 38, 30, 0.14);
+  border-color: rgba(179, 38, 30, 0.5);
+}
+
+.dangerButton:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .errorBanner {
-  background: rgba(184, 45, 45, 0.08);
-  border: 1px solid rgba(184, 45, 45, 0.18);
+  background: rgba(179, 38, 30, 0.08);
+  border: 1px solid rgba(179, 38, 30, 0.26);
   border-radius: 8px;
-  color: #8d1e1e;
+  color: var(--danger-ink);
   display: grid;
   font-size: 13px;
   font-weight: 650;
@@ -301,7 +367,7 @@
   background: rgba(194, 121, 20, 0.1);
   border: 1px solid rgba(194, 121, 20, 0.26);
   border-radius: 8px;
-  color: #8a560e;
+  color: var(--warning-ink);
   font-size: 13px;
   font-weight: 700;
   padding: 8px 12px;
@@ -540,20 +606,24 @@
   gap: 8px;
 }
 
-/* Self-report dialog, mirrors the mental scale dialog look. */
+/* Self-report dialog, mirrors the mental scale dialog look. Form-class
+   overlay: warm scrim + blur, fading in while the panel scales up. */
 
 .dialogOverlay {
-  background: rgba(12, 18, 22, 0.55);
+  animation: overlayFade 180ms var(--ease-out) backwards;
+  backdrop-filter: blur(8px);
+  background: var(--scrim-form);
   inset: 0;
   position: fixed;
   z-index: 40;
 }
 
 .dialog {
+  animation: dialogEnter 220ms var(--ease-out) backwards;
   background: #f5f0eb;
   border-radius: 12px;
   box-shadow: 0 24px 60px rgba(12, 18, 22, 0.35);
-  color: #172026;
+  color: var(--ink-cool);
   display: grid;
   gap: 16px;
   max-height: 90dvh;
@@ -561,6 +631,28 @@
   overflow-y: auto;
   padding: 20px;
   width: calc(100vw - 32px);
+}
+
+@keyframes overlayFade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .dialogHeader {

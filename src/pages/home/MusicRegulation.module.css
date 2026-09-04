@@ -18,6 +18,31 @@
   }
 }
 
+/* Overlay entrance: scrim fades, the panel inside rises+scales in.
+   `backwards` fill (not both) releases the end transform so nothing inside
+   the panels can be trapped by a retained containing block. */
+@keyframes overlayEnter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlayPanelEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 .header {
   gap: 18px;
 }
@@ -265,12 +290,16 @@
 
 .tagSheetOverlay {
   align-items: center;
-  background: transparent;
+  background: var(--scrim-form);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: overlayEnter 180ms var(--ease-out) backwards;
   justify-content: center;
   padding: 24px;
 }
 
 .tagSheet {
+  animation: overlayPanelEnter 220ms var(--ease-out) backwards;
   background: #fff;
   border: 1px solid rgba(23, 32, 38, 0.12);
   border-radius: 10px;
@@ -566,6 +595,33 @@
   border-color: transparent;
   color: rgba(23, 32, 38, 0.46);
   cursor: not-allowed;
+}
+
+/* Busy state: a 14px inline spinner rides the unchanged busy copy
+   (正在生成 WAV / 加载中) so the label never mutates while waiting. */
+.isBusy {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.isBusy::before {
+  animation: busySpin 700ms linear infinite;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  border-top-color: transparent;
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
+}
+
+@keyframes busySpin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .generationProgress {
@@ -870,12 +926,16 @@
 }
 
 .historyOverlay {
-  background: transparent;
+  background: var(--scrim-form);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: overlayEnter 180ms var(--ease-out) backwards;
   justify-content: center;
   padding: 24px;
 }
 
 .historyModal {
+  animation: overlayPanelEnter 220ms var(--ease-out) backwards;
   background: #fff;
   border: 1px solid rgba(23, 32, 38, 0.12);
   border-radius: 8px;
@@ -1016,39 +1076,86 @@
 }
 
 .activeQueueItem {
-  background: rgba(23, 32, 38, 0.92);
-  border-color: rgba(23, 32, 38, 0.92);
-  color: #f7f4ef;
+  background: color-mix(in srgb, var(--brand-coral) 12%, #fff);
+  border-color: rgba(223, 2, 3, 0.35);
+  color: #172026;
 }
 
 .activeQueueItem:hover {
-  background: rgba(23, 32, 38, 0.92);
-  color: #f7f4ef;
+  background: color-mix(in srgb, var(--brand-coral) 18%, #fff);
+  border-color: rgba(223, 2, 3, 0.45);
+  color: #172026;
 }
 
 .activeQueueItem .queueSelectButton span,
 .activeQueueItem .queueSelectButton em {
-  color: rgba(247, 244, 239, 0.58);
+  color: rgba(23, 32, 38, 0.58);
 }
 
 .activeQueueItem:hover .queueSelectButton span,
 .activeQueueItem:hover .queueSelectButton em {
-  color: rgba(247, 244, 239, 0.62);
+  color: rgba(23, 32, 38, 0.62);
+}
+
+.activeQueueItem .queueSelectButton {
+  grid-template-columns: 34px minmax(0, 1fr) auto auto;
 }
 
 .activeQueueItem .deleteQueueButton {
-  background: rgba(247, 244, 239, 0.1);
-  color: rgba(255, 250, 243, 0.88);
+  background: rgba(23, 32, 38, 0.05);
+  color: rgba(23, 32, 38, 0.74);
 }
 
 .activeQueueItem .deleteQueueButton:hover {
-  background: rgba(255, 250, 243, 0.18);
-  color: #fffaf3;
+  background: rgba(196, 58, 48, 0.1);
+  color: #8d2d25;
 }
 
 .activeQueueItem .deleteQueueButton:global(.Mui-disabled) {
-  background: rgba(247, 244, 239, 0.06);
-  color: rgba(247, 244, 239, 0.34);
+  background: rgba(23, 32, 38, 0.03);
+  color: rgba(23, 32, 38, 0.28);
+}
+
+/* Three small bars beside the active row title — same visual family as the
+   player's cover bars, animated with transform-only scaleY so the row never
+   triggers layout. Paused entirely under prefers-reduced-motion. */
+.queueEqualizer {
+  align-items: center;
+  display: inline-flex;
+  gap: 2px;
+  height: 14px;
+}
+
+.queueEqualizer span {
+  animation: queueEqualizerBar 900ms var(--ease-out) infinite alternate;
+  background: var(--brand);
+  border-radius: 999px;
+  display: block;
+  height: 12px;
+  transform-origin: center;
+  width: 3px;
+}
+
+.queueEqualizer span:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.queueEqualizer span:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.queueEqualizer span:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+@keyframes queueEqualizerBar {
+  from {
+    transform: scaleY(0.35);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
 }
 
 @media (max-width: 940px) {
@@ -1145,6 +1252,10 @@
     grid-template-columns: 28px minmax(0, 1fr);
   }
 
+  .activeQueueItem .queueSelectButton {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+  }
+
   .queueSelectButton em {
     display: none;
   }
@@ -1157,12 +1268,22 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .workspace {
+  .workspace,
+  .historyOverlay,
+  .tagSheetOverlay,
+  .historyModal,
+  .tagSheet {
     animation: none;
   }
 
   .tagChevron,
   .queueSelectButton {
     transition: none;
+  }
+
+  .queueEqualizer span,
+  .coverBars span,
+  .isBusy::before {
+    animation: none;
   }
 }

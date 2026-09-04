@@ -17,6 +17,9 @@ const ScaleGateRoute = lazy(() => import('./mentalScale/ScaleGateRoute'));
 const Login = lazy(() => import('./pages/Login'));
 const Home = lazy(() => import('./pages/Home'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+// MUI ThemeProvider + themed CssBaseline: loading it lazily keeps the entry
+// chunk MUI-free, so the boot shell paints before any vendor-mui code parses.
+const AppShell = lazy(() => import('./AppShell'));
 const EegAcquisition = lazy(() => import('./pages/home/EegAcquisition'));
 const EffectEvaluation = lazy(() => import('./pages/home/EffectEvaluation'));
 const GameRegulation = lazy(() => import('./pages/home/GameRegulation'));
@@ -87,7 +90,11 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <AppRoutes />
+        <Suspense fallback={routeFallback}>
+          <AppShell>
+            <AppRoutes />
+          </AppShell>
+        </Suspense>
       </Router>
     </AuthProvider>
   );

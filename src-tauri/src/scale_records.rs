@@ -1,5 +1,5 @@
 use chrono::Utc;
-use rusqlite::{params, Connection};
+use rusqlite::{params, params_from_iter, Connection};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;
@@ -62,7 +62,9 @@ pub struct ScaleRecord {
     pub scale_id: String,
     pub phase: String,
     pub dimension_scores: serde_json::Value,
-    pub raw_answers: serde_json::Value,
+    /// Stored answers JSON, parsed on demand via [`RawAnswers::value`] (the
+    /// history/export scans never read it, so it is not paid per row).
+    pub raw_answers: RawAnswers,
     pub created_at: String,
     pub emotion: Option<String>,
     pub condition: Option<String>,
@@ -70,6 +72,47 @@ pub struct ScaleRecord {
     pub regulation_skipped: bool,
     pub measured_dimensions: Option<Vec<String>>,
     pub eeg_session_id: Option<String>,
+}
+
+/// Lazily parsed `raw_answers` payload of a scale record.
+///
+/// Row loading keeps the stored JSON text verbatim so the history and export
+/// scans (`build_effect_history`, `compute_condition_effect_comparison`) never
+/// pay the per-row `serde_json` parse — nothing in them reads the answers.
+/// The structured value is built on demand where it is actually consumed:
+/// the single-pair export report and the serialized IPC payloads.
+#[derive(Debug, Clone)]
+pub struct RawAnswers(String);
+
+impl RawAnswers {
+    /// Parses the stored JSON strictly on demand: like `dimension_scores`, a
+    /// corrupt payload must surface instead of silently degrading to `{}`.
+    pub fn value(&self) -> Result<serde_json::Value, String> {
+        serde_json::from_str(&self.0)
+            .map_err(|_| "Failed to parse stored raw answers.".to_string())
+    }
+}
+
+// Compares the parsed payloads so records whose stored text differs only in
+// whitespace or key order still compare equal, like the old eager field.
+impl PartialEq for RawAnswers {
+    fn eq(&self, other: &Self) -> bool {
+        self.value() == other.value()
+    }
+}
+
+// Serializes exactly like the old eager `serde_json::Value` field: parse,
+// then let the value serialize, keeping every IPC payload identical.
+impl Serialize for RawAnswers {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self.value() {
+            Ok(value) => value.serialize(serializer),
+            Err(message) => Err(serde::ser::Error::custom(message)),
+        }
+    }
 }
 
 /// Per-dimension improvement between the baseline and post regulation
@@ -132,7 +175,9 @@ pub fn init_scale_records_schema(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         );
         CREATE INDEX IF NOT EXISTS idx_scale_records_subject_phase
-            ON scale_records(subject_id, phase);",
+            ON scale_records(subject_id, phase);
+        CREATE INDEX IF NOT EXISTS idx_scale_records_subject_created
+            ON scale_records(subject_id, created_at);",
     )
     .map_err(|_| "Failed to initialize scale records schema.".to_string())?;
 
@@ -262,7 +307,7 @@ pub fn save_scale_record(
         scale_id: scale_id.to_string(),
         phase: input.phase.trim().to_string(),
         dimension_scores: serde_json::from_str(&dimension_scores).unwrap_or_default(),
-        raw_answers: serde_json::from_str(&raw_answers).unwrap_or_default(),
+        raw_answers: RawAnswers(raw_answers.clone()),
         created_at,
         emotion: emotion.map(str::to_string),
         condition: condition.map(str::to_string),
@@ -292,6 +337,43 @@ fn normalize_optional_text(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|trimmed| !trimmed.is_empty())
 }
 
+/// Column projection shared by every filter combination of
+/// `list_scale_records` (identical for all of them).
+const LIST_SCALE_RECORDS_SELECT: &str = "SELECT id, user_id, subject_id, scale_id, phase, dimension_scores, raw_answers, created_at, emotion, condition, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id FROM scale_records";
+
+/// Builds the list query and its positional bindings: one concrete
+/// `column = ?` equality per bound filter. Unlike the previous
+/// `(?1 IS NULL OR subject_id = ?1) AND (?2 IS NULL OR phase = ?2)` form,
+/// which defeated index use, each combination gets its own prepared statement
+/// (via `prepare_cached`) whose plan can pick an index — a subject filter
+/// scans `idx_scale_records_subject_created` directly in the `created_at`
+/// order the query sorts by. Bindings follow clause order: subject first.
+fn build_list_records_sql(
+    subject_id: Option<&str>,
+    phase: Option<&str>,
+) -> (String, Vec<String>) {
+    let mut sql = String::from(LIST_SCALE_RECORDS_SELECT);
+    let mut clauses: Vec<&'static str> = Vec::new();
+    let mut bindings: Vec<String> = Vec::new();
+
+    if let Some(subject_id) = subject_id {
+        clauses.push("subject_id = ?");
+        bindings.push(subject_id.to_string());
+    }
+    if let Some(phase) = phase {
+        clauses.push("phase = ?");
+        bindings.push(phase.to_string());
+    }
+    if !clauses.is_empty() {
+        sql.push_str(" WHERE ");
+        sql.push_str(&clauses.join(" AND "));
+    }
+    // Chronological order so a subject's baseline precedes its post record.
+    sql.push_str(" ORDER BY created_at ASC");
+
+    (sql, bindings)
+}
+
 pub fn list_scale_records(
     conn: &Connection,
     subject_id: Option<&str>,
@@ -304,20 +386,14 @@ pub fn list_scale_records(
         validate_phase(phase)?;
     }
 
-    // Chronological order so a subject's baseline precedes its post record.
+    let (sql, bindings) = build_list_records_sql(subject_id, phase);
+
     let mut stmt = conn
-        .prepare_cached(
-            "SELECT id, user_id, subject_id, scale_id, phase, dimension_scores, raw_answers, created_at,
-                    emotion, condition, duration_minutes, regulation_skipped, measured_dimensions, eeg_session_id
-                FROM scale_records
-                WHERE (?1 IS NULL OR subject_id = ?1)
-                  AND (?2 IS NULL OR phase = ?2)
-                ORDER BY created_at ASC",
-        )
+        .prepare_cached(&sql)
         .map_err(|_| "Failed to load scale records.".to_string())?;
 
     let rows = stmt
-        .query_map(params![subject_id, phase], map_record_row)
+        .query_map(params_from_iter(bindings.iter()), map_record_row)
         .map_err(|_| "Failed to load scale records.".to_string())?;
 
     rows.collect::<Result<Vec<_>, _>>()
@@ -918,8 +994,10 @@ pub fn build_single_effect_report(
         post_record_id: post.id.clone(),
         baseline_created_at: baseline.created_at.clone(),
         post_created_at: post.created_at.clone(),
-        baseline_raw_answers: baseline.raw_answers.clone(),
-        post_raw_answers: post.raw_answers.clone(),
+        // The single consumer of the raw answers: parsed here on demand, with
+        // the same strictness (and error message) the eager load had.
+        baseline_raw_answers: baseline.raw_answers.value()?,
+        post_raw_answers: post.raw_answers.value()?,
         eeg_session_id: post
             .eeg_session_id
             .clone()
@@ -1255,8 +1333,10 @@ fn parse_record_row(row: RecordRow) -> Result<ScaleRecord, String> {
         // rows from the effect computation below.
         dimension_scores: serde_json::from_str(&row.dimension_scores)
             .map_err(|_| "Failed to parse stored dimension scores.".to_string())?,
-        raw_answers: serde_json::from_str(&row.raw_answers)
-            .map_err(|_| "Failed to parse stored raw answers.".to_string())?,
+        // Kept verbatim; parsed on demand by `RawAnswers::value` only where a
+        // consumer actually reads the answers (single-pair export, IPC
+        // serialization), so list scans skip this per-row parse.
+        raw_answers: RawAnswers(row.raw_answers),
         created_at: row.created_at,
         emotion: row.emotion,
         condition: row.condition,
@@ -1342,7 +1422,13 @@ mod tests {
             saved_baseline.dimension_scores,
             json!({ "anxiety": 75.0, "mood": 50.0 })
         );
-        assert_eq!(saved_baseline.raw_answers["video-anxiety-tense"], 2);
+        assert_eq!(
+            saved_baseline
+                .raw_answers
+                .value()
+                .expect("parse saved raw answers")["video-anxiety-tense"],
+            2
+        );
         assert!(!saved_baseline.id.is_empty());
         assert!(!saved_baseline.created_at.is_empty());
 
@@ -1366,6 +1452,53 @@ mod tests {
         assert_eq!(records[1].id, saved_post.id);
         assert_eq!(records[0].phase, PHASE_BASELINE);
         assert_eq!(records[1].phase, PHASE_POST);
+    }
+
+    #[test]
+    fn list_query_builder_binds_one_concrete_clause_per_filter() {
+        // Unfiltered: no WHERE clause, chronological order preserved.
+        let (sql, bindings) = build_list_records_sql(None, None);
+        assert!(bindings.is_empty());
+        assert!(!sql.contains("WHERE"));
+        assert!(sql.ends_with("ORDER BY created_at ASC"));
+
+        // Subject only: a single concrete equality that the planner can serve
+        // from the subject+created_at index.
+        let (sql, bindings) = build_list_records_sql(Some("subject-1"), None);
+        assert_eq!(bindings, vec!["subject-1".to_string()]);
+        assert!(sql.contains("WHERE subject_id = ?"));
+        assert!(!sql.contains("IS NULL"));
+        assert!(sql.ends_with("ORDER BY created_at ASC"));
+
+        // Phase only.
+        let (sql, bindings) = build_list_records_sql(None, Some(PHASE_POST));
+        assert_eq!(bindings, vec![PHASE_POST.to_string()]);
+        assert!(sql.contains("WHERE phase = ?"));
+
+        // Both filters: AND-joined, subject bound first (clause order matches
+        // the binding order so positional placeholders line up).
+        let (sql, bindings) = build_list_records_sql(Some("subject-1"), Some(PHASE_POST));
+        assert_eq!(
+            bindings,
+            vec!["subject-1".to_string(), PHASE_POST.to_string()]
+        );
+        assert!(sql.contains("WHERE subject_id = ? AND phase = ?"));
+    }
+
+    #[test]
+    fn init_creates_the_subject_created_index() {
+        let conn = setup_conn();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master
+                    WHERE type = 'index' AND name = 'idx_scale_records_subject_created'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("query sqlite schema");
+
+        assert_eq!(count, 1);
     }
 
     #[test]
@@ -2600,6 +2733,30 @@ mod tests {
         let mean = comparison.mean_improvement_rate.expect("mean present");
         assert!((mean - 10.0 / 70.0).abs() < 1e-9);
         assert!(comparison.meets_threshold);
+    }
+
+    #[test]
+    fn condition_comparison_is_identical_when_unbound_rows_are_filtered_out() {
+        // Mirrors the caller-side subject pushdown in compute_condition_effect
+        // / the comparison export: NULL-subject rows group under "" in
+        // build_effect_history and can never match a non-empty target subject,
+        // so excluding them in SQL must leave the comparison untouched.
+        let conn = setup_conn();
+        let mut records = condition_run(&conn, "s1", "anxiety", Some(CONDITION_NATURAL_RECOVERY), json!({ "anxiety": 80.0 }), json!({ "anxiety": 70.0 }), "01");
+        records.extend(condition_run(&conn, "s1", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 60.0 }), "02"));
+        // A complete run saved without a subject (blank subject ids are stored
+        // as NULL) — invisible to the target subject either way.
+        records.extend(condition_run(&conn, "", "anxiety", Some(CONDITION_REGULATION), json!({ "anxiety": 80.0 }), json!({ "anxiety": 10.0 }), "03"));
+
+        let all = list_scale_records(&conn, None, None).expect("list all records");
+        let pushed = list_scale_records(&conn, Some("s1"), None).expect("list subject records");
+        assert!(pushed.len() < all.len());
+
+        let expected =
+            compute_condition_effect_comparison(&all, "s1", "anxiety").expect("compare all");
+        let actual =
+            compute_condition_effect_comparison(&pushed, "s1", "anxiety").expect("compare pushed");
+        assert_eq!(actual, expected);
     }
 
     #[test]

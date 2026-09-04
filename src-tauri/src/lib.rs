@@ -421,7 +421,13 @@ async fn compute_condition_effect(
             .lock()
             .map_err(|_| "Database is unavailable.".to_string())?;
 
-        let records = scale_records::list_scale_records(&conn, None, None)?;
+        // Subject pushdown: compute_condition_effect_comparison rejects every
+        // entry whose subject differs from the target (NULL-subject rows group
+        // under ""), so unbound rows can never contribute and filtering them
+        // in SQL keeps the result identical while the planner uses the
+        // subject+created_at index.
+        let records =
+            scale_records::list_scale_records(&conn, Some(input.subject_id.trim()), None)?;
         // 大纲 6.2: 调控条件相对基线条件（自然恢复）的改善，按 subject+emotion
         // 取两条件各自最新完整 run 配对计算。
         scale_records::compute_condition_effect_comparison(
@@ -560,7 +566,11 @@ async fn export_effect_report(
                 let conn = conn
                     .lock()
                     .map_err(|_| "Database is unavailable.".to_string())?;
-                let records = scale_records::list_scale_records(&conn, None, None)?;
+                // Subject pushdown (same safety argument as
+                // compute_condition_effect): the comparison rejects entries
+                // whose subject differs from this required, non-blank target.
+                let records =
+                    scale_records::list_scale_records(&conn, Some(subject_id.as_str()), None)?;
                 // 大纲 6.3 步骤 5: the exported document carries both legs'
                 // trace, the per-dimension inputs, the verdict, and the frozen
                 // formula statement so the calculation can be re-derived.

@@ -251,12 +251,27 @@ export function EegProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // The command guards are pure functions of (deviceStatus, recordStatus), so
+  // they are evaluated once per render here and the command callbacks below
+  // capture the resulting booleans instead of the whole sessionState object.
+  // Each captured boolean is computed from the same committed state the object
+  // dep used to carry into the callback body, so call-time refusal behavior is
+  // identical — but a command callback now changes identity only when its own
+  // guard flips, instead of on every reducer transition (error and
+  // lastFailedAction churn included).
+  const canStartDeviceNow = canStartDevice(sessionState);
+  const canStopDeviceNow = canStopDevice(sessionState);
+  const canStartRecordNow = canStartRecord(sessionState);
+  const canPauseRecordNow = canPauseRecord(sessionState);
+  const canResumeRecordNow = canResumeRecord(sessionState);
+  const canStopRecordNow = canStopRecord(sessionState);
+
   // The boolean returns exist so callers (agent actions especially) can tell
   // "the command ran" from "the state machine silently refused" instead of
   // reporting success for a no-op. The mapped failure copy still lands in
   // errorMessage either way.
   const startDevice = useCallback(async (): Promise<boolean> => {
-    if (!canStartDevice(sessionState)) {
+    if (!canStartDeviceNow) {
       return false;
     }
 
@@ -280,7 +295,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
       });
       return false;
     }
-  }, [sessionState]);
+  }, [canStartDeviceNow]);
 
   useEffect(() => {
     if (sessionState.deviceStatus !== 'starting') {
@@ -319,7 +334,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
   }, [sessionState.deviceStatus]);
 
   const stopDevice = useCallback(async (): Promise<boolean> => {
-    if (!canStopDevice(sessionState)) {
+    if (!canStopDeviceNow) {
       return false;
     }
 
@@ -338,10 +353,10 @@ export function EegProvider({ children }: { children: ReactNode }) {
       });
       return false;
     }
-  }, [sessionState]);
+  }, [canStopDeviceNow]);
 
   const startRecord = useCallback(async (options?: { paradigm?: ParadigmInfo }): Promise<boolean> => {
-    if (!canStartRecord(sessionState)) {
+    if (!canStartRecordNow) {
       return false;
     }
 
@@ -374,28 +389,28 @@ export function EegProvider({ children }: { children: ReactNode }) {
       });
       return false;
     }
-  }, [currentUser, sessionState]);
+  }, [canStartRecordNow, currentUser]);
 
   const pauseRecord = useCallback((): boolean => {
-    if (!canPauseRecord(sessionState)) {
+    if (!canPauseRecordNow) {
       return false;
     }
 
     dispatchSession({ type: 'pause_record' });
     return true;
-  }, [sessionState]);
+  }, [canPauseRecordNow]);
 
   const resumeRecord = useCallback((): boolean => {
-    if (!canResumeRecord(sessionState)) {
+    if (!canResumeRecordNow) {
       return false;
     }
 
     dispatchSession({ type: 'resume_record' });
     return true;
-  }, [sessionState]);
+  }, [canResumeRecordNow]);
 
   const stopRecord = useCallback(async (): Promise<boolean> => {
-    if (!canStopRecord(sessionState)) {
+    if (!canStopRecordNow) {
       return false;
     }
 
@@ -411,7 +426,7 @@ export function EegProvider({ children }: { children: ReactNode }) {
       });
       return false;
     }
-  }, [sessionState]);
+  }, [canStopRecordNow]);
 
   const resetBuffer = useCallback(() => {
     bufferRef.current.reset();
@@ -488,14 +503,20 @@ export function EegProvider({ children }: { children: ReactNode }) {
   // React updates entirely on frames where no new blocks arrived.
   const getLatestSequence = useCallback(() => bufferRef.current.getLastSequence(), []);
 
+  // Dep note: the value exposes the four sessionState fields directly, so the
+  // memo keys on those primitives (plus the precomputed guard booleans)
+  // instead of the sessionState object. Recompute timing is unchanged — every
+  // reducer transition that actually changes state changes at least one
+  // exposed field — but the command callbacks inside the value keep their
+  // identity across guard-irrelevant transitions.
   const value = useMemo<EegSessionContextValue>(() => ({
     bufferRef,
-    canPauseRecord: canPauseRecord(sessionState),
-    canResumeRecord: canResumeRecord(sessionState),
-    canStartDevice: canStartDevice(sessionState),
-    canStartRecord: canStartRecord(sessionState),
-    canStopDevice: canStopDevice(sessionState),
-    canStopRecord: canStopRecord(sessionState),
+    canPauseRecord: canPauseRecordNow,
+    canResumeRecord: canResumeRecordNow,
+    canStartDevice: canStartDeviceNow,
+    canStartRecord: canStartRecordNow,
+    canStopDevice: canStopDeviceNow,
+    canStopRecord: canStopRecordNow,
     channels,
     deviceStatus: sessionState.deviceStatus,
     errorMessage: sessionState.errorMessage,
@@ -522,6 +543,12 @@ export function EegProvider({ children }: { children: ReactNode }) {
     toggleChannel,
     triggerConnected,
   }), [
+    canPauseRecordNow,
+    canResumeRecordNow,
+    canStartDeviceNow,
+    canStartRecordNow,
+    canStopDeviceNow,
+    canStopRecordNow,
     channels,
     getLatestSequence,
     lastRecording,
@@ -531,7 +558,10 @@ export function EegProvider({ children }: { children: ReactNode }) {
     resetError,
     retryLastFailedAction,
     resumeRecord,
-    sessionState,
+    sessionState.deviceStatus,
+    sessionState.errorMessage,
+    sessionState.lastFailedAction,
+    sessionState.recordStatus,
     settings,
     setAmplitudeUvPerDiv,
     setDisplayMode,
@@ -546,9 +576,9 @@ export function EegProvider({ children }: { children: ReactNode }) {
     triggerConnected,
   ]);
 
-  // Narrow slice for the recording-control context. stopRecord still changes
-  // identity with sessionState (rare, command-lifecycle only), but display
-  // settings updates never touch this value.
+  // Narrow slice for the recording-control context. stopRecord changes
+  // identity only when its canStopRecord guard flips (device/record
+  // lifecycle); display settings updates never touch this value.
   const recordingControlValue = useMemo<EegRecordingControlValue>(() => ({
     recordStatus: sessionState.recordStatus,
     stopRecord,

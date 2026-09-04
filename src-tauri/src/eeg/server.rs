@@ -1,6 +1,6 @@
 use std::{
     io::Read,
-    net::{IpAddr, TcpListener, TcpStream, UdpSocket},
+    net::{IpAddr, SocketAddr, TcpListener, TcpStream, UdpSocket},
     sync::{
         atomic::{AtomicBool, Ordering},
         mpsc, Arc, Mutex,
@@ -18,7 +18,7 @@ use super::{
         START_INSTRUCTION,
     },
     session::{EegStatusClient, EegStatusEvent},
-    storage::RecordingMessage,
+    storage::{RecordingMessage, RecordingQueueGate},
     EegSharedState, EegStreamConfig,
 };
 
@@ -46,13 +46,28 @@ impl ClientKind {
 
 pub struct EegServerWorker {
     stop_requested: Arc<AtomicBool>,
+    /// Local listener address used to wake the blocking accept with a
+    /// sentinel connection during stop. `None` when the bind host is not a
+    /// parseable IP; stop then falls back to the plain join path.
+    sentinel_addr: Option<SocketAddr>,
     join_handle: Option<JoinHandle<()>>,
     client_handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
 }
 
 impl EegServerWorker {
     pub fn stop(mut self) {
+        // Set the flag BEFORE opening the sentinel connection so the accept
+        // thread observes it as soon as accept() returns.
         self.stop_requested.store(true, Ordering::Relaxed);
+        // Wake the blocking accept with a sentinel connection so join() does
+        // not wait on an accept that would otherwise never return. The accept
+        // thread re-checks the stop flag before any per-connection work and
+        // drops the sentinel socket unclassified, so it can never be adopted
+        // as a device. If the connect fails (unexpected: the listener bound
+        // to this local address), fall through to the join path.
+        if let Some(addr) = self.sentinel_addr {
+            let _ = TcpStream::connect_timeout(&addr, Duration::from_millis(500));
+        }
         if let Some(join_handle) = self.join_handle.take() {
             let _ = join_handle.join();
         }
@@ -108,18 +123,34 @@ pub fn start_server(
 ) -> Result<EegServerWorker, String> {
     let listener = TcpListener::bind(format!("{}:{}", config.bind_host, config.tcp_port))
         .map_err(|_| "Failed to bind EEG TCP server.".to_string())?;
-    listener
-        .set_nonblocking(true)
-        .map_err(|_| "Failed to configure EEG TCP server.".to_string())?;
+    // The listener stays in blocking mode: accept() parks this dedicated
+    // thread until a client (or the stop sentinel) arrives instead of polling
+    // with a 20 ms sleep 50x/sec for the stream's entire lifetime.
+    let sentinel_addr = config
+        .bind_host
+        .parse::<IpAddr>()
+        .ok()
+        .map(|ip| SocketAddr::new(ip, config.tcp_port));
 
     let stop_requested = Arc::new(AtomicBool::new(false));
     let client_handles = Arc::new(Mutex::new(Vec::new()));
     let stop_for_thread = Arc::clone(&stop_requested);
     let client_handles_for_thread = Arc::clone(&client_handles);
     let join_handle = thread::spawn(move || {
-        while !stop_for_thread.load(Ordering::Relaxed) {
+        loop {
+            if stop_for_thread.load(Ordering::Relaxed) {
+                break;
+            }
             match listener.accept() {
                 Ok((stream, addr)) => {
+                    // Stop sentinel (or a connection racing the stop flag):
+                    // re-check BEFORE any per-connection work and drop the
+                    // socket immediately so it can never be classified or
+                    // adopted as a device.
+                    if stop_for_thread.load(Ordering::Relaxed) {
+                        drop(stream);
+                        break;
+                    }
                     let Some(kind) = classify_client(&config, addr.ip()) else {
                         record_error(
                             &state,
@@ -138,9 +169,6 @@ pub fn start_server(
                         handles.push(handle);
                     }
                 }
-                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                    thread::sleep(Duration::from_millis(20));
-                }
                 Err(_) => break,
             }
         }
@@ -148,6 +176,7 @@ pub fn start_server(
 
     Ok(EegServerWorker {
         stop_requested,
+        sentinel_addr,
         join_handle: Some(join_handle),
         client_handles,
     })
@@ -275,21 +304,39 @@ fn handle_stream(
 struct RecordingSenderCache {
     generation: u64,
     sender: Option<mpsc::Sender<RecordingMessage>>,
+    /// Backpressure gate of the same recording worker, resolved together with
+    /// the sender so the sample path never touches the runtime mutex.
+    gate: Option<Arc<RecordingQueueGate>>,
 }
 
 impl RecordingSenderCache {
-    fn recording_sender(
+    /// Resolves the cached sender on generation change, then applies the
+    /// recording queue's blocking backpressure before the caller sends a
+    /// sample: this parks while ~8 s of samples are unwritten (e.g. during a
+    /// disk stall) so the queue cannot grow without bound. No-op while no
+    /// recording is active, and the gate reopens on writer exit, so this
+    /// cannot hang after stop or a write error.
+    fn throttled_recording_sender(
         &mut self,
         state: &EegSharedState,
     ) -> Option<&mpsc::Sender<RecordingMessage>> {
         let generation = state.signals.recording_generation.load(Ordering::Acquire);
         if self.generation != generation {
-            self.sender = state
-                .runtime
-                .lock()
-                .ok()
-                .and_then(|runtime| runtime.recording_sender());
+            let resolved = state.runtime.lock().ok().and_then(|runtime| {
+                runtime.recording_sender().map(|sender| {
+                    let gate = runtime
+                        .recording
+                        .as_ref()
+                        .map(|recording| recording.queue_gate());
+                    (sender, gate)
+                })
+            });
+            self.gate = resolved.as_ref().and_then(|(_, gate)| gate.clone());
+            self.sender = resolved.map(|(sender, _)| sender);
             self.generation = generation;
+        }
+        if let Some(gate) = &self.gate {
+            gate.admit_sample();
         }
         self.sender.as_ref()
     }
@@ -321,7 +368,7 @@ fn process_eeg_sample(
     // dedicated recording writer thread; the runtime mutex is only touched
     // once per emitted block (send_sample_block).
     let trigger = state.signals.take_latest_trigger();
-    if let Some(sender) = sender_cache.recording_sender(state) {
+    if let Some(sender) = sender_cache.throttled_recording_sender(state) {
         let _ = sender.send(RecordingMessage::Sample {
             samples: samples_uv,
             trigger: trigger.unwrap_or(0) as i32,
@@ -434,6 +481,22 @@ mod tests {
         );
         assert_eq!(
             classify_client(&config, "192.168.1.104".parse().expect("ip")),
+            None
+        );
+    }
+
+    #[test]
+    fn stop_sentinel_source_ips_are_never_classified_as_devices() {
+        // EegServerWorker::stop opens its sentinel connection from the bind
+        // host itself (or loopback). classify_client must reject both so the
+        // sentinel can never be adopted as a device connection, even if it
+        // slipped past the accept loop's stop-flag re-check.
+        let config = EegStreamConfig::default();
+        let bind_ip: IpAddr = config.bind_host.parse().expect("bind host is an IP");
+
+        assert_eq!(classify_client(&config, bind_ip), None);
+        assert_eq!(
+            classify_client(&config, "127.0.0.1".parse().expect("ip")),
             None
         );
     }

@@ -3,7 +3,7 @@
 
 .routeFallback {
   align-items: center;
-  background: #f5f0eb;
+  background: var(--surface, #f5f0eb);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -17,7 +17,7 @@
   animation: routeSpin 900ms linear infinite;
   border: 3px solid rgba(23, 32, 38, 0.14);
   border-radius: 50%;
-  border-top-color: #fb7a68;
+  border-top-color: var(--brand-coral, #fb7f6e);
   height: 28px;
   width: 28px;
 }

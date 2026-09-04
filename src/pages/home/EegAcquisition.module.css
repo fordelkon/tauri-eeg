@@ -1,6 +1,9 @@
+/* App-wide design tokens (ink-cool acquisition dialect lives on the globals). */
+@import "../../styles/tokens.css";
+
 .workspace {
   animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  color: #172026;
+  color: var(--ink-cool);
   gap: 14px;
   height: 100%;
   margin: 0 auto;
@@ -55,55 +58,90 @@
   gap: 10px;
 }
 
+/* Live counters (已录 clock, Hz, 通道, and the 缓存/序列 footer) jitter as
+   digits tick; tabular figures keep their widths stable. */
+.statusBar span,
+.footer span {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Unified status pill: 999px capsule, 28px tall, 12.5px/700 label. */
 .statusPill {
-  border-radius: 8px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
   gap: 6px;
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 4px 12px;
   text-transform: capitalize;
 }
 
+/* Neutral state: derived from the cool ink (borders/tints track --ink-cool). */
 .disconnected,
 .idle,
 .stopped {
-  background: rgba(84, 96, 104, 0.12);
-  border: 1px solid rgba(84, 96, 104, 0.24);
-  color: #46525a;
+  background: rgba(23, 32, 38, 0.08);
+  border: 1px solid rgba(23, 32, 38, 0.2);
+  color: rgba(23, 32, 38, 0.66);
 }
 
 .connecting,
 .starting,
 .stopping {
-  background: rgba(45, 113, 184, 0.12);
+  background: var(--info-tint);
   border: 1px solid rgba(45, 113, 184, 0.24);
-  color: #245f9d;
+  color: var(--info);
 }
 
 .streaming,
 .recording {
-  background: rgba(34, 139, 94, 0.12);
-  border: 1px solid rgba(34, 139, 94, 0.24);
-  color: #17633f;
+  background: var(--success-tint);
+  border: 1px solid rgba(28, 106, 71, 0.26);
+  color: var(--success);
+}
+
+/* Recording pulse: reuses the loading-dot language so "记录中" reads live. */
+.recording::before {
+  animation: statusPillPulse 1.1s ease-in-out infinite;
+  background: currentColor;
+  border-radius: 999px;
+  content: "";
+  flex: none;
+  height: 7px;
+  width: 7px;
+}
+
+@keyframes statusPillPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .paused {
   background: rgba(194, 121, 20, 0.12);
-  border: 1px solid rgba(194, 121, 20, 0.24);
-  color: #8a560e;
+  border: 1px solid rgba(194, 121, 20, 0.26);
+  color: var(--warning-ink);
 }
 
 .error {
-  background: rgba(184, 45, 45, 0.12);
-  border: 1px solid rgba(184, 45, 45, 0.24);
-  color: #8d1e1e;
+  background: rgba(179, 38, 30, 0.12);
+  border: 1px solid rgba(179, 38, 30, 0.26);
+  color: var(--danger-ink);
 }
 
 .errorMessage {
   align-items: center;
-  background: rgba(184, 45, 45, 0.08);
-  border: 1px solid rgba(184, 45, 45, 0.18);
+  background: rgba(179, 38, 30, 0.08);
+  border: 1px solid rgba(179, 38, 30, 0.26);
   border-radius: 8px;
-  color: #8d1e1e;
+  color: var(--danger-ink);
   display: flex;
   flex-wrap: wrap;
   font-size: 13px;
@@ -119,9 +157,9 @@
 
 .retryButton {
   background: transparent;
-  border: 1px solid rgba(184, 45, 45, 0.45);
+  border: 1px solid rgba(179, 38, 30, 0.45);
   border-radius: 6px;
-  color: #8d1e1e;
+  color: var(--danger-ink);
   cursor: pointer;
   flex-shrink: 0;
   font: inherit;
@@ -130,22 +168,27 @@
   min-height: 28px;
   padding: 0 12px;
   transition:
-    background-color 140ms ease-out,
-    border-color 140ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .retryButton:hover {
-  background: rgba(184, 45, 45, 0.1);
-  border-color: rgba(184, 45, 45, 0.65);
+  background: rgba(179, 38, 30, 0.1);
+  border-color: rgba(179, 38, 30, 0.65);
+}
+
+.retryButton:active {
+  transform: scale(0.98);
 }
 
 /* Browser-preview degradation for device failures: informational, not an
    alarm — the environment cannot run the device stack at all. */
 .environmentNotice {
-  background: rgba(45, 113, 184, 0.08);
+  background: var(--info-tint);
   border: 1px solid rgba(45, 113, 184, 0.2);
   border-radius: 8px;
-  color: #245f9d;
+  color: var(--info);
   font-size: 13px;
   font-weight: 650;
   padding: 10px 12px;
@@ -153,10 +196,10 @@
 
 .resultBanner {
   align-items: center;
-  background: rgba(34, 139, 94, 0.08);
-  border: 1px solid rgba(34, 139, 94, 0.24);
+  background: var(--success-tint);
+  border: 1px solid rgba(28, 106, 71, 0.26);
   border-radius: 8px;
-  color: #17633f;
+  color: var(--success);
   display: flex;
   flex-wrap: wrap;
   font-size: 13px;
@@ -193,16 +236,31 @@
   gap: 8px;
 }
 
+/* Mode switch shares the pill-radio language with the paradigm setup panel:
+   999px capsule, 34px tall, 13px/700, green tint when selected. */
 .modeSwitchButton {
   background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(23, 32, 38, 0.16);
-  border-radius: 8px;
-  color: #172026;
+  border: 1px solid rgba(23, 32, 38, 0.18);
+  border-radius: 999px;
+  color: var(--ink-cool);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 720;
+  font-weight: 700;
   min-height: 34px;
   padding: 0 14px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.modeSwitchButton:hover:not(:disabled, .activeModeSwitchButton) {
+  border-color: rgba(23, 32, 38, 0.34);
+}
+
+.modeSwitchButton:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .modeSwitchButton:disabled {
@@ -211,10 +269,10 @@
 }
 
 .activeModeSwitchButton {
-  background: rgba(34, 139, 94, 0.14);
-  border-color: #22613c;
-  box-shadow: inset 0 0 0 1px #22613c;
-  color: #17633f;
+  background: var(--success-tint);
+  border-color: var(--success);
+  color: var(--success);
+  font-weight: 720;
 }
 
 .modeLockHint {
@@ -383,6 +441,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .workspace {
+    animation: none;
+  }
+
+  /* The recording pill's live pulse is decorative only. */
+  .recording::before {
     animation: none;
   }
 }

@@ -505,6 +505,9 @@ export default function MusicRegulation() {
     [bundledAssets, generatedAssets],
   );
   const activeAsset = assets[activeIndex];
+  // Next track in the queue (no wrap): prewarming it removes the fetch wait
+  // from the `ended` → next-track transition.
+  const nextAsset = assets[activeIndex + 1];
   const generatedPrompt = useMemo(
     () => buildMusicPrompt(instruments, customInstrument, selectedStyles, customStyle, detailTemplates, details),
     [customInstrument, customStyle, detailTemplates, details, instruments, selectedStyles],
@@ -566,6 +569,31 @@ export default function MusicRegulation() {
 
   useEffect(() => () => {
     audioRef.current?.pause();
+  }, []);
+
+  // Prewarms the next queue entry through a detached <audio> element so its
+  // multi-MB WAV is already fetched (HTTP-cached) when `ended` advances the
+  // active element — no audible gap between tracks. mediaUrl is the already
+  // converted playable URL (convertFileSrc for generated assets), so the
+  // prewarm element hits the exact same resource. The effect's cleanup aborts
+  // any in-flight fetch by dropping the src; the element is released on unmount.
+  const prewarmAudioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const prewarm = prewarmAudioRef.current ?? new Audio();
+    prewarmAudioRef.current = prewarm;
+    prewarm.preload = 'auto';
+    prewarm.src = nextAsset?.mediaUrl ?? '';
+
+    return () => {
+      prewarm.pause();
+      prewarm.removeAttribute('src');
+      prewarm.load();
+    };
+  }, [nextAsset]);
+
+  useEffect(() => () => {
+    prewarmAudioRef.current?.pause();
+    prewarmAudioRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -983,7 +1011,7 @@ export default function MusicRegulation() {
             </label>
 
             <button
-              className={styles.generateButton}
+              className={`${styles.generateButton} ${isGenerating ? styles.isBusy : ''}`}
               type="submit"
               data-agent-action="generate_music"
               disabled={!currentUser || isGenerating || !canGenerate}
@@ -1119,6 +1147,13 @@ export default function MusicRegulation() {
                   >
                     <span>{String(index + 1).padStart(2, '0')}</span>
                     <strong>{asset.title}</strong>
+                    {index === activeIndex ? (
+                      <span className={styles.queueEqualizer} aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    ) : null}
                     <em>{asset.source === 'generated' ? '已生成' : '内置'}</em>
                   </button>
                   {asset.source === 'generated' ? (
@@ -1162,7 +1197,7 @@ export default function MusicRegulation() {
         <audio
           ref={audioRef}
           src={activeAsset.mediaUrl}
-          preload="metadata"
+          preload="auto"
           onEnded={() => {
             void handleTrackChange(activeIndex + 1);
           }}

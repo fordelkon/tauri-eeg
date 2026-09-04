@@ -410,15 +410,16 @@
 
 .navItem.isActive::before,
 .navItem:global(.Mui-selected)::before {
-  background: #df0203;
+  background: linear-gradient(135deg, #f0413a, #df0203);
   border-radius: 999px;
+  box-shadow: 0 0 10px rgba(223, 2, 3, 0.25);
   content: "";
   height: 22px;
   left: 0;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 2px;
+  width: 3px;
 }
 
 .navIcon {
@@ -475,12 +476,10 @@
 .shell::before {
   background:
     url("/flower.webp") left center / 72px 50px repeat-x,
-    linear-gradient(90deg, rgba(44, 34, 24, 0), rgba(44, 34, 24, 0.045) 42% 58%, rgba(44, 34, 24, 0));
+    linear-gradient(90deg, rgba(44, 34, 24, 0), rgba(44, 34, 24, 0.06) 42% 58%, rgba(44, 34, 24, 0));
   content: "";
-  filter: contrast(1.35);
   height: var(--status-divider-width);
   left: calc(75% + var(--status-divider-offset));
-  mix-blend-mode: multiply;
   opacity: 0.78;
   pointer-events: none;
   position: absolute;
