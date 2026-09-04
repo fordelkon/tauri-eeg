@@ -249,10 +249,16 @@ fn eeg_state_unavailable(
 pub fn stop_stream(
     app: &AppHandle,
     state: &EegStreamState,
-    conn: &Connection,
+    conn: Arc<Mutex<Connection>>,
 ) -> Result<(), String> {
-    if let Some((worker, records)) = halt_recording(state)? {
-        persist_recording(conn, state, worker, records)?;
+    if let Some(finished) = stop_active_recording(state)? {
+        // The writer thread has already been joined and the binary files
+        // flushed (see stop_active_recording), so the DB mutex below is only
+        // ever held for the fast INSERTs.
+        let conn = conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())?;
+        persist_recording(&conn, state, finished)?;
     }
 
     let worker = {
@@ -373,14 +379,66 @@ pub fn start_recording(
     Ok(session)
 }
 
-pub fn stop_recording(
+/// A recording that has been fully stopped on disk: the writer thread was
+/// joined (flushing the session's binary files) and everything needed for the
+/// database write is collected. Produced without holding the DB mutex so the
+/// potentially long file flush never blocks other database users.
+pub struct FinishedRecording {
+    session: EegRecordingSession,
+    records: Vec<TrialRecord>,
+}
+
+/// Stops the active recording without touching the database: interrupts any
+/// active paradigm trial, joins the recording writer thread — which flushes
+/// the whole session's binary files — and returns the finished recording.
+/// Call this BEFORE acquiring the global DB connection mutex; follow up with
+/// [`persist_recording`] while holding the lock.
+pub fn stop_recording(state: &EegStreamState) -> Result<FinishedRecording, String> {
+    stop_active_recording(state)?.ok_or_else(|| "No EEG recording is active.".to_string())
+}
+
+/// `stop_recording`'s non-failing variant for flows where "nothing was
+/// recording" is not an error (e.g. stopping the whole stream).
+fn stop_active_recording(
+    state: &EegStreamState,
+) -> Result<Option<FinishedRecording>, String> {
+    let Some((worker, records)) = halt_recording(state)? else {
+        return Ok(None);
+    };
+    let session = worker.stop()?;
+    Ok(Some(FinishedRecording { session, records }))
+}
+
+/// Writes a [`FinishedRecording`] to the database. The caller must already
+/// hold the DB connection lock and the flush must have completed
+/// ([`stop_recording`]), so this only performs the fast INSERTs. The session
+/// row is inserted first, then all trial rows in a single transaction (they
+/// reference the session row); the finished session is published to the
+/// runtime only after the writes succeed.
+pub fn persist_recording(
     conn: &Connection,
     state: &EegStreamState,
+    finished: FinishedRecording,
 ) -> Result<EegRecordingSession, String> {
-    let Some((worker, records)) = halt_recording(state)? else {
-        return Err("No EEG recording is active.".to_string());
-    };
-    persist_recording(conn, state, worker, records)
+    let FinishedRecording { session, records } = finished;
+    storage::insert_eeg_session(conn, &session)?;
+    // One transaction for all trial rows: per-row implicit transactions would
+    // fsync WAL once per INSERT while the global DB mutex is held.
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|_| "Failed to save EEG trials.".to_string())?;
+    for record in &records {
+        paradigm_db::insert_eeg_trial(&tx, record, &session.user_id)?;
+    }
+    tx.commit()
+        .map_err(|_| "Failed to save EEG trials.".to_string())?;
+    let mut runtime = state
+        .inner
+        .runtime
+        .lock()
+        .map_err(|_| "EEG stream state is unavailable.".to_string())?;
+    runtime.last_recording = Some(session.clone());
+    Ok(session)
 }
 
 /// Takes the recording worker and paradigm controller out of the runtime,
@@ -418,28 +476,6 @@ fn halt_recording(
         }
     }
     Ok(Some((worker, records)))
-}
-
-/// Joins the writer thread (flushing all files), persists the session row
-/// first and then the trial rows, which reference it.
-fn persist_recording(
-    conn: &Connection,
-    state: &EegStreamState,
-    worker: RecordingWorker,
-    records: Vec<TrialRecord>,
-) -> Result<EegRecordingSession, String> {
-    let session = worker.stop()?;
-    storage::insert_eeg_session(conn, &session)?;
-    for record in &records {
-        paradigm_db::insert_eeg_trial(conn, record, &session.user_id)?;
-    }
-    let mut runtime = state
-        .inner
-        .runtime
-        .lock()
-        .map_err(|_| "EEG stream state is unavailable.".to_string())?;
-    runtime.last_recording = Some(session.clone());
-    Ok(session)
 }
 
 pub fn list_sessions(conn: &Connection, user_id: &str) -> Result<Vec<EegRecordingSession>, String> {

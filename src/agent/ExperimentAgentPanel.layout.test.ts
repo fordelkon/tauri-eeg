@@ -199,7 +199,26 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(hookTs).toContain('details: getPlannerStringParam(params,');
     expect(hookTs).toContain('duration: plannerDuration ?? preview.params.duration');
     expect(hookTs.indexOf("new CustomEvent('agent:music-prompt'")).toBeLessThan(
-      hookTs.indexOf('await generateMusic({'),
+      hookTs.indexOf('void generateMusic({'),
+    );
+  });
+
+  test('runs generate_music as fire-and-forget so the planner loop never blocks on generation', () => {
+    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
+    const musicActionBlock = hookTs.match(/void generateMusic\(\{[\s\S]*?\}\)\.catch\([\s\S]*?\}\);/)?.[0] ?? '';
+
+    // The backend /generate call resolves only at completion (minutes later)
+    // and results arrive independently via MUSIC_GENERATED_EVENT + history
+    // refresh, so the agent reports "submitted" immediately: awaiting it would
+    // keep isPlanning true and block every follow-up prompt for the wait.
+    expect(hookTs).not.toContain('await generateMusic({');
+    expect(musicActionBlock).toContain('void generateMusic({');
+    expect(musicActionBlock).toContain('duration: plannerDuration ?? preview.params.duration');
+    expect(musicActionBlock).toContain('prompt: plannerPrompt ?? preview.params.prompt');
+    expect(musicActionBlock).toContain('.catch((reason: unknown) => {');
+    expect(musicActionBlock).toContain('setMessage(formatAgentActionError(reason));');
+    expect(hookTs.indexOf("setMessage('已提交音乐生成请求。');")).toBeGreaterThan(
+      hookTs.indexOf('void generateMusic({'),
     );
   });
 

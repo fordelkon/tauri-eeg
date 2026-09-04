@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, Error as SqlError};
 use serde::Serialize;
 use std::{
+    collections::VecDeque,
     fs::{self, File},
     io::{BufWriter, Write},
     path::{Path, PathBuf},
@@ -67,6 +68,21 @@ pub struct RecordingWriter {
     trials_writer: Option<BufWriter<File>>,
     paradigm: Option<ParadigmInfo>,
     started_at: DateTime<Utc>,
+    /// Reused scratch holding the little-endian encoding of one incoming
+    /// sample block (all channels), so each block is flushed to the EEG file
+    /// with a single write_all instead of one 4-byte write per channel.
+    eeg_block_scratch: Vec<u8>,
+}
+
+/// Encodes one incoming sample block (every channel of the sample) as
+/// little-endian f32 into `scratch`, cleared first so the buffer is reused
+/// across blocks. Produces byte-for-byte the same output as writing each
+/// channel with `write_all(&sample.to_le_bytes())` in channel order.
+fn encode_sample_block(samples_uv: &[f32; EEG_CHANNEL_COUNT], scratch: &mut Vec<u8>) {
+    scratch.clear();
+    for sample in samples_uv {
+        scratch.extend_from_slice(&sample.to_le_bytes());
+    }
 }
 
 impl RecordingWriter {
@@ -138,6 +154,7 @@ impl RecordingWriter {
             trials_writer,
             paradigm,
             started_at,
+            eeg_block_scratch: Vec::with_capacity(EEG_CHANNEL_COUNT * std::mem::size_of::<f32>()),
         })
     }
 
@@ -150,11 +167,14 @@ impl RecordingWriter {
         samples_uv: &[f32; EEG_CHANNEL_COUNT],
         trigger: i32,
     ) -> Result<(), String> {
-        for sample in samples_uv {
-            self.eeg_writer
-                .write_all(&sample.to_le_bytes())
-                .map_err(|_| "Failed to write EEG sample.".to_string())?;
-        }
+        // Batch-encode the whole incoming block into the reused scratch buffer
+        // and issue ONE write_all: one ~128-byte copy into the BufWriter per
+        // sample instead of 32 separate 4-byte writes. The byte layout is
+        // unchanged (sample-major little-endian f32, channel order preserved).
+        encode_sample_block(samples_uv, &mut self.eeg_block_scratch);
+        self.eeg_writer
+            .write_all(&self.eeg_block_scratch)
+            .map_err(|_| "Failed to write EEG sample.".to_string())?;
         self.trigger_writer
             .write_all(&trigger.to_le_bytes())
             .map_err(|_| "Failed to write trigger sample.".to_string())?;
@@ -259,7 +279,7 @@ pub enum RecordingMessage {
 pub struct RecordingWorker {
     session: EegRecordingSession,
     sample_count: Arc<AtomicU64>,
-    trigger_observations: Arc<Mutex<Vec<TriggerObservation>>>,
+    trigger_observations: Arc<Mutex<VecDeque<TriggerObservation>>>,
     sender: mpsc::Sender<RecordingMessage>,
     shutdown: Arc<AtomicBool>,
     handle: Mutex<Option<JoinHandle<Result<EegRecordingSession, String>>>>,
@@ -269,8 +289,8 @@ impl RecordingWorker {
     pub fn start(writer: RecordingWriter) -> Self {
         let (sender, receiver) = mpsc::channel::<RecordingMessage>();
         let sample_count = Arc::new(AtomicU64::new(0));
-        let trigger_observations: Arc<Mutex<Vec<TriggerObservation>>> =
-            Arc::new(Mutex::new(Vec::new()));
+        let trigger_observations: Arc<Mutex<VecDeque<TriggerObservation>>> =
+            Arc::new(Mutex::new(VecDeque::new()));
         let count_for_thread = Arc::clone(&sample_count);
         let observations_for_thread = Arc::clone(&trigger_observations);
         let shutdown = Arc::new(AtomicBool::new(false));
@@ -346,7 +366,7 @@ impl RecordingWorker {
         Arc::clone(&self.sample_count)
     }
 
-    pub fn trigger_observations_handle(&self) -> Arc<Mutex<Vec<TriggerObservation>>> {
+    pub fn trigger_observations_handle(&self) -> Arc<Mutex<VecDeque<TriggerObservation>>> {
         Arc::clone(&self.trigger_observations)
     }
 
@@ -356,7 +376,7 @@ impl RecordingWorker {
     pub fn trigger_observations(&self) -> Vec<TriggerObservation> {
         self.trigger_observations
             .lock()
-            .map(|observations| observations.clone())
+            .map(|observations| observations.iter().cloned().collect())
             .unwrap_or_default()
     }
 
@@ -380,15 +400,15 @@ impl RecordingWorker {
 
 /// Keeps at most MAX_TRIGGER_OBSERVATIONS entries, dropping the oldest.
 fn record_trigger_observation(
-    observations: &Arc<Mutex<Vec<TriggerObservation>>>,
+    observations: &Arc<Mutex<VecDeque<TriggerObservation>>>,
     code: i32,
     sample_index: u64,
 ) {
     if let Ok(mut observations) = observations.lock() {
         if observations.len() >= MAX_TRIGGER_OBSERVATIONS {
-            observations.remove(0);
+            observations.pop_front();
         }
-        observations.push(TriggerObservation {
+        observations.push_back(TriggerObservation {
             code,
             sample_index,
             timestamp: Utc::now().to_rfc3339(),
@@ -645,6 +665,37 @@ mod tests {
         );
 
         assert_eq!(result.unwrap_err(), "User not found.");
+    }
+
+    #[test]
+    fn batched_encoder_matches_naive_per_sample_encoding() {
+        // Values that would expose any encoding shortcut: signed range,
+        // subnormals and a NaN payload.
+        let mut samples = [0.0_f32; EEG_CHANNEL_COUNT];
+        for (index, sample) in samples.iter_mut().enumerate() {
+            *sample = index as f32 * 0.5 - 3.25;
+        }
+        samples[0] = f32::NAN;
+        samples[EEG_CHANNEL_COUNT - 1] = f32::MIN_POSITIVE * 7.0;
+
+        // Fresh scratch on the first block...
+        let mut scratch = Vec::new();
+        encode_sample_block(&samples, &mut scratch);
+        let mut naive = Vec::new();
+        for sample in samples {
+            naive.extend_from_slice(&sample.to_le_bytes());
+        }
+        assert_eq!(scratch, naive);
+        assert_eq!(scratch.len(), EEG_CHANNEL_COUNT * std::mem::size_of::<f32>());
+
+        // ...and reused scratch (with existing capacity) on the next block.
+        let second = [-1.75e-12_f32; EEG_CHANNEL_COUNT];
+        encode_sample_block(&second, &mut scratch);
+        let mut naive_second = Vec::new();
+        for sample in second {
+            naive_second.extend_from_slice(&sample.to_le_bytes());
+        }
+        assert_eq!(scratch, naive_second);
     }
 
     #[test]

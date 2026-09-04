@@ -6,12 +6,12 @@ describe('gameRegulationOptions', () => {
     expect(gameRegulationOptions).toEqual([
       expect.objectContaining({
         id: 'vr-motion',
-        imageSrc: '/game1.jpg',
+        imageSrc: '/game1.webp',
         mode: 'VR',
       }),
       expect.objectContaining({
         id: 'ar-breathing',
-        imageSrc: '/game2.jpg',
+        imageSrc: '/game2.webp',
         mode: 'AR',
       }),
     ]);

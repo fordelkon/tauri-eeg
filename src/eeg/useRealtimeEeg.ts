@@ -16,22 +16,33 @@ export function useRealtimeEeg() {
     setSnapshot(eegSession.takeSnapshot());
   }, [eegSession.takeSnapshot, eegSession.getLatestSequence]);
 
-  // Skip snapshot work while no samples are flowing; the last rendered
-  // snapshot stays on screen.
-  const streamingRef = useRef(eegSession.deviceStatus === 'streaming');
+  // Snapshot work only runs while samples are flowing; when the device goes
+  // idle the render clock stops entirely and the last rendered snapshot stays
+  // on screen.
+  const streaming = eegSession.deviceStatus === 'streaming';
+  const streamingRef = useRef(streaming);
   // NaN sentinel: sequence numbers restart on every device run, so "no new
   // data" must compare unequal even against a null sequence.
   const lastRenderedSequenceRef = useRef<number | null>(Number.NaN);
 
   useEffect(() => {
-    const streaming = eegSession.deviceStatus === 'streaming';
     streamingRef.current = streaming;
     if (!streaming) {
       lastRenderedSequenceRef.current = Number.NaN;
     }
-  }, [eegSession.deviceStatus]);
+  }, [streaming]);
 
+  // The render clock only lives while the device is streaming: an always-on
+  // rAF loop would burn ~60 wakeups/s on no-op frames whenever the device is
+  // idle. Deriving the loop from the streaming state gives the full lifecycle
+  // for free — toggling on (re)starts it, toggling off cancels the pending
+  // frame via cleanup, and a hidden-tab pause resumes on show only while this
+  // effect is still mounted (i.e. still streaming).
   useEffect(() => {
+    if (!streaming) {
+      return undefined;
+    }
+
     let frame = 0;
     let lastRenderedAtMs: number | null = null;
     let running = !document.hidden;
@@ -81,7 +92,7 @@ export function useRealtimeEeg() {
       stop();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [streaming]);
 
   const reset = useCallback(() => {
     eegSession.resetBuffer();

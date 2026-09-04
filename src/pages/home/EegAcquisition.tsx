@@ -40,9 +40,9 @@ const recordStatusLabels = {
 /**
  * Owns the 30Hz snapshot state so only this subtree re-renders per frame; the
  * controls strip and (thanks to React.memo) the channel checkboxes are skipped.
- * The memo also shields this subtree from the parent's own re-renders — the
- * recording clock ticks at 1Hz while a capture runs, and none of the monitor's
- * inputs depend on that tick.
+ * The memo also shields this subtree from the parent's own re-renders (device
+ * and record status flips); the 1 Hz recording clock lives in the separate
+ * RecordingClock leaf below, so no tick here ever re-renders the monitor.
  */
 const RealtimeMonitor = memo(function RealtimeMonitor() {
   const eeg = useRealtimeEeg();
@@ -81,6 +81,38 @@ const modeLabels: Record<AcquisitionMode, string> = {
   paradigm: '范式采集',
 };
 
+/**
+ * Owns the 1 Hz wall-clock tick for the 已录 header counter. Keeping the
+ * interval and the tick state inside this leaf means each second of a
+ * recording re-renders only this span — not the whole page with its paradigm
+ * session/runner subtree. The parent passes just the recording anchor; the
+ * displayed format and cadence match the previous page-root timer exactly.
+ */
+const RecordingClock = memo(function RecordingClock({
+  startedAtMs,
+  username,
+}: {
+  startedAtMs: number | null;
+  username: string | null | undefined;
+}) {
+  const [, setTimerTick] = useState(0);
+
+  useEffect(() => {
+    // The tick only forces re-renders; the elapsed value reads Date.now().
+    const interval = window.setInterval(() => setTimerTick((tick) => tick + 1), 1000);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const recordedSeconds = startedAtMs === null
+    ? 0
+    : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+
+  return (
+    <span>已录 {formatRecordingClock(recordedSeconds)} · {username ?? '未登录'}</span>
+  );
+});
+
 export default function EegAcquisition() {
   const eeg = useEegSession();
   const { currentUser } = useAuth();
@@ -95,8 +127,9 @@ export default function EegAcquisition() {
 
   // Wall clock since startRecord succeeded; pause keeps the anchor so 继续
   // 记录 resumes the same timer, and idle/stopped clears it for the next run.
+  // Only the RecordingClock leaf ticks on it — the page itself never
+  // re-renders per elapsed second.
   const [recordingStartedAtMs, setRecordingStartedAtMs] = useState<number | null>(null);
-  const [, setTimerTick] = useState(0);
 
   useEffect(() => {
     if (eeg.recordStatus === 'recording') {
@@ -109,21 +142,6 @@ export default function EegAcquisition() {
       setRecordingStartedAtMs(null);
     }
   }, [eeg.recordStatus]);
-
-  useEffect(() => {
-    if (eeg.recordStatus !== 'recording') {
-      return undefined;
-    }
-
-    // The tick only forces re-renders; the elapsed value reads Date.now().
-    const interval = window.setInterval(() => setTimerTick((tick) => tick + 1), 1000);
-
-    return () => window.clearInterval(interval);
-  }, [eeg.recordStatus]);
-
-  const recordedSeconds = recordingStartedAtMs !== null
-    ? Math.max(0, Math.floor((Date.now() - recordingStartedAtMs) / 1000))
-    : 0;
 
   const lastRecordingDurationSeconds = eeg.lastRecording
     ? resolvedRecordingDurationSeconds(eeg.lastRecording)
@@ -186,7 +204,7 @@ export default function EegAcquisition() {
             记录 {recordStatusLabel}
           </span>
           {eeg.recordStatus === 'recording' ? (
-            <span>已录 {formatRecordingClock(recordedSeconds)} · {currentUser?.username ?? '未登录'}</span>
+            <RecordingClock startedAtMs={recordingStartedAtMs} username={currentUser?.username} />
           ) : null}
           <span>{eeg.sampleRateHz} Hz</span>
           <span>{visibleCount}/{eeg.channels.length} 通道</span>

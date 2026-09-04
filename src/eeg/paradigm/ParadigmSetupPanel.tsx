@@ -1,5 +1,5 @@
 import { open } from '@tauri-apps/plugin-dialog';
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useEegSession } from '../EegSessionContext';
 import { isRegulationWindowOpenInStorage } from '../../pages/home/effectEvaluationFlow';
 import ParadigmVideoPreview from './ParadigmVideoPreview';
@@ -28,6 +28,20 @@ import type {
 import styles from './ParadigmSession.module.css';
 
 export const PARADIGM_MIN_VIDEOS_PER_CLASS = 5;
+
+/** Latency budget for the silent queue preview's backend directory scan. */
+const QUEUE_PREVIEW_DEBOUNCE_MS = 300;
+/** localStorage write latency budget for the subject-id memory. */
+const SUBJECT_ID_PERSIST_DEBOUNCE_MS = 300;
+
+/** Inputs the current queuePreview was built from (build_paradigm_queue is
+ *  deterministic per session_run_id, so a matching preview IS the queue the
+ *  backend would rebuild at start). */
+type QueuePreviewInputs = {
+  rootPath: string;
+  sessionRunId: string;
+  sessionKind: ParadigmSessionKind;
+};
 
 export type ParadigmStartRequest = {
   sessionKind: ParadigmSessionKind;
@@ -86,6 +100,60 @@ function defaultSessionRunId(now: Date) {
   ].join('');
 }
 
+type ParadigmLibraryListProps = {
+  library: ParadigmVideoLibrary;
+  selectedVideoIds: ReadonlySet<string>;
+  onSelectPreview: (emotion: ParadigmEmotion, entry: ParadigmVideoEntry) => void;
+};
+
+/**
+ * The full 素材清单: every entry of all five emotion classes as preview
+ * buttons. Memoized so keystrokes in 被试 ID / 会话运行 ID — which re-render
+ * the whole setup panel — do not rebuild hundreds of buttons; only a library
+ * load or a queue-preview change (selection badges) re-renders the list.
+ */
+const ParadigmLibraryList = memo(function ParadigmLibraryList({
+  library,
+  selectedVideoIds,
+  onSelectPreview,
+}: ParadigmLibraryListProps) {
+  return (
+    <details className={styles.videoListDetails}>
+      <summary className={styles.videoListSummary}>素材清单(点击文件名全屏预览)</summary>
+      <div className={styles.videoListGrid} aria-label="素材清单">
+        {PARADIGM_EMOTION_DISPLAY_ORDER.map((emotion) => {
+          const entries = library[libraryClassKeys[emotion]];
+
+          return (
+            <div key={emotion} className={styles.videoListGroup}>
+              <span className={styles.videoListHeader}>
+                {paradigmEmotionLabels[emotion]}({entries.length})
+              </span>
+              {entries.map((entry) => {
+                const isSelected = selectedVideoIds.has(entry.videoId);
+
+                return (
+                  <button
+                    key={entry.fileName}
+                    type="button"
+                    className={styles.videoListRow}
+                    onClick={() => onSelectPreview(emotion, entry)}
+                  >
+                    <span className={styles.videoListName}>{entry.fileName}</span>
+                    {isSelected ? (
+                      <span className={styles.selectedVideoBadge}>入选</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  );
+});
+
 export default function ParadigmSetupPanel({
   onStartSession,
   startPending,
@@ -105,6 +173,9 @@ export default function ParadigmSetupPanel({
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [queuePreview, setQueuePreview] = useState<ParadigmTrialPlanItem[] | null>(null);
+  // Inputs behind the queuePreview above: startSession reuses the previewed
+  // queue when these still match, skipping the second backend directory scan.
+  const queuePreviewInputsRef = useRef<QueuePreviewInputs | null>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
   const [startingSession, setStartingSession] = useState(false);
   // Session-only by design: a sticky dry-run flag would silently skip data
@@ -115,6 +186,11 @@ export default function ParadigmSetupPanel({
     emotion: ParadigmEmotion;
     entry: ParadigmVideoEntry;
   } | null>(null);
+  // Debounced subject-id persistence: localStorage.setItem per keystroke
+  // stalls fast typing, so the write waits for a pause and is flushed on
+  // unmount so navigating away cannot lose the last typed value.
+  const subjectIdPersistTimerRef = useRef<number | null>(null);
+  const pendingSubjectIdRef = useRef<string | null>(null);
 
   const selectedVideoIds = useMemo(
     () => new Set((queuePreview ?? []).map((item) => item.videoId)),
@@ -162,8 +238,10 @@ export default function ParadigmSetupPanel({
   }, []);
 
   // Silent queue preview: feeds the 入选 badges whenever a valid library, run
-  // id, and session kind are all present. Deterministic per run id, so the
-  // executed queue rebuilt at start is guaranteed to match.
+  // id, and session kind are all present. build_paradigm_queue is
+  // deterministic per session_run_id, so startSession reuses this queue (see
+  // queuePreviewInputsRef) instead of rescanning the directory on the
+  // start-click latency path.
   useEffect(() => {
     if (!library?.valid || !sessionRunId) {
       return;
@@ -174,6 +252,11 @@ export default function ParadigmSetupPanel({
       buildParadigmQueue(library.rootPath, sessionRunId.trim(), sessionKind)
         .then((queue) => {
           if (!disposed) {
+            queuePreviewInputsRef.current = {
+              rootPath: library.rootPath,
+              sessionRunId: sessionRunId.trim(),
+              sessionKind,
+            };
             setQueuePreview(queue);
           }
         })
@@ -182,7 +265,7 @@ export default function ParadigmSetupPanel({
             setQueueError(toLibraryErrorMessage(error));
           }
         });
-    }, 300);
+    }, QUEUE_PREVIEW_DEBOUNCE_MS);
 
     return () => {
       disposed = true;
@@ -190,10 +273,17 @@ export default function ParadigmSetupPanel({
     };
   }, [library, sessionRunId, sessionKind]);
 
-  const updateSessionKind = useCallback((kind: ParadigmSessionKind) => {
-    setSessionKind(kind);
+  // A changed input invalidates the previewed queue, so every input-changing
+  // path clears both the queue and the inputs it was built from.
+  const clearQueuePreview = useCallback(() => {
+    queuePreviewInputsRef.current = null;
     setQueuePreview(null);
   }, []);
+
+  const updateSessionKind = useCallback((kind: ParadigmSessionKind) => {
+    setSessionKind(kind);
+    clearQueuePreview();
+  }, [clearQueuePreview]);
 
   // WAI-ARIA radio pattern: ArrowLeft/ArrowRight move to (and select) the
   // neighbouring pill with wrap-around; focus follows the selection. The
@@ -250,9 +340,43 @@ export default function ParadigmSetupPanel({
             ? '请填写本次唯一的会话运行 ID'
             : null;
 
+  // Stable handler handed to the memoized ParadigmLibraryList so the list
+  // never re-renders because of a new preview-opening closure.
+  const handlePreviewSelect = useCallback((emotion: ParadigmEmotion, entry: ParadigmVideoEntry) => {
+    setPreviewVideo({ emotion, entry });
+  }, []);
+
   const updateSubjectId = useCallback((value: string) => {
+    // React state stays immediate; only the localStorage write is debounced.
     setSubjectId(value);
-    writeStoredSubjectId(value);
+    pendingSubjectIdRef.current = value;
+    if (subjectIdPersistTimerRef.current !== null) {
+      window.clearTimeout(subjectIdPersistTimerRef.current);
+    }
+    subjectIdPersistTimerRef.current = window.setTimeout(() => {
+      subjectIdPersistTimerRef.current = null;
+      const pending = pendingSubjectIdRef.current;
+      pendingSubjectIdRef.current = null;
+      if (pending !== null) {
+        writeStoredSubjectId(pending);
+      }
+    }, SUBJECT_ID_PERSIST_DEBOUNCE_MS);
+  }, []);
+
+  // Flush the pending debounced subject-id write when the panel unmounts
+  // (navigation, session start) so the last typed value is never lost.
+  useEffect(() => {
+    return () => {
+      if (subjectIdPersistTimerRef.current !== null) {
+        window.clearTimeout(subjectIdPersistTimerRef.current);
+        subjectIdPersistTimerRef.current = null;
+      }
+      const pending = pendingSubjectIdRef.current;
+      pendingSubjectIdRef.current = null;
+      if (pending !== null) {
+        writeStoredSubjectId(pending);
+      }
+    };
   }, []);
 
   const markFieldTouched = useCallback((field: keyof typeof touchedFields) => {
@@ -261,13 +385,13 @@ export default function ParadigmSetupPanel({
 
   const updateSessionRunId = useCallback((value: string) => {
     setSessionRunId(value);
-    setQueuePreview(null);
-  }, []);
+    clearQueuePreview();
+  }, [clearQueuePreview]);
 
   const chooseLibraryRoot = useCallback(async () => {
     setLoadingLibrary(true);
     setLibraryError(null);
-    setQueuePreview(null);
+    clearQueuePreview();
     setQueueError(null);
     setPreviewVideo(null);
 
@@ -295,7 +419,7 @@ export default function ParadigmSetupPanel({
     } finally {
       setLoadingLibrary(false);
     }
-  }, []);
+  }, [clearQueuePreview]);
 
   const startSession = useCallback(async () => {
     if (!library || !canStartSession) {
@@ -315,9 +439,18 @@ export default function ParadigmSetupPanel({
     setStartingSession(true);
 
     try {
-      // build_paradigm_queue is deterministic per session_run_id, so the
-      // preview and the executed queue are guaranteed to match.
-      const queue = await buildParadigmQueue(library.rootPath, sessionRunIdTrimmed, sessionKind);
+      // build_paradigm_queue is deterministic per session_run_id: when the
+      // current preview was built from exactly these inputs, reuse it instead
+      // of paying for a second backend directory scan on the start path.
+      const previewInputs = queuePreviewInputsRef.current;
+      const canReusePreview = queuePreview !== null
+        && previewInputs !== null
+        && previewInputs.rootPath === library.rootPath
+        && previewInputs.sessionRunId === sessionRunIdTrimmed
+        && previewInputs.sessionKind === sessionKind;
+      const queue = canReusePreview
+        ? queuePreview
+        : await buildParadigmQueue(library.rootPath, sessionRunIdTrimmed, sessionKind);
       onStartSession({
         sessionKind,
         subjectId: subjectIdTrimmed,
@@ -335,6 +468,7 @@ export default function ParadigmSetupPanel({
     dryRun,
     library,
     onStartSession,
+    queuePreview,
     sessionKind,
     sessionRunIdTrimmed,
     subjectIdTrimmed,
@@ -450,39 +584,11 @@ export default function ParadigmSetupPanel({
         ) : null}
 
         {library ? (
-          <details className={styles.videoListDetails}>
-            <summary className={styles.videoListSummary}>素材清单(点击文件名全屏预览)</summary>
-            <div className={styles.videoListGrid} aria-label="素材清单">
-              {PARADIGM_EMOTION_DISPLAY_ORDER.map((emotion) => {
-                const entries = library[libraryClassKeys[emotion]];
-
-                return (
-                  <div key={emotion} className={styles.videoListGroup}>
-                    <span className={styles.videoListHeader}>
-                      {paradigmEmotionLabels[emotion]}({entries.length})
-                    </span>
-                    {entries.map((entry) => {
-                      const isSelected = selectedVideoIds.has(entry.videoId);
-
-                      return (
-                        <button
-                          key={entry.fileName}
-                          type="button"
-                          className={styles.videoListRow}
-                          onClick={() => setPreviewVideo({ emotion, entry })}
-                        >
-                          <span className={styles.videoListName}>{entry.fileName}</span>
-                          {isSelected ? (
-                            <span className={styles.selectedVideoBadge}>入选</span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </details>
+          <ParadigmLibraryList
+            library={library}
+            selectedVideoIds={selectedVideoIds}
+            onSelectPreview={handlePreviewSelect}
+          />
         ) : null}
 
         {libraryError ? <div className={styles.warningBanner}>{libraryError}</div> : null}

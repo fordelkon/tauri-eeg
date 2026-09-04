@@ -84,6 +84,13 @@ const TRIAL_MARK_LABELS: Record<TrialMarkKind, string> = {
 
 const STAGE_PHASES: readonly string[] = ['baseline', 'hint', 'video', 'postRest'];
 
+/**
+ * Delay before the single mount retry of the session-id resolution. The finish
+ * chain reads state.sessionId directly, so one cheap extra poll here saves an
+ * entire status roundtrip between stopRecord and the summary fetch.
+ */
+const SESSION_ID_RESOLVE_RETRY_DELAY_MS = 500;
+
 /** Indices where a new emotion block starts (index 0 always starts one). */
 function toBlockStarts(queue: ParadigmTrialPlanItem[]): number[] {
   const starts: number[] = [];
@@ -239,19 +246,41 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     }
 
     let disposed = false;
+    let retryHandle: number | null = null;
+    let retried = false;
 
-    getEegStatus()
-      .then((status) => {
-        if (!disposed && status.activeRecording) {
+    const resolveSessionId = () => {
+      getEegStatus()
+        .then((status) => {
+          if (disposed || !status.activeRecording) {
+            return false;
+          }
           dispatch({ type: 'session_id_resolved', sessionId: status.activeRecording.id });
-        }
-      })
-      .catch(() => {
-        // The summary step re-resolves the id if this poll failed.
-      });
+          return true;
+        })
+        .catch(() => false)
+        .then((resolved) => {
+          // The runner mounts right after start_eeg_recording resolves, so the
+          // first poll almost always sees the recording. A transient IPC
+          // failure (or a poll racing the backend's registration) gets exactly
+          // one short-delay retry — the reducer ignores duplicate
+          // session_id_resolved, and the finish chain keeps its own pre-stop
+          // status fetch as the last resort after that.
+          if (!resolved && !disposed && !retried) {
+            retried = true;
+            retryHandle = window.setTimeout(resolveSessionId, SESSION_ID_RESOLVE_RETRY_DELAY_MS);
+          }
+        });
+    };
+
+    resolveSessionId();
 
     return () => {
       disposed = true;
+      if (retryHandle !== null) {
+        window.clearTimeout(retryHandle);
+        retryHandle = null;
+      }
     };
   }, [dryRun]);
 
@@ -562,14 +591,17 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
 
     void (async () => {
       try {
+        // Prefer the id resolved at mount: eeg.stopRecord() (the context
+        // wrapper) resolves to a boolean, not the finished recording, so the
+        // previously resolved value is the only source that skips the extra
+        // status roundtrip. The fallback polls status BEFORE stopping —
+        // activeRecording is cleared once the continuous recording stops.
         let sessionId = state.sessionId;
         if (!sessionId) {
           const status = await getEegStatus();
           sessionId = status.activeRecording?.id ?? null;
         }
 
-        // Resolve the id before stopping: activeRecording is cleared once the
-        // continuous recording stops.
         await eeg.stopRecord();
 
         if (!sessionId) {
@@ -907,11 +939,11 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
                 : stageNotice
                   ? '试次保存失败'
                   : '正在准备下一个视频…'}
-            </span>
-          </div>
-        </div>
-      ) : null}
-      {confirmDialogElement}
-    </div>
-  );
+            </span>
+          </div>
+        </div>
+      ) : null}
+      {confirmDialogElement}
+    </div>
+  );
 }

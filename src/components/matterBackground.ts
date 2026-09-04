@@ -56,8 +56,11 @@ export type MatterBackground = {
   relayoutTitle: () => void;
 };
 
-// Render (and physics stepping) cadence: rAF runs at display refresh rate, but
-// frames are throttled to ~30fps to halve canvas rasterization work.
+// Frame cadence: rAF runs at display refresh rate, but frames are throttled to
+// ~30fps to halve canvas rasterization work. The loop steps the engine and then
+// calls the custom drawScene directly; Matter's Render.world/Render.run are
+// never used because every body is render:{visible:false} and drawScene
+// repaints the full canvas each frame.
 const FRAME_INTERVAL_MS = 1000 / 30;
 // Physics still advances in fixed 60Hz steps (two substeps per rendered frame)
 // so ball motion, spawn cadence and lifetimes stay identical to the previous
@@ -76,6 +79,63 @@ const BALL_PALETTE = [
 const defaultTitleFontSize = (width: number) => (
   width > 420 ? Math.min(42, Math.max(28, width * 0.045)) : Math.max(20, Math.min(25, width * 0.072))
 );
+
+const LETTER_FONT = (fontSize: number) => (
+  `560 ${fontSize}px "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif`
+);
+
+// Title letters keep per-frame motion (ball/pointer repulsion), so the whole
+// title cannot be cached as one bitmap. Instead each glyph — including its soft
+// shadow, which would otherwise force a shadow re-rasterization on every
+// letter on every frame — is rasterized once per (char, fontSize, dpr) and then
+// blitted with the letter's translate/rotate/squash transform.
+type LetterSprite = { canvas: HTMLCanvasElement; height: number; width: number };
+
+const LETTER_SHADOW_BLUR = 1.5;
+// Shadow sigma is blur / 2 = 0.75px, so 6px of padding safely contains the glow.
+const LETTER_SPRITE_PADDING = 6;
+const letterSpriteCache = new Map<string, LetterSprite>();
+
+const getLetterSprite = (char: string, fontSize: number): LetterSprite => {
+  const pixelRatio = window.devicePixelRatio || 1;
+  const key = `${char}|${fontSize}|${pixelRatio}`;
+  let sprite = letterSpriteCache.get(key);
+
+  if (!sprite) {
+    const measureContext = document.createElement('canvas').getContext('2d');
+    let textWidth = fontSize * 0.62;
+
+    if (measureContext) {
+      measureContext.font = LETTER_FONT(fontSize);
+      textWidth = measureContext.measureText(char).width;
+    }
+
+    const width = Math.ceil(textWidth) + LETTER_SPRITE_PADDING * 2;
+    // 1.6em of glyph box covers Comic Sans MS ascenders/descenders around the
+    // 'middle' text baseline used when drawing.
+    const height = Math.ceil(fontSize * 1.6) + LETTER_SPRITE_PADDING * 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(width * pixelRatio);
+    canvas.height = Math.ceil(height * pixelRatio);
+    const spriteContext = canvas.getContext('2d');
+
+    if (spriteContext) {
+      spriteContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      spriteContext.font = LETTER_FONT(fontSize);
+      spriteContext.textAlign = 'center';
+      spriteContext.textBaseline = 'middle';
+      spriteContext.shadowBlur = LETTER_SHADOW_BLUR;
+      spriteContext.shadowColor = 'rgba(255, 255, 255, 0.28)';
+      spriteContext.fillStyle = '#ffffff';
+      spriteContext.fillText(char, width / 2, height / 2);
+    }
+
+    sprite = { canvas, height, width };
+    letterSpriteCache.set(key, sprite);
+  }
+
+  return sprite;
+};
 
 export const getBallCountConfig = (
   width: number,
@@ -157,7 +217,7 @@ export function createMatterBackground({
     const currentTitle = getTitle();
     const resolvedFontSize = titleFontSize(width);
 
-    render.context.font = `560 ${resolvedFontSize}px "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif`;
+    render.context.font = LETTER_FONT(resolvedFontSize);
     titleBounds = {
       height: resolvedFontSize * 1.28,
       width: Math.max(render.context.measureText(currentTitle).width, resolvedFontSize * Math.min(currentTitle.length, 11) * 0.62),
@@ -499,18 +559,20 @@ export function createMatterBackground({
       context.restore();
     });
 
-    context.fillStyle = '#ffffff';
     titleLetters.forEach((letter) => {
+      const sprite = getLetterSprite(letter.char, letter.fontSize);
+
       context.save();
       context.translate(letter.baseX + letter.x, letter.baseY + letter.y);
       context.rotate(letter.rotation);
       context.scale(1 + letter.squash * 0.18, 1 - letter.squash * 0.12);
-      context.shadowBlur = 1.5;
-      context.shadowColor = 'rgba(255, 255, 255, 0.28)';
-      context.font = `560 ${letter.fontSize}px "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif`;
-      context.textAlign = 'center';
-      context.textBaseline = 'middle';
-      context.fillText(letter.char, 0, 0);
+      context.drawImage(
+        sprite.canvas,
+        -sprite.width / 2,
+        -sprite.height / 2,
+        sprite.width,
+        sprite.height,
+      );
       context.restore();
     });
 
@@ -519,7 +581,6 @@ export function createMatterBackground({
 
   buildWorld();
   Events.on(engine, 'beforeUpdate', updateScene);
-  Events.on(render, 'afterRender', drawScene);
 
   let isVisible = true;
   let isPageVisible = !document.hidden;
@@ -540,7 +601,11 @@ export function createMatterBackground({
       Engine.update(engine, PHYSICS_STEP_MS);
     }
 
-    Render.world(render);
+    // Matter's Render.world is never run: every body is render:{visible:false}
+    // and drawScene repaints the full canvas, so its per-frame clear + body
+    // iteration produced no visible output. The physics step above (which also
+    // drives updateScene) plus this custom draw is the whole frame.
+    drawScene();
   };
 
   const startLoop = () => {
@@ -585,7 +650,6 @@ export function createMatterBackground({
     intersectionObserver.disconnect();
     resizeObserver.disconnect();
     Events.off(engine, 'beforeUpdate', updateScene);
-    Events.off(render, 'afterRender', drawScene);
     Composite.clear(engine.world, false);
     Engine.clear(engine);
     render.canvas.remove();

@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc, Mutex,
@@ -66,7 +67,7 @@ pub struct ParadigmController {
     completed: Vec<TrialRecord>,
     sender: mpsc::Sender<RecordingMessage>,
     sample_count: Arc<AtomicU64>,
-    trigger_observations: Arc<Mutex<Vec<TriggerObservation>>>,
+    trigger_observations: Arc<Mutex<VecDeque<TriggerObservation>>>,
 }
 
 impl ParadigmController {
@@ -79,7 +80,7 @@ impl ParadigmController {
         channel_count: usize,
         sender: mpsc::Sender<RecordingMessage>,
         sample_count: Arc<AtomicU64>,
-        trigger_observations: Arc<Mutex<Vec<TriggerObservation>>>,
+        trigger_observations: Arc<Mutex<VecDeque<TriggerObservation>>>,
     ) -> Self {
         Self {
             info,
@@ -511,7 +512,7 @@ mod tests {
             32,
             sender,
             Arc::new(AtomicU64::new(0)),
-            Arc::new(Mutex::new(Vec::new())),
+            Arc::new(Mutex::new(VecDeque::new())),
         );
 
         let make_input = |trial_index: u32, video_id: &str| BeginEegTrialInput {

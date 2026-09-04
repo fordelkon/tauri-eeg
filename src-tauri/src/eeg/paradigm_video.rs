@@ -1,4 +1,10 @@
-use std::{fs, path::{Path, PathBuf}};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+    time::{Duration, Instant},
+};
 
 use super::paradigm::{
     ParadigmEmotion, ParadigmSessionKind, ParadigmTrialPlanItem, ParadigmVideoEntry,
@@ -12,6 +18,16 @@ use super::paradigm::{
 const MIN_VIDEOS_PER_CLASS: usize = 5;
 const TRIALS_PER_CLASS: usize = 5;
 const VIDEO_EXTENSION: &str = "mp4";
+
+const PARADIGM_LIBRARY_CACHE_TTL: Duration = Duration::from_secs(30);
+
+// Scanning the library walks the whole directory tree, and the frontend runs
+// the queue build debounced per keystroke plus once more at session start, so
+// the last scan per root is reused briefly (same TTL pattern as
+// video_library.rs; a 30 s staleness window is acceptable for queue building).
+static PARADIGM_LIBRARY_CACHE: Mutex<
+    Option<HashMap<PathBuf, (Instant, Arc<ParadigmVideoLibrary>)>>,
+> = Mutex::new(None);
 
 pub fn load_paradigm_video_library(root_path: &str) -> Result<ParadigmVideoLibrary, String> {
     let trimmed = root_path.trim();
@@ -75,8 +91,40 @@ pub fn build_paradigm_queue_from_root(
     session_run_id: &str,
     session_kind: ParadigmSessionKind,
 ) -> Result<Vec<ParadigmTrialPlanItem>, String> {
-    let library = load_paradigm_video_library(root_path)?;
+    let library = cached_paradigm_library(root_path)?;
     build_paradigm_queue(&library, session_run_id, session_kind)
+}
+
+fn cached_paradigm_library(root_path: &str) -> Result<Arc<ParadigmVideoLibrary>, String> {
+    let root = PathBuf::from(root_path.trim());
+    if let Some(library) = cached_queue_library(&root) {
+        return Ok(library);
+    }
+
+    let library = Arc::new(load_paradigm_video_library(root_path)?);
+    // Only valid scans are cached: an invalid library must re-check the
+    // directories on the next call so fixing the folder takes effect at once.
+    if library.valid {
+        if let Ok(mut cache) = PARADIGM_LIBRARY_CACHE.lock() {
+            let entries = cache.get_or_insert_with(HashMap::new);
+            let now = Instant::now();
+
+            entries.retain(|_, (cached_at, _)| {
+                now.duration_since(*cached_at) < PARADIGM_LIBRARY_CACHE_TTL
+            });
+            entries.insert(root, (now, Arc::clone(&library)));
+        }
+    }
+
+    Ok(library)
+}
+
+fn cached_queue_library(root: &Path) -> Option<Arc<ParadigmVideoLibrary>> {
+    let cache = PARADIGM_LIBRARY_CACHE.lock().ok()?;
+    let entries = cache.as_ref()?;
+    let (cached_at, library) = entries.get(root)?;
+
+    (cached_at.elapsed() < PARADIGM_LIBRARY_CACHE_TTL).then(|| Arc::clone(library))
 }
 
 pub fn build_paradigm_queue(
@@ -367,6 +415,46 @@ mod tests {
                 .collect::<std::collections::HashSet<_>>();
             assert_eq!(unique_videos.len(), expected_len);
         }
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn queue_from_root_reuses_the_cached_scan_within_ttl() {
+        let root = temp_library_root("queue-cache");
+        seed_library(&root, MIN_VIDEOS_PER_CLASS);
+        let path = root.to_str().expect("utf8 path").to_string();
+
+        let first = build_paradigm_queue_from_root(
+            &path,
+            "cache-run-1",
+            ParadigmSessionKind::HeldOutGeneration,
+        )
+        .expect("queue");
+        // Second call hits the 30 s TTL cache and must feed the same scan into
+        // the queue builder, so the result stays identical for the same run id.
+        let second = build_paradigm_queue_from_root(
+            &path,
+            "cache-run-1",
+            ParadigmSessionKind::HeldOutGeneration,
+        )
+        .expect("queue");
+        assert_eq!(first, second);
+        assert_eq!(
+            first.len(),
+            blocks_for_session_kind(ParadigmSessionKind::HeldOutGeneration).len() * TRIALS_PER_CLASS
+        );
+
+        // A missing root is never cached: the error re-checks the filesystem.
+        assert_eq!(
+            build_paradigm_queue_from_root(
+                "Z:/definitely-missing-queue",
+                "cache-run-1",
+                ParadigmSessionKind::HeldOutGeneration
+            )
+            .unwrap_err(),
+            "Video root directory does not exist."
+        );
 
         let _ = fs::remove_dir_all(root);
     }

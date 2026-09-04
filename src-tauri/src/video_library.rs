@@ -1,16 +1,33 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::{
     collections::{HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
 const LIBRARY_CACHE_TTL: Duration = Duration::from_secs(30);
 
 // Directory scans are expensive; reuse the last result per folder briefly.
-static LIBRARY_CACHE: Mutex<Option<HashMap<PathBuf, (Instant, VideoLibrary)>>> = Mutex::new(None);
+static LIBRARY_CACHE: Mutex<Option<HashMap<PathBuf, (Instant, Arc<VideoLibrary>)>>> =
+    Mutex::new(None);
+
+/// Shared handle to a cached `VideoLibrary`. The frontend only consumes the
+/// serialized JSON, so handing out the `Arc` (serialized through its inner
+/// value) avoids deep-cloning every asset on every call. A newtype is used
+/// because `serde`'s `rc` feature is not enabled for `Arc<T>: Serialize`.
+#[derive(Debug)]
+pub struct SharedVideoLibrary(pub Arc<VideoLibrary>);
+
+impl Serialize for SharedVideoLibrary {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        (*self.0).serialize(serializer)
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,31 +83,31 @@ struct LibrarySegment {
     weather: String,
 }
 
-pub fn load_video_library(folder_path: &str) -> Result<VideoLibrary, String> {
+pub fn load_video_library(folder_path: &str) -> Result<SharedVideoLibrary, String> {
     let root = PathBuf::from(folder_path.trim());
     if folder_path.trim().is_empty() || !root.is_dir() {
         return Err("请选择一个有效的视频库文件夹。".to_string());
     }
 
     if let Some(library) = cached_library(&root) {
-        return Ok(library);
+        return Ok(SharedVideoLibrary(library));
     }
 
-    let library = scan_video_library(&root)?;
-    store_cached_library(root, library.clone());
+    let library = Arc::new(scan_video_library(&root)?);
+    store_cached_library(root, Arc::clone(&library));
 
-    Ok(library)
+    Ok(SharedVideoLibrary(library))
 }
 
-fn cached_library(root: &Path) -> Option<VideoLibrary> {
+fn cached_library(root: &Path) -> Option<Arc<VideoLibrary>> {
     let cache = LIBRARY_CACHE.lock().ok()?;
     let entries = cache.as_ref()?;
     let (cached_at, library) = entries.get(root)?;
 
-    (cached_at.elapsed() < LIBRARY_CACHE_TTL).then(|| library.clone())
+    (cached_at.elapsed() < LIBRARY_CACHE_TTL).then(|| Arc::clone(library))
 }
 
-fn store_cached_library(root: PathBuf, library: VideoLibrary) {
+fn store_cached_library(root: PathBuf, library: Arc<VideoLibrary>) {
     if let Ok(mut cache) = LIBRARY_CACHE.lock() {
         let entries = cache.get_or_insert_with(HashMap::new);
         let now = Instant::now();
@@ -259,11 +276,31 @@ mod tests {
         File::create(root.join("custom_seg000.mp4")).expect("create mp4");
         write_valid_index(&root, "custom_seg000.mp4");
 
-        let library = load_video_library(root.to_str().expect("utf8 path")).expect("load library");
+        let library = load_video_library(root.to_str().expect("utf8 path"))
+            .expect("load library")
+            .0;
 
         assert_eq!(library.assets.len(), 1);
         assert_eq!(library.assets[0].title, "自定义场景");
         assert!(library.assets[0].source_path.ends_with("custom_seg000.mp4"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn repeated_loads_within_ttl_share_the_cached_library() {
+        let root = temp_video_dir("cache");
+        File::create(root.join("custom_seg000.mp4")).expect("create mp4");
+        write_valid_index(&root, "custom_seg000.mp4");
+
+        let first = load_video_library(root.to_str().expect("utf8 path")).expect("load library");
+        let second =
+            load_video_library(root.to_str().expect("utf8 path")).expect("reload library");
+
+        // The second load must be served from the cache as a cheap Arc clone
+        // instead of a deep copy of every asset.
+        assert!(Arc::ptr_eq(&first.0, &second.0));
+        assert_eq!(first.0.assets.len(), second.0.assets.len());
 
         let _ = fs::remove_dir_all(root);
     }

@@ -554,6 +554,7 @@ export default function VideoRegulation() {
                 ref={videoRef}
                 autoPlay
                 controls
+                preload="metadata"
                 src={toPlayableVideoUrl(activeVideo.sourcePath, convertFileSrc)}
               />
             </div>

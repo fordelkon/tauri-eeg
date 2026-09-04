@@ -39,6 +39,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { resetPassword, signIn, signUp } = useAuth();
   const leftPanelRef = useRef<HTMLDivElement>(null);
+  const leftPanelBoundsRef = useRef<DOMRect | null>(null);
   const matterHostRef = useRef<HTMLDivElement>(null);
   const pointerTargetRef = useRef<{ active: boolean; x: number; y: number }>({
     active: false,
@@ -66,6 +67,19 @@ export default function Login() {
     if (exitTimeoutRef.current !== null) {
       window.clearTimeout(exitTimeoutRef.current);
     }
+  }, []);
+
+  // getBoundingClientRect inside the pointermove handler forces a synchronous
+  // layout on every pointer event over the half-screen panel. The panel rect is
+  // cached instead and refreshed only when it can actually change: on pointer
+  // entry and window resize (the panel neither scrolls nor reflows otherwise).
+  useEffect(() => {
+    const refreshLeftPanelBounds = () => {
+      leftPanelBoundsRef.current = leftPanelRef.current?.getBoundingClientRect() ?? null;
+    };
+
+    window.addEventListener('resize', refreshLeftPanelBounds, { passive: true });
+    return () => window.removeEventListener('resize', refreshLeftPanelBounds);
   }, []);
 
   const isSignup = authMode === 'signup';
@@ -224,14 +238,24 @@ export default function Login() {
     setSuccessMessage('');
   };
 
-  const handleLeftPanelPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
+  const handleLeftPanelPointerEnter = () => {
+    leftPanelBoundsRef.current = leftPanelRef.current?.getBoundingClientRect() ?? null;
+  };
 
-    pointerTargetRef.current = {
-      active: true,
-      x: (event.clientX - bounds.left) / bounds.width,
-      y: (event.clientY - bounds.top) / bounds.height,
-    };
+  const handleLeftPanelPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    // pointerenter populates the cache; measure live only if it is somehow
+    // missing (e.g. the very first event before enter ran).
+    const bounds = leftPanelBoundsRef.current
+      ?? (leftPanelRef.current?.getBoundingClientRect() ?? null);
+
+    if (bounds) {
+      leftPanelBoundsRef.current = bounds;
+      pointerTargetRef.current = {
+        active: true,
+        x: (event.clientX - bounds.left) / bounds.width,
+        y: (event.clientY - bounds.top) / bounds.height,
+      };
+    }
   };
 
   const handleLeftPanelPointerLeave = () => {
@@ -249,6 +273,7 @@ export default function Login() {
       <Box
         ref={leftPanelRef}
         className={`${styles.leftPanel} relative box-border flex touch-none items-center justify-center overflow-hidden text-white opacity-0`}
+        onPointerEnter={handleLeftPanelPointerEnter}
         onPointerMove={handleLeftPanelPointerMove}
         onPointerLeave={handleLeftPanelPointerLeave}
         aria-label="EEG Ecosystem animated scene"

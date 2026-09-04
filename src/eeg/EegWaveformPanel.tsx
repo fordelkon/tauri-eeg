@@ -135,8 +135,14 @@ export default function EegWaveformPanel({
   // Plot width is measured by the ResizeObserver below and flows in through
   // state, so the data memo never reads layout during render.
   const [hostWidth, setHostWidth] = useState(MIN_PLOT_WIDTH);
-  const visibleChannelKey = snapshot.visibleChannels.map((channel) => channel.id).join('|');
   const visibleChannels = snapshot.visibleChannels;
+  // Feeds the plot-creation effect's dependency below; memoized so the join is
+  // rebuilt only when the visible-channel array identity changes, not on every
+  // render the snapshot layer triggers.
+  const visibleChannelKey = useMemo(
+    () => visibleChannels.map((channel) => channel.id).join('|'),
+    [visibleChannels],
+  );
   const safeTimeWindowSeconds = Math.max(0.1, timeWindowSeconds);
   // Latest-value refs for the creation effect below: amplitude, display mode
   // and time window change at UI-event rate, and tearing down + rebuilding the
@@ -161,18 +167,44 @@ export default function EegWaveformPanel({
       return undefined;
     }
 
+    // Resize events arrive in bursts while dragging; applying each one
+    // synchronously cost two complete redraws (setHostWidth re-render ->
+    // setData redraw, plus an immediate setSize redraw). Coalesce into one
+    // rAF: setSize resizes the canvas only when the width actually changed
+    // vs the last applied width, and the data redraw rides the normal render
+    // path (hostWidth state -> frame memo -> setData effect) — no extra
+    // redraw for the data.
+    let frameHandle: number | null = null;
+    // null until the first observation applies, preserving first-mount
+    // behavior (the initial measurement always reaches state and the plot).
+    let lastAppliedWidth: number | null = null;
+
     const observer = new ResizeObserver(() => {
-      const width = Math.max(MIN_PLOT_WIDTH, host.clientWidth);
-      setHostWidth(width);
-      plotRef.current?.setSize({
-        width,
-        height: Math.max(MIN_PLOT_HEIGHT, host.clientHeight),
+      if (frameHandle !== null) {
+        return;
+      }
+      frameHandle = window.requestAnimationFrame(() => {
+        frameHandle = null;
+        const width = Math.max(MIN_PLOT_WIDTH, host.clientWidth);
+        if (width === lastAppliedWidth) {
+          return;
+        }
+        lastAppliedWidth = width;
+        plotRef.current?.setSize({
+          width,
+          height: Math.max(MIN_PLOT_HEIGHT, host.clientHeight),
+        });
+        setHostWidth(width);
       });
     });
     observer.observe(host);
 
     return () => {
       observer.disconnect();
+      if (frameHandle !== null) {
+        window.cancelAnimationFrame(frameHandle);
+        frameHandle = null;
+      }
     };
   }, []);
 

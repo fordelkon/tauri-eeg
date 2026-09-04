@@ -1,6 +1,7 @@
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
 import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { preloadMusicServiceForUser } from '../music/musicServicePreload';
@@ -47,6 +48,44 @@ const phaseGuideItems: Record<AgentPhase, readonly string[]> = {
   ],
 };
 
+/**
+ * Owns the 250 ms "thinking elapsed" ticker: while the planner streams this
+ * leaf re-renders 4x/s on its own, instead of dragging the whole panel
+ * (timeline, quick prompts, form) through a re-render on every tick. The
+ * displayed format matches the previous in-view countdown exactly.
+ */
+const ThinkingTimer = memo(function ThinkingTimer({
+  isPlanning,
+  durationMs,
+}: {
+  isPlanning: boolean;
+  durationMs: number | null;
+}) {
+  const [liveThinkingMs, setLiveThinkingMs] = useState(0);
+
+  useEffect(() => {
+    if (!isPlanning) {
+      setLiveThinkingMs(durationMs ?? 0);
+      return undefined;
+    }
+
+    const planningStartedAt = Date.now();
+    setLiveThinkingMs(0);
+
+    const timerId = window.setInterval(() => {
+      setLiveThinkingMs(Date.now() - planningStartedAt);
+    }, 250);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [isPlanning, durationMs]);
+
+  return isPlanning
+    ? `思考中 ${formatThinkingSeconds(liveThinkingMs)}`
+    : `已思考 ${formatThinkingSeconds(durationMs ?? 0)}`;
+});
+
 let hasPreloadedMusicService = false;
 
 type Props = {
@@ -65,7 +104,12 @@ type Props = {
   onCancel: () => void;
 };
 
-function ExperimentAgentPanelView({
+/**
+ * Memoized so container-only re-renders (EEG/auth context churn, unrelated
+ * hook state) skip the whole panel; every prop the container passes is
+ * identity-stable between real content changes.
+ */
+const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
   isPlannerAvailable,
   isPlanning,
   thinkingDurationMs,
@@ -81,11 +125,12 @@ function ExperimentAgentPanelView({
   onCancel,
 }: Props) {
   const [input, setInput] = useState('');
-  const [liveThinkingMs, setLiveThinkingMs] = useState(0);
   const activityRef = useRef<HTMLDivElement | null>(null);
-  const thinkingSummary = isPlanning
-    ? `思考中 ${formatThinkingSeconds(liveThinkingMs)}`
-    : `已思考 ${formatThinkingSeconds(thinkingDurationMs ?? 0)}`;
+  // The live elapsed time is owned by the ThinkingTimer leaf below; the panel
+  // itself no longer re-renders on its 250 ms tick.
+  const thinkingSummary = (
+    <ThinkingTimer isPlanning={isPlanning} durationMs={thinkingDurationMs} />
+  );
   const thinkingClassName = isPlanning
     ? `${styles.thinking} ${styles.thinkingActive}`
     : styles.thinking;
@@ -113,24 +158,6 @@ function ExperimentAgentPanelView({
 
     return () => window.cancelAnimationFrame(frameId);
   }, [message, pendingConfirmation, recentTimeline]);
-
-  useEffect(() => {
-    if (!isPlanning) {
-      setLiveThinkingMs(thinkingDurationMs ?? 0);
-      return undefined;
-    }
-
-    const planningStartedAt = Date.now();
-    setLiveThinkingMs(0);
-
-    const timerId = window.setInterval(() => {
-      setLiveThinkingMs(Date.now() - planningStartedAt);
-    }, 250);
-
-    return () => {
-      window.clearInterval(timerId);
-    };
-  }, [isPlanning, thinkingDurationMs]);
 
   return (
     <section className={styles.panel} aria-busy={isPlanning} aria-label="实验助手聊天">
@@ -230,7 +257,7 @@ function ExperimentAgentPanelView({
       </form>
     </section>
   );
-}
+});
 
 type ContainerProps = {
   navigateTo: (path: string) => void;
@@ -250,6 +277,34 @@ export default function ExperimentAgentPanel({ navigateTo }: ContainerProps) {
     void preloadMusicServiceForUser({ userId: currentUser?.id });
   }, [currentUser?.id]);
 
+  // Stable handler identities so the memoized view is skipped by container
+  // re-renders that do not change panel content.
+  const handleConfirm = useCallback(
+    () => void agent.confirmPendingAction(),
+    [agent.confirmPendingAction],
+  );
+  const handleSubmitPrompt = useCallback(
+    (value: string) => void agent.submitPrompt(value),
+    [agent.submitPrompt],
+  );
+
+  // useExperimentAgent mints a fresh timeline slice on every render without
+  // exposing `timeline` itself, so this memo keeps the previous slice while
+  // its entries are all reference-identical; otherwise every container
+  // render would mint a new prop and defeat the view memo.
+  const recentTimelineRef = useRef<readonly AgentTimelineEntry[]>([]);
+  const recentTimeline = useMemo(() => {
+    const previous = recentTimelineRef.current;
+    const next = agent.recentTimeline;
+
+    if (previous.length === next.length && previous.every((entry, index) => entry === next[index])) {
+      return previous;
+    }
+
+    recentTimelineRef.current = next;
+    return next;
+  }, [agent.recentTimeline]);
+
   return (
     <ExperimentAgentPanelView
       isPlannerAvailable={agent.isPlannerAvailable}
@@ -260,10 +315,10 @@ export default function ExperimentAgentPanel({ navigateTo }: ContainerProps) {
       pendingConfirmation={agent.pendingConfirmation}
       phase={agent.phase}
       quickPrompts={agent.quickPrompts}
-      recentTimeline={agent.recentTimeline}
-      onConfirm={() => void agent.confirmPendingAction()}
+      recentTimeline={recentTimeline}
+      onConfirm={handleConfirm}
       onReject={agent.rejectPendingAction}
-      onSubmitPrompt={(value) => void agent.submitPrompt(value)}
+      onSubmitPrompt={handleSubmitPrompt}
       onCancel={agent.cancelPlanning}
     />
   );

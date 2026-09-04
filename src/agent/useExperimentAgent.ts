@@ -374,11 +374,22 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
             duration: plannerDuration ?? preview.params.duration,
           },
         }));
-        await generateMusic({
+        // Fire-and-forget: the backend /generate call resolves only when the
+        // track finishes (possibly minutes later), and the result already
+        // reaches the UI on its own via MUSIC_GENERATED_EVENT plus the history
+        // refresh. Awaiting it here would keep the planner in "思考中" and
+        // block every follow-up prompt for the whole generation, so resolve
+        // this action as "submitted" the moment the request is sent. The
+        // floating promise still gets a .catch so a failed submission lands in
+        // the same message channel as other action failures instead of
+        // becoming an unhandled rejection.
+        void generateMusic({
           duration: plannerDuration ?? preview.params.duration,
           prompt: plannerPrompt ?? preview.params.prompt,
           userId: currentUser.id,
           username: currentUser.username,
+        }).catch((reason: unknown) => {
+          setMessage(formatAgentActionError(reason));
         });
         setMessage('已提交音乐生成请求。');
         return;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Collapse from '@mui/material/Collapse';
@@ -33,6 +33,9 @@ const OUTCOME_CLASS: Record<HistoryOutcome, string> = {
   未达标: styles.outcomeFail,
   无法判定: styles.outcomeUnknown,
 };
+
+/** Keystroke pause before the subject filter re-runs filtering + grouping. */
+const SUBJECT_QUERY_DEBOUNCE_MS = 250;
 
 /** Dimension detail table shared by every expanded history row. */
 function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
@@ -94,6 +97,83 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
   );
 }
 
+type HistoryRowProps = {
+  collapseTimeout: 'auto' | 0;
+  entry: EffectHistoryEntryView;
+  isDeleting: boolean;
+  isExpanded: boolean;
+  onDeleteRequest: (entry: EffectHistoryEntryView) => void;
+  onToggle: (postId: string) => void;
+};
+
+/** One expandable history run row (summary line + collapsible detail).
+ *  Memoized so keystrokes in the subject filter — which recompute the
+ *  filtered groups — do not re-render rows whose entry and expand state did
+ *  not change; the toggle/delete callbacks arrive referentially stable. */
+const HistoryRow = memo(function HistoryRow({
+  collapseTimeout,
+  entry,
+  isDeleting,
+  isExpanded,
+  onDeleteRequest,
+  onToggle,
+}: HistoryRowProps) {
+  const outcome = outcomeForEntry(entry);
+
+  return (
+    <div className={styles.historyRowWrap}>
+      <div className={styles.historyRowLine}>
+      <button
+        type="button"
+        className={styles.historyRow}
+        aria-expanded={isExpanded}
+        aria-controls={`history-detail-${entry.postRecordId}`}
+        onClick={() => onToggle(entry.postRecordId)}
+      >
+        <span
+          className={`${styles.expandIcon} ${isExpanded ? styles.expandIconOpen : ''}`}
+          aria-hidden="true"
+        />
+        <span className={styles.historyRowTime}>
+          {formatRunTimestamp(entry.postCreatedAt)}
+        </span>
+        <span className={styles.configChip}>情绪 {labelForEmotion(entry.emotion)}</span>
+        {/* R7, feedback-003 P2-1: the condition chip makes
+            natural-recovery / regulation / legacy runs distinguishable at a
+            glance while checking that both conditions were completed. */}
+        <span className={styles.configChip}>
+          {labelForHistoryCondition(entry.condition)}
+        </span>
+        <span className={styles.historyRowRate}>
+          改善率 {formatMeanImprovementRate(entry.meanImprovementRate)}
+        </span>
+        <span className={`${styles.outcomeChip} ${OUTCOME_CLASS[outcome]}`}>
+          {outcome}
+        </span>
+      </button>
+
+        <IconButton
+          type="button"
+          className={styles.historyDeleteButton}
+          aria-label={`删除 ${formatRunTimestamp(entry.postCreatedAt)} 的评价记录`}
+          title="删除这条评价记录"
+          disabled={isDeleting}
+          onClick={() => onDeleteRequest(entry)}
+          size="small"
+        >
+          <DeleteOutlineRounded fontSize="small" />
+        </IconButton>
+      </div>
+
+      <Collapse in={isExpanded} timeout={collapseTimeout} unmountOnExit>
+        <div id={`history-detail-${entry.postRecordId}`} role="region">
+          <RunDetailTable entry={entry} />
+        </div>
+      </Collapse>
+    </div>
+  );
+});
+
 /**
  * History review tab: every completed baseline/post run grouped per subject
  * (newest first), with a subject filter and expandable per-run details.
@@ -103,7 +183,12 @@ export default function EffectHistoryPanel() {
   const [entries, setEntries] = useState<EffectHistoryEntryView[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Input value stays responsive; the filtering query is its debounced
+  // mirror so filterHistoryEntries + groupHistoryBySubject (and every row)
+  // only re-run once typing pauses.
+  const [subjectQueryInput, setSubjectQueryInput] = useState('');
   const [subjectQuery, setSubjectQuery] = useState('');
+  const subjectQueryTimerRef = useRef<number | null>(null);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<EffectHistoryEntryView | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -127,15 +212,37 @@ export default function EffectHistoryPanel() {
     void loadHistory();
   }, [loadHistory]);
 
+  const updateSubjectQueryInput = useCallback((value: string) => {
+    setSubjectQueryInput(value);
+    if (subjectQueryTimerRef.current !== null) {
+      window.clearTimeout(subjectQueryTimerRef.current);
+    }
+    subjectQueryTimerRef.current = window.setTimeout(() => {
+      subjectQueryTimerRef.current = null;
+      setSubjectQuery(value);
+    }, SUBJECT_QUERY_DEBOUNCE_MS);
+  }, []);
+
+  useEffect(() => () => {
+    if (subjectQueryTimerRef.current !== null) {
+      window.clearTimeout(subjectQueryTimerRef.current);
+      subjectQueryTimerRef.current = null;
+    }
+  }, []);
+
   const filteredEntries = useMemo(
     () => filterHistoryEntries(entries ?? [], subjectQuery),
     [entries, subjectQuery],
   );
   const groups = useMemo(() => groupHistoryBySubject(filteredEntries), [filteredEntries]);
 
-  const toggleRow = (postId: string) => {
+  const toggleRow = useCallback((postId: string) => {
     setExpandedPostId((current) => (current === postId ? null : postId));
-  };
+  }, []);
+
+  const requestDelete = useCallback((entry: EffectHistoryEntryView) => {
+    setPendingDelete(entry);
+  }, []);
 
   // prefers-reduced-motion users get an instant expand (no height animation).
   const collapseTimeout: 'auto' | 0 = typeof window !== 'undefined'
@@ -187,8 +294,8 @@ export default function EffectHistoryPanel() {
         <div className={styles.historyToolbarControls}>
           <input
             className={`${styles.textInput} ${styles.historySearch}`}
-            value={subjectQuery}
-            onChange={(event) => setSubjectQuery(event.currentTarget.value)}
+            value={subjectQueryInput}
+            onChange={(event) => updateSubjectQueryInput(event.currentTarget.value)}
             placeholder="按被试 ID 过滤"
             aria-label="按被试 ID 过滤"
             autoComplete="off"
@@ -223,64 +330,17 @@ export default function EffectHistoryPanel() {
               </div>
 
               <div className={styles.historyRows}>
-                {group.entries.map((entry) => {
-                  const outcome = outcomeForEntry(entry);
-                  const isExpanded = expandedPostId === entry.postRecordId;
-
-                  return (
-                    <div key={entry.postRecordId} className={styles.historyRowWrap}>
-                      <div className={styles.historyRowLine}>
-                      <button
-                        type="button"
-                        className={styles.historyRow}
-                        aria-expanded={isExpanded}
-                        aria-controls={`history-detail-${entry.postRecordId}`}
-                        onClick={() => toggleRow(entry.postRecordId)}
-                      >
-                        <span
-                          className={`${styles.expandIcon} ${isExpanded ? styles.expandIconOpen : ''}`}
-                          aria-hidden="true"
-                        />
-                        <span className={styles.historyRowTime}>
-                          {formatRunTimestamp(entry.postCreatedAt)}
-                        </span>
-                        <span className={styles.configChip}>情绪 {labelForEmotion(entry.emotion)}</span>
-                        {/* R7, feedback-003 P2-1: the condition chip makes
-                            natural-recovery / regulation / legacy runs
-                            distinguishable at a glance while checking that
-                            both conditions were completed. */}
-                        <span className={styles.configChip}>
-                          {labelForHistoryCondition(entry.condition)}
-                        </span>
-                        <span className={styles.historyRowRate}>
-                          改善率 {formatMeanImprovementRate(entry.meanImprovementRate)}
-                        </span>
-                        <span className={`${styles.outcomeChip} ${OUTCOME_CLASS[outcome]}`}>
-                          {outcome}
-                        </span>
-                      </button>
-
-                        <IconButton
-                          type="button"
-                          className={styles.historyDeleteButton}
-                          aria-label={`删除 ${formatRunTimestamp(entry.postCreatedAt)} 的评价记录`}
-                          title="删除这条评价记录"
-                          disabled={isDeleting}
-                          onClick={() => setPendingDelete(entry)}
-                          size="small"
-                        >
-                          <DeleteOutlineRounded fontSize="small" />
-                        </IconButton>
-                      </div>
-
-                      <Collapse in={isExpanded} timeout={collapseTimeout} unmountOnExit>
-                        <div id={`history-detail-${entry.postRecordId}`} role="region">
-                          <RunDetailTable entry={entry} />
-                        </div>
-                      </Collapse>
-                    </div>
-                  );
-                })}
+                {group.entries.map((entry) => (
+                  <HistoryRow
+                    key={entry.postRecordId}
+                    collapseTimeout={collapseTimeout}
+                    entry={entry}
+                    isDeleting={isDeleting}
+                    isExpanded={expandedPostId === entry.postRecordId}
+                    onDeleteRequest={requestDelete}
+                    onToggle={toggleRow}
+                  />
+                ))}
               </div>
             </div>
           ))}

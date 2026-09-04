@@ -42,11 +42,15 @@ export default function GlobalMentalScalePanel({ children }: Props) {
   );
 
   useEffect(() => {
-    if (!chartRef.current) {
+    const host = chartRef.current;
+
+    if (!host) {
       return undefined;
     }
 
     let cancelled = false;
+    let frameHandle: number | null = null;
+    let resizeCleanup: (() => void) | undefined;
 
     void import('./radarChart').then(({ default: echarts }) => {
       if (cancelled || !chartRef.current) {
@@ -57,12 +61,29 @@ export default function GlobalMentalScalePanel({ children }: Props) {
       chartInstanceRef.current = chart;
       setIsChartReady(true);
 
-      const handleResize = () => chart.resize();
-      window.addEventListener('resize', handleResize, { passive: true });
-      resizeCleanup = () => window.removeEventListener('resize', handleResize);
+      // ResizeObserver on the chart host with rAF-throttled resize(): unlike
+      // a window resize listener it also catches layout-driven width changes
+      // (e.g. a collapsible sidebar) without calling resize() per event.
+      const observer = new ResizeObserver(() => {
+        if (frameHandle !== null || cancelled) {
+          return;
+        }
+        frameHandle = window.requestAnimationFrame(() => {
+          frameHandle = null;
+          if (!cancelled) {
+            chart.resize();
+          }
+        });
+      });
+      observer.observe(host);
+      resizeCleanup = () => {
+        observer.disconnect();
+        if (frameHandle !== null) {
+          window.cancelAnimationFrame(frameHandle);
+          frameHandle = null;
+        }
+      };
     });
-
-    let resizeCleanup: (() => void) | undefined;
 
     return () => {
       cancelled = true;

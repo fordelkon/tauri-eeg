@@ -282,8 +282,10 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
     // 大纲 6.3 步骤 5: the pairing is auditable on screen - both legs'
     // post-record ids and timestamps come from the backend comparison.
     expect(pageSource).toContain('renderComparisonLegTrace');
-    expect(pageSource).toContain('flow.conditionComparison.naturalRecoveryLeg');
-    expect(pageSource).toContain('flow.conditionComparison.regulationLeg');
+    // The comparison card is a memoized component that receives the paired
+    // runs as a prop, so the legs are read off `conditionComparison` there.
+    expect(pageSource).toContain('conditionComparison.naturalRecoveryLeg');
+    expect(pageSource).toContain('conditionComparison.regulationLeg');
     expect(pageSource).toContain('formatRunTimestamp');
 
     // The export rides the existing save-dialog flow with its own payload

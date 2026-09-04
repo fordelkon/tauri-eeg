@@ -119,16 +119,11 @@ async fn stop_eeg_stream(
     let state = state.inner().clone();
 
     // Joins the accept/client threads and flushes recording files; must not
-    // block the async runtime.
-    tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        eeg::stop_stream(&app, &state, &conn)
-    })
-    .await
-    .map_err(|_| "Failed to stop EEG stream.".to_string())?
+    // block the async runtime. The DB lock is taken inside only after the
+    // flush completes, so it is held just for the fast INSERTs.
+    tauri::async_runtime::spawn_blocking(move || eeg::stop_stream(&app, &state, conn))
+        .await
+        .map_err(|_| "Failed to stop EEG stream.".to_string())?
 }
 
 #[tauri::command]
@@ -165,14 +160,17 @@ async fn stop_eeg_recording(
     let conn = db.conn.clone();
     let state = state.inner().clone();
 
-    // Joins the recording writer thread (flushing both binary files) and
-    // persists the session row; must not block the async runtime.
+    // Joins the recording writer thread (flushing both binary files) BEFORE
+    // the DB lock is acquired, so the multi-megabyte flush never blocks other
+    // database users; only the fast INSERTs below hold the lock.
     tauri::async_runtime::spawn_blocking(move || {
+        let finished = eeg::stop_recording(&state)?;
+
         let conn = conn
             .lock()
             .map_err(|_| "Database is unavailable.".to_string())?;
 
-        eeg::stop_recording(&conn, &state)
+        eeg::persist_recording(&conn, &state, finished)
     })
     .await
     .map_err(|_| "Failed to stop EEG recording.".to_string())?
@@ -780,7 +778,9 @@ async fn set_storage_root(
 }
 
 #[tauri::command]
-async fn load_video_library(folder_path: String) -> Result<video_library::VideoLibrary, String> {
+async fn load_video_library(
+    folder_path: String,
+) -> Result<video_library::SharedVideoLibrary, String> {
     tauri::async_runtime::spawn_blocking(move || video_library::load_video_library(&folder_path))
         .await
         .map_err(|_| "Failed to load video library.".to_string())?

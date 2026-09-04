@@ -162,6 +162,9 @@ fn handle_stream(
     mut stream: TcpStream,
 ) {
     let _ = stream.set_read_timeout(Some(Duration::from_millis(200)));
+    // Blocks are small and arrive at high frequency, so Nagle coalescing would
+    // only add latency/jitter to the ingest path. Failure is non-fatal.
+    let _ = stream.set_nodelay(true);
     let mut parser = ProtocolParser::new();
     let mut aggregator =
         match RealtimeBlockAggregator::new(config.sample_rate_hz, config.block_interval_ms) {
@@ -198,20 +201,20 @@ fn handle_stream(
                             packet_index,
                             value,
                         } if kind == ClientKind::Trigger => {
-                            if trigger_tracker.observe(packet_index) != PacketContinuity::Duplicate
+                            if trigger_tracker.observe(*packet_index) != PacketContinuity::Duplicate
                             {
                                 confirm_client_data(&state, kind);
-                                if value == 0 {
+                                if *value == 0 {
                                     continue;
                                 }
-                                state.signals.store_latest_trigger(value);
+                                state.signals.store_latest_trigger(*value);
                             }
                         }
                         ParsedFrame::Eeg {
                             packet_index,
                             samples_uv,
                         } if kind == ClientKind::Eeg => {
-                            match eeg_tracker.observe(packet_index) {
+                            match eeg_tracker.observe(*packet_index) {
                                 PacketContinuity::Duplicate => continue,
                                 PacketContinuity::Missing(count) => {
                                     record_padded_samples(&state, count);
@@ -220,8 +223,8 @@ fn handle_stream(
                                             &state,
                                             &mut sender_cache,
                                             &mut aggregator,
-                                            last_sample,
-                                            packet_time_ms,
+                                            last_sample,
+                                            packet_time_ms,
                                         );
                                     }
                                 }
@@ -230,12 +233,12 @@ fn handle_stream(
                                 | PacketContinuity::Reset => {}
                             }
                             confirm_client_data(&state, kind);
-                            last_sample = samples_uv;
+                            last_sample = *samples_uv;
                             process_eeg_sample(
                                 &state,
                                 &mut sender_cache,
                                 &mut aggregator,
-                                samples_uv,
+                                *samples_uv,
                                 packet_time_ms,
                         );
                         }
@@ -330,10 +333,17 @@ fn process_eeg_sample(
 }
 
 fn send_sample_block(state: &EegSharedState, block: Vec<u8>) {
-    if let Ok(runtime) = state.runtime.lock() {
-        if let Some(channel) = runtime.sample_channel.as_ref() {
-            let _ = channel.send(InvokeResponseBody::Raw(block));
-        }
+    // Clone the channel out of the runtime lock and only send after the guard
+    // is dropped: Channel::send can wait on the frontend IPC queue, so holding
+    // the mutex here serialized ingest against every other runtime-lock user
+    // once per emitted block (~20x/sec).
+    let channel = state
+        .runtime
+        .lock()
+        .ok()
+        .and_then(|runtime| runtime.sample_channel.clone());
+    if let Some(channel) = channel {
+        let _ = channel.send(InvokeResponseBody::Raw(block));
     }
 }
 

@@ -22,195 +22,123 @@ pub enum ParsedFrame {
 }
 
 pub struct ProtocolParser {
-
     buffer: Vec<u8>,
-
     /// Start of unparsed bytes inside `buffer`. Frames are decoded in place
-
     /// from `buffer[cursor..]`; the consumed prefix is compacted once per
-
     /// `push_bytes` call instead of shifting the buffer on every frame.
-
     cursor: usize,
-
+    /// Reusable decode output: cleared and refilled by every `push_bytes` call
+    /// so the per-read hot path allocates nothing. The caller gets a slice
+    /// that is only valid until the next `push_bytes`.
+    frames: Vec<ParsedFrame>,
 }
-
-
 
 impl ProtocolParser {
-
     pub fn new() -> Self {
-
         Self {
-
             buffer: Vec::new(),
-
             cursor: 0,
-
+            frames: Vec::new(),
         }
-
     }
 
-
-
-    pub fn push_bytes(&mut self, bytes: &[u8]) -> Vec<ParsedFrame> {
-
+    pub fn push_bytes(&mut self, bytes: &[u8]) -> &[ParsedFrame] {
         self.buffer.extend_from_slice(bytes);
-
-        let mut frames = Vec::new();
-
-
+        self.frames.clear();
 
         loop {
-
             let window = &self.buffer[self.cursor..];
-
             let Some(offset_in_window) = find_next_header(window) else {
-
                 // No complete header ahead: everything up to the cursor is
-
                 // junk, and at most the final byte can be the first half of a
-
                 // header split across TCP segments.
-
                 let keep_last = window
-
                     .last()
-
                     .copied()
-
                     .filter(|byte| *byte == EEG_START_BYTES[0] || *byte == TRIGGER_START_BYTES[0]);
-
                 self.buffer.clear();
-
                 self.cursor = 0;
-
                 if let Some(byte) = keep_last {
-
                     self.buffer.push(byte);
-
                 }
-
                 break;
-
             };
-
             self.cursor += offset_in_window;
 
-
-
             let available = self.buffer.len() - self.cursor;
-
             if available < FRAME_PREFIX_LEN {
-
                 break;
-
             }
-
-
 
             let base = self.cursor;
-
             let is_eeg = self.buffer[base..base + 2] == EEG_START_BYTES;
-
             let frame_len = if is_eeg {
-
                 FRAME_PREFIX_LEN + EEG_DATA_LEN
-
             } else {
-
                 FRAME_PREFIX_LEN + TRIGGER_DATA_LEN
-
             };
 
-
-
             if available < frame_len {
-
                 break;
-
             }
-
-
 
             let reserved = self.buffer[base + 2];
-
             let packet_index = u32::from_be_bytes([
-
                 self.buffer[base + 3],
-
                 self.buffer[base + 4],
-
                 self.buffer[base + 5],
-
                 self.buffer[base + 6],
-
             ]);
 
-
-
             if is_eeg {
-
                 let mut samples_uv = [0.0_f32; EEG_CHANNEL_COUNT];
-
                 let data = &self.buffer[base + FRAME_PREFIX_LEN..base + frame_len];
-
                 for (channel_index, chunk) in data.chunks_exact(EEG_BYTES_PER_CHANNEL).enumerate() {
-
                     samples_uv[channel_index] = decode_24_bit_sample_uv(chunk);
-
                 }
-
-                frames.push(ParsedFrame::Eeg {
-
+                self.frames.push(ParsedFrame::Eeg {
                     packet_index,
-
                     samples_uv,
-
                 });
-
             } else {
-
-                frames.push(ParsedFrame::Trigger {
-
+                self.frames.push(ParsedFrame::Trigger {
                     packet_index,
-
                     value: reserved,
-
                 });
-
             }
-
             self.cursor += frame_len;
-
         }
-
-
 
         // One compaction per call: drop everything before the cursor so the
-
         // retained bytes (an aligned partial frame) sit at the front again.
-
         if self.cursor > 0 {
-
-            self.buffer.drain(..self.cursor);
-
+            let cursor = self.cursor;
+            self.buffer.copy_within(cursor.., 0);
+            self.buffer.truncate(self.buffer.len() - cursor);
             self.cursor = 0;
-
         }
 
-
-
-        frames
-
+        &self.frames
     }
-
 }
 
+/// Scans for the next frame header. The first header byte (0xA1 / 0xAA) acts
+/// as a prefilter, so the 2-byte comparison only runs on real candidates
+/// instead of on every position like `windows(2)` did.
 fn find_next_header(bytes: &[u8]) -> Option<usize> {
-    bytes
-        .windows(2)
-        .position(|window| window == EEG_START_BYTES || window == TRIGGER_START_BYTES)
+    if bytes.len() < 2 {
+        return None;
+    }
+    for index in 0..bytes.len() - 1 {
+        let first = bytes[index];
+        if first == EEG_START_BYTES[0] || first == TRIGGER_START_BYTES[0] {
+            let window = &bytes[index..index + 2];
+            if window == EEG_START_BYTES || window == TRIGGER_START_BYTES {
+                return Some(index);
+            }
+        }
+    }
+    None
 }
 
 fn decode_24_bit_sample_uv(bytes: &[u8]) -> f32 {
@@ -371,69 +299,69 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn parses_multiple_frames_in_one_push_and_keeps_partial_tail() {
-        let raw = [[0x00, 0x00, 0x00]; EEG_CHANNEL_COUNT];
-        let mut bytes = eeg_frame(1, &raw);
-        bytes.extend_from_slice(&trigger_frame(2, 5));
-        // Trailing half of another EEG frame: must stay buffered.
-        bytes.extend_from_slice(&eeg_frame(3, &raw)[..FRAME_PREFIX_LEN]);
-
-        let mut parser = ProtocolParser::new();
-        let frames = parser.push_bytes(&bytes);
-
-        assert_eq!(frames.len(), 2);
-        assert!(matches!(
-            frames[0],
-            ParsedFrame::Eeg {
-                packet_index: 1,
-                ..
-            }
-        ));
-        assert_eq!(
-            frames[1],
-            ParsedFrame::Trigger {
-                packet_index: 2,
-                value: 5
-            }
-        );
-
-        // The retained tail completes once the rest arrives; no duplicate or
-        // lost frame despite the in-place cursor parsing.
-        let mut full = eeg_frame(3, &raw);
-        let rest = full.split_off(FRAME_PREFIX_LEN);
-        let frames = parser.push_bytes(&rest);
-
-        assert_eq!(
-            frames,
-            vec![ParsedFrame::Eeg {
-                packet_index: 3,
-                samples_uv: [0.0; EEG_CHANNEL_COUNT]
-            }]
-        );
-    }
-
-    #[test]
-    fn reassembles_header_split_across_two_pushes() {
-        let raw = [[0x00, 0x00, 0x01]; EEG_CHANNEL_COUNT];
-        let bytes = eeg_frame(11, &raw);
-        let mut parser = ProtocolParser::new();
-
-        // Only the first header byte arrives: parser must keep it.
-        assert!(parser.push_bytes(&bytes[..1]).is_empty());
-        let frames = parser.push_bytes(&bytes[1..]);
-
-        assert_eq!(frames.len(), 1);
-        assert!(matches!(
-            frames[0],
-            ParsedFrame::Eeg {
-                packet_index: 11,
-                ..
-            }
-        ));
-    }
-
-    #[test]
+    #[test]
+    fn parses_multiple_frames_in_one_push_and_keeps_partial_tail() {
+        let raw = [[0x00, 0x00, 0x00]; EEG_CHANNEL_COUNT];
+        let mut bytes = eeg_frame(1, &raw);
+        bytes.extend_from_slice(&trigger_frame(2, 5));
+        // Trailing half of another EEG frame: must stay buffered.
+        bytes.extend_from_slice(&eeg_frame(3, &raw)[..FRAME_PREFIX_LEN]);
+
+        let mut parser = ProtocolParser::new();
+        let frames = parser.push_bytes(&bytes);
+
+        assert_eq!(frames.len(), 2);
+        assert!(matches!(
+            frames[0],
+            ParsedFrame::Eeg {
+                packet_index: 1,
+                ..
+            }
+        ));
+        assert_eq!(
+            frames[1],
+            ParsedFrame::Trigger {
+                packet_index: 2,
+                value: 5
+            }
+        );
+
+        // The retained tail completes once the rest arrives; no duplicate or
+        // lost frame despite the in-place cursor parsing.
+        let mut full = eeg_frame(3, &raw);
+        let rest = full.split_off(FRAME_PREFIX_LEN);
+        let frames = parser.push_bytes(&rest);
+
+        assert_eq!(
+            frames,
+            vec![ParsedFrame::Eeg {
+                packet_index: 3,
+                samples_uv: [0.0; EEG_CHANNEL_COUNT]
+            }]
+        );
+    }
+
+    #[test]
+    fn reassembles_header_split_across_two_pushes() {
+        let raw = [[0x00, 0x00, 0x01]; EEG_CHANNEL_COUNT];
+        let bytes = eeg_frame(11, &raw);
+        let mut parser = ProtocolParser::new();
+
+        // Only the first header byte arrives: parser must keep it.
+        assert!(parser.push_bytes(&bytes[..1]).is_empty());
+        let frames = parser.push_bytes(&bytes[1..]);
+
+        assert_eq!(frames.len(), 1);
+        assert!(matches!(
+            frames[0],
+            ParsedFrame::Eeg {
+                packet_index: 11,
+                ..
+            }
+        ));
+    }
+
+    #[test]
     fn tracks_first_sequential_duplicate_missing_and_reset_packets() {
         let mut tracker = PacketLossTracker::new();
 

@@ -82,9 +82,10 @@ type EegSessionContextValue = {
   resetError: () => void;
   /**
    * Plot viewport width reported by the mounted waveform panel (null when
-   * none is). takeSnapshot pre-decimates only against the exact point budget
-   * the panel's next frame build will use, so the two layers must agree on
-   * the live width (see EegSnapshotDecimation).
+   * none is). takeSnapshot pre-decimates against the point budget the panel's
+   * next frame build will use (width * 2 capped at the shared budget; before
+   * a width is reported, the shared budget itself), so the two layers agree
+   * on the live width (see EegSnapshotDecimation).
    */
   reportPlotWidthPx: (widthPx: number | null) => void;
   resetBuffer: () => void;
@@ -266,12 +267,11 @@ export function EegProvider({ children }: { children: ReactNode }) {
         bufferRef.current.appendPayload(block);
       });
       setStreamInfo(info);
-      const status = await getEegStatus();
-      if (status.eegConnected) {
-        dispatchSession({ type: 'start_device_succeeded' });
-      }
-      // Request accepted; the connection may still be confirmed by the
-      // polling effect below within the start timeout.
+      // No serialized status roundtrip here: the eeg://status listener above
+      // dispatches device_connected (starting → streaming) the moment the
+      // backend reports the connection, and the polling effect below catches
+      // the event-less path within the start timeout. Request accepted; the
+      // connection confirmation must not gate this answer.
       return true;
     } catch (error) {
       dispatchSession({
@@ -465,13 +465,18 @@ export function EegProvider({ children }: { children: ReactNode }) {
     // 2 capped at the shared budget; clip = amplitude * 5): with a match,
     // processEegDisplayFrame recognizes its own election in decimatedFor and
     // reproduces the full-copy frame bit-for-bit at survivor-only cost.
+    // Before the panel's ResizeObserver has reported a width, fall back to the
+    // shared budget rather than the non-decimated path: undecimated snapshots
+    // copy the whole window (~1 MB per channel at 30 s × 1 kHz) per tick, and
+    // a frame build at a narrower width simply re-selects over these
+    // survivors.
     const plotWidthPx = plotWidthPxRef.current;
-    const decimation = plotWidthPx === null
-      ? undefined
-      : {
-        targetPointCount: Math.min(MAX_DISPLAY_POINTS_PER_CHANNEL, plotWidthPx * 2),
-        clipUv: settings.amplitudeUvPerDiv * 5,
-      };
+    const decimation = {
+      targetPointCount: plotWidthPx === null
+        ? MAX_DISPLAY_POINTS_PER_CHANNEL
+        : Math.min(MAX_DISPLAY_POINTS_PER_CHANNEL, plotWidthPx * 2),
+      clipUv: settings.amplitudeUvPerDiv * 5,
+    };
     return bufferRef.current.toDisplayData(
       settings.visibleChannelIds,
       settings.timeWindowSeconds,

@@ -95,17 +95,47 @@ function readStreamEvent(
   return null;
 }
 
+/**
+ * The Tauri command re-resolves the planner service URL on every call; cache
+ * it in module scope so each streamed plan skips that round trip. A refused
+ * connection — the typical symptom of a service that moved to a new port —
+ * drops the cache so the next request re-resolves instead of retrying a
+ * stale URL forever.
+ */
+let cachedAgentServiceBaseUrl: string | null = null;
+
+async function resolveAgentServiceBaseUrl(): Promise<string> {
+  if (cachedAgentServiceBaseUrl === null) {
+    cachedAgentServiceBaseUrl = await invoke<string>('get_agent_service_base_url');
+  }
+
+  return cachedAgentServiceBaseUrl;
+}
+
 export async function requestAgentPlanStream(
   request: AgentPlannerRequest,
   options: AgentPlanStreamOptions = {},
 ): Promise<AgentPlannerResponse> {
-  const baseUrl = await invoke<string>('get_agent_service_base_url');
-  const response = await fetch(`${baseUrl}/agent/plan/stream`, {
-    body: JSON.stringify(request),
-    headers: { 'Content-Type': 'application/json' },
-    method: 'POST',
-    signal: options.signal,
-  });
+  const baseUrl = await resolveAgentServiceBaseUrl();
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/agent/plan/stream`, {
+      body: JSON.stringify(request),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      signal: options.signal,
+    });
+  } catch (error) {
+    // fetch surfaces network failures (connection refused, service gone) as
+    // TypeError; an AbortError DOMException is a deliberate cancel and says
+    // nothing about the URL, so it must keep the cache warm.
+    if (error instanceof TypeError) {
+      cachedAgentServiceBaseUrl = null;
+    }
+
+    throw error;
+  }
 
   if (!response.ok || !response.body) {
     throw new Error(`Agent planner service returned HTTP ${response.status}.`);

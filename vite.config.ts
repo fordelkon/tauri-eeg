@@ -37,18 +37,27 @@ const manualChunks = (id: string): string | undefined => {
 };
 
 // https://vitejs.dev/config/
-export default defineConfig(async () => ({
+export default defineConfig(({ mode }) => ({
   plugins: [react(), UnoCSS({ presets: [presetUno()] })],
   define: {
     __TAURI_EEG_PROJECT_ROOT__: JSON.stringify(process.cwd()),
   },
+  // Tauri ships an evergreen WebView2 / WKWebView, so we can target the latest
+  // JS features instead of down-leveling for legacy browsers.
   build: {
+    target: "esnext",
     rollupOptions: {
       output: {
         manualChunks,
       },
     },
   },
+  // Strip console/debugger from production bundles only; vitest runs with
+  // mode "test" and `vite dev` with "development", so their logging survives.
+  esbuild:
+    mode === "production"
+      ? { drop: ["console", "debugger"] }
+      : undefined,
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],

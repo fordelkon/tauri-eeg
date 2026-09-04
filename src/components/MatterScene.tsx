@@ -19,6 +19,7 @@ export default function MatterScene({
   title = 'EEG Ecosystem',
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const hostBoundsRef = useRef<DOMRect | null>(null);
   const pointerRef = useRef({ active: false, x: 0.5, y: 0.5 });
   const titleRef = useRef(title);
   const relayoutTitleRef = useRef<(() => void) | null>(null);
@@ -52,13 +53,36 @@ export default function MatterScene({
     };
   }, [initialBallCount, maxBallCount, scale]);
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const bounds = e.currentTarget.getBoundingClientRect();
-    pointerRef.current = {
-      active: true,
-      x: (e.clientX - bounds.left) / bounds.width,
-      y: (e.clientY - bounds.top) / bounds.height,
+  // getBoundingClientRect inside the pointermove handler forces a synchronous
+  // layout on every pointer event over the scene. The panel rect is cached
+  // instead and refreshed only when it can actually change: on pointer entry
+  // and window resize (the scene panel itself never scrolls).
+  useEffect(() => {
+    const refreshBounds = () => {
+      hostBoundsRef.current = hostRef.current?.getBoundingClientRect() ?? null;
     };
+
+    window.addEventListener('resize', refreshBounds, { passive: true });
+    return () => window.removeEventListener('resize', refreshBounds);
+  }, []);
+
+  const handlePointerEnter = () => {
+    hostBoundsRef.current = hostRef.current?.getBoundingClientRect() ?? null;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    // pointerenter populates the cache first; measure live only if it is
+    // somehow missing (e.g. the very first event before enter ran).
+    const bounds = hostBoundsRef.current ?? (hostRef.current?.getBoundingClientRect() ?? null);
+
+    if (bounds) {
+      hostBoundsRef.current = bounds;
+      pointerRef.current = {
+        active: true,
+        x: (e.clientX - bounds.left) / bounds.width,
+        y: (e.clientY - bounds.top) / bounds.height,
+      };
+    }
   };
 
   const handlePointerLeave = () => {
@@ -69,6 +93,7 @@ export default function MatterScene({
     <div
       ref={hostRef}
       className={className}
+      onPointerEnter={handlePointerEnter}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
     />

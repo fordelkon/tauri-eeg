@@ -2,9 +2,17 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
-import { EegProvider } from './eeg/EegSessionContext';
-import ScaleGateRoute from './mentalScale/ScaleGateRoute';
 import styles from './App.module.css';
+
+// EegProvider pulls in the whole EEG session/API layer, and ScaleGateRoute
+// pulls in the mental-scale flow. Both are only consumed inside the lazy Home
+// tree (every useEegSession call site renders under /home/*), so loading them
+// lazily keeps them out of the entry chunk and lets /login boot without any
+// EEG or mental-scale code.
+const EegProvider = lazy(() =>
+  import('./eeg/EegSessionContext').then((module) => ({ default: module.EegProvider })),
+);
+const ScaleGateRoute = lazy(() => import('./mentalScale/ScaleGateRoute'));
 
 const Login = lazy(() => import('./pages/Login'));
 const Home = lazy(() => import('./pages/Home'));
@@ -48,9 +56,11 @@ function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route
             element={(
-              <EegProvider>
-                <Home />
-              </EegProvider>
+              <Suspense fallback={routeFallback}>
+                <EegProvider>
+                  <Home />
+                </EegProvider>
+              </Suspense>
             )}
           >
             <Route path="/home" element={<HomeOverview />} />
