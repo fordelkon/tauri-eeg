@@ -451,6 +451,7 @@ export default function Login() {
               type="submit"
               className={`${styles.submitButton} mb-24px h-50px w-full px-22px`}
               disabled={isSubmitting}
+              aria-busy={isSubmitting}
               fullWidth
               variant="contained"
             >

@@ -391,7 +391,9 @@ export default function Home() {
         aria-label="打开导航"
         aria-controls="primary-navigation"
         aria-expanded={isSidebarOpen}
+        aria-hidden={isSidebarOpen}
         size="small"
+        tabIndex={isSidebarOpen ? -1 : 0}
         onClick={handleMenuOpen}
       >
         <MenuRoundedIcon fontSize="small" />
@@ -439,6 +441,8 @@ export default function Home() {
         className={`${styles.sidebarOverlay} ${isSidebarOpen ? styles.isOpen : ''}`}
         type="button"
         aria-label="关闭导航"
+        aria-hidden={!isSidebarOpen}
+        tabIndex={isSidebarOpen ? 0 : -1}
         onClick={() => setIsSidebarOpen(false)}
       />
 

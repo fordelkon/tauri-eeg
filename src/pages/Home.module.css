@@ -39,13 +39,20 @@
   opacity: 0;
   pointer-events: none;
   position: fixed;
-  transition: opacity 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 260ms;
+  visibility: hidden;
   z-index: 3;
 }
 
 .menuLayer.isOpen {
   opacity: 1;
   pointer-events: auto;
+  transition:
+    opacity 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s;
+  visibility: visible;
 }
 
 .sidebar {
@@ -183,6 +190,7 @@
   opacity: 0;
   pointer-events: none;
   transform: scale(0.88);
+  visibility: hidden;
 }
 
 .sidebarOverlay {
@@ -196,7 +204,9 @@
   position: fixed;
   transition:
     background 380ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 380ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s linear 380ms;
+  visibility: hidden;
   z-index: 2;
 }
 
@@ -204,6 +214,11 @@
   background: rgba(44, 34, 24, 0.18);
   opacity: 1;
   pointer-events: auto;
+  transition:
+    background 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s;
+  visibility: visible;
 }
 
 .navList {
@@ -325,9 +340,11 @@
   width: 100%;
 }
 
-.storageField input:focus {
-  border-color: rgba(223, 2, 3, 0.52);
-  outline: 2px solid rgba(223, 2, 3, 0.14);
+.storageField input:focus-visible {
+  border-color: rgba(223, 2, 3, 0.6);
+  box-shadow: 0 0 0 3px rgba(223, 2, 3, 0.16);
+  outline: 2px solid #b81f1f;
+  outline-offset: 1px;
 }
 
 .storagePreview {
@@ -587,8 +604,11 @@
 }
 
 .nextPageButton:focus-visible {
-  outline: 2px solid rgba(223, 2, 3, 0.62);
-  outline-offset: 4px;
+  box-shadow:
+    0 16px 38px rgba(44, 34, 24, 0.2),
+    0 0 0 3px rgba(223, 2, 3, 0.35);
+  outline: 2px solid #f5f0eb;
+  outline-offset: 3px;
 }
 
 /* Persistent desktop navigation rail (wide screens only; see media queries). */
@@ -911,11 +931,17 @@
 @media (prefers-reduced-motion: reduce) {
   .menuLayer,
   .sidebar,
+  .sidebarOverlay,
   .menuVisual,
   .menuLayer.isOpen .menuVisual,
   .content,
+  .desktopRail,
+  .railItem,
+  .railSignOut,
   .navItem,
   .nextPageButton,
+  .mobileMenuButton,
+  .menuButton,
   .contentHeader,
   .description,
   .surface {
@@ -928,8 +954,13 @@
 
   .menuLayer,
   .sidebar,
+  .sidebarOverlay,
   .menuVisual,
   .content,
+  .desktopRail,
+  .railItem,
+  .railSignOut,
+  .nextPageButton,
   .menuButton,
   .mobileMenuButton,
   .navItem {
@@ -944,9 +975,11 @@
 .storageActions button:focus-visible,
 .scaleOptions button:focus-visible,
 .scaleCloseButton:focus-visible,
+.sidebarOverlay:focus-visible,
 .railItem:focus-visible,
 .railSignOut:focus-visible,
 .navItem:focus-visible {
+  box-shadow: 0 0 0 3px rgba(184, 31, 31, 0.22);
   outline: 2px solid #b81f1f;
   outline-offset: 2px;
 }

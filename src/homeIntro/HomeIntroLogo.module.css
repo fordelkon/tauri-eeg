@@ -1,6 +1,6 @@
 .overlay {
   align-items: center;
-  animation: overlayIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: overlayIn 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
   background:
     radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.72), transparent 23%),
     radial-gradient(circle at 50% 48%, rgba(184, 31, 31, 0.06), transparent 34%),
@@ -10,7 +10,7 @@
   inset: 0;
   justify-content: center;
   overflow: hidden;
-  pointer-events: none;
+  pointer-events: auto;
   position: fixed;
   z-index: 30;
 }
@@ -29,7 +29,8 @@
 }
 
 .isLeaving {
-  animation: overlayOut 620ms cubic-bezier(0.7, 0, 0.84, 0) both;
+  animation: overlayOut 480ms cubic-bezier(0.7, 0, 0.84, 0) both;
+  pointer-events: none;
 }
 
 .logoStage {
@@ -42,17 +43,56 @@
 }
 
 .logoMark {
-  animation: logoIn 860ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: logoIn 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
   filter: drop-shadow(0 22px 38px rgba(44, 34, 24, 0.16));
   width: clamp(220px, 36vw, 360px);
+}
+
+/* Explicit skip: bottom-right pill, quiet by default so the logo keeps the
+   stage, but reachable by pointer, keyboard (Tab) and screen readers. */
+.skipButton {
+  background: rgba(44, 34, 24, 0.06);
+  border: 1px solid rgba(44, 34, 24, 0.16);
+  border-radius: 999px;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  color: rgba(44, 34, 24, 0.72);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  min-height: 36px;
+  padding: 0 18px;
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  transition:
+    background-color 160ms ease-out,
+    color 160ms ease-out,
+    border-color 160ms ease-out;
+  z-index: 2;
+}
+
+.skipButton:hover {
+  background: rgba(44, 34, 24, 0.1);
+  border-color: rgba(44, 34, 24, 0.28);
+  color: #2c2218;
+}
+
+.skipButton:focus-visible {
+  background: rgba(44, 34, 24, 0.1);
+  border-color: rgba(184, 31, 31, 0.55);
+  box-shadow: 0 0 0 3px rgba(184, 31, 31, 0.22);
+  color: #2c2218;
+  outline: 2px solid #b81f1f;
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .overlay,
   .isLeaving,
-  .logoMark {
+  .logoMark,
+  .skipButton {
     animation-duration: 1ms;
     animation-iteration-count: 1;
+    transition: none;
   }
 }
 
