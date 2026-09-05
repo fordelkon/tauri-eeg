@@ -341,8 +341,9 @@
 }
 
 .storageField input:focus-visible {
-  border-color: rgba(223, 2, 3, 0.6);
-  box-shadow: 0 0 0 3px rgba(223, 2, 3, 0.16);
+  /* Shell ring family (matches the other shell :focus-visible recipes). */
+  border-color: rgba(184, 31, 31, 0.5);
+  box-shadow: 0 0 0 3px rgba(184, 31, 31, 0.22);
   outline: 2px solid #b81f1f;
   outline-offset: 1px;
 }
@@ -370,7 +371,7 @@
 }
 
 .storageError {
-  color: #b42318;
+  color: var(--danger-ink, #8d2d25);
   font-size: 12px;
   line-height: 1.35;
 }
@@ -427,9 +428,10 @@
 
 .navItem.isActive::before,
 .navItem:global(.Mui-selected)::before {
-  background: linear-gradient(135deg, #f0413a, #df0203);
+  /* Active-route indicator: a flat coral hairline beacon (the calm dialect's
+     warm-accent token) - no colored glow, no saturated red. */
+  background: var(--brand-coral, #fb7f6e);
   border-radius: 999px;
-  box-shadow: 0 0 10px rgba(223, 2, 3, 0.25);
   content: "";
   height: 22px;
   left: 0;
@@ -606,7 +608,7 @@
 .nextPageButton:focus-visible {
   box-shadow:
     0 16px 38px rgba(44, 34, 24, 0.2),
-    0 0 0 3px rgba(223, 2, 3, 0.35);
+    0 0 0 3px rgba(184, 31, 31, 0.28);
   outline: 2px solid #f5f0eb;
   outline-offset: 3px;
 }
@@ -677,7 +679,8 @@
 }
 
 .isRailActive::before {
-  background: #df0203;
+  /* Same coral beacon as the sidebar's active item. */
+  background: var(--brand-coral, #fb7f6e);
   border-radius: 999px;
   content: "";
   height: 20px;

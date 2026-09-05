@@ -1,7 +1,8 @@
 /* Styles for the EEG emotion induction paradigm acquisition UI. Follows the
    light workspace palette of EegAcquisition.module.css. */
 
-/* App-wide design tokens (green acquisition dialect lives on the globals). */
+/* App-wide design tokens (green stays the acquisition STATUS dialect on the
+   globals; controls follow the calm ink recipes). */
 @import "../../styles/tokens.css";
 
 .panel {
@@ -35,7 +36,8 @@
 
 /* Compact E-Prime style pill radios for the experiment type. Unified with the
    EegAcquisition mode switch: 999px capsule, 34px tall, 13px/700; selection
-   reads through the green acquisition tint instead of an inset ring. */
+   reads through the calm ink fill (the dialect's selected-pill recipe —
+   green stays acquisition-status semantics, not control chrome). */
 
 .pillRadioRow {
   align-items: center;
@@ -75,10 +77,12 @@
   transform: scale(0.98);
 }
 
-.selectedPillRadio {
-  background: var(--success-tint);
-  border-color: var(--success);
-  color: var(--success);
+.selectedPillRadio,
+.selectedPillRadio:hover {
+  background: var(--ink-cool);
+  border-color: var(--ink-cool);
+  box-shadow: 0 6px 16px rgba(23, 32, 38, 0.24);
+  color: #fff;
   font-weight: 720;
 }
 
@@ -188,7 +192,6 @@
 
 .connectedLightDot {
   background: var(--success);
-  box-shadow: 0 0 8px rgba(28, 106, 71, 0.65);
 }
 
 /* Compact overrides for the readiness row (must follow the base classes). */
@@ -250,7 +253,7 @@
 }
 
 .primaryButton {
-  background: var(--success);
+  background: var(--ink-cool);
   border: none;
   border-radius: var(--radius-control);
   color: #f8fbfc;
@@ -266,8 +269,8 @@
 }
 
 .primaryButton:hover:not(:disabled) {
-  background: #17513a;
-  box-shadow: 0 6px 16px rgba(28, 106, 71, 0.22);
+  background: #24333d;
+  box-shadow: 0 6px 16px rgba(23, 32, 38, 0.24);
 }
 
 .primaryButton:active:not(:disabled) {
@@ -275,7 +278,8 @@
 }
 
 .primaryButton:disabled {
-  background: rgba(23, 32, 38, 0.32);
+  background: rgba(23, 32, 38, 0.14);
+  color: rgba(23, 32, 38, 0.44);
   cursor: not-allowed;
 }
 
@@ -340,6 +344,23 @@
 
 .dangerButton:active:not(:disabled) {
   transform: scale(0.98);
+}
+
+/* Keyboard focus rings (dialect): ink ring on chrome controls; the danger
+   action rings in its own semantic hue. */
+.pillRadio:focus-visible,
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.videoListRow:focus-visible {
+  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.14);
+  outline: 2px solid rgba(23, 32, 38, 0.5);
+  outline-offset: 1px;
+}
+
+.dangerButton:focus-visible {
+  box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.14);
+  outline: 2px solid rgba(179, 38, 30, 0.55);
+  outline-offset: 1px;
 }
 
 .errorBanner {
@@ -815,7 +836,7 @@
 }
 
 .videoListRow:hover {
-  border-color: #22613c;
+  border-color: rgba(23, 32, 38, 0.34);
 }
 
 .videoListName {
@@ -825,10 +846,10 @@
 }
 
 .selectedVideoBadge {
-  background: rgba(34, 139, 94, 0.14);
-  border: 1px solid rgba(34, 139, 94, 0.4);
+  background: var(--success-tint);
+  border: 1px solid rgba(28, 106, 71, 0.26);
   border-radius: 4px;
-  color: #17633f;
+  color: var(--success);
   flex: none;
   font-size: 11px;
   font-weight: 720;
@@ -968,7 +989,7 @@
 /* --- Regulation summary block (结束页统计) ----------------------------- */
 
 .regulationSummary {
-  border: 1px solid rgba(34, 139, 94, 0.35);
+  border: 1px solid rgba(28, 106, 71, 0.3);
   border-radius: 10px;
   display: grid;
   gap: 10px;

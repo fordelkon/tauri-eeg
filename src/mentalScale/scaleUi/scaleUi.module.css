@@ -337,6 +337,13 @@
   color: var(--scale-ink);
 }
 
+/* Keyboard focus (a11y bug fix): the anchor recipe's ring, dashed dev
+   control keeps its border. */
+.devFillButton:focus-visible {
+  box-shadow: var(--ring);
+  outline: none;
+}
+
 .devClearButton {
   background: transparent;
   border: 1px solid var(--scale-line);
@@ -356,6 +363,11 @@
 .devClearButton:hover {
   background: var(--scale-hover-wash);
   color: var(--scale-ink);
+}
+
+.devClearButton:focus-visible {
+  box-shadow: var(--ring);
+  outline: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

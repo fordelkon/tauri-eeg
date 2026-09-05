@@ -101,9 +101,11 @@
 }
 
 /* Element-qualified so it outranks the generic .scaleHeading p rule without
-   resorting to !important (the eyebrow is a <p> sibling of the subtitle). */
+   resorting to !important (the eyebrow is a <p> sibling of the subtitle).
+   Neutral ink kicker (effect-page recipe): labels stay gray-ink; color is
+   reserved for interactive/semantic accents. */
 .scaleHeading p.scaleEyebrow {
-  color: rgba(223, 2, 3, 0.76);
+  color: rgba(23, 32, 38, 0.58);
   font-size: 11px;
   font-weight: 780;
   letter-spacing: 0.08em;
@@ -177,6 +179,13 @@
 .scaleSkipButton:hover {
   background: rgba(23, 32, 38, 0.08);
   color: var(--ink-cool);
+}
+
+.scaleSkipButton:focus-visible,
+.scalePrimaryButton:focus-visible {
+  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.14);
+  outline: 2px solid rgba(23, 32, 38, 0.5);
+  outline-offset: 1px;
 }
 
 .scalePrimaryButton {

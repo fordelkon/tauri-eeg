@@ -182,6 +182,12 @@
   transform: scale(0.98);
 }
 
+.retryButton:focus-visible {
+  box-shadow: 0 0 0 3px rgba(179, 38, 30, 0.14);
+  outline: 2px solid rgba(179, 38, 30, 0.55);
+  outline-offset: 1px;
+}
+
 /* Browser-preview degradation for device failures: informational, not an
    alarm — the environment cannot run the device stack at all. */
 .environmentNotice {
@@ -237,7 +243,8 @@
 }
 
 /* Mode switch shares the pill-radio language with the paradigm setup panel:
-   999px capsule, 34px tall, 13px/700, green tint when selected. */
+   999px capsule, 34px tall, 13px/700, calm ink fill when selected (the
+   dialect's selected-pill recipe; green stays live/recording status). */
 .modeSwitchButton {
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(23, 32, 38, 0.18);
@@ -268,11 +275,25 @@
   cursor: not-allowed;
 }
 
-.activeModeSwitchButton {
-  background: var(--success-tint);
-  border-color: var(--success);
-  color: var(--success);
+.activeModeSwitchButton,
+.activeModeSwitchButton:hover:not(:disabled) {
+  background: var(--ink-cool);
+  border-color: var(--ink-cool);
+  box-shadow: 0 6px 16px rgba(23, 32, 38, 0.24);
+  color: #fff;
   font-weight: 720;
+}
+
+.modeSwitchButton:focus-visible {
+  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.14);
+  outline: 2px solid rgba(23, 32, 38, 0.5);
+  outline-offset: 1px;
+}
+
+/* The selected pill can be disabled too (paradigm session runs): keep white
+   text on the ink fill instead of the muted-on-ink disabled color. */
+.modeSwitchButton:disabled.activeModeSwitchButton {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .modeLockHint {

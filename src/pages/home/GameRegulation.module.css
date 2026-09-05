@@ -12,8 +12,10 @@
   gap: 10px;
 }
 
+/* Neutral ink kicker (effect-page recipe): labels stay gray-ink; color is
+   reserved for interactive/semantic accents. */
 .eyebrow {
-  color: rgba(223, 2, 3, 0.76);
+  color: rgba(44, 34, 24, 0.58);
   font-size: 12px;
   font-weight: 780;
   letter-spacing: 0.08em;
@@ -131,6 +133,12 @@
   height: 40px;
   margin-top: auto;
   padding: 0 16px;
+}
+
+.entryButton:focus-visible {
+  box-shadow: 0 0 0 3px rgba(44, 34, 24, 0.16);
+  outline: 2px solid rgba(44, 34, 24, 0.55);
+  outline-offset: 1px;
 }
 
 .entryButton:disabled {

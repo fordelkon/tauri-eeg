@@ -244,9 +244,11 @@
   line-height: 1.35;
 }
 
+/* Amber caution card in the app's shared warning-tint family (same recipe as
+   the paradigm/EEG warning banners), not its own one-off orange. */
 .confirmation {
-  background: #fff7ed;
-  border: 1px solid rgba(194, 65, 12, 0.22);
+  background: rgba(194, 121, 20, 0.08);
+  border: 1px solid rgba(194, 121, 20, 0.26);
   border-radius: 8px;
   display: grid;
   flex: 0 0 auto;
@@ -306,6 +308,14 @@
 
 .form button:active {
   transform: scale(0.98);
+}
+
+.promptGrid button:focus-visible,
+.confirmationActions button:focus-visible,
+.form button:focus-visible {
+  /* Same shell ring family as .cancelButton. */
+  outline: 2px solid #b81f1f;
+  outline-offset: 2px;
 }
 
 .promptGrid button:disabled,

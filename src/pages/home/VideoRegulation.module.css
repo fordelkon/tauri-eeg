@@ -141,7 +141,7 @@
 }
 
 .libraryNotice strong {
-  color: #b42318;
+  color: var(--danger-ink, #8d2d25);
   font-size: 13px;
   font-weight: 760;
 }
@@ -170,16 +170,18 @@
   padding: 10px 12px;
 }
 
+/* Status pills share the EEG page's token recipes: ink-based neutral idle,
+   success-family playing. */
 .idle {
-  background: rgba(84, 96, 104, 0.12);
-  border: 1px solid rgba(84, 96, 104, 0.24);
-  color: #46525a;
+  background: rgba(23, 32, 38, 0.08);
+  border: 1px solid rgba(23, 32, 38, 0.2);
+  color: rgba(23, 32, 38, 0.66);
 }
 
 .playing {
-  background: rgba(34, 139, 94, 0.12);
-  border: 1px solid rgba(34, 139, 94, 0.24);
-  color: #17633f;
+  background: var(--success-tint, rgba(34, 125, 84, 0.12));
+  border: 1px solid rgba(28, 106, 71, 0.26);
+  color: var(--success, #1c6a47);
 }
 
 .contentGrid {
@@ -321,9 +323,11 @@
   outline: none;
 }
 
+/* Reached selection steps: the shared success tint family (token-based),
+   like every other "done/ok" state in the app. */
 .activeTrailButton {
-  background: rgba(72, 168, 104, 0.1);
-  border-color: rgba(72, 168, 104, 0.26);
+  background: var(--success-tint, rgba(34, 125, 84, 0.12));
+  border-color: rgba(34, 125, 84, 0.26);
 }
 
 .activeTrailButton strong {
@@ -380,8 +384,8 @@
 }
 
 .customTagInput:focus {
-  border-color: rgba(77, 127, 200, 0.55);
-  box-shadow: 0 0 0 3px rgba(77, 127, 200, 0.12);
+  border-color: rgba(23, 32, 38, 0.42);
+  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.08);
   outline: none;
 }
 
@@ -484,8 +488,8 @@
 }
 
 .tagChip {
-  background: rgba(77, 127, 200, 0.1);
-  border: 1px solid rgba(77, 127, 200, 0.18);
+  background: var(--info-tint, rgba(45, 113, 184, 0.08));
+  border: 1px solid rgba(45, 113, 184, 0.2);
   border-radius: 999px;
   color: rgba(23, 32, 38, 0.72);
   font-size: 12px;
@@ -552,9 +556,9 @@
 }
 
 .previewState svg {
-  background: rgba(72, 168, 104, 0.12);
+  background: var(--success-tint, rgba(34, 125, 84, 0.12));
   border-radius: 999px;
-  color: #2f7f4b;
+  color: var(--success, #1c6a47);
   font-size: 54px;
   padding: 12px;
 }
