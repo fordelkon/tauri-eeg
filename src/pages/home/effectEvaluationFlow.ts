@@ -1,14 +1,36 @@
 import type { MentalScalePath } from '../../mentalScale/mentalScaleGate';
-import type { RegulationEffectSummaryView } from '../../mentalScale/scaleRecordsApi';
-import type { ConditionEffectComparisonView } from '../../mentalScale/scaleRecordsApi';
-import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
 
 /**
  * Pure state machine + view-model helpers for the effect-evaluation wizard
  * (设置 → 情绪诱发 → 诱发后量表 → 条件执行 → 条件后量表 → 结果评价).
  * Kept free of React, Tauri, and DOM access so the step gating, countdown
  * math, and result copy are unit-testable in the node vitest environment.
+ *
+ * Two leaf modules split out of this machine (re-exported below so every
+ * consumer keeps importing from here): `effectInductionPool.ts` (the
+ * emotion-induction pool verdict) and `effectEvaluationResultCopy.ts` (the
+ * result view-model copy).
  */
+
+// Re-exports: the emotion-induction pool verdict (R6).
+export {
+  describeInductionPoolStatus,
+  paradigmPoolKeyForEmotion,
+} from './effectInductionPool';
+export type { InductionPoolStatus } from './effectInductionPool';
+
+// Re-exports: the result view-model copy (verdicts, basis notes, formulas).
+export {
+  buildConditionComparisonVerdictCopy,
+  buildEffectVerdictCopy,
+  CONDITION_COMPARISON_FORMULA_NOTE,
+  describeMeasuredBasis,
+  describeMissingMeasurements,
+  EFFECT_DIMENSION_LABELS,
+  formatImprovementRate,
+  labelForDimension,
+} from './effectEvaluationResultCopy';
+export type { EffectVerdictCopy } from './effectEvaluationResultCopy';
 
 export type EffectTargetEmotion = 'anxiety' | 'depression' | 'fear';
 
@@ -207,76 +229,6 @@ export function formatCountdown(totalSeconds: number): string {
   const minutes = Math.floor(seconds / 60);
 
   return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
-/* ------------------------------------------------------------------ */
-/* Emotion induction (R6, 大纲 6.2)                                     */
-/* ------------------------------------------------------------------ */
-
-/**
- * video_paradigm library pool feeding the induction step for each target
- * emotion. R8: the library carries a first-class Fear pool (快乐素材已改造为
- * 恐惧占位), so every wizard emotion maps onto a scheduled class.
- */
-export function paradigmPoolKeyForEmotion(
-  emotion: EffectTargetEmotion,
-): 'anxiety' | 'depression' | 'fear' {
-  return emotion;
-}
-
-export type InductionPoolStatus =
-  | { kind: 'ready'; entry: ParadigmVideoEntry }
-  | { kind: 'blocked'; copy: string };
-
-/**
- * Whether the induction step may play, derived from the target emotion and
- * the loaded pool (null = library missing/invalid). Every blocked case
- * carries an explicit operator-facing reason - the induction is a hard
- * precondition of the 大纲 flow, never silently skippable. Since R8 every
- * wizard emotion is a scheduled paradigm class, so the verdict depends only
- * on the pool; the emotion parameter stays on the contract for callers.
- *
- * `pickIndex` selects the pool entry (default: random) and is injectable so
- * tests stay deterministic.
- */
-export function describeInductionPoolStatus(
-  _emotion: EffectTargetEmotion,
-  pool: readonly ParadigmVideoEntry[] | null,
-  pickIndex: () => number = Math.random,
-): InductionPoolStatus {
-  // `== null` also catches runtime `undefined` (e.g. a stale backend without
-  // the R8 fear pool key): a crash here blanked the whole wizard step.
-  if (pool == null) {
-    return {
-      kind: 'blocked',
-      copy: '尚未加载有效的范式视频素材库（video_paradigm），无法播放诱发素材。请先在 EEG 采集页选择并校验素材库，再回到本页开始诱发。',
-    };
-  }
-
-  if (pool.length === 0) {
-    return {
-      kind: 'blocked',
-      copy: '该情绪类别的诱发素材池为空，无法播放诱发素材。请先在 EEG 采集页补充对应类别的素材，本步骤为流程硬前置，不提供跳过。',
-    };
-  }
-
-  // R8 hotfix: the default pickIndex is Math.random, whose value lies in [0, 1) -
-  // a bare modulo yields a FRACTIONAL index, pool[index] evaluates to undefined,
-  // and the induction step render crashes on entry.fileName (white screen).
-  // Integer samplers keep the modulo path (negative-safe); fractional samplers
-  // in [0, 1) are scaled by the pool length instead.
-  const raw = pickIndex();
-  const index = Number.isInteger(raw)
-    ? ((raw % pool.length) + pool.length) % pool.length
-    : Math.floor(raw * pool.length) % pool.length;
-  const entry = pool[index];
-  if (!entry) {
-    return {
-      kind: 'blocked',
-      copy: '诱发素材选取异常，请重置流程后重试；若持续出现请检查素材库文件。',
-    };
-  }
-  return { kind: 'ready', entry };
 }
 
 /* ------------------------------------------------------------------ */
@@ -513,136 +465,3 @@ function clampDurationMinutes(value: unknown): number {
   return Math.min(MAX_REGULATION_MINUTES, Math.max(MIN_REGULATION_MINUTES, Math.round(value)));
 }
 
-/* ------------------------------------------------------------------ */
-/* Result view-model                                                   */
-/* ------------------------------------------------------------------ */
-
-/** Chinese copy when the summary cannot be computed yet; null when ready. */
-export function describeMissingMeasurements(state: EffectEvaluationFlowState): string | null {
-  const missing: string[] = [];
-
-  if (!state.baselineRecordId) {
-    missing.push('基线');
-  }
-
-  if (!state.postRecordId) {
-    missing.push('调控后');
-  }
-
-  if (missing.length === 0) {
-    return null;
-  }
-
-  // phase='baseline' 的语义自 R6 起为“诱发后、条件前”（诱发步完成后、条件执行
-  // 开始前测量）；文案保留“基线”叫法以与历史 phase 值一致。
-  return `缺少${missing.join('与')}量表记录，无法计算改善率。请完整走完 诱发 → 诱发后量表 → 条件执行 → 条件后量表 流程。`;
-}
-
-/** Signed percent with one decimal: +40%, -12.5%, 0%. */
-export function formatImprovementRate(rate: number): string {
-  const percent = Math.round(rate * 1000) / 10;
-  const sign = percent > 0 ? '+' : '';
-
-  return `${sign}${percent}%`;
-}
-
-/**
- * Basis note under the result stats (F1 口径): a marker-based mean is the
- * honest default and needs no extra copy; a legacy pair computed over every
- * stored key must be flagged because it can include unmeasured placeholder
- * dimensions.
- */
-export function describeMeasuredBasis(
-  summary: Pick<RegulationEffectSummaryView, 'measuredOnly'>,
-): string | null {
-  return summary.measuredOnly
-    ? null
-    : '本次配对包含未标注实测维度的旧记录，按两侧全部已存维度计算，可能包含未实测的占位维度。';
-}
-
-export const EFFECT_DIMENSION_LABELS: Record<string, string> = {
-  anxiety: '焦虑',
-  energy: '精力',
-  mood: '情绪',
-  worry: '担忧',
-};
-
-export function labelForDimension(key: string): string {
-  return EFFECT_DIMENSION_LABELS[key] ?? key;
-}
-
-export type EffectVerdictCopy = {
-  severity: 'success' | 'warning';
-  title: string;
-  detail: string;
-};
-
-const THRESHOLD_PERCENT_LABEL = '10%';
-
-export function buildEffectVerdictCopy(
-  summary: Pick<RegulationEffectSummaryView, 'meanImprovementRate' | 'meetsThreshold'>,
-): EffectVerdictCopy {
-  if (summary.meanImprovementRate === null) {
-    return {
-      severity: 'warning',
-      title: '无法判定调控效果',
-      detail: '两次量表没有可对比的维度（维度缺失或基线为 0），请检查量表数据。',
-    };
-  }
-
-  const meanText = formatImprovementRate(summary.meanImprovementRate);
-
-  if (summary.meetsThreshold) {
-    return {
-      severity: 'success',
-      title: '达到改善阈值',
-      detail: `平均改善率 ${meanText}，不低于 ${THRESHOLD_PERCENT_LABEL} 的目标阈值，本次调控判定为有效。`,
-    };
-  }
-
-  return {
-    severity: 'warning',
-    title: '未达到改善阈值',
-    detail: `平均改善率 ${meanText}，低于 ${THRESHOLD_PERCENT_LABEL} 的目标阈值；负值表示情绪状态恶化。`,
-  };
-}
-
-/* ------------------------------------------------------------------ */
-/* Cross-condition comparison copy (R6, 大纲 6.2)                       */
-/* ------------------------------------------------------------------ */
-
-/**
- * Formula note rendered with the cross-condition card: the outline froze
- * this default 口径 at B-1; it may be swapped before testing, so the UI
- * states its source instead of presenting it as an immutable fact.
- */
-export const CONDITION_COMPARISON_FORMULA_NOTE =
-  '改善口径：(B_post - T_post) / B_post，按维度取两条件 post 分之差再除以基线条件 post 分（大纲 B-1 冻结项，默认口径，测试前可换）。';
-
-export function buildConditionComparisonVerdictCopy(
-  comparison: Pick<ConditionEffectComparisonView, 'meanImprovementRate' | 'meetsThreshold'>,
-): EffectVerdictCopy {
-  if (comparison.meanImprovementRate === null) {
-    return {
-      severity: 'warning',
-      title: '无法判定跨条件改善',
-      detail: '两条件没有可对比的维度（维度缺失或基线条件 post 为 0），请检查量表数据。',
-    };
-  }
-
-  const meanText = formatImprovementRate(comparison.meanImprovementRate);
-
-  if (comparison.meetsThreshold) {
-    return {
-      severity: 'success',
-      title: '调控条件优于基线条件（达标）',
-      detail: `跨条件平均改善率 ${meanText}，不低于 ${THRESHOLD_PERCENT_LABEL} 阈值，调控条件的改善高于自然恢复基线条件。`,
-    };
-  }
-
-  return {
-    severity: 'warning',
-    title: '调控条件未优于基线条件',
-    detail: `跨条件平均改善率 ${meanText}，低于 ${THRESHOLD_PERCENT_LABEL} 阈值；负值表示调控后的情绪状态不如自然恢复。`,
-  };
-}

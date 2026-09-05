@@ -99,12 +99,14 @@ describe('subject passthrough contract', () => {
   test('shares the validated subject with the rest of the app on setup completion', () => {
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
-    expect(hookSource).toContain("import { writeStoredSubjectId } from '../../storage/currentSubject'");
+    expect(hookSource).toContain("import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject'");
     expect(hookSource).toContain('writeStoredSubjectId(state.subjectId.trim())');
   });
 
   test('blocks the summary on missing measurements instead of invoking the backend', () => {
-    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
+    // The result reports (summary + comparison) load through the focused
+    // reports hook; the guard lives there.
+    const hookSource = readText(new URL('./useEffectResultReports.ts', import.meta.url));
     const guardIndex = hookSource.indexOf('describeMissingMeasurements(state)');
     const computeIndex = hookSource.indexOf('computeRegulationEffect(baselineRecordId');
 
@@ -158,7 +160,10 @@ describe('strong duration constraint (R3 contract)', () => {
 
 describe('report export & history review (R3 contract)', () => {
   test('exports single/batch reports through the save dialog and backend command', () => {
-    const pageSource = readText(pageUrl);
+    // The dialog choreography lives in the export hook; the page mounts its
+    // buttons, so the contract reads both.
+    const pageSource = readText(pageUrl)
+      + readText(new URL('./useEffectReportExports.ts', import.meta.url));
 
     expect(pageSource).toContain("from '@tauri-apps/plugin-dialog'");
     expect(pageSource).toContain('buildSingleReportPayload');
@@ -250,9 +255,16 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
       const source = readText(new URL(page, import.meta.url));
 
       expect(source).toContain('useEffectRegulationContext(');
+      // The banner is the shared RegulationSessionBanner, styled by each
+      // page's own .effectSessionBanner class.
+      expect(source).toContain('RegulationSessionBanner');
       expect(source).toContain('effectSessionBanner');
-      expect(source).toContain('效果评价调控时长已达成');
     }
+
+    // The shared banner carries the elapsed copy once for both pages.
+    const bannerSource = readText(new URL('./regulationSessionBanner.tsx', import.meta.url));
+    expect(bannerSource).toContain('effectSessionBanner');
+    expect(bannerSource).toContain('效果评价调控时长已达成');
 
     const paradigmSource = readText(
       new URL('../../eeg/paradigm/ParadigmSetupPanel.tsx', import.meta.url),
@@ -265,7 +277,6 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
 describe('six-step flow & condition split (R6 contract)', () => {
   test('the setup step selects the run condition and the induction step gates on the pool', () => {
     const panelsSource = readText(panelsUrl);
-    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
     // The setup step offers both outline conditions with explanation copy.
     expect(panelsSource).toContain('EFFECT_CONDITION_OPTIONS');
@@ -275,8 +286,10 @@ describe('six-step flow & condition split (R6 contract)', () => {
 
     // The induction step renders the pure pool status (blocked copy is never
     // silently skipped) and plays the picked entry through the same
-    // video_paradigm URL conversion the acquisition page uses.
-    expect(hookSource).toContain('describeInductionPoolStatus');
+    // video_paradigm URL conversion the acquisition page uses. The pool
+    // loading + status derivation live in useEffectInductionPool.
+    expect(readText(new URL('./useEffectInductionPool.ts', import.meta.url)))
+      .toContain('describeInductionPoolStatus');
     expect(panelsSource).toContain('flow.inductionStatus');
     expect(panelsSource).toContain('status.copy');
     expect(panelsSource).toContain('toPlayableVideoUrl(status.entry.absolutePath, convertFileSrc)');
@@ -308,10 +321,11 @@ describe('six-step flow & condition split (R6 contract)', () => {
     const pageSource = readText(pageUrl);
     const cardsSource = readText(cardsUrl);
     const chartSource = readText(new URL('./effectResultChartOption.ts', import.meta.url));
-    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
-    // The hook fetches the backend cross-condition summary on the result step…
-    expect(hookSource).toContain('computeConditionEffect(state.subjectId.trim(), state.emotion)');
+    // The hook fetches the backend cross-condition summary on the result step
+    // (through the focused reports hook)…
+    const reportsSource = readText(new URL('./useEffectResultReports.ts', import.meta.url));
+    expect(reportsSource).toContain('computeConditionEffect(state.subjectId.trim(), state.emotion)');
     // …and the page renders the verdict, stats, chart, table, and the frozen
     // formula note, plus guidance copy when a condition is still missing.
     expect(pageSource).toContain('conditionComparison');
@@ -327,7 +341,10 @@ describe('six-step flow & condition split (R6 contract)', () => {
 
 describe('comparison export, leg trace & induction fallback (R7 contract)', () => {
   test('the comparison card renders both legs\' record trace and export buttons', () => {
-    const pageSource = readText(pageUrl);
+    // The comparison document choreography lives in the export hook; the
+    // page keeps the button wiring, so the contract reads both.
+    const pageSource = readText(pageUrl)
+      + readText(new URL('./useEffectReportExports.ts', import.meta.url));
     const cardsSource = readText(cardsUrl);
     const exportSource = readText(new URL('./effectReportExport.ts', import.meta.url));
     const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
@@ -407,12 +424,15 @@ describe('embedded regulation player (condition node contract)', () => {
   test('the player pauses at zero through the pure to-zero rule', () => {
     const playerSource = readText(new URL('./EffectRegulationPlayer.tsx', import.meta.url));
     const modelSource = readText(new URL('./effectRegulationPlayerModel.ts', import.meta.url));
+    const musicHistorySource = readText(new URL('./useMusicHistory.ts', import.meta.url));
 
     expect(modelSource).toContain('export function shouldPauseAt(');
     expect(playerSource).toContain('shouldPauseAt(remainingSeconds)');
-    // The music branch consumes the existing history command; no backend
-    // surface was added for the embedded player.
-    expect(playerSource).toContain("listMusicHistory(currentUser.id, MUSIC_HISTORY_PLAYER_LIMIT)");
+    // The music branch consumes the existing history command through the
+    // shared loader (same surface as the music page); no backend surface was
+    // added for the embedded player.
+    expect(playerSource).toContain('useMusicHistory({');
+    expect(musicHistorySource).toContain('listMusicHistory(userId, limit)');
     expect(playerSource).toContain("navigate('/music-regulation')");
   });
 });
@@ -437,10 +457,14 @@ describe('context strip device quick-start contract', () => {
 
 describe('paradigm finished-screen handoff contract', () => {
   test('links the finished screen to the effect-evaluation route', () => {
-    const runnerSource = readText(new URL('../../eeg/paradigm/ParadigmRunner.tsx', import.meta.url));
+    // The finished screen is its own presentation component under the
+    // paradigm folder; the handoff link lives there.
+    const finishedSource = readText(
+      new URL('../../eeg/paradigm/ParadigmFinishedScreen.tsx', import.meta.url),
+    );
 
-    expect(runnerSource).toContain("navigate('/effect-evaluation')");
-    expect(runnerSource).toContain('前往效果评价');
+    expect(finishedSource).toContain("navigate('/effect-evaluation')");
+    expect(finishedSource).toContain('前往效果评价');
   });
 });
 

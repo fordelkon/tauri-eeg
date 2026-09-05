@@ -88,7 +88,10 @@ describe('ExperimentAgentPanel layout contract', () => {
   test('shows planner thinking as a collapsible resizable panel', () => {
     const agentTsx = readText(new URL('./ExperimentAgentPanel.tsx', import.meta.url));
     const agentCss = readText(new URL('./ExperimentAgentPanel.module.css', import.meta.url));
-    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
+    // The planner request (and with it the stream response handling) lives in
+    // agentPlannerRequest.ts; the contract reads it alongside the hook.
+    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url))
+      + readText(new URL('./agentPlannerRequest.ts', import.meta.url));
     const apiTs = readText(new URL('./agentPlannerApi.ts', import.meta.url));
 
     expect(apiTs).toContain('thinking: string[];');
@@ -117,7 +120,9 @@ describe('ExperimentAgentPanel layout contract', () => {
   });
 
   test('requests planner recommendations through a streaming response', () => {
-    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
+    // The stream call itself lives in agentPlannerRequest.ts.
+    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url))
+      + readText(new URL('./agentPlannerRequest.ts', import.meta.url));
     const apiTs = readText(new URL('./agentPlannerApi.ts', import.meta.url));
 
     expect(apiTs).toContain('requestAgentPlanStream');
@@ -176,7 +181,10 @@ describe('ExperimentAgentPanel layout contract', () => {
   });
 
   test('preserves planner music parameters through confirmation into generation', () => {
-    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
+    // The planner-response → queueOrExecute handoff lives in
+    // agentPlannerRequest.ts; the hook keeps execution + confirmation.
+    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url))
+      + readText(new URL('./agentPlannerRequest.ts', import.meta.url));
 
     expect(hookTs).toContain('params: AgentActionParams;');
     expect(hookTs).toContain('const plannerParams = normalizeAgentActionParams(response.params);');

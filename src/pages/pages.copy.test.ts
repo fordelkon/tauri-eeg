@@ -14,7 +14,14 @@ describe('page Chinese copy', () => {
       readText(new URL('../eeg/EegControls.tsx', import.meta.url)),
       readText(new URL('./home/GameRegulation.tsx', import.meta.url)),
       readText(new URL('./home/MusicRegulation.tsx', import.meta.url)),
+      // The music page's prompt builder / tag editor / history drawer /
+      // player card were extracted verbatim; the copy contract follows them.
+      readText(new URL('./home/MusicPromptForm.tsx', import.meta.url)),
+      readText(new URL('./home/MusicTagEditor.tsx', import.meta.url)),
+      readText(new URL('./home/MusicHistoryDrawer.tsx', import.meta.url)),
+      readText(new URL('./home/MusicPlayerCard.tsx', import.meta.url)),
       readText(new URL('./home/VideoRegulation.tsx', import.meta.url)),
+      readText(new URL('./home/VideoRegulationPlayerModal.tsx', import.meta.url)),
       readText(new URL('../mentalScale/mentalScaleGate.ts', import.meta.url)),
       readText(new URL('../mentalScale/MentalScaleDialog.tsx', import.meta.url)),
     ].join('\n');
@@ -85,8 +92,14 @@ describe('page Chinese copy', () => {
       readText(new URL('./Home.tsx', import.meta.url)),
       readText(new URL('./home/EegAcquisition.tsx', import.meta.url)),
       readText(new URL('../eeg/paradigm/ParadigmSetupPanel.tsx', import.meta.url)),
+      // The setup panel's session-kind copy tables and the memoized 素材清单
+      // live in their own modules; the copy contract reads them too.
+      readText(new URL('../eeg/paradigm/paradigmSessionKinds.ts', import.meta.url)),
+      readText(new URL('../eeg/paradigm/ParadigmLibraryList.tsx', import.meta.url)),
       readText(new URL('../eeg/paradigm/ParadigmVideoPreview.tsx', import.meta.url)),
       readText(new URL('../eeg/paradigm/ParadigmRunner.tsx', import.meta.url)),
+      // The runner's finished screen (summary + exits) is its own component.
+      readText(new URL('../eeg/paradigm/ParadigmFinishedScreen.tsx', import.meta.url)),
       readText(new URL('../eeg/paradigm/TrialStageRenderer.tsx', import.meta.url)),
       readText(new URL('../eeg/paradigm/SamRatingDialog.tsx', import.meta.url)),
       readText(new URL('../eeg/paradigm/types.ts', import.meta.url)),

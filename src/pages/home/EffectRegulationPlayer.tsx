@@ -4,8 +4,6 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { useAuth } from '../../auth/AuthContext';
-import type { GeneratedMusicHistoryItem } from '../../music/musicAssets';
-import { listMusicHistory } from '../../music/musicGenerationApi';
 import {
   getAllVideoRegulationAssets,
   toPlayableVideoUrl,
@@ -21,6 +19,8 @@ import {
   shouldPauseAt,
   trimMusicHistoryForPlayer,
 } from './effectRegulationPlayerModel';
+import { useMusicHistory } from './useMusicHistory';
+import { usePauseMediaOnChange } from './useRegulationMedia';
 import styles from './EffectEvaluation.module.css';
 
 /**
@@ -86,13 +86,7 @@ function EmbeddedVideoPlayer({ shouldPause }: { shouldPause: boolean }) {
   // Pause the outgoing element when the asset changes or the player unmounts;
   // a removed <video> element would otherwise keep decoding (same guard as
   // the standalone video page).
-  useEffect(() => {
-    const video = videoRef.current;
-
-    return () => {
-      video?.pause();
-    };
-  }, [activeAsset?.id]);
+  usePauseMediaOnChange(videoRef, activeAsset?.id);
 
   // Experiment posture: fixed volume 1 for every mounted asset.
   useEffect(() => {
@@ -173,57 +167,32 @@ function EmbeddedMusicPlayer({ shouldPause }: { shouldPause: boolean }) {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  // null = still loading; [] = loaded but empty (drives the guidance copy).
-  const [historyItems, setHistoryItems] = useState<GeneratedMusicHistoryItem[] | null>(null);
+  // Bumped by the manual retry: the history load rides on it so a failed
+  // fetch (transient backend hiccup) is recoverable in place instead of
+  // dead-ending the embedded player mid-window.
+  const [historyReloadTick, setHistoryReloadTick] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [playError, setPlayError] = useState<string | null>(null);
-  // Bumped by the manual retry: the load effect rides on it so a failed
-  // history fetch (transient backend hiccup) is recoverable in place instead
-  // of dead-ending the embedded player mid-window.
-  const [historyReloadTick, setHistoryReloadTick] = useState(0);
-
-  // Load the most recent history once (backend orders by created_at DESC and
-  // the pure helper trims to the player limit); failures degrade to guidance.
-  useEffect(() => {
-    if (!currentUser) {
-      setHistoryItems([]);
-      return undefined;
-    }
-
-    let cancelled = false;
-
-    listMusicHistory(currentUser.id, MUSIC_HISTORY_PLAYER_LIMIT)
-      .then((items) => {
-        if (!cancelled) {
-          setHistoryItems(items);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLoadError('音乐历史加载失败，请稍后重试或前往音乐页查看。');
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUser, historyReloadTick]);
+  // Shared loader with the music regulation page (null-free items state; the
+  // loading hint renders while the backend query is in flight).
+  const { items: historyItems, isLoading } = useMusicHistory({
+    userId: currentUser?.id,
+    limit: MUSIC_HISTORY_PLAYER_LIMIT,
+    reloadKey: historyReloadTick,
+    onError: () => {
+      setLoadError('音乐历史加载失败，请稍后重试或前往音乐页查看。');
+    },
+  });
 
   const visibleItems = useMemo(
-    () => trimMusicHistoryForPlayer(historyItems ?? [], MUSIC_HISTORY_PLAYER_LIMIT),
+    () => trimMusicHistoryForPlayer(historyItems, MUSIC_HISTORY_PLAYER_LIMIT),
     [historyItems],
   );
   const activeItem = visibleItems.find((item) => item.id === activeItemId) ?? null;
 
   // Pause the audio when the selection changes or the player unmounts.
-  useEffect(() => {
-    const audio = audioRef.current;
-
-    return () => {
-      audio?.pause();
-    };
-  }, [activeItemId]);
+  usePauseMediaOnChange(audioRef, activeItemId);
 
   // Hard-floor rule at remaining 0: pause now and keep stopped (the selection
   // play effect below refuses to start while the window has elapsed).
@@ -270,7 +239,7 @@ function EmbeddedMusicPlayer({ shouldPause }: { shouldPause: boolean }) {
     setActiveItemId(itemId);
   };
 
-  if (historyItems === null && !loadError) {
+  if (isLoading && !loadError) {
     return <p className={`${styles.panelHint} ${styles.loadingHint}`}>正在加载音乐历史…</p>;
   }
 

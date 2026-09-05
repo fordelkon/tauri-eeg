@@ -1,8 +1,6 @@
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import SlideshowRoundedIcon from '@mui/icons-material/SlideshowRounded';
-import { convertFileSrc } from '@tauri-apps/api/core';
-import { type CSSProperties, type MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { chooseVideoLibraryFolder } from '../../video/videoDirectoryPicker';
 import type { VideoLibrary } from '../../video/videoLibraryApi';
 import { loadVideoLibrary } from '../../video/videoLibraryApi';
@@ -17,7 +15,6 @@ import {
   getVideoRegulationCatalog,
   getVideoSelectionOptions,
   selectFirstMatchedVideo,
-  toPlayableVideoUrl,
   type VideoRegulationAsset,
   type VideoRegulationSelections,
   type VideoSelectionStep,
@@ -25,12 +22,13 @@ import {
   videoSelectionStepLabels,
   videoSelectionSteps,
 } from '../../video/videoRegulationCatalog';
-import type { CompactTagOption } from '../../music/musicRegulationTags';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
-import { formatCountdown } from './effectEvaluationFlow';
+import { RegulationSessionBanner } from './regulationSessionBanner';
+import { TagGroup } from './VideoTagSelector';
+import { VideoRegulationPlayerModal } from './VideoRegulationPlayerModal';
+import { usePauseMediaOnChange } from './useRegulationMedia';
 import { useEffectRegulationContext } from './useEffectRegulationContext';
-import playerStyles from './VideoRegulationPlayer.module.css';
 import styles from './VideoRegulation.module.css';
 
 const tagColors = ['#48a868', '#e16d4f', '#e3a22c', '#4d7fc8', '#9c6ade'] as const;
@@ -45,189 +43,6 @@ function firstTagHue(video: VideoRegulationAsset): string {
     hash = (hash * 31 + firstTag.charCodeAt(index)) >>> 0;
   }
   return tagColors[hash % tagColors.length];
-}
-
-type TagOptionGroup = {
-  label: string;
-  values: readonly string[];
-};
-
-const tagOptionGroups: readonly TagOptionGroup[] = [
-  {
-    label: '山林植被',
-    values: ['密林', '树木', '自然', '山林', '植被', '森林', '秋叶', '群山', '山谷'],
-  },
-  {
-    label: '水域海岸',
-    values: ['海岸', '海景', '海滩', '礁石', '浪花', '水面', '栈桥', '码头', '船帆'],
-  },
-  {
-    label: '天气天空',
-    values: ['阴天', '浓雾', '晨雾', '薄雾', '风雨', '云层', '云雾', '云海', '云天', '天际', '地平线', '霞光'],
-  },
-  {
-    label: '色调光影',
-    values: ['翠绿', '青绿', '灰蓝', '灰蓝调', '暖蓝', '暖调', '暗调', '暗蓝', '蓝灰', '灰调', '紫调', '金黄', '暮色', '黄昏'],
-  },
-  {
-    label: '情绪氛围',
-    values: [
-      '清幽',
-      '壮阔',
-      '温暖',
-      '神秘',
-      '宁静',
-      '沉静',
-      '粗犷',
-      '开阔',
-      '苍凉',
-      '治愈',
-      '平静',
-      '深沉',
-      '幽暗',
-      '空灵',
-      '朦胧',
-      '层叠',
-      '素雅',
-      '悠远',
-      '温柔',
-    ],
-  },
-] as const;
-
-type TagGroupProps = {
-  colors: readonly string[];
-  label: string;
-  options: readonly CompactTagOption[];
-  selectedValue: string;
-  onSelect: (value: string) => void;
-};
-
-type TagButtonListProps = {
-  colors: readonly string[];
-  options: readonly CompactTagOption[];
-  selectedValue: string;
-  onSelect: (value: string) => void;
-};
-
-function TagButtonList({ colors, options, selectedValue, onSelect }: TagButtonListProps) {
-  return (
-    <div className={`${styles.tagList} flex flex-wrap`}>
-      {options.map((option, index) => {
-        const selected = selectedValue === option.value;
-
-        return (
-          <button
-            key={option.value}
-            className={`${styles.tagButton} ${selected ? styles.activeTagButton : ''}`}
-            style={{ '--tag-color': colors[index % colors.length] } as CSSProperties}
-            type="button"
-            onClick={() => onSelect(option.value)}
-          >
-            <span aria-hidden="true" />
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function getGroupedTagOptions(options: readonly CompactTagOption[]) {
-  const optionByValue = new Map(options.map((option) => [option.value, option]));
-  const groupedValues = new Set<string>();
-  const groups = tagOptionGroups
-    .map((group) => {
-      const groupOptions = group.values
-        .map((value) => optionByValue.get(value))
-        .filter((option): option is CompactTagOption => Boolean(option));
-
-      groupOptions.forEach((option) => groupedValues.add(option.value));
-
-      return {
-        label: group.label,
-        options: groupOptions,
-      };
-    })
-    .filter((group) => group.options.length > 0);
-  const otherOptions = options.filter((option) => !groupedValues.has(option.value));
-
-  return otherOptions.length > 0
-    ? [...groups, { label: '其他标签', options: otherOptions }]
-    : groups;
-}
-
-function TagGroupSections({ colors, options, selectedValue, onSelect }: Omit<TagGroupProps, 'label'>) {
-  const groups = useMemo(() => getGroupedTagOptions(options), [options]);
-  const selectedGroupLabel = groups.find((group) => (
-    group.options.some((option) => option.value === selectedValue)
-  ))?.label;
-  const fallbackGroupLabel = groups[0]?.label ?? '';
-  const [openTagGroupLabel, setOpenTagGroupLabel] = useState(selectedGroupLabel ?? fallbackGroupLabel);
-
-  useEffect(() => {
-    setOpenTagGroupLabel(selectedGroupLabel ?? fallbackGroupLabel);
-  }, [fallbackGroupLabel, selectedGroupLabel]);
-
-  const handleAccordionSummaryClick = (
-    event: MouseEvent<HTMLElement>,
-    groupLabel: string,
-  ) => {
-    event.preventDefault();
-    setOpenTagGroupLabel(groupLabel);
-  };
-
-  return (
-    <div className={`${styles.tagGroupSections} grid`}>
-      {groups.map((group) => (
-        <details
-          key={group.label}
-          className={styles.tagGroupSection}
-          open={openTagGroupLabel === group.label}
-        >
-          <summary
-            className={`${styles.tagGroupSummary} flex items-center justify-between`}
-            onClick={(event) => handleAccordionSummaryClick(event, group.label)}
-          >
-            <span>{group.label}</span>
-            <strong>{group.options.length} 项</strong>
-          </summary>
-          <TagButtonList
-            colors={colors}
-            options={group.options}
-            selectedValue={selectedValue}
-            onSelect={onSelect}
-          />
-        </details>
-      ))}
-    </div>
-  );
-}
-
-function TagGroup({ colors, label, options, selectedValue, onSelect }: TagGroupProps) {
-  return (
-    <section className={`${styles.tagGroup} grid`} aria-label={label}>
-      <div className={`${styles.tagGroupHeader} flex items-center justify-between`}>
-        <span>{label}</span>
-        <strong>{options.length} 项</strong>
-      </div>
-      {label === videoSelectionStepLabels.tag ? (
-        <TagGroupSections
-          colors={colors}
-          options={options}
-          selectedValue={selectedValue}
-          onSelect={onSelect}
-        />
-      ) : (
-        <TagButtonList
-          colors={colors}
-          options={options}
-          selectedValue={selectedValue}
-          onSelect={onSelect}
-        />
-      )}
-    </section>
-  );
 }
 
 function getVisibleTags(video: VideoRegulationAsset) {
@@ -260,7 +75,6 @@ export default function VideoRegulation() {
     videoRef.current?.pause();
     setActiveVideo(null);
   });
-  const regulationElapsed = regulationContext !== null && regulationContext.remainingSeconds === 0;
   const [videoLibrary, setVideoLibrary] = useState<VideoLibrary | null>(null);
   const [libraryError, setLibraryError] = useState('');
   const [loadingLibrary, setLoadingLibrary] = useState(false);
@@ -311,13 +125,7 @@ export default function VideoRegulation() {
 
   // Pause the playing video whenever it is closed, switched to another asset, or
   // the page unmounts; a removed <video> element would otherwise keep decoding.
-  useEffect(() => {
-    const video = videoRef.current;
-
-    return () => {
-      video?.pause();
-    };
-  }, [activeVideo?.id]);
+  usePauseMediaOnChange(videoRef, activeVideo?.id);
 
   useEffect(() => {
     if (!activeVideo) {
@@ -418,13 +226,7 @@ export default function VideoRegulation() {
         </div>
       </header>
 
-      {regulationContext ? (
-        <div className={styles.effectSessionBanner} role="status">
-          {regulationElapsed
-            ? '效果评价调控时长已达成，播放已自动停止。请回到「效果评价」页继续复测。'
-            : `效果评价调控进行中 · 目标情绪 ${regulationContext.emotionLabel} · 剩余时长 ${formatCountdown(regulationContext.remainingSeconds)}`}
-        </div>
-      ) : null}
+      <RegulationSessionBanner context={regulationContext} className={styles.effectSessionBanner} />
 
       <div className={`${styles.libraryNotice} grid`}>
         <span>{videoLibrary ? '当前视频库' : '默认视频库'}</span>
@@ -540,47 +342,11 @@ export default function VideoRegulation() {
       </div>
 
       {activeVideo ? (
-        <div
-          className={`${playerStyles.videoOverlay} fixed inset-0 z-30 flex items-center justify-center`}
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) {
-              setActiveVideo(null);
-            }
-          }}
-        >
-          <section
-            className={`${playerStyles.videoModal} grid w-full`}
-            aria-label="视频调节播放器"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className={`${playerStyles.videoModalHeader} flex items-center justify-between`}>
-              <div className="min-w-0">
-                <span>视频播放</span>
-                <strong>{activeVideo.title}</strong>
-                <code>{activeVideo.sourcePath}</code>
-              </div>
-              <button
-                type="button"
-                className={playerStyles.closeButton}
-                aria-label="关闭调节视频"
-                onClick={() => setActiveVideo(null)}
-              >
-                <CloseRoundedIcon />
-              </button>
-            </header>
-            <div className={playerStyles.videoFrame}>
-              <video
-                key={activeVideo.id}
-                ref={videoRef}
-                autoPlay
-                controls
-                preload="metadata"
-                src={toPlayableVideoUrl(activeVideo.sourcePath, convertFileSrc)}
-              />
-            </div>
-          </section>
-        </div>
+        <VideoRegulationPlayerModal
+          activeVideo={activeVideo}
+          videoRef={videoRef}
+          onClose={() => setActiveVideo(null)}
+        />
       ) : null}
     </section>
   );

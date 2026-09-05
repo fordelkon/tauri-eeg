@@ -2,7 +2,14 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 
-const source = readFileSync(new URL('./VideoRegulation.tsx', import.meta.url), 'utf8');
+// The dense tag step is split across the page (state + step wiring), the
+// selector component (accordion/button presentation) and the pure grouping
+// data module; the copy contract reads them together.
+const source = [
+  readFileSync(new URL('./VideoRegulation.tsx', import.meta.url), 'utf8'),
+  readFileSync(new URL('./VideoTagSelector.tsx', import.meta.url), 'utf8'),
+  readFileSync(new URL('./videoTagGroups.ts', import.meta.url), 'utf8'),
+].join('\n');
 
 describe('VideoRegulation tag grouping copy', () => {
   test('renders the dense tag step as layered collapsible groups', () => {

@@ -4,7 +4,6 @@ import {
   type ReactNode,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useReducer,
   useRef,
@@ -12,17 +11,8 @@ import {
 } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { DEFAULT_EEG_CHANNELS } from './channels';
-import { describeEegError } from './eegErrorMessages';
 import { MAX_DISPLAY_POINTS_PER_CHANNEL } from './eegDisplayFrame';
 import { EegRingBuffer } from './eegRingBuffer';
-import {
-  getEegStatus,
-  listenToEegStatusEvents,
-  startEegRecording,
-  startEegStream,
-  stopEegStream,
-  stopEegRecording,
-} from './eegApi';
 import {
   canPauseRecord,
   canResumeRecord,
@@ -40,23 +30,16 @@ import {
   createInitialEegDisplaySettings,
   toggleEegChannelVisibility,
 } from './eegSessionStore';
+import { useEegDeviceCommands } from './useEegDeviceCommands';
+import { useEegRecordingCommands } from './useEegRecordingCommands';
+import { useEegStatusReconciliation } from './useEegStatusReconciliation';
 import type {
   EegDisplaySettings,
   EegDisplaySnapshot,
   EegRecordingSession,
-  EegStatusEvent,
   EegStreamInfo,
-  StartEegRecordingRequest,
 } from './types';
 import type { ParadigmInfo } from './paradigm/types';
-
-const DEVICE_START_TIMEOUT_MS = 30_000;
-
-// Raised locally (no underlying error object); the raw keys live next to
-// their translations in eegErrorMessages, so route them through it too.
-const DEVICE_START_TIMEOUT_ERROR =
-  'Timed out waiting for the EEG device to connect. Check the device and try again.';
-const SIGN_IN_REQUIRED_ERROR = 'Sign in before recording EEG.';
 
 type EegSessionContextValue = {
   bufferRef: MutableRefObject<EegRingBuffer>;
@@ -131,10 +114,6 @@ type EegRecordingControlValue = {
 
 const EegRecordingControlContext = createContext<EegRecordingControlValue | null>(null);
 
-function eegStatusEventMessage(event: EegStatusEvent) {
-  return describeEegError(event.reason, 'EEG device disconnected.');
-}
-
 export function EegProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const channels = DEFAULT_EEG_CHANNELS;
@@ -156,100 +135,8 @@ export function EegProvider({ children }: { children: ReactNode }) {
   // value is only read inside takeSnapshot at snapshot time.
   const plotWidthPxRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    let disposed = false;
-    let unlisten: (() => void) | null = null;
-
-    listenToEegStatusEvents((event) => {
-      if (event.client === 'trigger') {
-        setTriggerConnected(event.connected);
-        return;
-      }
-      if (event.connected) {
-        dispatchSession({ type: 'device_connected' });
-      } else {
-        dispatchSession({
-          type: 'device_disconnected',
-          message: eegStatusEventMessage(event),
-        });
-      }
-    })
-      .then((nextUnlisten) => {
-        if (disposed) {
-          nextUnlisten();
-          return;
-        }
-
-        unlisten = nextUnlisten;
-      })
-      .catch((error) => {
-        dispatchSession({
-          type: 'start_device_failed',
-          message: describeEegError(error, 'Failed to subscribe to EEG status events.'),
-        });
-      });
-
-    return () => {
-      disposed = true;
-      unlisten?.();
-    };
-  }, []);
-
-  // Single reconciliation query at mount: the backend may already be streaming
-  // (hardware kept sending across an app restart, or the connect event fired
-  // before this listener existed). Without this the state machine would stay
-  // 'disconnected' forever and block recording until the next app launch.
-  useEffect(() => {
-    let disposed = false;
-
-    getEegStatus()
-      .then(async (status) => {
-        if (disposed) {
-          return;
-        }
-        setTriggerConnected(status.triggerConnected);
-        if (!status.eegConnected) {
-          return;
-        }
-
-        // A running stream serves whichever IPC channel registered last, so
-        // the reloaded webview must re-attach its channel to see live blocks
-        // again (start_eeg_stream on a running stream swaps the channel).
-        // A failure here falls back to state-only adoption: the controls and
-        // status stay correct, only the live waveform stays dark.
-        try {
-          const info = await startEegStream((block) => {
-            bufferRef.current.appendPayload(block);
-          });
-          if (disposed) {
-            return;
-          }
-          setStreamInfo(info);
-        } catch {
-          // State-only adoption below.
-        }
-
-        if (disposed) {
-          return;
-        }
-        dispatchSession({ type: 'device_stream_adopted' });
-
-        // The backend may also be mid-recording (reload during a free or
-        // effect-evaluation run): adopt it so the stop/pause controls exist
-        // and the run does not outlive the UI that owns it.
-        if (status.isRecording) {
-          dispatchSession({ type: 'recording_adopted' });
-        }
-      })
-      .catch(() => {
-        // Backend not reachable yet; the status events and the explicit
-        // start flow remain the recovery paths.
-      });
-
-    return () => {
-      disposed = true;
-    };
-  }, []);
+  // Status event subscription + mount reconciliation (device/trigger/adopt).
+  useEegStatusReconciliation({ dispatchSession, bufferRef, setStreamInfo, setTriggerConnected });
 
   // The command guards are pure functions of (deviceStatus, recordStatus), so
   // they are evaluated once per render here and the command callbacks below
@@ -266,167 +153,26 @@ export function EegProvider({ children }: { children: ReactNode }) {
   const canResumeRecordNow = canResumeRecord(sessionState);
   const canStopRecordNow = canStopRecord(sessionState);
 
-  // The boolean returns exist so callers (agent actions especially) can tell
-  // "the command ran" from "the state machine silently refused" instead of
-  // reporting success for a no-op. The mapped failure copy still lands in
-  // errorMessage either way.
-  const startDevice = useCallback(async (): Promise<boolean> => {
-    if (!canStartDeviceNow) {
-      return false;
-    }
+  // Device (stream) command slice: start/stop plus the start-timeout poll.
+  const { startDevice, stopDevice } = useEegDeviceCommands({
+    canStartDeviceNow,
+    canStopDeviceNow,
+    deviceStatus: sessionState.deviceStatus,
+    dispatchSession,
+    bufferRef,
+    setStreamInfo,
+  });
 
-    dispatchSession({ type: 'start_device_requested' });
-
-    try {
-      const info = await startEegStream((block) => {
-        bufferRef.current.appendPayload(block);
-      });
-      setStreamInfo(info);
-      // No serialized status roundtrip here: the eeg://status listener above
-      // dispatches device_connected (starting → streaming) the moment the
-      // backend reports the connection, and the polling effect below catches
-      // the event-less path within the start timeout. Request accepted; the
-      // connection confirmation must not gate this answer.
-      return true;
-    } catch (error) {
-      dispatchSession({
-        type: 'start_device_failed',
-        message: describeEegError(error, 'Failed to start EEG stream.'),
-      });
-      return false;
-    }
-  }, [canStartDeviceNow]);
-
-  useEffect(() => {
-    if (sessionState.deviceStatus !== 'starting') {
-      return undefined;
-    }
-
-    let cancelled = false;
-    const startedAtMs = Date.now();
-    const interval = window.setInterval(() => {
-      if (Date.now() - startedAtMs >= DEVICE_START_TIMEOUT_MS) {
-        dispatchSession({
-          type: 'start_device_failed',
-          message: describeEegError(DEVICE_START_TIMEOUT_ERROR),
-        });
-        return;
-      }
-
-      getEegStatus()
-        .then((status) => {
-          if (cancelled) {
-            return;
-          }
-          if (status.eegConnected) {
-            dispatchSession({ type: 'start_device_succeeded' });
-          }
-        })
-        .catch(() => {
-          // Keep the device start button available for another explicit attempt.
-        });
-    }, 1000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [sessionState.deviceStatus]);
-
-  const stopDevice = useCallback(async (): Promise<boolean> => {
-    if (!canStopDeviceNow) {
-      return false;
-    }
-
-    dispatchSession({ type: 'stop_device_requested' });
-
-    try {
-      await stopEegStream();
-      setStreamInfo(null);
-      bufferRef.current.reset();
-      dispatchSession({ type: 'stop_device_succeeded' });
-      return true;
-    } catch (error) {
-      dispatchSession({
-        type: 'stop_device_failed',
-        message: describeEegError(error, 'Failed to stop EEG stream.'),
-      });
-      return false;
-    }
-  }, [canStopDeviceNow]);
-
-  const startRecord = useCallback(async (options?: { paradigm?: ParadigmInfo }): Promise<boolean> => {
-    if (!canStartRecordNow) {
-      return false;
-    }
-
-    if (!currentUser) {
-      dispatchSession({
-        type: 'start_record_failed',
-        message: describeEegError(SIGN_IN_REQUIRED_ERROR),
-      });
-      return false;
-    }
-
-    const request: StartEegRecordingRequest = {
-      userId: currentUser.id,
-      username: currentUser.username,
-    };
-    // Only include the paradigm key for paradigm runs so free recordings keep
-    // the exact legacy payload.
-    if (options?.paradigm) {
-      request.paradigm = options.paradigm;
-    }
-
-    try {
-      await startEegRecording(request);
-      dispatchSession({ type: 'start_record' });
-      return true;
-    } catch (error) {
-      dispatchSession({
-        type: 'start_record_failed',
-        message: describeEegError(error, 'Failed to start EEG recording.'),
-      });
-      return false;
-    }
-  }, [canStartRecordNow, currentUser]);
-
-  const pauseRecord = useCallback((): boolean => {
-    if (!canPauseRecordNow) {
-      return false;
-    }
-
-    dispatchSession({ type: 'pause_record' });
-    return true;
-  }, [canPauseRecordNow]);
-
-  const resumeRecord = useCallback((): boolean => {
-    if (!canResumeRecordNow) {
-      return false;
-    }
-
-    dispatchSession({ type: 'resume_record' });
-    return true;
-  }, [canResumeRecordNow]);
-
-  const stopRecord = useCallback(async (): Promise<boolean> => {
-    if (!canStopRecordNow) {
-      return false;
-    }
-
-    try {
-      const session = await stopEegRecording();
-      setLastRecording(session);
-      dispatchSession({ type: 'stop_record' });
-      return true;
-    } catch (error) {
-      dispatchSession({
-        type: 'stop_record_failed',
-        message: describeEegError(error, 'Failed to stop EEG recording.'),
-      });
-      return false;
-    }
-  }, [canStopRecordNow]);
+  // Recording command slice: start/pause/resume/stop-and-save.
+  const { pauseRecord, resumeRecord, startRecord, stopRecord } = useEegRecordingCommands({
+    canStartRecordNow,
+    canPauseRecordNow,
+    canResumeRecordNow,
+    canStopRecordNow,
+    currentUser,
+    dispatchSession,
+    setLastRecording,
+  });
 
   const resetBuffer = useCallback(() => {
     bufferRef.current.reset();

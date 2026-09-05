@@ -1,13 +1,10 @@
-import { open } from '@tauri-apps/plugin-dialog';
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useEegSession } from '../EegSessionContext';
 import { isRegulationWindowOpenInStorage } from '../../pages/home/effectEvaluationFlow';
 import ParadigmVideoPreview from './ParadigmVideoPreview';
-import { buildParadigmQueue, loadParadigmVideoLibrary } from './paradigmApi';
-import {
-  readStoredLibraryRootPath,
-  writeStoredLibraryRootPath,
-} from './paradigmStorage';
+import { buildParadigmQueue } from './paradigmApi';
+import { useParadigmVideoLibrary } from './useParadigmVideoLibrary';
+import { ParadigmLibraryList } from './ParadigmLibraryList';
 import {
   readStoredSubjectId,
   writeStoredSubjectId,
@@ -19,30 +16,26 @@ import {
   paradigmEmotionLabels,
 } from './types';
 import { FEEDBACK_DISPLAY_MS, REGULATION_WINDOW_MS } from './paradigmTimeline';
+import {
+  defaultSessionRunId,
+  libraryClassKeys,
+  sessionKindDescriptions,
+  sessionKindShortLabels,
+  sessionKinds,
+  toLibraryErrorMessage,
+} from './paradigmSessionKinds';
 import type {
   ParadigmEmotion,
   ParadigmSessionKind,
   ParadigmTrialPlanItem,
   ParadigmVideoEntry,
-  ParadigmVideoLibrary,
 } from './types';
 import styles from './ParadigmSession.module.css';
 
 export const PARADIGM_MIN_VIDEOS_PER_CLASS = 5;
 
-/** Latency budget for the silent queue preview's backend directory scan. */
-const QUEUE_PREVIEW_DEBOUNCE_MS = 300;
 /** localStorage write latency budget for the subject-id memory. */
 const SUBJECT_ID_PERSIST_DEBOUNCE_MS = 300;
-
-/** Inputs the current queuePreview was built from (build_paradigm_queue is
- *  deterministic per session_run_id, so a matching preview IS the queue the
- *  backend would rebuild at start). */
-type QueuePreviewInputs = {
-  rootPath: string;
-  sessionRunId: string;
-  sessionKind: ParadigmSessionKind;
-};
 
 export type ParadigmStartRequest = {
   sessionKind: ParadigmSessionKind;
@@ -59,106 +52,6 @@ type Props = {
   startError: string | null;
 };
 
-const sessionKindDescriptions: Record<ParadigmSessionKind, string> = {
-  personal_calibration: '只采集平静基准,用于训练被试个性化情绪模型。',
-  held_out_generation: '依次诱发焦虑、抑郁、恐惧三类情绪,按流程采集评价。',
-  regulation_feedback:
-    '视频诱发负性情绪后进行认知重评,调控结束显示间歇式脑状态反馈;当前为模拟反馈,仅试运行模式可用。',
-};
-
-const sessionKindShortLabels: Record<ParadigmSessionKind, string> = {
-  personal_calibration: '个人校准',
-  held_out_generation: '独立诱发调控',
-  regulation_feedback: '调控反馈',
-};
-
-const sessionKinds: readonly ParadigmSessionKind[] = [
-  'personal_calibration',
-  'held_out_generation',
-  'regulation_feedback',
-];
-
-const libraryClassKeys: Record<ParadigmEmotion, keyof Omit<ParadigmVideoLibrary, 'rootPath' | 'valid' | 'problems'>> = {
-  anxiety: 'anxiety',
-  calm: 'calm',
-  depression: 'depression',
-  fear: 'fear',
-  happy: 'happy',
-};
-
-function toLibraryErrorMessage(error: unknown) {
-  return typeof error === 'string' ? error : error instanceof Error ? error.message : 'Failed to load paradigm video library.';
-}
-
-/** Default run id, local time: run-YYYYMMDD-HHmm (e.g. run-20260823-1945). */
-function defaultSessionRunId(now: Date) {
-  const pad = (value: number) => String(value).padStart(2, '0');
-
-  return [
-    'run-',
-    String(now.getFullYear()),
-    pad(now.getMonth() + 1),
-    pad(now.getDate()),
-    '-',
-    pad(now.getHours()),
-    pad(now.getMinutes()),
-  ].join('');
-}
-
-type ParadigmLibraryListProps = {
-  library: ParadigmVideoLibrary;
-  selectedVideoIds: ReadonlySet<string>;
-  onSelectPreview: (emotion: ParadigmEmotion, entry: ParadigmVideoEntry) => void;
-};
-
-/**
- * The full 素材清单: every entry of all five emotion classes as preview
- * buttons. Memoized so keystrokes in 被试 ID / 会话运行 ID — which re-render
- * the whole setup panel — do not rebuild hundreds of buttons; only a library
- * load or a queue-preview change (selection badges) re-renders the list.
- */
-const ParadigmLibraryList = memo(function ParadigmLibraryList({
-  library,
-  selectedVideoIds,
-  onSelectPreview,
-}: ParadigmLibraryListProps) {
-  return (
-    <details className={styles.videoListDetails}>
-      <summary className={styles.videoListSummary}>素材清单(点击文件名全屏预览)</summary>
-      <div className={styles.videoListGrid} aria-label="素材清单">
-        {PARADIGM_EMOTION_DISPLAY_ORDER.map((emotion) => {
-          const entries = library[libraryClassKeys[emotion]];
-
-          return (
-            <div key={emotion} className={styles.videoListGroup}>
-              <span className={styles.videoListHeader}>
-                {paradigmEmotionLabels[emotion]}({entries.length})
-              </span>
-              {entries.map((entry) => {
-                const isSelected = selectedVideoIds.has(entry.videoId);
-
-                return (
-                  <button
-                    key={entry.fileName}
-                    type="button"
-                    className={styles.videoListRow}
-                    onClick={() => onSelectPreview(emotion, entry)}
-                  >
-                    <span className={styles.videoListName}>{entry.fileName}</span>
-                    {isSelected ? (
-                      <span className={styles.selectedVideoBadge}>入选</span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
-      </div>
-    </details>
-  );
-});
-
 export default function ParadigmSetupPanel({
   onStartSession,
   startPending,
@@ -174,33 +67,33 @@ export default function ParadigmSetupPanel({
     sessionRunId: false,
     subjectId: false,
   });
-  const [library, setLibrary] = useState<ParadigmVideoLibrary | null>(null);
-  const [libraryError, setLibraryError] = useState<string | null>(null);
-  const [loadingLibrary, setLoadingLibrary] = useState(false);
-  const [queuePreview, setQueuePreview] = useState<ParadigmTrialPlanItem[] | null>(null);
-  // Inputs behind the queuePreview above: startSession reuses the previewed
-  // queue when these still match, skipping the second backend directory scan.
-  const queuePreviewInputsRef = useRef<QueuePreviewInputs | null>(null);
-  const [queueError, setQueueError] = useState<string | null>(null);
-  const [startingSession, setStartingSession] = useState(false);
   // Session-only by design: a sticky dry-run flag would silently skip data
   // collection on a real run, so it resets on every app launch.
   const [dryRun, setDryRun] = useState(false);
+  const [startingSession, setStartingSession] = useState(false);
   const sessionKindGroupRef = useRef<HTMLDivElement>(null);
-  const [previewVideo, setPreviewVideo] = useState<{
-    emotion: ParadigmEmotion;
-    entry: ParadigmVideoEntry;
-  } | null>(null);
+  // Video-library state (load/restore, silent queue preview, preview modal)
+  // lives in its own hook; only the start gate stays on the panel.
+  const {
+    chooseLibraryRoot,
+    clearQueuePreview,
+    library,
+    libraryError,
+    loadingLibrary,
+    previewVideo,
+    queueError,
+    queuePreview,
+    queuePreviewInputsRef,
+    selectedVideoIds,
+    setPreviewVideo,
+    setQueueError,
+  } = useParadigmVideoLibrary({ sessionKind, sessionRunId });
+
   // Debounced subject-id persistence: localStorage.setItem per keystroke
   // stalls fast typing, so the write waits for a pause and is flushed on
   // unmount so navigating away cannot lose the last typed value.
   const subjectIdPersistTimerRef = useRef<number | null>(null);
   const pendingSubjectIdRef = useRef<string | null>(null);
-
-  const selectedVideoIds = useMemo(
-    () => new Set((queuePreview ?? []).map((item) => item.videoId)),
-    [queuePreview],
-  );
 
   const activeBlocks = PARADIGM_BLOCKS_BY_KIND[sessionKind];
   const scheduleText = activeBlocks.map((emotion) => paradigmEmotionLabels[emotion]).join(' → ');
@@ -209,83 +102,6 @@ export default function ParadigmSetupPanel({
     : activeBlocks.length === 1
       ? `${scheduleText} · 点击开始后连续随机播放 ${PARADIGM_TRIALS_PER_CLASS} 个视频`
       : `${scheduleText} · 每类 ${PARADIGM_TRIALS_PER_CLASS} 个视频连续随机播放,阶段间休息`;
-
-  // Restore the last validated video library root on mount (same best-effort
-  // memory as subjectId). A directory that has gone missing or no longer
-  // passes validation silently degrades to the unselected state.
-  useEffect(() => {
-    const storedRootPath = readStoredLibraryRootPath();
-    if (!storedRootPath) {
-      return;
-    }
-
-    let disposed = false;
-
-    loadParadigmVideoLibrary(storedRootPath)
-      .then((loaded) => {
-        if (disposed) {
-          return;
-        }
-
-        if (loaded.valid) {
-          // Keep whichever library is already present (e.g. one the operator
-          // just picked while the restore was in flight).
-          setLibrary((current) => current ?? loaded);
-        } else {
-          writeStoredLibraryRootPath('');
-        }
-      })
-      .catch(() => {
-        // Directory may be unavailable (unplugged drive etc.); stay unselected.
-      });
-
-    return () => {
-      disposed = true;
-    };
-  }, []);
-
-  // Silent queue preview: feeds the 入选 badges whenever a valid library, run
-  // id, and session kind are all present. build_paradigm_queue is
-  // deterministic per session_run_id, so startSession reuses this queue (see
-  // queuePreviewInputsRef) instead of rescanning the directory on the
-  // start-click latency path.
-  useEffect(() => {
-    if (!library?.valid || !sessionRunId) {
-      return;
-    }
-
-    let disposed = false;
-    const timer = window.setTimeout(() => {
-      buildParadigmQueue(library.rootPath, sessionRunId.trim(), sessionKind)
-        .then((queue) => {
-          if (!disposed) {
-            queuePreviewInputsRef.current = {
-              rootPath: library.rootPath,
-              sessionRunId: sessionRunId.trim(),
-              sessionKind,
-            };
-            setQueuePreview(queue);
-          }
-        })
-        .catch((error) => {
-          if (!disposed) {
-            setQueueError(toLibraryErrorMessage(error));
-          }
-        });
-    }, QUEUE_PREVIEW_DEBOUNCE_MS);
-
-    return () => {
-      disposed = true;
-      window.clearTimeout(timer);
-    };
-  }, [library, sessionRunId, sessionKind]);
-
-  // A changed input invalidates the previewed queue, so every input-changing
-  // path clears both the queue and the inputs it was built from.
-  const clearQueuePreview = useCallback(() => {
-    queuePreviewInputsRef.current = null;
-    setQueuePreview(null);
-  }, []);
 
   const updateSessionKind = useCallback((kind: ParadigmSessionKind) => {
     setSessionKind(kind);
@@ -358,7 +174,7 @@ export default function ParadigmSetupPanel({
   // never re-renders because of a new preview-opening closure.
   const handlePreviewSelect = useCallback((emotion: ParadigmEmotion, entry: ParadigmVideoEntry) => {
     setPreviewVideo({ emotion, entry });
-  }, []);
+  }, [setPreviewVideo]);
 
   const updateSubjectId = useCallback((value: string) => {
     // React state stays immediate; only the localStorage write is debounced.
@@ -400,39 +216,6 @@ export default function ParadigmSetupPanel({
   const updateSessionRunId = useCallback((value: string) => {
     setSessionRunId(value);
     clearQueuePreview();
-  }, [clearQueuePreview]);
-
-  const chooseLibraryRoot = useCallback(async () => {
-    setLoadingLibrary(true);
-    setLibraryError(null);
-    clearQueuePreview();
-    setQueueError(null);
-    setPreviewVideo(null);
-
-    try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: '选择范式视频根目录',
-      });
-
-      if (typeof selected !== 'string') {
-        return;
-      }
-
-      const loaded = await loadParadigmVideoLibrary(selected);
-      setLibrary(loaded);
-      // Only validated roots are remembered so the next launch restores a
-      // usable library; an invalid pick clears any stale stored path.
-      writeStoredLibraryRootPath(loaded.valid ? selected : '');
-      if (!loaded.valid) {
-        setLibraryError('视频库校验未通过,请根据提示调整目录内容。');
-      }
-    } catch (error) {
-      setLibraryError(toLibraryErrorMessage(error));
-    } finally {
-      setLoadingLibrary(false);
-    }
   }, [clearQueuePreview]);
 
   const startSession = useCallback(async () => {
@@ -483,6 +266,7 @@ export default function ParadigmSetupPanel({
     library,
     onStartSession,
     queuePreview,
+    queuePreviewInputsRef,
     sessionKind,
     sessionRunIdTrimmed,
     subjectIdTrimmed,

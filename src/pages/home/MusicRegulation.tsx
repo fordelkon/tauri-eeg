@@ -1,487 +1,75 @@
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
-import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
-import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
-import QueueMusicRoundedIcon from '@mui/icons-material/QueueMusicRounded';
-import SkipNextRoundedIcon from '@mui/icons-material/SkipNextRounded';
-import SkipPreviousRoundedIcon from '@mui/icons-material/SkipPreviousRounded';
-import { IconButton } from '@mui/material';
-import type { CSSProperties } from 'react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useAuth } from '../../auth/AuthContext';
 import {
   MUSIC_GENERATED_EVENT,
   deleteMusicHistoryItem,
   generateMusic,
   getMusicServiceHealth,
-  listMusicHistory,
-  toPlayableFileUrl,
 } from '../../music/musicGenerationApi';
-import {
-  createBundledMusicAssets,
-  createGeneratedMusicAsset,
-  type GeneratedMusicHistoryItem,
-} from '../../music/musicAssets';
+import type { GeneratedMusicHistoryItem } from '../../music/musicAssets';
 import { buildMusicPrompt } from '../../music/musicPrompt';
 import {
-  getCompactTagSummary,
   getNextOpenTagSelector,
   setCurrentMusicRegulationTags,
-  type CompactTagOption,
 } from '../../music/musicRegulationTags';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
-import { formatCountdown } from './effectEvaluationFlow';
+import { MusicHistoryDrawer } from './MusicHistoryDrawer';
+import { MusicPlayerCard } from './MusicPlayerCard';
+import { MusicPromptForm } from './MusicPromptForm';
+import { TagEditorSheet } from './MusicTagEditor';
+import {
+  type AgentMusicPromptDetail,
+  MAX_GENERATED_ITEMS,
+  detailTagColors,
+  detailTemplateOptions,
+  formatTime,
+  generationDurationOptions,
+  instrumentOptions,
+  instrumentTagColors,
+  selectTagValues,
+  splitPlannerTags,
+  styleOptions,
+  styleTagColors,
+  toggleTagSelection,
+} from './musicRegulationOptions';
+import { RegulationSessionBanner } from './regulationSessionBanner';
 import { useEffectRegulationContext } from './useEffectRegulationContext';
+import { useMusicQueue } from './useMusicQueue';
 import styles from './MusicRegulation.module.css';
-
-const bundledMusicFiles = [] as const;
-const instrumentOptions = [
-  {
-    label: '钢琴',
-    value: 'piano',
-  },
-  {
-    label: '小提琴',
-    value: 'violin',
-  },
-  {
-    label: '吉他',
-    value: 'guitar',
-  },
-  {
-    label: '大提琴',
-    value: 'cello',
-  },
-  {
-    label: '长笛',
-    value: 'flute',
-  },
-  {
-    label: '鼓组',
-    value: 'drums',
-  },
-  {
-    label: '贝斯',
-    value: 'bass',
-  },
-  {
-    label: '合成器',
-    value: 'synthesizer',
-  },
-  {
-    label: '萨克斯',
-    value: 'saxophone',
-  },
-  {
-    label: '其他',
-    value: 'custom',
-  },
-] as const;
-const styleOptions = [
-  {
-    label: '氛围',
-    value: 'ambient instrumental',
-  },
-  {
-    label: '流行',
-    value: 'pop instrumental',
-  },
-  {
-    label: '摇滚',
-    value: 'rock instrumental',
-  },
-  {
-    label: '古典',
-    value: 'classical instrumental',
-  },
-  {
-    label: '冥想',
-    value: 'meditation music',
-  },
-  {
-    label: '低保真',
-    value: 'lo-fi instrumental',
-  },
-  {
-    label: '爵士',
-    value: 'jazz instrumental',
-  },
-  {
-    label: '电影感',
-    value: 'cinematic instrumental',
-  },
-  {
-    label: '其他',
-    value: 'custom',
-  },
-] as const;
-const detailTemplateOptions = [
-  {
-    label: '慢速',
-    value: 'slow tempo',
-  },
-  {
-    label: '温暖音色',
-    value: 'warm tone',
-  },
-  {
-    label: '柔和节奏',
-    value: 'soft rhythm',
-  },
-  {
-    label: '平静质感',
-    value: 'calm therapeutic texture',
-  },
-  {
-    label: '轻混响',
-    value: 'light reverb',
-  },
-  {
-    label: '轻柔动态',
-    value: 'gentle dynamics',
-  },
-  {
-    label: '低频厚度',
-    value: 'deep bass',
-  },
-  {
-    label: '明亮旋律',
-    value: 'bright melody',
-  },
-] as const;
-const instrumentTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f', '#d7a86e', '#9aa2a9'] as const;
-const styleTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f', '#d7a86e'] as const;
-const detailTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f'] as const;
-const generationDurationOptions = [15, 30, 60, 120] as const;
-// Session-local cap for the generated history list (newest first), mirroring the
-// backend's bounded history semantics so the list never grows without limit.
-const MAX_GENERATED_ITEMS = 100;
-
-type AgentMusicPromptDetail = {
-  instrument?: string | null;
-  style?: string | null;
-  details?: string | null;
-  duration?: number | null;
-};
-
-function splitPlannerTags(value: string | null | undefined) {
-  return (value ?? '')
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter((tag) => tag.length > 0);
-}
-
-function selectTagValues(
-  options: readonly CompactTagOption[],
-  values: readonly (string | null | undefined)[],
-  setCustomValue: (value: string) => void,
-) {
-  const optionValues = new Set(options.map((option) => option.value));
-  const exactValues: string[] = [];
-  const customValues: string[] = [];
-
-  values.flatMap(splitPlannerTags).forEach((value) => {
-    if (optionValues.has(value) && value !== 'custom') {
-      exactValues.push(value);
-      return;
-    }
-
-    customValues.push(value);
-  });
-
-  setCustomValue(customValues.join(', '));
-  return customValues.length > 0 ? [...exactValues, 'custom'] : exactValues;
-}
-
-function formatTime(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds <= 0) {
-    return '0:00';
-  }
-
-  const totalSeconds = Math.floor(seconds);
-  const minutes = Math.floor(totalSeconds / 60);
-  const remainingSeconds = totalSeconds % 60;
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-}
-
-type CompactTagSelectorProps = {
-  id: string;
-  label: string;
-  options: readonly CompactTagOption[];
-  isOpen: boolean;
-  selectedValues: string[];
-  colors: readonly string[];
-  customValue?: string;
-  onOpenChange: (id: string) => void;
-};
-
-function CompactTagSelector({
-  id,
-  label,
-  options,
-  isOpen,
-  selectedValues,
-  colors,
-  customValue,
-  onOpenChange,
-}: CompactTagSelectorProps) {
-  const summary = getCompactTagSummary(
-    options,
-    selectedValues,
-    customValue ? { custom: customValue } : undefined,
-  );
-
-  return (
-    <div className={styles.tagSelector}>
-      <button
-        className={styles.tagTrigger}
-        type="button"
-        aria-expanded={isOpen}
-        onClick={() => onOpenChange(id)}
-      >
-        <span className={styles.tagDotStack} aria-hidden="true">
-          {options.map((option, index) => (
-            <span
-              key={option.value}
-              className={selectedValues.includes(option.value) ? styles.activeTagDot : ''}
-              style={{ '--tag-color': colors[index % colors.length] } as CSSProperties}
-            />
-          ))}
-        </span>
-        <span className={styles.tagTriggerText}>{label}</span>
-        <span className={styles.tagCount}>{summary.countLabel}</span>
-        <span className={`${styles.tagChevron} ${isOpen ? styles.tagChevronOpen : ''}`} aria-hidden="true" />
-      </button>
-    </div>
-  );
-}
-
-type TagEditorSheetProps = {
-  title: string;
-  options: readonly CompactTagOption[];
-  selectedValues: string[];
-  colors: readonly string[];
-  customPlaceholder?: string;
-  customValue?: string;
-  onClose: () => void;
-  onCustomChange?: (value: string) => void;
-  onOnly: (value: string) => void;
-  onToggle: (value: string) => void;
-};
-
-function TagEditorSheet({
-  title,
-  options,
-  selectedValues,
-  colors,
-  customPlaceholder,
-  customValue,
-  onClose,
-  onCustomChange,
-  onOnly,
-  onToggle,
-}: TagEditorSheetProps) {
-  const summary = getCompactTagSummary(
-    options,
-    selectedValues,
-    customValue ? { custom: customValue } : undefined,
-  );
-
-  return (
-    <div className={`${styles.tagSheetOverlay} fixed inset-0 z-20 flex`} role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) {
-        onClose();
-      }
-    }}>
-      <section className={styles.tagSheet} aria-label={`${title}标签`}>
-        <div className={styles.tagSheetHeader}>
-          <div>
-            <span>{title}</span>
-            <strong>{summary.label}</strong>
-          </div>
-          <button className={styles.tagSheetClose} type="button" aria-label="关闭标签编辑器" onClick={onClose}>
-            <CloseRoundedIcon fontSize="small" />
-          </button>
-        </div>
-
-        <div className={styles.tagSheetList}>
-          {options.map((option, index) => {
-            const isSelected = selectedValues.includes(option.value);
-
-            return (
-              <div key={option.value} className={styles.tagMenuItem}>
-                <label className={styles.tagMenuToggle}>
-                  <input
-                    checked={isSelected}
-                    type="checkbox"
-                    value={option.value}
-                    onChange={() => onToggle(option.value)}
-                  />
-                  <span className={styles.tagCheck} aria-hidden="true" />
-                  <span
-                    className={`${styles.tagOptionDot} ${isSelected ? styles.activeTagOptionDot : ''}`}
-                    style={{ '--tag-color': colors[index % colors.length] } as CSSProperties}
-                    aria-hidden="true"
-                  />
-                  <span className={styles.tagOptionLabel}>{option.label}</span>
-                </label>
-                <button
-                  className={styles.tagOnlyButton}
-                  type="button"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    onOnly(option.value);
-                  }}
-                >
-                  仅选
-                </button>
-                {option.value === 'custom' && isSelected ? (
-                  <input
-                    className={styles.tagCustomInput}
-                    value={customValue || ''}
-                    maxLength={80}
-                    onChange={(event) => onCustomChange?.(event.currentTarget.value)}
-                    placeholder={customPlaceholder}
-                  />
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-// Owns the generation wait timer so its 500ms ticks re-render only this
-// subtree instead of the whole page during a long generation. The backend has
-// no progress events (the /generate call resolves once, at completion), so this
-// is an honest elapsed-time counter rather than a simulated percentage. There
-// is also no cancel endpoint, so cancelling only gives up the wait — the job
-// keeps running server-side and still lands in history via MUSIC_GENERATED_EVENT.
-const GenerationProgressPanel = memo(function GenerationProgressPanel({
-  deviceLabel,
-  onCancel,
-}: {
-  deviceLabel: string;
-  onCancel: () => void;
-}) {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
-  useEffect(() => {
-    const startedAt = Date.now();
-    const intervalId = window.setInterval(() => {
-      setElapsedSeconds((Date.now() - startedAt) / 1000);
-    }, 500);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  return (
-    <div className={`${styles.generationProgress} grid`} aria-live="polite">
-      <div className={`${styles.generationProgressHeader} flex items-center justify-between`}>
-        <span>正在生成 WAV - {deviceLabel}</span>
-        <strong>已等待 {formatTime(elapsedSeconds)}</strong>
-      </div>
-      <p className={styles.generationHint}>
-        可以离开本页，任务会在后台继续生成，完成后曲目自动出现在「生成记录」中。
-      </p>
-      <button className={styles.cancelGenerationButton} type="button" onClick={onCancel}>
-        取消等待
-      </button>
-    </div>
-  );
-});
-
-// Owns the playback time display. `timeupdate` fires ~4Hz during playback, so
-// keeping currentTime/duration local to this memoized subtree prevents the full
-// page from re-rendering on every tick.
-const PlaybackTimeline = memo(function PlaybackTimeline({
-  audioRef,
-}: {
-  audioRef: { current: HTMLAudioElement | null };
-}) {
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-  const remainingTime = Math.max(0, duration - currentTime);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-
-    if (!audio) {
-      setCurrentTime(0);
-      setDuration(0);
-      return undefined;
-    }
-
-    const syncFromElement = () => {
-      setCurrentTime(audio.currentTime);
-      setDuration(Number.isFinite(audio.duration) ? audio.duration : 0);
-    };
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', syncFromElement);
-    audio.addEventListener('emptied', syncFromElement);
-    syncFromElement();
-
-    return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', syncFromElement);
-      audio.removeEventListener('emptied', syncFromElement);
-    };
-  }, [audioRef]);
-
-  const handleSeek = (value: number) => {
-    const audio = audioRef.current;
-
-    if (!audio || duration <= 0) {
-      return;
-    }
-
-    audio.currentTime = (value / 100) * duration;
-  };
-
-  return (
-    <div className={styles.timelineRow}>
-      <span>{formatTime(currentTime)}</span>
-      <input
-        className={styles.timeline}
-        type="range"
-        min="0"
-        max="100"
-        value={progress}
-        aria-label="播放位置"
-        style={{ '--progress': `${progress}%` } as CSSProperties}
-        onChange={(event) => handleSeek(Number(event.currentTarget.value))}
-      />
-      <span>-{formatTime(remainingTime)}</span>
-    </div>
-  );
-});
 
 export default function MusicRegulation() {
   const { currentUser } = useAuth();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   // Effect-evaluation session context (R4/F4): while this page hosts a live
   // regulation window, the banner shows the target emotion and remaining
   // time, and the window's zero tick keeps playback stopped.
   const regulationContext = useEffectRegulationContext('music', () => {
     audioRef.current?.pause();
   });
-  const regulationElapsed = regulationContext !== null && regulationContext.remainingSeconds === 0;
   // Marks the awaited generateMusic call as abandoned so a late resolution or
   // rejection after 「取消等待」 cannot clobber post-cancel state (or autoplay
   // over whatever the user did next). One token per run also keeps a cancelled
   // wait from interfering with a follow-up generation.
   const generationWaitRef = useRef<{ abandoned: boolean } | null>(null);
-  const bundledAssets = useMemo(() => createBundledMusicAssets(bundledMusicFiles), []);
-  const [generatedItems, setGeneratedItems] = useState<Awaited<ReturnType<typeof listMusicHistory>>>([]);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const {
+    activeAsset,
+    activeIndex,
+    assets,
+    audioRef,
+    handleTogglePlay,
+    handleTrackChange,
+    isPlaying,
+    playActiveAudio,
+    setActiveIndex,
+    setGeneratedItems,
+    setIsPlaying,
+  } = useMusicQueue({
+    userId: currentUser?.id,
+    onLoadError: (reason: unknown) => setError(describeFriendlyError(reason, '加载生成记录')),
+    onPlaybackError: (message: string) => setError(message),
+  });
   const [isGenerating, setIsGenerating] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [openTagSelectorId, setOpenTagSelectorId] = useState<string | null>(null);
@@ -494,20 +82,7 @@ export default function MusicRegulation() {
   const [customStyle, setCustomStyle] = useState('');
   const [detailTemplates, setDetailTemplates] = useState<string[]>([]);
   const [details, setDetails] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [generationNotice, setGenerationNotice] = useState<string | null>(null);
-  const generatedAssets = useMemo(
-    () => generatedItems.map((item) => createGeneratedMusicAsset(item, toPlayableFileUrl)),
-    [generatedItems],
-  );
-  const assets = useMemo(
-    () => [...generatedAssets, ...bundledAssets],
-    [bundledAssets, generatedAssets],
-  );
-  const activeAsset = assets[activeIndex];
-  // Next track in the queue (no wrap): prewarming it removes the fetch wait
-  // from the `ended` → next-track transition.
-  const nextAsset = assets[activeIndex + 1];
   const generatedPrompt = useMemo(
     () => buildMusicPrompt(instruments, customInstrument, selectedStyles, customStyle, detailTemplates, details),
     [customInstrument, customStyle, detailTemplates, details, instruments, selectedStyles],
@@ -543,60 +118,6 @@ export default function MusicRegulation() {
     : undefined;
 
   useEffect(() => {
-    if (!currentUser) {
-      setGeneratedItems([]);
-      return;
-    }
-
-    let isMounted = true;
-
-    listMusicHistory(currentUser.id)
-      .then((items) => {
-        if (isMounted) {
-          setGeneratedItems(items);
-        }
-      })
-      .catch((reason: unknown) => {
-        if (isMounted) {
-          setError(describeFriendlyError(reason, '加载生成记录'));
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [currentUser]);
-
-  useEffect(() => () => {
-    audioRef.current?.pause();
-  }, []);
-
-  // Prewarms the next queue entry through a detached <audio> element so its
-  // multi-MB WAV is already fetched (HTTP-cached) when `ended` advances the
-  // active element — no audible gap between tracks. mediaUrl is the already
-  // converted playable URL (convertFileSrc for generated assets), so the
-  // prewarm element hits the exact same resource. The effect's cleanup aborts
-  // any in-flight fetch by dropping the src; the element is released on unmount.
-  const prewarmAudioRef = useRef<HTMLAudioElement | null>(null);
-  useEffect(() => {
-    const prewarm = prewarmAudioRef.current ?? new Audio();
-    prewarmAudioRef.current = prewarm;
-    prewarm.preload = 'auto';
-    prewarm.src = nextAsset?.mediaUrl ?? '';
-
-    return () => {
-      prewarm.pause();
-      prewarm.removeAttribute('src');
-      prewarm.load();
-    };
-  }, [nextAsset]);
-
-  useEffect(() => () => {
-    prewarmAudioRef.current?.pause();
-    prewarmAudioRef.current = null;
-  }, []);
-
-  useEffect(() => {
     const handleGeneratedMusic = (event: Event) => {
       const item = (event as CustomEvent<GeneratedMusicHistoryItem>).detail;
 
@@ -611,7 +132,7 @@ export default function MusicRegulation() {
     window.addEventListener(MUSIC_GENERATED_EVENT, handleGeneratedMusic);
 
     return () => window.removeEventListener(MUSIC_GENERATED_EVENT, handleGeneratedMusic);
-  }, []);
+  }, [setActiveIndex, setGeneratedItems]);
 
   useEffect(() => {
     const applyAgentMusicPrompt = (event: Event) => {
@@ -642,12 +163,6 @@ export default function MusicRegulation() {
   }, []);
 
   useEffect(() => {
-    if (activeIndex >= assets.length) {
-      setActiveIndex(Math.max(0, assets.length - 1));
-    }
-  }, [activeIndex, assets.length]);
-
-  useEffect(() => {
     setCurrentMusicRegulationTags(currentTagKeywords);
   }, [currentTagKeywords]);
 
@@ -667,78 +182,16 @@ export default function MusicRegulation() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isHistoryOpen]);
 
-  const playActiveAudio = async () => {
-    const audio = audioRef.current;
-
-    if (!audio) {
-      return;
-    }
-
-    try {
-      await audio.play();
-    } catch {
-      setError('无法播放音频，请检查音频文件或系统音频权限。');
-    }
-  };
-
-  const handleTogglePlay = async () => {
-    const audio = audioRef.current;
-
-    if (!audio) {
-      return;
-    }
-
-    if (audio.paused) {
-      await playActiveAudio();
-    } else {
-      audio.pause();
-    }
-  };
-
-  const handleTrackChange = async (nextIndex: number) => {
-    const audio = audioRef.current;
-    const shouldResume = Boolean(audio && !audio.paused);
-    if (assets.length === 0) {
-      return;
-    }
-
-    setActiveIndex((nextIndex + assets.length) % assets.length);
-
-    if (shouldResume) {
-      window.setTimeout(() => {
-        void playActiveAudio();
-      }, 0);
-    }
-  };
-
   const handleInstrumentToggle = (value: string) => {
-    setInstruments((selectedInstruments) => {
-      if (selectedInstruments.includes(value)) {
-        return selectedInstruments.filter((instrumentValue) => instrumentValue !== value);
-      }
-
-      return [...selectedInstruments, value];
-    });
+    setInstruments((selectedInstruments) => toggleTagSelection(selectedInstruments, value));
   };
 
   const handleStyleToggle = (value: string) => {
-    setSelectedStyles((styles) => {
-      if (styles.includes(value)) {
-        return styles.filter((styleValue) => styleValue !== value);
-      }
-
-      return [...styles, value];
-    });
+    setSelectedStyles((styles) => toggleTagSelection(styles, value));
   };
 
   const handleDetailTemplateToggle = (value: string) => {
-    setDetailTemplates((templates) => {
-      if (templates.includes(value)) {
-        return templates.filter((templateValue) => templateValue !== value);
-      }
-
-      return [...templates, value];
-    });
+    setDetailTemplates((templates) => toggleTagSelection(templates, value));
   };
   const handleInstrumentOnly = (value: string) => setInstruments([value]);
   const handleStyleOnly = (value: string) => setSelectedStyles([value]);
@@ -904,13 +357,7 @@ export default function MusicRegulation() {
         </div>
       </header>
 
-      {regulationContext ? (
-        <div className={styles.effectSessionBanner} role="status">
-          {regulationElapsed
-            ? '效果评价调控时长已达成，播放已自动停止。请回到「效果评价」页继续复测。'
-            : `效果评价调控进行中 · 目标情绪 ${regulationContext.emotionLabel} · 剩余时长 ${formatCountdown(regulationContext.remainingSeconds)}`}
-        </div>
-      ) : null}
+      <RegulationSessionBanner context={regulationContext} className={styles.effectSessionBanner} />
 
       {error ? (
         isTauriAvailable() ? (
@@ -926,256 +373,64 @@ export default function MusicRegulation() {
       {!error && generationNotice ? <div className={styles.successBanner} role="status">{generationNotice}</div> : null}
 
       <div className={`${styles.contentGrid} grid`}>
-        <form
-          className={`${styles.promptPanel} flex w-full min-w-0 flex-col`}
-          onSubmit={(event) => {
-            event.preventDefault();
+        <MusicPromptForm
+          generatedPrompt={generatedPrompt}
+          instruments={instruments}
+          customInstrument={customInstrument}
+          selectedStyles={selectedStyles}
+          customStyle={customStyle}
+          detailTemplates={detailTemplates}
+          details={details}
+          openTagSelectorId={openTagSelectorId}
+          onTagSelectorOpenChange={handleTagSelectorOpenChange}
+          onDetailsChange={setDetails}
+          isGenerating={isGenerating}
+          generationDeviceLabel={generationDeviceLabel}
+          onCancel={handleCancelGeneration}
+          generationDuration={generationDuration}
+          onDurationChange={setGenerationDuration}
+          isSignedIn={Boolean(currentUser)}
+          canGenerate={canGenerate}
+          onSubmit={() => {
             void handleGenerate();
           }}
-        >
-          <div className={`${styles.promptHeader} flex flex-col`}>
-            <span>音乐生成</span>
-            <strong>提示词构建</strong>
-          </div>
-
-          <div className={`${styles.layeredFields} grid`}>
-            <div className={`${styles.promptField} flex min-w-0 flex-col`}>
-              <span>第 1 层 · 乐器</span>
-              <CompactTagSelector
-                id="instrument"
-                label="乐器"
-                options={instrumentOptions}
-                isOpen={openTagSelectorId === 'instrument'}
-                selectedValues={instruments}
-                colors={instrumentTagColors}
-                customValue={customInstrument}
-                onOpenChange={handleTagSelectorOpenChange}
-              />
-            </div>
-
-            <div className={`${styles.promptField} flex min-w-0 flex-col`}>
-              <span>第 2 层 · 风格</span>
-              <CompactTagSelector
-                id="style"
-                label="风格"
-                options={styleOptions}
-                isOpen={openTagSelectorId === 'style'}
-                selectedValues={selectedStyles}
-                colors={styleTagColors}
-                customValue={customStyle}
-                onOpenChange={handleTagSelectorOpenChange}
-              />
-            </div>
-
-            <div className={`${styles.promptField} flex min-w-0 flex-col`}>
-              <span>第 3 层 · 细节（可选）</span>
-              <CompactTagSelector
-                id="details"
-                label="细节"
-                options={detailTemplateOptions}
-                isOpen={openTagSelectorId === 'details'}
-                selectedValues={detailTemplates}
-                colors={detailTagColors}
-                onOpenChange={handleTagSelectorOpenChange}
-              />
-              <textarea
-                value={details}
-                maxLength={260}
-                rows={3}
-                onChange={(event) => setDetails(event.currentTarget.value)}
-                placeholder="soft rhythm, warm tone, slow tempo..."
-              />
-            </div>
-          </div>
-
-          <div className={styles.promptPreview} title={generatedPrompt}>
-            {generatedPrompt || '选择乐器和风格后生成提示词。'}
-          </div>
-
-          {isGenerating ? (
-            <GenerationProgressPanel deviceLabel={generationDeviceLabel} onCancel={handleCancelGeneration} />
-          ) : null}
-
-          <div className={`${styles.promptActions} grid items-end`}>
-            <label className={`${styles.durationField} flex min-w-0 flex-col`}>
-              <span>长度</span>
-              <select
-                value={generationDuration}
-                onChange={(event) => setGenerationDuration(Number(event.currentTarget.value))}
-              >
-                <option value={15}>15s</option>
-                <option value={30}>30s</option>
-                <option value={60}>60s</option>
-                <option value={120}>120s</option>
-              </select>
-            </label>
-
-            <button
-              className={`${styles.generateButton} ${isGenerating ? styles.isBusy : ''}`}
-              type="submit"
-              data-agent-action="generate_music"
-              disabled={!currentUser || isGenerating || !canGenerate}
-            >
-              {isGenerating ? '正在生成 WAV' : '生成 WAV'}
-            </button>
-          </div>
-        </form>
+        />
 
         <div className={`${styles.lowerGrid} grid items-start`}>
           <div className="min-w-0">
-            <div className={styles.playerCard} style={coverStyle}>
-              <button
-                className={styles.coverButton}
-                type="button"
-                data-agent-action="play_music"
-                aria-label={isPlaying ? '暂停 WAV' : '播放 WAV'}
-                onClick={() => {
-                  void handleTogglePlay();
-                }}
-              >
-                <span className={styles.coverArt} aria-hidden="true">
-                  <span className={styles.coverBars}>
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                </span>
-              </button>
-
-              <div className={styles.playerMain}>
-                <div className={styles.playerTop}>
-                  <div className={styles.playerMeta}>
-                    <strong>{activeAsset?.title || '未选择 WAV'}</strong>
-                    <span>{activeAsset?.source === 'generated' ? '生成的 WAV' : 'WAV 音频流'}</span>
-                  </div>
-                  <div className={styles.trackCounter}>
-                    {assets.length > 0 ? `${activeIndex + 1}/${assets.length}` : '0/0'}
-                  </div>
-                </div>
-
-                <PlaybackTimeline key={activeAsset?.id ?? 'none'} audioRef={audioRef} />
-
-                <div className={styles.controls}>
-                  <div className={styles.transportControls}>
-                    <IconButton
-                      className={styles.controlButton}
-                      aria-label="上一首 WAV"
-                      disabled={assets.length === 0}
-                      onClick={() => {
-                        void handleTrackChange(activeIndex - 1);
-                      }}
-                    >
-                      <SkipPreviousRoundedIcon />
-                    </IconButton>
-                    <IconButton
-                      className={`${styles.controlButton} ${styles.primaryButton}`}
-                      data-agent-action="play_music"
-                      aria-label={isPlaying ? '暂停 WAV' : '播放 WAV'}
-                      disabled={assets.length === 0}
-                      onClick={() => {
-                        void handleTogglePlay();
-                      }}
-                    >
-                      {isPlaying ? <PauseRoundedIcon /> : <PlayArrowRoundedIcon />}
-                    </IconButton>
-                    <IconButton
-                      className={styles.controlButton}
-                      aria-label="下一首 WAV"
-                      disabled={assets.length === 0}
-                      onClick={() => {
-                        void handleTrackChange(activeIndex + 1);
-                      }}
-                    >
-                      <SkipNextRoundedIcon />
-                    </IconButton>
-                  </div>
-
-                  <IconButton
-                    className={styles.controlButton}
-                    aria-label="打开生成的 WAV 记录"
-                    onClick={() => setIsHistoryOpen(true)}
-                  >
-                    <QueueMusicRoundedIcon />
-                  </IconButton>
-                </div>
-              </div>
-            </div>
+            <MusicPlayerCard
+              activeAsset={activeAsset}
+              assetCount={assets.length}
+              activeIndex={activeIndex}
+              isPlaying={isPlaying}
+              audioRef={audioRef}
+              coverStyle={coverStyle}
+              onTogglePlay={() => {
+                void handleTogglePlay();
+              }}
+              onTrackChange={(nextIndex) => {
+                void handleTrackChange(nextIndex);
+              }}
+              onOpenHistory={() => setIsHistoryOpen(true)}
+            />
           </div>
         </div>
       </div>
 
       {isHistoryOpen ? (
-        <div
-          className={`${styles.historyOverlay} fixed inset-0 z-20 flex items-center`}
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setIsHistoryOpen(false);
-            }
+        <MusicHistoryDrawer
+          assets={assets}
+          activeIndex={activeIndex}
+          deletingItemId={deletingItemId}
+          onClose={() => setIsHistoryOpen(false)}
+          onSelectTrack={(index) => {
+            setIsHistoryOpen(false);
+            void handleTrackChange(index);
           }}
-        >
-          <section className={`${styles.historyModal} flex min-h-0 w-full flex-col`} aria-label="生成的 WAV 记录">
-            <div className={`${styles.historyHeader} flex items-center justify-between`}>
-              <div>
-                <span>生成记录</span>
-                <strong>生成的 WAV</strong>
-              </div>
-              <IconButton
-                className={styles.closeButton}
-                aria-label="关闭记录"
-                onClick={() => setIsHistoryOpen(false)}
-              >
-                <CloseRoundedIcon />
-              </IconButton>
-            </div>
-            <div className={`${styles.queueList} grid min-h-0 overflow-auto`}>
-              {assets.length === 0 ? (
-                <div className={styles.emptyQueue}>生成一首 WAV 后开始播放。</div>
-              ) : assets.map((asset, index) => (
-                <div
-                  key={asset.id}
-                  className={`${styles.queueItem} grid items-center ${index === activeIndex ? styles.activeQueueItem : ''}`}
-                >
-                  <button
-                    className={`${styles.queueSelectButton} grid min-w-0 items-center border-0 bg-transparent text-left`}
-                    type="button"
-                    onClick={() => {
-                      setIsHistoryOpen(false);
-                      void handleTrackChange(index);
-                    }}
-                  >
-                    <span>{String(index + 1).padStart(2, '0')}</span>
-                    <strong>{asset.title}</strong>
-                    {index === activeIndex ? (
-                      <span className={styles.queueEqualizer} aria-hidden="true">
-                        <span />
-                        <span />
-                        <span />
-                      </span>
-                    ) : null}
-                    <em>{asset.source === 'generated' ? '已生成' : '内置'}</em>
-                  </button>
-                  {asset.source === 'generated' ? (
-                    <IconButton
-                      className={styles.deleteQueueButton}
-                      aria-label={`删除 ${asset.title}`}
-                      disabled={deletingItemId === asset.id}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleDeleteHistoryItem(asset.id, index);
-                      }}
-                    >
-                      <DeleteOutlineRoundedIcon />
-                    </IconButton>
-                  ) : (
-                    <span className={styles.queueSpacer} aria-hidden="true" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
+          onDeleteItem={(itemId, index) => {
+            void handleDeleteHistoryItem(itemId, index);
+          }}
+        />
       ) : null}
 
       {openTagEditor ? (

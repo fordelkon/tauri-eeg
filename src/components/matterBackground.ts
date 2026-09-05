@@ -1,5 +1,11 @@
 import { Bodies, Body, Composite, Engine, Events, Render } from 'matter-js';
 import { getBallSprite } from './matterBallSprite';
+import { createPopParticleField } from './matterPopParticles';
+import {
+  defaultTitleFontSize,
+  LETTER_FONT,
+} from './matterTitleSprite';
+import { createTitleMotionField, type TitleMotion } from './matterTitleMotion';
 
 type SceneBody = Body & {
   plugin: {
@@ -10,32 +16,6 @@ type SceneBody = Body & {
     radius?: number;
     ringColor?: string;
   };
-};
-
-type PopParticle = {
-  age: number;
-  color: string;
-  duration: number;
-  radius: number;
-  vx: number;
-  vy: number;
-  x: number;
-  y: number;
-};
-
-type TitleMotion = {
-  baseX: number;
-  baseY: number;
-  char: string;
-  fontSize: number;
-  rotation: number;
-  rotationVelocity: number;
-  squash: number;
-  squashVelocity: number;
-  velocityX: number;
-  velocityY: number;
-  x: number;
-  y: number;
 };
 
 export type MatterPointerState = { active: boolean; x: number; y: number };
@@ -75,67 +55,6 @@ const BALL_PALETTE = [
   { color: '#c3e9f1', ringColor: '#1b1b1d' },
   { color: '#d36a20', ringColor: '#8ee8ff' },
 ] as const;
-
-const defaultTitleFontSize = (width: number) => (
-  width > 420 ? Math.min(42, Math.max(28, width * 0.045)) : Math.max(20, Math.min(25, width * 0.072))
-);
-
-const LETTER_FONT = (fontSize: number) => (
-  `560 ${fontSize}px "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif`
-);
-
-// Title letters keep per-frame motion (ball/pointer repulsion), so the whole
-// title cannot be cached as one bitmap. Instead each glyph — including its soft
-// shadow, which would otherwise force a shadow re-rasterization on every
-// letter on every frame — is rasterized once per (char, fontSize, dpr) and then
-// blitted with the letter's translate/rotate/squash transform.
-type LetterSprite = { canvas: HTMLCanvasElement; height: number; width: number };
-
-const LETTER_SHADOW_BLUR = 1.5;
-// Shadow sigma is blur / 2 = 0.75px, so 6px of padding safely contains the glow.
-const LETTER_SPRITE_PADDING = 6;
-const letterSpriteCache = new Map<string, LetterSprite>();
-
-const getLetterSprite = (char: string, fontSize: number): LetterSprite => {
-  const pixelRatio = window.devicePixelRatio || 1;
-  const key = `${char}|${fontSize}|${pixelRatio}`;
-  let sprite = letterSpriteCache.get(key);
-
-  if (!sprite) {
-    const measureContext = document.createElement('canvas').getContext('2d');
-    let textWidth = fontSize * 0.62;
-
-    if (measureContext) {
-      measureContext.font = LETTER_FONT(fontSize);
-      textWidth = measureContext.measureText(char).width;
-    }
-
-    const width = Math.ceil(textWidth) + LETTER_SPRITE_PADDING * 2;
-    // 1.6em of glyph box covers Comic Sans MS ascenders/descenders around the
-    // 'middle' text baseline used when drawing.
-    const height = Math.ceil(fontSize * 1.6) + LETTER_SPRITE_PADDING * 2;
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.ceil(width * pixelRatio);
-    canvas.height = Math.ceil(height * pixelRatio);
-    const spriteContext = canvas.getContext('2d');
-
-    if (spriteContext) {
-      spriteContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-      spriteContext.font = LETTER_FONT(fontSize);
-      spriteContext.textAlign = 'center';
-      spriteContext.textBaseline = 'middle';
-      spriteContext.shadowBlur = LETTER_SHADOW_BLUR;
-      spriteContext.shadowColor = 'rgba(255, 255, 255, 0.28)';
-      spriteContext.fillStyle = '#ffffff';
-      spriteContext.fillText(char, width / 2, height / 2);
-    }
-
-    sprite = { canvas, height, width };
-    letterSpriteCache.set(key, sprite);
-  }
-
-  return sprite;
-};
 
 export const getBallCountConfig = (
   width: number,
@@ -181,8 +100,9 @@ export function createMatterBackground({
   });
 
   const balls: SceneBody[] = [];
-  const particles: PopParticle[] = [];
+  const particleField = createPopParticleField();
   const titleLetters: TitleMotion[] = [];
+  const titleMotionField = createTitleMotionField({ host, letters: titleLetters, pointerRef });
   let titleBounds = {
     height: 38,
     width: 220,
@@ -191,21 +111,6 @@ export function createMatterBackground({
   let worldRadius = 0;
   let lastSpawnAt = 0;
   let lastParticleTick = performance.now();
-
-  const createLetterMotion = (char: string, baseX: number, baseY: number, fontSize: number): TitleMotion => ({
-    baseX,
-    baseY,
-    char,
-    rotation: 0,
-    rotationVelocity: 0,
-    squash: 0,
-    squashVelocity: 0,
-    velocityX: 0,
-    velocityY: 0,
-    fontSize,
-    x: 0,
-    y: 0,
-  });
 
   let titleBarrier: Body | null = null;
 
@@ -238,7 +143,7 @@ export function createMatterBackground({
       const letterWidth = measuredLetters[index];
 
       if (char !== ' ') {
-        titleLetters.push(createLetterMotion(
+        titleLetters.push(titleMotionField.createLetterMotion(
           char,
           cursorX + letterWidth / 2,
           centerY,
@@ -284,7 +189,6 @@ export function createMatterBackground({
     Composite.clear(engine.world, false);
     titleBarrier = null;
     balls.length = 0;
-    particles.length = 0;
     titleLetters.length = 0;
     worldCenter = { x: centerX, y: centerY };
     worldRadius = arenaRadius;
@@ -347,24 +251,7 @@ export function createMatterBackground({
   };
 
   const popBall = (ball: SceneBody) => {
-    const { color, radius = 10, ringColor = '#7edfff' } = ball.plugin;
-    const particleCount = 9 + Math.floor(Math.random() * 4);
-
-    for (let i = 0; i < particleCount; i += 1) {
-      const angle = (Math.PI * 2 * i) / particleCount + Math.random() * 0.35;
-      const speed = 2.2 + Math.random() * 2.4;
-
-      particles.push({
-        age: 0,
-        color: i % 3 === 0 ? ringColor : color,
-        duration: 360 + Math.random() * 220,
-        radius: Math.max(2, radius * (0.18 + Math.random() * 0.16)),
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        x: ball.position.x + Math.cos(angle) * radius * 0.45,
-        y: ball.position.y + Math.sin(angle) * radius * 0.45,
-      });
-    }
+    particleField.spawn(ball);
   };
 
   const pushFromPointer = () => {
@@ -393,76 +280,6 @@ export function createMatterBackground({
     });
   };
 
-  const updateTitleMotion = () => {
-    const pointerX = pointerRef.current.x * Math.max(host.clientWidth, 1);
-    const pointerY = pointerRef.current.y * Math.max(host.clientHeight, 1);
-
-    titleLetters.forEach((letter) => {
-      let targetX = 0;
-      let targetY = 0;
-      let targetRotation = 0;
-      let targetSquash = 0;
-
-      balls.forEach((ball) => {
-        const deltaX = letter.baseX - ball.position.x;
-        const deltaY = letter.baseY - ball.position.y;
-        const distance = Math.max(Math.hypot(deltaX, deltaY), 1);
-        const range = Math.max(letter.fontSize * 2.2, 58);
-
-        if (distance > range) return;
-
-        const falloff = (1 - distance / range) ** 2;
-
-        targetX += (deltaX / distance) * falloff * 18;
-        targetY += (deltaY / distance) * falloff * 13;
-        targetRotation += (deltaX / range) * falloff * 0.42;
-        targetSquash += falloff * 0.2;
-      });
-
-      if (pointerRef.current.active) {
-        const deltaX = pointerX - letter.baseX;
-        const deltaY = pointerY - letter.baseY;
-        const distance = Math.max(Math.hypot(deltaX, deltaY), 1);
-        const range = Math.max(letter.fontSize * 3.4, 95);
-
-        if (distance < range) {
-          const falloff = (1 - distance / range) ** 2;
-
-          targetX += (deltaX / distance) * falloff * 10;
-          targetY += (deltaY / distance) * falloff * 7;
-          targetRotation += (deltaX / range) * falloff * 0.22;
-          targetSquash += falloff * 0.1;
-        }
-      }
-
-      targetSquash = Math.min(targetSquash, 0.22);
-      letter.velocityX = (letter.velocityX + (targetX - letter.x) * 0.14) * 0.72;
-      letter.velocityY = (letter.velocityY + (targetY - letter.y) * 0.14) * 0.72;
-      letter.rotationVelocity = (letter.rotationVelocity + (targetRotation - letter.rotation) * 0.16) * 0.68;
-      letter.squashVelocity = (letter.squashVelocity + (targetSquash - letter.squash) * 0.18) * 0.68;
-      letter.x += letter.velocityX;
-      letter.y += letter.velocityY;
-      letter.rotation += letter.rotationVelocity;
-      letter.squash += letter.squashVelocity;
-
-      if (!pointerRef.current.active && Math.hypot(letter.x, letter.y) < 0.12) {
-        letter.x = 0;
-        letter.y = 0;
-        letter.velocityX = 0;
-        letter.velocityY = 0;
-      }
-
-      if (Math.abs(letter.rotation) < 0.003 && Math.abs(letter.rotationVelocity) < 0.003) {
-        letter.rotation = 0;
-        letter.rotationVelocity = 0;
-      }
-
-      if (Math.abs(letter.squash) < 0.004 && Math.abs(letter.squashVelocity) < 0.004) {
-        letter.squash = 0;
-        letter.squashVelocity = 0;
-      }
-    });
-  };
 
   const updateScene = (event: { timestamp: number }) => {
     const time = event.timestamp;
@@ -470,21 +287,14 @@ export function createMatterBackground({
     lastParticleTick = time;
 
     pushFromPointer();
-    updateTitleMotion();
+    titleMotionField.update(balls);
 
     if (time - lastSpawnAt > 760 + Math.random() * 220) {
       spawnBall(time);
       lastSpawnAt = time;
     }
 
-    for (let i = particles.length - 1; i >= 0; i -= 1) {
-      const particle = particles[i];
-      particle.age += particleDelta;
-      particle.vy += 0.012 * particleDelta;
-      particle.x += particle.vx * (particleDelta / 16);
-      particle.y += particle.vy * (particleDelta / 16);
-      if (particle.age > particle.duration) particles.splice(i, 1);
-    }
+    particleField.update(particleDelta);
 
     for (let i = balls.length - 1; i >= 0; i -= 1) {
       const ball = balls[i];
@@ -548,33 +358,8 @@ export function createMatterBackground({
       context.restore();
     });
 
-    particles.forEach((p) => {
-      const progress = Math.min(p.age / p.duration, 1);
-      context.save();
-      context.globalAlpha = 1 - progress;
-      context.fillStyle = p.color;
-      context.beginPath();
-      context.arc(p.x, p.y, p.radius * (1 - progress * 0.45), 0, Math.PI * 2);
-      context.fill();
-      context.restore();
-    });
-
-    titleLetters.forEach((letter) => {
-      const sprite = getLetterSprite(letter.char, letter.fontSize);
-
-      context.save();
-      context.translate(letter.baseX + letter.x, letter.baseY + letter.y);
-      context.rotate(letter.rotation);
-      context.scale(1 + letter.squash * 0.18, 1 - letter.squash * 0.12);
-      context.drawImage(
-        sprite.canvas,
-        -sprite.width / 2,
-        -sprite.height / 2,
-        sprite.width,
-        sprite.height,
-      );
-      context.restore();
-    });
+    particleField.draw(context);
+    titleMotionField.draw(context);
 
     context.restore();
   };

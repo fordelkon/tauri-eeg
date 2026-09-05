@@ -4,22 +4,15 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { save } from '@tauri-apps/plugin-dialog';
 import { getParadigmSessionStatus } from '../../eeg/paradigm/paradigmSessionStatus';
-import { exportEffectReport } from '../../mentalScale/scaleRecordsApi';
 import { useConfirmDialog } from '../../ui/useConfirmDialog';
-import { describeFriendlyError } from '../../ui/friendlyError';
 import {
   buildConditionComparisonVerdictCopy, buildEffectVerdictCopy, describeMeasuredBasis,
   describeRegulationSkipped, EFFECT_EMOTION_OPTIONS, EFFECT_FLOW_STEP_COUNT, EFFECT_METHOD_OPTIONS,
   formatCountdown, labelForCondition, regulationFinishModeFromRemaining,
   remainingRegulationSeconds, type EffectFlowStep,
 } from './effectEvaluationFlow';
-import {
-  buildBatchReportPayload, buildComparisonReportPayload, buildSingleReportPayload,
-  suggestReportFileName, type ExportReportFormat,
-} from './effectReportExport';
-import { deriveEffectPipelineNodes, describeEegAssociation, verdictCopyForCondition } from './effectPipeline';
+import { describeEegAssociation, verdictCopyForCondition } from './effectPipeline';
 import {
   buildConditionComparisonChartOption, buildEffectChartOption,
 } from './effectResultChartOption';
@@ -32,6 +25,9 @@ import EffectHistoryPanel from './EffectHistoryPanel';
 import { EffectReviewPopover } from './EffectReviewPopover';
 import { EffectDoneBand, EffectTimeline, type EffectReviewTarget, type EffectStationClick } from './EffectTimeline';
 import { useEffectEvaluationFlow } from './useEffectEvaluationFlow';
+import { useEffectPipelineNodes } from './useEffectPipelineNodes';
+import { useEffectReportExports } from './useEffectReportExports';
+import { useInductionPlayback } from './useInductionPlayback';
 import styles from './EffectEvaluation.module.css';
 
 /**
@@ -64,8 +60,6 @@ import styles from './EffectEvaluation.module.css';
 
 type PageTab = 'wizard' | 'history';
 
-type ExportNotice = { severity: 'success' | 'error'; text: string };
-
 export default function EffectEvaluation() {
   const flow = useEffectEvaluationFlow();
   const { state } = flow;
@@ -73,16 +67,26 @@ export default function EffectEvaluation() {
   // Steps 2/4 present the shared gate dialog on demand; closing it only
   // dismisses the dialog, it never touches the flow itself.
   const [isScaleDialogOpen, setIsScaleDialogOpen] = useState(false);
-  // The induction video only mounts after the operator explicitly starts the
-  // induction (EEG association + paradigm-session guard ride on that entry).
-  const [isInductionPlaying, setIsInductionPlaying] = useState(false);
-  // R7: a video that fails mid-run (file moved/corrupted) must not strand the
-  // induction step - the error branch offers a remount retry or a way back.
-  const [inductionVideoFailed, setInductionVideoFailed] = useState(false);
-  const [inductionRetryCount, setInductionRetryCount] = useState(0);
+  // Induction video playback state (play flag, mid-run failure + retry
+  // counter, step-change reset) lives in its own hook.
+  const {
+    inductionRetryCount, inductionVideoFailed, isInductionPlaying,
+    retryInductionVideo, setInductionVideoFailed, startInductionPlayback,
+  } = useInductionPlayback(state.step);
   const [activeTab, setActiveTab] = useState<PageTab>('wizard');
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportNotice, setExportNotice] = useState<ExportNotice | null>(null);
+  // Report exports (single / batch / cross-condition comparison) share one
+  // busy flag + notice through the export hook, which also owns the stable
+  // per-card export callbacks.
+  const {
+    exportNotice, handleExportComparisonCsv, handleExportComparisonJson,
+    handleExportSingleCsv, handleExportSingleJson, isExporting,
+    runBatchExport, setExportNotice,
+  } = useEffectReportExports({
+    subjectId: state.subjectId,
+    emotion: state.emotion,
+    baselineRecordId: state.baselineRecordId,
+    postRecordId: state.postRecordId,
+  });
   // Read-only review overlay for a completed node, anchored to the timeline
   // station / done-band chip that opened it.
   const [review, setReview] = useState<EffectReviewTarget | null>(null);
@@ -110,14 +114,6 @@ export default function EffectEvaluation() {
   // Result-screen noun per condition (R6): the natural-recovery leg regulates
   // nothing, so its post column / chart series read 静息后 instead of 调控后.
   const postLabel = isNaturalRecovery ? '静息后' : '调控后';
-
-  // Leaving the induction step (or resetting the flow) unmounts the player.
-  useEffect(() => {
-    if (state.step !== 1) {
-      setIsInductionPlaying(false);
-      setInductionVideoFailed(false);
-    }
-  }, [state.step]);
 
   // Step transitions (audit 2): when the stage advances (①→②, ④→⑤, …) the
   // new task must land in view instead of waiting to be hunted down, and
@@ -263,135 +259,23 @@ export default function EffectEvaluation() {
     // A live paradigm session blocks the EEG association (the hook shows its
     // own error banner); the video must not start behind that guard either.
     if (!getParadigmSessionStatus().active) {
-      setIsInductionPlaying(true);
+      startInductionPlayback();
     }
-  };
-
-  // R7: remounts the player after a load failure (the retry counter rides on
-  // the element key so a fresh <video> re-fetches the file).
-  const handleRetryInductionVideo = () => {
-    setInductionVideoFailed(false);
-    setInductionRetryCount((count) => count + 1);
-    setIsInductionPlaying(true);
   };
 
   const handleInductionVideoError = useCallback(() => {
     setInductionVideoFailed(true);
-  }, []);
+  }, [setInductionVideoFailed]);
 
-  const runSingleExport = useCallback(async (format: ExportReportFormat) => {
-    setExportNotice(null);
-    setIsExporting(true);
-
-    try {
-      const path = await save({
-        title: format === 'csv' ? '导出单次报告（CSV）' : '导出单次报告（JSON）',
-        defaultPath: suggestReportFileName({ kind: 'single', format, subjectId: state.subjectId }),
-        filters: [{ name: format.toUpperCase(), extensions: [format] }],
-      });
-
-      if (typeof path !== 'string') {
-        return;
-      }
-
-      const result = await exportEffectReport(buildSingleReportPayload({
-        baselineRecordId: state.baselineRecordId, postRecordId: state.postRecordId, path, format,
-      }));
-      setExportNotice({ severity: 'success', text: `单次报告已导出：${result.path}` });
-    } catch (error) {
-      setExportNotice({ severity: 'error', text: describeFriendlyError(error, '导出单次报告') });
-    } finally {
-      setIsExporting(false);
-    }
-  }, [state.baselineRecordId, state.postRecordId, state.subjectId]);
-
-  const runBatchExport = async () => {
-    setExportNotice(null);
-    setIsExporting(true);
-
-    try {
-      const path = await save({
-        title: '批量汇总导出（所有被试最近一次评价）',
-        defaultPath: suggestReportFileName({ kind: 'batch' }),
-        filters: [{ name: 'CSV', extensions: ['csv'] }],
-      });
-
-      if (typeof path !== 'string') {
-        return;
-      }
-
-      const result = await exportEffectReport(buildBatchReportPayload({ path }));
-      setExportNotice({ severity: 'success', text: `批量汇总已导出：${result.path}` });
-    } catch (error) {
-      setExportNotice({ severity: 'error', text: describeFriendlyError(error, '导出批量汇总') });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  // R7, 大纲 6.3 步骤 5: the cross-condition comparison document (both legs'
-  // trace, per-dimension inputs, verdict, frozen formula note). The backend
-  // re-pairs the two legs from the wizard's subject+emotion at export time.
-  const runComparisonExport = useCallback(async (format: ExportReportFormat) => {
-    setExportNotice(null);
-    setIsExporting(true);
-
-    try {
-      const path = await save({
-        title: format === 'csv' ? '导出跨条件对比报告（CSV）' : '导出跨条件对比报告（JSON）',
-        defaultPath: suggestReportFileName({ kind: 'comparison', format, subjectId: state.subjectId }),
-        filters: [{ name: format.toUpperCase(), extensions: [format] }],
-      });
-
-      if (typeof path !== 'string') {
-        return;
-      }
-
-      const result = await exportEffectReport(buildComparisonReportPayload({
-        subjectId: state.subjectId, emotion: state.emotion, path, format,
-      }));
-      setExportNotice({ severity: 'success', text: `跨条件对比报告已导出：${result.path}` });
-    } catch (error) {
-      setExportNotice({ severity: 'error', text: describeFriendlyError(error, '导出跨条件对比报告') });
-    } finally {
-      setIsExporting(false);
-    }
-  }, [state.emotion, state.subjectId]);
-
-  // The result/comparison cards are memoized, so every callback they
-  // receive must keep a stable identity across renders.
-  const handleExportSingleJson = useCallback(() => void runSingleExport('json'), [runSingleExport]);
-  const handleExportSingleCsv = useCallback(() => void runSingleExport('csv'), [runSingleExport]);
-  const handleExportComparisonJson = useCallback(() => void runComparisonExport('json'), [runComparisonExport]);
-  const handleExportComparisonCsv = useCallback(() => void runComparisonExport('csv'), [runComparisonExport]);
   const handleRetrySummary = useCallback(() => void flow.loadSummary(), [flow.loadSummary]);
   const handleRetryComparison = useCallback(() => void flow.loadConditionComparison(), [flow.loadConditionComparison]);
 
-  // Timeline view-model: recomputed only when a field the pure pipeline
-  // derivation actually reads changes (step, subjectId, condition,
-  // durationMinutes, regulationStartedAtMs, regulationSkipped, and the two
-  // record ids — keep this list in sync with `deriveEffectPipelineNodes`) or
-  // when the result summary's existence flips. Unrelated dispatches (e.g. the
-  // EEG badge flip) keep the same node objects, letting the memoized
-  // timeline/done band bail out.
-  const pipelineNodes = useMemo(
-    () => deriveEffectPipelineNodes(state, { hasResultSummary: flow.summary !== null }),
-    [
-      state.step,
-      state.subjectId,
-      state.condition,
-      state.durationMinutes,
-      state.regulationStartedAtMs,
-      state.regulationSkipped,
-      state.baselineRecordId,
-      state.postRecordId,
-      flow.summary,
-    ],
+  // Timeline view-model (memoized on the fields the pure pipeline reads, see
+  // the hook) + the compressed strip of finished nodes.
+  const { currentNode, doneNodes, pipelineNodes } = useEffectPipelineNodes(
+    state,
+    flow.summary !== null,
   );
-  const doneNodes = useMemo(
-    () => pipelineNodes.filter((node) => node.status === 'done'), [pipelineNodes],
-  );
-  const currentNode = pipelineNodes[state.step];
 
   /** Timeline station click: current → scroll the stage into view, done →
    *  read-only review popover (pending stations are disabled upstream). */
@@ -434,7 +318,7 @@ export default function EffectEvaluation() {
             flow={flow} eegUnavailableHint={eegUnavailableHint}
             isInductionPlaying={isInductionPlaying} inductionVideoFailed={inductionVideoFailed}
             inductionRetryCount={inductionRetryCount} onBeginInduction={handleBeginInduction}
-            onResetFlow={handleResetFlow} onRetryInductionVideo={handleRetryInductionVideo}
+            onResetFlow={handleResetFlow} onRetryInductionVideo={retryInductionVideo}
             onVideoError={handleInductionVideoError}
           />
         );

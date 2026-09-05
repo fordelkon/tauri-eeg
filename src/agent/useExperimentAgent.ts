@@ -1,33 +1,30 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useEegSession } from '../eeg/EegSessionContext';
 import { getMentalScaleStatusSnapshot } from '../mentalScale/mentalScaleStatus';
 import { generateMusic } from '../music/musicGenerationApi';
-import { getCurrentMusicRegulationTags } from '../music/musicRegulationTags';
-import { getAllVideoRegulationAssets } from '../video/videoRegulationCatalog';
 import {
   type AgentActionId,
   getAgentAction,
-  getAgentAvailableResourcesForPhase,
   getAgentActionValidation,
 } from './agentActions';
+import {
+  type AgentActionParams,
+  formatAgentActionError,
+  getPlannerDurationParam,
+  getPlannerStringParam,
+} from './agentActionParams';
 import {
   addAgentTimelineEntry,
   type AgentPersonalizedAnswer,
   type AgentTimelineEntry,
 } from './agentContext';
-import {
-  toAgentEegGuardView,
-  validateAgentPauseRecord,
-  validateAgentResumeRecord,
-  validateAgentStartDevice,
-  validateAgentStartRecord,
-  validateAgentStopAndSaveRecord,
-  validateAgentStopDevice,
-} from './agentEegGuards';
+import { executeAgentEegAction } from './agentEegActions';
+import { toAgentEegGuardView } from './agentEegGuards';
 import { classifyAgentIntent } from './agentIntent';
 import { buildAgentMusicPreview } from './agentMusic';
-import { requestAgentPlanStream } from './agentPlannerApi';
+import { requestAgentPlannerRecommendation, type AgentPlannerActionMap } from './agentPlannerRequest';
+import { createThinkingBuffer } from './agentThinkingBuffer';
 import { findAgentVideoMatch } from './agentVideo';
 import {
   type AgentPhase,
@@ -45,9 +42,6 @@ export type PendingAgentConfirmation = {
   params: AgentActionParams;
 };
 
-type AgentActionParamValue = string | number | boolean | string[];
-type AgentActionParams = Record<string, AgentActionParamValue>;
-
 export type UseExperimentAgentOptions = {
   pathname: string;
   navigateTo: (path: string) => void;
@@ -59,7 +53,7 @@ const plannerActionMap = {
   play_video: 'play_video',
   recommend_video: 'select_video',
   recommend_music: 'generate_music',
-} as const satisfies Partial<Record<string, AgentActionId>>;
+} as const satisfies AgentPlannerActionMap;
 
 const localFirstActionIds = new Set<AgentActionId>([
   'go_next_page',
@@ -78,33 +72,6 @@ const localFirstActionIds = new Set<AgentActionId>([
 
 function isLocalFirstAction(actionId: AgentActionId | 'unknown'): actionId is AgentActionId {
   return actionId !== 'unknown' && localFirstActionIds.has(actionId);
-}
-
-function normalizeAgentActionParams(params: Record<string, AgentActionParamValue> | undefined): AgentActionParams {
-  return params ?? {};
-}
-
-function getPlannerStringParam(params: AgentActionParams, key: string): string | null {
-  const value = params[key];
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
-}
-
-function getPlannerDurationParam(params: AgentActionParams): number | null {
-  const value = params.duration;
-  return typeof value === 'number' && Number.isFinite(value) && value >= 5 && value <= 120 ? value : null;
-}
-
-const THINKING_FLUSH_INTERVAL_MS = 100;
-
-function formatAgentActionError(reason: unknown): string {
-  const detail = reason instanceof Error ? reason.message : String(reason);
-  return `操作执行失败：${detail}`;
-}
-
-/** Copy for a context command that failed after the guard passed; the mapped
- * operator-facing detail is on the EEG page via eeg.errorMessage. */
-function eegCommandFailureMessage(commandLabel: string): string {
-  return `${commandLabel}失败，详情见 EEG 采集页错误提示。`;
 }
 
 export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentOptions) {
@@ -144,8 +111,13 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
   const [thinkingDurationMs, setThinkingDurationMs] = useState<number | null>(null);
   const timelineRef = useRef(timeline);
-  const thinkingBufferRef = useRef('');
-  const thinkingFlushTimerRef = useRef<number | null>(null);
+  // One buffered-thinking accumulator for the hook's whole lifetime (the ref
+  // init runs once; setThinkingSteps is a stable setter).
+  const thinkingBufferRef = useRef<ReturnType<typeof createThinkingBuffer> | null>(null);
+  if (thinkingBufferRef.current === null) {
+    thinkingBufferRef.current = createThinkingBuffer(setThinkingSteps);
+  }
+  const thinkingBuffer = thinkingBufferRef.current;
   const plannerAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -159,12 +131,9 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   useEffect(() => {
     return () => {
       plannerAbortRef.current?.abort();
-      if (thinkingFlushTimerRef.current !== null) {
-        window.clearTimeout(thinkingFlushTimerRef.current);
-        thinkingFlushTimerRef.current = null;
-      }
+      thinkingBuffer.dispose();
     };
-  }, []);
+  }, [thinkingBuffer]);
 
   const recommendedPrompt = useMemo(() => getRecommendedPrompt(phase), [phase]);
   const quickPrompts = useMemo(() => {
@@ -190,33 +159,12 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   }, [phase]);
 
   const flushBufferedThinking = useCallback(() => {
-    if (thinkingFlushTimerRef.current !== null) {
-      window.clearTimeout(thinkingFlushTimerRef.current);
-      thinkingFlushTimerRef.current = null;
-    }
-
-    const bufferedDelta = thinkingBufferRef.current;
-    if (bufferedDelta.length === 0) {
-      return;
-    }
-
-    thinkingBufferRef.current = '';
-    setThinkingSteps((currentSteps) => {
-      const nextSteps = currentSteps.length > 0 ? [...currentSteps] : [''];
-      nextSteps[nextSteps.length - 1] = `${nextSteps[nextSteps.length - 1]}${bufferedDelta}`;
-      return nextSteps;
-    });
-  }, []);
+    thinkingBuffer.flush();
+  }, [thinkingBuffer]);
 
   const appendThinkingDelta = useCallback((delta: string) => {
-    thinkingBufferRef.current += delta;
-    if (thinkingFlushTimerRef.current === null) {
-      thinkingFlushTimerRef.current = window.setTimeout(() => {
-        thinkingFlushTimerRef.current = null;
-        flushBufferedThinking();
-      }, THINKING_FLUSH_INTERVAL_MS);
-    }
-  }, [flushBufferedThinking]);
+    thinkingBuffer.append(delta);
+  }, [thinkingBuffer]);
 
   const executeAction = useCallback(async (actionId: AgentActionId, params: AgentActionParams = {}) => {
     // Guard view assembled at execution time from the captured primitives —
@@ -246,132 +194,32 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
         setMessage(`已进入：${getRecommendedPrompt(nextPhase)}`);
         return;
       }
-      case 'start_eeg_device': {
-        const verdict = validateAgentStartDevice(eegGuardView);
-        if (!verdict.ok) {
-          setMessage(verdict.reason);
-          return;
-        }
-
-        const accepted = await startDevice();
-        setMessage(accepted
-          ? '已请求启动 EEG 设备。'
-          : eegCommandFailureMessage('启动 EEG 设备'));
+      // The EEG device/record command choreography lives in agentEegActions;
+      // each command re-validates its own guard at execution time.
+      case 'start_eeg_device':
+      case 'stop_eeg_device':
+      case 'start_eeg_recording':
+      case 'pause_eeg_recording':
+      case 'resume_eeg_recording':
+      case 'stop_and_save_eeg_recording':
+      case 'start_eeg_device_and_record':
+      case 'stop_save_eeg_and_go_next':
+        await executeAgentEegAction(actionId, {
+          eegGuardView,
+          phase,
+          canStartDevice,
+          canStopRecord,
+          deviceStatus,
+          startDevice,
+          stopDevice,
+          startRecord,
+          pauseRecord,
+          resumeRecord,
+          stopRecord,
+          setMessage,
+          navigateTo,
+        });
         return;
-      }
-      case 'stop_eeg_device': {
-        const verdict = validateAgentStopDevice(eegGuardView);
-        if (!verdict.ok) {
-          setMessage(verdict.reason);
-          return;
-        }
-
-        // Same sequence as the manual guard on the EEG page: an active
-        // recording is saved through the normal stop path first, and a failed
-        // save aborts the shutdown instead of silently dropping the data.
-        const mustSaveFirst = canStopRecord;
-        if (mustSaveFirst) {
-          const saved = await stopRecord();
-          if (!saved) {
-            setMessage('停止并保存 EEG 数据失败，设备保持连接，详情见 EEG 采集页错误提示。');
-            return;
-          }
-        }
-
-        const stopped = await stopDevice();
-        setMessage(stopped
-          ? (mustSaveFirst ? '已停止并保存 EEG 数据，设备已关闭。' : '已停止 EEG 设备。')
-          : eegCommandFailureMessage('停止 EEG 设备'));
-        return;
-      }
-      case 'start_eeg_recording': {
-        const verdict = validateAgentStartRecord(eegGuardView);
-        if (!verdict.ok) {
-          setMessage(verdict.reason);
-          return;
-        }
-
-        const started = await startRecord();
-        setMessage(started
-          ? (phase === 'recovery' ? '已开始恢复采集。' : '已开始基线采集。')
-          : eegCommandFailureMessage('开始 EEG 采集'));
-        return;
-      }
-      case 'pause_eeg_recording': {
-        const verdict = validateAgentPauseRecord(eegGuardView);
-        if (!verdict.ok) {
-          setMessage(verdict.reason);
-          return;
-        }
-
-        setMessage(pauseRecord() ? '已暂停 EEG 采集。' : eegCommandFailureMessage('暂停 EEG 采集'));
-        return;
-      }
-      case 'resume_eeg_recording': {
-        const verdict = validateAgentResumeRecord(eegGuardView);
-        if (!verdict.ok) {
-          setMessage(verdict.reason);
-          return;
-        }
-
-        setMessage(resumeRecord() ? '已继续 EEG 采集。' : eegCommandFailureMessage('继续 EEG 采集'));
-        return;
-      }
-      case 'stop_and_save_eeg_recording': {
-        const verdict = validateAgentStopAndSaveRecord(eegGuardView);
-        if (!verdict.ok) {
-          setMessage(verdict.reason);
-          return;
-        }
-
-        const saved = await stopRecord();
-        setMessage(saved
-          ? '已停止并保存 EEG 数据。'
-          : 'EEG 记录未能停止保存，数据尚未落盘，详情见 EEG 采集页错误提示。');
-        return;
-      }
-      case 'start_eeg_device_and_record': {
-        if (canStartDevice) {
-          await startDevice();
-        } else if (deviceStatus === 'stopping') {
-          setMessage('EEG 设备正在停止中，请等待停止完成后再试。');
-          return;
-        }
-
-        // Click-time snapshot: right after requesting the device start the
-        // stream cannot be recording-ready yet, so this reports not-ready
-        // (with the matching reason) instead of pretending capture began.
-        // startRecord itself re-checks the same gate internally.
-        const recordVerdict = validateAgentStartRecord(eegGuardView);
-        if (!recordVerdict.ok) {
-          setMessage(recordVerdict.reason);
-          return;
-        }
-
-        const started = await startRecord();
-        setMessage(started
-          ? (phase === 'recovery' ? '已启动设备并开始恢复采集。' : '已启动设备并开始基线采集。')
-          : eegCommandFailureMessage('开始 EEG 采集'));
-        return;
-      }
-      case 'stop_save_eeg_and_go_next': {
-        const verdict = validateAgentStopAndSaveRecord(eegGuardView);
-        if (!verdict.ok) {
-          setMessage(verdict.reason);
-          return;
-        }
-
-        const saved = await stopRecord();
-        if (!saved) {
-          setMessage('EEG 记录未能停止保存，仍停留在当前阶段，详情见 EEG 采集页错误提示。');
-          return;
-        }
-
-        const nextPhase = getNextAgentPhase(phase);
-        navigateTo(getRouteForAgentPhase(nextPhase));
-        setMessage(`已停止并保存 EEG 数据，进入：${getRecommendedPrompt(nextPhase)}`);
-        return;
-      }
       case 'select_video': {
         const match = findAgentVideoMatch('放松视频');
         setMessage(match.message);
@@ -495,90 +343,21 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   }, [executeAction, phase, pushTimeline]);
 
   const requestPlannerRecommendation = useCallback(async (input: string) => {
-    plannerAbortRef.current?.abort();
-    const abortController = new AbortController();
-    plannerAbortRef.current = abortController;
-
-    try {
-      const videos = getAllVideoRegulationAssets().map((video) => ({
-        id: video.id,
-        tags: video.tags,
-        title: video.title,
-      }));
-      const currentMusicTags = getCurrentMusicRegulationTags();
-      const response = await requestAgentPlanStream(
-        {
-          availableResources: getAgentAvailableResourcesForPhase(phase, videos),
-          currentRoute: pathname,
-          personalizedContext: {
-            answers: currentMusicTags.length > 0
-              ? [
-                ...personalizedAnswers,
-                {
-                  answer: currentMusicTags.join(', '),
-                  createdAt: Date.now(),
-                  normalizedTags: currentMusicTags,
-                  phase: 'music_regulation' as const,
-                },
-              ]
-              : personalizedAnswers,
-            timeline: timelineRef.current,
-          },
-          phase,
-          scaleStatus: getMentalScaleStatusSnapshot(),
-          userInput: input,
-        },
-        { onThinkingDelta: appendThinkingDelta, signal: abortController.signal },
-      );
-
-      if (abortController.signal.aborted) {
-        return true;
-      }
-
-      flushBufferedThinking();
-
-      if (response.status === 'unavailable') {
-        setIsPlannerAvailable(false);
-        setThinkingSteps(response.thinking ?? []);
-        setMessage('智能助手暂不可用，请使用页面手动操作。');
-        return false;
-      }
-
-      setIsPlannerAvailable(true);
-      setThinkingSteps(response.thinking ?? []);
-      if (response.action === 'generate_summary' || response.action === 'ask_personalized_question' || response.action === 'no_op') {
-        setMessage(response.reason);
-        pushTimeline('planner', response.reason);
-        return true;
-      }
-
-      const actionId = plannerActionMap[response.action];
-      if (!actionId) {
-        setMessage('智能助手返回了不可执行操作，已拒绝。');
-        return true;
-      }
-
-      setMessage(response.reason);
-      if ((response.action === 'play_video' || response.action === 'recommend_video') && typeof response.params.videoId === 'string') {
-        pushTimeline('planner', `recommend_video:${response.params.videoId}`);
-      }
-      if (response.action === 'recommend_music') {
-        const style = typeof response.params.style === 'string' ? response.params.style : '';
-        const details = typeof response.params.details === 'string' ? response.params.details : '';
-        pushTimeline('planner', `recommend_music:${style}|${details}`);
-      }
-      const plannerParams = normalizeAgentActionParams(response.params);
-      await queueOrExecute(actionId, response.requiresConfirmation, plannerParams);
-      return true;
-    } catch (reason) {
-      if (plannerAbortRef.current?.signal.aborted) {
-        return true;
-      }
-
-      setIsPlannerAvailable(false);
-      setMessage('智能助手暂不可用，已切换为本地指令识别。');
-      return false;
-    }
+    return requestAgentPlannerRecommendation(input, {
+      pathname,
+      personalizedAnswers,
+      phase,
+      abortRef: plannerAbortRef,
+      timelineRef,
+      plannerActionMap,
+      onThinkingDelta: appendThinkingDelta,
+      flushThinking: flushBufferedThinking,
+      queueOrExecute,
+      pushTimeline,
+      setMessage,
+      setIsPlannerAvailable,
+      setThinkingSteps,
+    });
   }, [appendThinkingDelta, flushBufferedThinking, pathname, personalizedAnswers, phase, queueOrExecute, pushTimeline]);
 
   const submitPrompt = useCallback(async (input: string) => {

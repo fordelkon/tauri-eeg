@@ -2,10 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { useEegSession } from '../../eeg/EegSessionContext';
-import { loadParadigmVideoLibrary } from '../../eeg/paradigm/paradigmApi';
-import { readStoredLibraryRootPath } from '../../eeg/paradigm/paradigmStorage';
 import { getParadigmSessionStatus } from '../../eeg/paradigm/paradigmSessionStatus';
-import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
 import {
   buildBatteryMentalScaleStatus,
   updateMentalScaleStatus,
@@ -19,37 +16,29 @@ import {
   type BatteryAnswers,
 } from '../../mentalScale/instruments/battery';
 import { recordScaleCompletion } from '../../mentalScale/scaleCompletion';
-import { writeStoredSubjectId } from '../../storage/currentSubject';
-import {
-  computeConditionEffect,
-  computeRegulationEffect,
-  savePhaseInstrumentRecord,
-  type ConditionEffectComparisonView,
-  type RegulationEffectSummaryView,
-  type ScalePhase,
-} from '../../mentalScale/scaleRecordsApi';
+import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject';
+import { savePhaseInstrumentRecord, type ScalePhase } from '../../mentalScale/scaleRecordsApi';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import {
   clearFlowStateFromStorage,
   createEffectEvaluationFlowState,
-  describeInductionPoolStatus,
-  describeMissingMeasurements,
   isRegulationWindowOpen,
-  paradigmPoolKeyForEmotion,
   readFlowStateFromStorage,
   regulationPathForMethod,
   setupBlockingReason,
   writeFlowStateToStorage,
   type EffectEvaluationFlowState,
-  type InductionPoolStatus,
 } from './effectEvaluationFlow';
+import { useEffectInductionPool } from './useEffectInductionPool';
+import { useEffectResultReports } from './useEffectResultReports';
 
 /**
  * React wiring for the effect-evaluation wizard (R6: 设置 -> 情绪诱发 ->
  * 诱发后量表 -> 条件执行 -> 条件后量表 -> 结果评价). All step gating,
  * countdown math, and copy decisions live in the pure `effectEvaluationFlow`
  * module; this hook only bridges it to React state, Tauri persistence,
- * navigation, and the EEG recording context.
+ * navigation, and the EEG recording context. The induction video pool and
+ * the result-step reports load through their own focused hooks.
  *
  * The whole state is mirrored into sessionStorage so jumping to the music/
  * video regulation page (which unmounts this route) and coming back resumes
@@ -96,22 +85,21 @@ export function useEffectEvaluationFlow() {
     () => readStoredFlowState(),
   );
   const [state, setState] = useState<EffectEvaluationFlowState>(
-    () => storedInitialState ?? createEffectEvaluationFlowState(),
+    () => storedInitialState ?? {
+      ...createEffectEvaluationFlowState(),
+      // Subject handoff (ParadigmRunner finished screen → wizard): the
+      // paradigm setup panel validated and stored the subject id, so a fresh
+      // run starts pre-filled from the shared memory (still editable; a
+      // resumed run keeps its stored binding untouched).
+      subjectId: readStoredSubjectId(),
+    },
   );
   const [isSavingScale, setIsSavingScale] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<RegulationEffectSummaryView | null>(null);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  // Cross-condition comparison (R6, 大纲 6.2): regulation vs natural-recovery
-  // runs of the same subject+emotion; independent of the in-run summary.
-  const [conditionComparison, setConditionComparison] = useState<ConditionEffectComparisonView | null>(null);
-  const [conditionComparisonError, setConditionComparisonError] = useState<string | null>(null);
-  const [isLoadingConditionComparison, setIsLoadingConditionComparison] = useState(false);
-  // Induction-step video pool (R6): entries of the target emotion's class in
-  // the video_paradigm library; null = no valid library / unusable pool.
-  const [inductionPool, setInductionPool] = useState<readonly ParadigmVideoEntry[] | null>(null);
-  const [isInductionPoolLoading, setIsInductionPoolLoading] = useState(false);
+  // Induction-step video pool + result-step reports load through their own
+  // focused hooks; both expose loading flags and retry loaders to the page.
+  const { inductionStatus, isInductionPoolLoading } = useEffectInductionPool(state.emotion, state.step);
+  const resultReports = useEffectResultReports(state);
   // Set when this flow started the EEG recording and still expects its session
   // id; a ref because stopRecord resolves before the context publishes the row.
   const awaitingSessionIdRef = useRef(false);
@@ -233,61 +221,6 @@ export function useEffectEvaluationFlow() {
 
     setState((current) => ({ ...current, step: 1 }));
   }, [state]);
-
-  // Load the induction pool when the induction step becomes visible (R6):
-  // the video_paradigm library root stored by the EEG acquisition page feeds
-  // the emotion's entries; a missing/invalid library degrades to null and the
-  // pure status helper turns that into an explicit blocked copy.
-  useEffect(() => {
-    if (state.step !== 1) {
-      return undefined;
-    }
-
-    const rootPath = readStoredLibraryRootPath();
-    // R8: every wizard emotion maps onto a scheduled paradigm class.
-    const poolKey = paradigmPoolKeyForEmotion(state.emotion);
-
-    if (rootPath.length === 0) {
-      setInductionPool(null);
-      setIsInductionPoolLoading(false);
-      return undefined;
-    }
-
-    let cancelled = false;
-    setIsInductionPoolLoading(true);
-
-    void loadParadigmVideoLibrary(rootPath)
-      .then((library) => {
-        if (cancelled) {
-          return;
-        }
-
-        setInductionPool(library.valid ? (library[poolKey] ?? null) : null);
-      })
-      .catch(() => {
-        if (cancelled) {
-          return;
-        }
-
-        setInductionPool(null);
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsInductionPoolLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [state.emotion, state.step]);
-
-  // The pool entry is picked once per (emotion, pool); the memo keeps the
-  // pick stable across re-renders of the step.
-  const inductionStatus: InductionPoolStatus = useMemo(
-    () => describeInductionPoolStatus(state.emotion, inductionPool),
-    [state.emotion, inductionPool],
-  );
 
   /**
    * Best-effort EEG start shared by the induction and condition-execution
@@ -507,77 +440,6 @@ export function useEffectEvaluationFlow() {
     [leaveRegulationStep],
   );
 
-  const loadSummary = useCallback(async () => {
-    const missingCopy = describeMissingMeasurements(state);
-
-    if (missingCopy) {
-      setSummary(null);
-      setSummaryError(missingCopy);
-      return;
-    }
-
-    const baselineRecordId = state.baselineRecordId!;
-    const postRecordId = state.postRecordId!;
-
-    setIsLoadingSummary(true);
-    setSummaryError(null);
-
-    try {
-      setSummary(await computeRegulationEffect(baselineRecordId, postRecordId));
-    } catch (error) {
-      setSummaryError(describeFriendlyError(error, '计算调控效果'));
-    } finally {
-      setIsLoadingSummary(false);
-    }
-  }, [state.baselineRecordId, state.postRecordId]);
-
-  // Auto-load the summary when the result step becomes visible.
-  useEffect(() => {
-    if (state.step === 5 && !summary && !summaryError && !isLoadingSummary) {
-      void loadSummary();
-    }
-  }, [isLoadingSummary, loadSummary, state.step, summary, summaryError]);
-
-  /**
-   * Cross-condition comparison (R6, 大纲 6.2): pairs this subject+emotion's
-   * latest complete run of each condition and computes the regulation
-   * condition's improvement relative to the natural-recovery baseline. Errors
-   * when either condition has no complete run yet - the result step renders
-   * that as guidance instead of a hard failure.
-   */
-  const loadConditionComparison = useCallback(async () => {
-    setIsLoadingConditionComparison(true);
-    setConditionComparisonError(null);
-
-    try {
-      setConditionComparison(
-        await computeConditionEffect(state.subjectId.trim(), state.emotion),
-      );
-    } catch (error) {
-      setConditionComparisonError(describeFriendlyError(error, '计算跨条件对比'));
-    } finally {
-      setIsLoadingConditionComparison(false);
-    }
-  }, [state.emotion, state.subjectId]);
-
-  // Auto-load the comparison next to the in-run summary on the result step.
-  useEffect(() => {
-    if (
-      state.step === 5
-      && !conditionComparison
-      && !conditionComparisonError
-      && !isLoadingConditionComparison
-    ) {
-      void loadConditionComparison();
-    }
-  }, [
-    conditionComparison,
-    conditionComparisonError,
-    isLoadingConditionComparison,
-    loadConditionComparison,
-    state.step,
-  ]);
-
   /**
    * Discards the current run (kept records stay in the database). A live EEG
    * recording is stopped first (R4/F3): the abandoned run no longer owns it,
@@ -595,44 +457,34 @@ export function useEffectEvaluationFlow() {
     }
 
     setActionError(null);
-    setSummary(null);
-    setSummaryError(null);
-    setConditionComparison(null);
-    setConditionComparisonError(null);
+    resultReports.clearResults();
     setState(createEffectEvaluationFlowState());
     // The effect above re-writes storage; drop the key in case writes fail.
     clearStoredFlowState();
-  }, [stopRecord]);
+  }, [resultReports, stopRecord]);
 
   const openRegulationPage = useCallback(() => {
     navigate(regulationPathForMethod(state.method));
   }, [navigate, state.method]);
 
   return {
+    ...resultReports,
     actionError,
     beginInduction,
     beginRegulation,
     completeInduction,
     completeScaleMeasurement,
-    conditionComparison,
-    conditionComparisonError,
     finishRegulation,
     inductionStatus,
     isResumedRun: storedInitialState !== null,
-    isLoadingConditionComparison,
-    isLoadingSummary,
     isInductionPoolLoading,
     isSavingScale,
-    loadConditionComparison,
-    loadSummary,
     openRegulationPage,
     resetFlow,
     scaleDefinitionFor,
     skipRemainingRegulation,
     startBaselineMeasurement,
     state,
-    summary,
-    summaryError,
     updateDraft,
   };
 }
