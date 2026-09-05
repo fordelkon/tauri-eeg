@@ -1,0 +1,374 @@
+/*
+ * Shared visual language for the three scale dialogs (PHQ-4 gate, pre/post
+ * battery, paradigm SAM self-report). Everything derives from the global
+ * tokens in src/styles/tokens.css plus a few component-local variables on
+ * .base — no new global tokens, no glow/gradient-banner effects, motion kept
+ * to 120-180ms ease-out.
+ */
+
+.base {
+  /* Ink + accent: the scale dialogs read on the warm surface with the cool
+     ink dialect; the accent (selected fill) is the same cool ink so the
+     pressed anchor, the primary button and the badges stay one color story. */
+  --scale-ink: var(--ink-cool);
+  --scale-ink-soft: rgba(23, 32, 38, 0.6);
+  --scale-accent: var(--ink-cool);
+  --scale-accent-ink: #fff;
+  --scale-line: rgba(23, 32, 38, 0.14);
+  --scale-line-strong: rgba(23, 32, 38, 0.32);
+  --scale-hover-wash: rgba(23, 32, 38, 0.06);
+  --scale-anchor-min: 40px;
+  --scale-anchor-radius: 10px;
+  --scale-anchor-gap: 7px;
+  --scale-motion: 120ms var(--ease-out);
+}
+
+/* ---------------------------------------------------------------- anchors */
+
+.anchorGroup {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Discrete layout: one segmented row of numbered buttons; the Chinese label
+   of the SELECTED value renders below the row so 4-5 columns never squeeze
+   the label text inside the buttons. */
+.anchorRow {
+  display: flex;
+  gap: var(--scale-anchor-gap);
+  min-width: 0;
+}
+
+.anchorButton {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--scale-line-strong);
+  border-radius: var(--scale-anchor-radius);
+  color: var(--scale-ink);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 1 1 0;
+  font: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  justify-content: center;
+  min-height: var(--scale-anchor-min);
+  min-width: var(--scale-anchor-min);
+  padding: 0 6px;
+  transition:
+    background-color var(--scale-motion),
+    border-color var(--scale-motion),
+    box-shadow var(--scale-motion),
+    color var(--scale-motion),
+    transform var(--scale-motion);
+}
+
+.anchorButton:hover {
+  background: var(--scale-hover-wash);
+  border-color: rgba(23, 32, 38, 0.52);
+}
+
+.anchorButton:focus-visible {
+  box-shadow: var(--ring);
+  outline: none;
+}
+
+/* Bipolar layout (SAM): both Chinese pole labels bracket a rail of round
+   numeric buttons. The rail is a subtle cool->warm gradient line peeking
+   between the buttons; values are literal low-alpha echoes of the --info,
+   --success and --brand tokens (rgba(var()) composition is not valid CSS). */
+.bipolarRow {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+  min-width: 0;
+}
+
+.bipolarPoleLabel {
+  color: var(--scale-ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.bipolarTrack {
+  display: flex;
+  gap: var(--scale-anchor-gap);
+  justify-content: space-between;
+  min-width: 0;
+  position: relative;
+}
+
+.bipolarTrack::before {
+  background: linear-gradient(
+    90deg,
+    rgba(36, 95, 157, 0.3),
+    rgba(28, 106, 71, 0.22),
+    rgba(223, 2, 3, 0.3)
+  );
+  border-radius: 999px;
+  content: "";
+  height: 4px;
+  left: 8px;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.bipolarButton {
+  background: var(--surface-raised);
+  border-radius: 999px;
+  flex: 0 0 auto;
+  width: var(--scale-anchor-min);
+}
+
+/* Selected state: solid accent fill + light text + soft shadow + a 120ms
+   scale pop. Declared after the hover rules so it wins the cascade. */
+.anchorSelected,
+.anchorSelected:hover {
+  background: var(--scale-accent);
+  border-color: var(--scale-accent);
+  box-shadow: 0 6px 16px rgba(23, 32, 38, 0.24);
+  color: var(--scale-accent-ink);
+  transform: scale(1.05);
+}
+
+/* The Chinese anchor label under a discrete row; reserved height keeps the
+   item rhythm stable between answered and unanswered rows. */
+.anchorValueLabel {
+  color: var(--scale-ink);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0;
+  min-height: 18px;
+}
+
+.anchorValueLabelMuted {
+  color: var(--scale-ink-soft);
+  font-weight: 550;
+}
+
+/* -------------------------------------------------------------- item rows */
+
+.itemRow {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.itemPrompt {
+  color: var(--scale-ink);
+  display: flex;
+  font-size: 15.5px;
+  font-weight: 650;
+  gap: 8px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.itemBadge {
+  align-items: center;
+  align-self: flex-start;
+  background: var(--scale-accent);
+  border-radius: 999px;
+  color: var(--scale-accent-ink);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 720;
+  justify-content: center;
+  line-height: 1;
+  margin-top: 4px;
+  min-height: 24px;
+  min-width: 36px;
+  padding: 0 8px;
+}
+
+/* --------------------------------------------------------- section header */
+
+.sectionHeader {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sectionEyebrow {
+  color: var(--scale-ink-soft);
+  font-size: 11px;
+  font-weight: 740;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.sectionTitleRow {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.sectionTitle {
+  color: var(--scale-ink);
+  font-size: 16px;
+  font-weight: 740;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.sectionCount {
+  color: var(--scale-ink-soft);
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.sectionCountDone {
+  color: var(--success);
+}
+
+.sectionInstruction {
+  color: var(--scale-ink-soft);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.bar {
+  background: rgba(23, 32, 38, 0.08);
+  border-radius: 999px;
+  display: block;
+  height: 4px;
+  overflow: hidden;
+}
+
+.barFill {
+  background: var(--scale-accent);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width 180ms var(--ease-out);
+}
+
+.barFillDone {
+  background: var(--success);
+}
+
+/* -------------------------------------------------------- progress (total) */
+
+.progressBar {
+  align-items: center;
+  display: flex;
+  flex: 1 1 auto;
+  gap: 10px;
+  min-width: 0;
+}
+
+.progressText {
+  color: var(--scale-ink-soft);
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.progressTrack {
+  background: rgba(23, 32, 38, 0.08);
+  border-radius: 999px;
+  display: block;
+  flex: 1 1 auto;
+  height: 4px;
+  overflow: hidden;
+}
+
+.progressFill {
+  background: var(--brand-grad);
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+  transition: width 180ms var(--ease-out);
+}
+
+.progressFillDone {
+  background: var(--success);
+}
+
+/* -------------------------------------------------------- dev auto-fill */
+
+.devFillGroup {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 1 auto;
+  gap: 8px;
+  min-width: 0;
+}
+
+.devFillButton {
+  background: transparent;
+  border: 1px dashed var(--scale-line-strong);
+  border-radius: var(--radius-control);
+  color: var(--scale-ink-soft);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 12px;
+  transition:
+    background-color var(--scale-motion),
+    border-color var(--scale-motion),
+    color var(--scale-motion);
+  white-space: nowrap;
+}
+
+.devFillButton:hover {
+  background: var(--scale-hover-wash);
+  border-color: rgba(23, 32, 38, 0.52);
+  color: var(--scale-ink);
+}
+
+.devClearButton {
+  background: transparent;
+  border: 1px solid var(--scale-line);
+  border-radius: var(--radius-control);
+  color: var(--scale-ink-soft);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+  transition:
+    background-color var(--scale-motion),
+    color var(--scale-motion);
+}
+
+.devClearButton:hover {
+  background: var(--scale-hover-wash);
+  color: var(--scale-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anchorButton,
+  .barFill,
+  .progressFill,
+  .devFillButton,
+  .devClearButton {
+    transition: none;
+  }
+
+  .anchorSelected,
+  .anchorSelected:hover {
+    transform: none;
+  }
+}

@@ -1,0 +1,10 @@
+# Fallback for environments without uv: `pip install -r requirements-eeg.txt`
+# The canonical dependency source is pyproject.toml (`uv sync`).
+numpy>=2.0,<3.0
+scipy>=1.13,<2.0
+scikit-learn>=1.5,<2.0
+joblib>=1.4,<2.0
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+pydantic==2.9.0
+pytest>=8.3,<9.0

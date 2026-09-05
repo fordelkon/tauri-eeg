@@ -7,17 +7,23 @@ import { readStoredLibraryRootPath } from '../../eeg/paradigm/paradigmStorage';
 import { getParadigmSessionStatus } from '../../eeg/paradigm/paradigmSessionStatus';
 import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
 import {
-  getMentalScaleForPath,
-  type MentalScaleAnswers,
-  type MentalScaleDefinition,
-} from '../../mentalScale/mentalScaleGate';
-import { buildMentalScaleStatus, updateMentalScaleStatus } from '../../mentalScale/mentalScaleStatus';
+  buildBatteryMentalScaleStatus,
+  updateMentalScaleStatus,
+} from '../../mentalScale/mentalScaleStatus';
+import {
+  STAI_PANAS_BATTERY_SCALE_ID,
+  batteryDimensionKeys,
+  buildBatteryDefinition,
+  buildBatteryRawAnswers,
+  computeBatteryDimensions,
+  type BatteryAnswers,
+} from '../../mentalScale/instruments/battery';
 import { recordScaleCompletion } from '../../mentalScale/scaleCompletion';
 import { writeStoredSubjectId } from '../../storage/currentSubject';
 import {
   computeConditionEffect,
   computeRegulationEffect,
-  savePhaseScaleRecord,
+  savePhaseInstrumentRecord,
   type ConditionEffectComparisonView,
   type RegulationEffectSummaryView,
   type ScalePhase,
@@ -63,6 +69,14 @@ function writeStoredFlowState(state: EffectEvaluationFlowState): void {
 function clearStoredFlowState(): void {
   clearFlowStateFromStorage(window.sessionStorage);
 }
+
+/**
+ * Node ② baseline battery (doc scale-instruments.md §3.3): the shared
+ * STAI-S + PANAS battery with the SAM manipulation-check section prepended;
+ * its answers ride the baseline record as raw_answers.sam. Pure data, so it
+ * is built once at module load.
+ */
+const BASELINE_SCALE_DEFINITION = buildBatteryDefinition({ includeSam: true });
 
 export function useEffectEvaluationFlow() {
   const navigate = useNavigate();
@@ -173,9 +187,22 @@ export function useEffectEvaluationFlow() {
     };
   }, [stopRecord]);
 
-  const scaleForMethod: MentalScaleDefinition | null = useMemo(
-    () => getMentalScaleForPath(regulationPathForMethod(state.method)),
+  /**
+   * The pre/post measurement instrument (doc scale-instruments.md §1): the
+   * same STAI-S + PANAS battery for nodes ②/④ of every run, deliberately
+   * independent of the regulation method so cross-method comparison keeps one
+   * metric basis. Optional sections ride the same battery record (doc §3.3):
+   * the SAM manipulation check joins the baseline leg (node ②), and GEMS-9
+   * joins the post leg (node ④) for the music condition only.
+   */
+  const postScaleDefinition = useMemo(
+    () => buildBatteryDefinition({ includeGems: state.method === 'music' }),
     [state.method],
+  );
+
+  const scaleDefinitionFor = useCallback(
+    (phase: ScalePhase) => (phase === 'baseline' ? BASELINE_SCALE_DEFINITION : postScaleDefinition),
+    [postScaleDefinition],
   );
 
   const updateDraft = useCallback((
@@ -326,18 +353,18 @@ export function useEffectEvaluationFlow() {
   }, []);
 
   /**
-   * Steps 2/4: persists one scale submission under this run's subject, phase,
-   * and condition, mirrors it into the in-memory status/gate caches exactly like the
-   * standalone gate flow (so walking into the regulation page mid-loop does
-   * not re-prompt the gate dialog), then advances.
+   * Steps 2/4: persists one battery submission (scale_id
+   * 'stai_panas_battery_v1', doc scale-instruments.md §3.3) under this run's
+   * subject, phase, and condition, mirrors the computed dimensions into the
+   * in-memory status cache and the run's regulation path into the gate cache
+   * exactly like the standalone gate flow (so walking into the regulation
+   * page mid-loop does not re-prompt the gate), then advances.
    */
   const completeScaleMeasurement = useCallback(async (
     phase: ScalePhase,
-    answers: MentalScaleAnswers,
+    answers: BatteryAnswers,
   ) => {
-    const scale = scaleForMethod;
-
-    if (!scale || isSavingScale) {
+    if (isSavingScale) {
       return;
     }
 
@@ -345,10 +372,20 @@ export function useEffectEvaluationFlow() {
     setActionError(null);
 
     try {
-      const record = await savePhaseScaleRecord(scale, answers, {
+      // Battery scoring is pure and polarity-normalized (doc §3.2): the
+      // stored dimension_scores are already lower=better.
+      const dimensionScores = computeBatteryDimensions(answers.stai, answers.panas);
+      const record = await savePhaseInstrumentRecord({
         userId: currentUser?.id ?? null,
         subjectId: state.subjectId.trim(),
+        scaleId: STAI_PANAS_BATTERY_SCALE_ID,
         phase,
+        dimensionScores,
+        rawAnswers: buildBatteryRawAnswers(answers),
+        // The dialog requires every displayed question (including the optional
+        // SAM/GEMS sections), so every battery dimension is genuinely
+        // measured (R4/F1).
+        measuredDimensions: [...batteryDimensionKeys],
         emotion: state.emotion,
         condition: state.condition,
         durationMinutes: state.durationMinutes,
@@ -360,8 +397,8 @@ export function useEffectEvaluationFlow() {
         eegSessionId: phase === 'post' ? state.eegSessionId : null,
       });
 
-      updateMentalScaleStatus(buildMentalScaleStatus(scale, answers));
-      recordScaleCompletion(scale.path);
+      updateMentalScaleStatus(buildBatteryMentalScaleStatus(dimensionScores));
+      recordScaleCompletion(regulationPathForMethod(state.method));
 
       setState((current) => (
         phase === 'baseline'
@@ -376,11 +413,11 @@ export function useEffectEvaluationFlow() {
   }, [
     currentUser?.id,
     isSavingScale,
-    scaleForMethod,
     state.condition,
     state.durationMinutes,
     state.eegSessionId,
     state.emotion,
+    state.method,
     state.regulationSkipped,
     state.subjectId,
   ]);
@@ -590,7 +627,7 @@ export function useEffectEvaluationFlow() {
     openRegulationPage,
     remainingSeconds,
     resetFlow,
-    scaleForMethod,
+    scaleDefinitionFor,
     skipRemainingRegulation,
     startBaselineMeasurement,
     state,

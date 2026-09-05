@@ -48,9 +48,7 @@ describe('page Chinese copy', () => {
       '生成记录',
       '视频调控',
       '视频调节播放器',
-      '视频调控量表',
-      '游戏调控量表',
-      '音乐调控量表',
+      '心理健康筛查（PHQ-4）',
     ].forEach((copy) => {
       expect(sources).toContain(copy);
     });

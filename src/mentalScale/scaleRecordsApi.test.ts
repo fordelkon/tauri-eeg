@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   mentalScaleDefinitions,
   type MentalScaleAnswers,
-  type MentalScaleDefinition,
 } from './mentalScaleGate';
 import {
   defaultMentalScaleStatus,
@@ -15,18 +14,19 @@ import {
   exportEffectReport,
   listEffectHistory,
   persistMentalScaleSubmission,
-  savePhaseScaleRecord,
+  savePhaseInstrumentRecord,
   saveScaleRecord,
   type RegulationEffectSummaryView,
   type ScaleRecordInput,
 } from './scaleRecordsApi';
+import { PHQ4_SCALE_ID } from './instruments/phq4';
+import { STAI_PANAS_BATTERY_SCALE_ID } from './instruments/battery';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
 
 const videoScale = mentalScaleDefinitions['/video-regulation'];
-const musicScale: MentalScaleDefinition = mentalScaleDefinitions['/music-regulation'];
 
 function lastSaveInput(): ScaleRecordInput {
   const calls = vi.mocked(invoke).mock.calls;
@@ -50,47 +50,51 @@ describe('scaleRecordsApi', () => {
     await saveScaleRecord({
       userId: 'user-1',
       subjectId: null,
-      scaleId: '/video-regulation',
+      scaleId: PHQ4_SCALE_ID,
       phase: 'baseline',
       dimensionScores: { anxiety: 75, worry: 50, mood: 25, energy: 0 },
-      rawAnswers: { 'video-anxiety-tense': 2 },
+      rawAnswers: { 'phq4_1': 2, timeframe: 'past_2_weeks' },
     });
 
     expect(invoke).toHaveBeenCalledWith('save_scale_record', {
       input: {
         userId: 'user-1',
         subjectId: null,
-        scaleId: '/video-regulation',
+        scaleId: PHQ4_SCALE_ID,
         phase: 'baseline',
         dimensionScores: { anxiety: 75, worry: 50, mood: 25, energy: 0 },
-        rawAnswers: { 'video-anxiety-tense': 2 },
+        rawAnswers: { 'phq4_1': 2, timeframe: 'past_2_weeks' },
       },
     });
   });
 
-  it('persists a submission as a baseline record built from the scale answers', () => {
+  it('persists a gate submission as the PHQ-4 screening record (doc §3.3)', () => {
     const answers: MentalScaleAnswers = {
-      'video-anxiety-tense': 3,
-      'video-anxiety-worry': 1,
-      'video-depression-interest': 0,
+      phq4_1: 3,
+      phq4_2: 1,
+      phq4_3: 0,
     };
 
     persistMentalScaleSubmission(videoScale, answers, 'user-1');
 
     expect(invoke).toHaveBeenCalledTimes(1);
+    // The gate row carries the instrument scale_id (not the route path) and
+    // the trait-style timeframe inside raw_answers. Phase stays 'baseline' —
+    // the backend only accepts baseline/post (scale_records.rs validate_phase
+    // rejects a literal 'screen'), and the NULL condition keeps the row out
+    // of the wizard's explicit-condition pairing pools.
     // Per-question scores: 3 -> 100, 1 -> 33, 0 -> 0; each dimension averages
-    // its own questions. All four keys are stored (energy keeps its neutral
-    // placeholder for radar/status display), but the R4/F1 marker list names
-    // only the dimensions that actually received answers so the effect
-    // computation can exclude the placeholder.
+    // its own questions. All four keys are stored (unmeasured ones keep the
+    // neutral placeholder), but the R4/F1 marker list names only the
+    // dimensions that actually received answers.
     expect(lastSaveInput()).toEqual({
       userId: 'user-1',
       subjectId: null,
-      scaleId: '/video-regulation',
+      scaleId: PHQ4_SCALE_ID,
       phase: 'baseline',
-      dimensionScores: { anxiety: 100, worry: 33, mood: 0, energy: 50 },
-      rawAnswers: answers,
-      measuredDimensions: ['anxiety', 'worry', 'mood'],
+      dimensionScores: { anxiety: 0, worry: 50, mood: 67, energy: 50 },
+      rawAnswers: { ...answers, timeframe: 'past_2_weeks' },
+      measuredDimensions: ['anxiety', 'mood'],
     });
   });
 
@@ -117,7 +121,7 @@ describe('scaleRecordsApi', () => {
     vi.mocked(invoke).mockRejectedValueOnce(new Error('db unavailable'));
 
     expect(() =>
-      persistMentalScaleSubmission(videoScale, { 'video-anxiety-tense': 2 }, 'user-1'),
+      persistMentalScaleSubmission(videoScale, { phq4_1: 2 }, 'user-1'),
     ).not.toThrow();
 
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -150,7 +154,7 @@ describe('subject_id passthrough (R2 效果闭环)', () => {
   it('falls back to the shared subject memory when no explicit binding is given', () => {
     stubSharedSubjectMemory('subj-paradigm');
 
-    persistMentalScaleSubmission(videoScale, { 'video-anxiety-tense': 1 }, 'user-1');
+    persistMentalScaleSubmission(videoScale, { phq4_1: 1 }, 'user-1');
 
     // Gate submissions (no options) inherit the operator's last subject.
     expect(lastSaveInput().subjectId).toBe('subj-paradigm');
@@ -173,47 +177,58 @@ describe('subject_id passthrough (R2 效果闭环)', () => {
 
     expect(lastSaveInput().subjectId).toBeNull();
   });
+});
 
-  it('persists an explicit phase and trimmed subject for the wizard flow', async () => {
-    const answers: MentalScaleAnswers = {
-      'music-depression-low': 2,
-      'music-depression-sleep': 3,
-      'music-anxiety-relax': 1,
-    };
+describe('phase instrument records (battery pre/post legs)', () => {
+  beforeEach(() => {
+    vi.mocked(invoke).mockResolvedValue(undefined);
+  });
 
-    await savePhaseScaleRecord(musicScale, answers, {
-      userId: 'user-1',
-      subjectId: ' subj-009 ',
-      phase: 'post',
-    });
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const batteryInput = {
+    userId: 'user-1',
+    subjectId: ' subj-009 ',
+    scaleId: STAI_PANAS_BATTERY_SCALE_ID,
+    phase: 'post' as const,
+    dimensionScores: { anxiety: 50, mood: 2.5, energy: 3 },
+    rawAnswers: { stai: { S1: 2 }, panas: { P1: 3 }, timeframe: 'now' },
+    measuredDimensions: ['anxiety', 'mood', 'energy'],
+  };
+
+  it('persists an explicit phase with a trimmed subject for the wizard flow', async () => {
+    await savePhaseInstrumentRecord(batteryInput);
 
     const input = lastSaveInput();
     expect(input.subjectId).toBe('subj-009');
     expect(input.phase).toBe('post');
-    expect(input.scaleId).toBe('/music-regulation');
+    expect(input.scaleId).toBe(STAI_PANAS_BATTERY_SCALE_ID);
+    expect(input.dimensionScores).toEqual({ anxiety: 50, mood: 2.5, energy: 3 });
+    expect(input.rawAnswers).toEqual({
+      stai: { S1: 2 },
+      panas: { P1: 3 },
+      timeframe: 'now',
+    });
+    expect(input.measuredDimensions).toEqual(['anxiety', 'mood', 'energy']);
   });
 
-  it('marks measured dimensions and forwards the eeg session id (R4/F1+F2)', async () => {
-    const answers: MentalScaleAnswers = {
-      // Only the two mood/energy questions of the music scale.
-      'music-depression-low': 2,
-      'music-anxiety-relax': 0,
-    };
-
-    await savePhaseScaleRecord(musicScale, answers, {
-      userId: 'user-1',
-      subjectId: 'subj-009',
-      phase: 'post',
+  it('defaults the run-context fields and forwards the eeg session id (R4/F2)', async () => {
+    await savePhaseInstrumentRecord({
+      ...batteryInput,
       eegSessionId: 'eeg-run-42',
     });
 
     const input = lastSaveInput();
     expect(input.eegSessionId).toBe('eeg-run-42');
-    expect(input.measuredDimensions).toEqual(['anxiety', 'mood']);
+    expect(input.emotion).toBeNull();
+    expect(input.condition).toBeNull();
+    expect(input.durationMinutes).toBeNull();
+    expect(input.regulationSkipped).toBe(false);
 
-    await savePhaseScaleRecord(musicScale, answers, {
-      userId: 'user-1',
-      subjectId: 'subj-009',
+    await savePhaseInstrumentRecord({
+      ...batteryInput,
       phase: 'baseline',
       eegSessionId: null,
     });
@@ -221,23 +236,35 @@ describe('subject_id passthrough (R2 效果闭环)', () => {
     expect(lastSaveInput().eegSessionId).toBeNull();
   });
 
+  it('forwards the wizard run context (emotion, condition, duration, skip)', async () => {
+    await savePhaseInstrumentRecord({
+      ...batteryInput,
+      emotion: 'anxiety',
+      condition: 'regulation',
+      durationMinutes: 5,
+      regulationSkipped: true,
+    });
+
+    const input = lastSaveInput();
+    expect(input.emotion).toBe('anxiety');
+    expect(input.condition).toBe('regulation');
+    expect(input.durationMinutes).toBe(5);
+    expect(input.regulationSkipped).toBe(true);
+  });
+
   it('resolves the saved record id so baseline/post can be paired', async () => {
     vi.mocked(invoke).mockResolvedValueOnce({
       id: 'rec-post-1',
       userId: 'user-1',
       subjectId: 'subj-009',
-      scaleId: '/music-regulation',
+      scaleId: STAI_PANAS_BATTERY_SCALE_ID,
       phase: 'post',
       dimensionScores: {},
       rawAnswers: {},
       createdAt: '2026-08-26T10:00:00+00:00',
     });
 
-    const record = await savePhaseScaleRecord(musicScale, {}, {
-      userId: 'user-1',
-      subjectId: 'subj-009',
-      phase: 'post',
-    });
+    const record = await savePhaseInstrumentRecord(batteryInput);
 
     expect(record.id).toBe('rec-post-1');
   });

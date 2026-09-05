@@ -1,7 +1,8 @@
-/* Form-class scrim: the shared warm tone; the dialog keeps its blur while
-   the tint now comes from the global token. `backwards` fill releases the
-   end transform (the dialog portals the confirm dialog to <body>, and a
-   retained transform would trap it). */
+/* Dialog shell chrome shared by the PHQ-4 gate dialog and the pre/post
+   battery dialog (one visual language, one token set). The scroll container
+   is the dialog itself; the total-progress bar and the footer are sticky
+   inside it, and the per-section headers stick just below the bar. */
+
 .scaleOverlay {
   animation: scaleOverlayEnter 180ms var(--ease-out) backwards;
   background: var(--scrim-form);
@@ -20,173 +21,21 @@
 }
 
 .scaleDialog {
+  /* Sticky offsets derive from the top bar height (32px control + padding). */
+  --scale-sticky-offset: 48px;
+
   animation: scaleDialogEnter 220ms var(--ease-out) backwards;
-  background: #f5f0eb;
+  background: var(--surface);
   border: 1px solid rgba(44, 34, 24, 0.12);
-  border-radius: 8px;
-  box-shadow: 0 28px 72px rgba(44, 34, 24, 0.28);
-  color: #2c2218;
-  max-height: min(760px, calc(100dvh - 44px));
-  padding: clamp(18px, 3vw, 28px);
-}
-
-.scaleHeader {
-  border-bottom: 1px solid rgba(44, 34, 24, 0.1);
-  padding-bottom: 18px;
-}
-
-.scaleHeader h2 {
-  color: #2c2218;
-  font-size: clamp(24px, 4vw, 38px);
-  font-weight: 760;
-  letter-spacing: 0;
-  line-height: 1;
-  margin: 0 0 10px;
-}
-
-.scaleHeader p {
-  color: rgba(44, 34, 24, 0.66);
-  font-size: 14px;
-  line-height: 1.55;
-  margin: 0;
-}
-
-.scaleEyebrow {
-  color: rgba(223, 2, 3, 0.76) !important;
-  font-size: 11px !important;
-  font-weight: 780;
-  letter-spacing: 0.08em;
-  margin-bottom: 9px !important;
-  text-transform: uppercase;
-}
-
-.scaleCloseButton {
-  border-radius: 8px;
-  color: rgba(44, 34, 24, 0.72);
-  flex: 0 0 auto;
-  height: 36px;
-  width: 36px;
-}
-
-.scaleCloseButton:hover {
-  background: rgba(44, 34, 24, 0.08);
-  color: #2c2218;
-}
-
-.scaleQuestion {
-  border: 1px solid rgba(44, 34, 24, 0.1);
-  border-radius: 8px;
-}
-
-.scaleQuestion legend {
-  color: #2c2218;
-  font-size: 15px;
-  font-weight: 720;
-  line-height: 1.45;
-}
-
-.scaleQuestion legend span {
-  background: #2c2218;
-  border-radius: 999px;
-  color: #f5f0eb;
-  font-size: 12px;
-}
-
-.scaleOptions {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.scaleOptions button {
-  align-items: center;
-  background: rgba(255, 255, 255, 0.52);
-  border: 1px solid rgba(44, 34, 24, 0.12);
-  border-radius: 8px;
-  color: rgba(44, 34, 24, 0.74);
-  cursor: pointer;
-  font: inherit;
-  transition:
-    background-color 160ms ease-out,
-    border-color 160ms ease-out,
-    color 160ms ease-out,
-    transform 160ms ease-out;
-}
-
-.scaleOptions button:hover {
-  background: rgba(44, 34, 24, 0.08);
-  color: #2c2218;
-  transform: translateY(-1px);
-}
-
-.scaleOptions button strong {
-  font-size: 16px;
-  font-weight: 780;
-  line-height: 1;
-}
-
-.scaleOptions button span {
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.scaleOptions button.isScaleOptionSelected {
-  background: #2c2218;
-  border-color: #2c2218;
-  color: #f5f0eb;
-}
-
-.scaleFooter {
-  border-top: 1px solid rgba(44, 34, 24, 0.1);
-  padding-top: 18px;
-}
-
-.scaleFooterHint {
-  color: rgba(44, 34, 24, 0.62);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.scaleSkipButton {
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: rgba(44, 34, 24, 0.6);
-  cursor: pointer;
-  flex: 0 0 auto;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 9px 14px;
-  transition:
-    background-color 160ms ease-out,
-    color 160ms ease-out;
-}
-
-.scaleSkipButton:hover {
-  background: rgba(44, 34, 24, 0.08);
-  color: #2c2218;
-}
-
-.scalePrimaryButton {
-  background: #2c2218;
-  border: 1px solid #2c2218;
-  border-radius: 8px;
-  color: #f5f0eb;
-  cursor: pointer;
-  flex: 0 0 auto;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 760;
-  height: 40px;
-  min-width: 112px;
-  padding: 0 18px;
-}
-
-.scalePrimaryButton:disabled {
-  background: rgba(44, 34, 24, 0.08);
-  border-color: rgba(44, 34, 24, 0.1);
-  color: rgba(44, 34, 24, 0.38);
-  cursor: not-allowed;
+  border-radius: 16px;
+  box-shadow: var(--shadow-overlay);
+  color: var(--ink-cool);
+  display: flex;
+  flex-direction: column;
+  max-height: 82vh;
+  max-width: 720px;
+  overflow-y: auto;
+  width: 100%;
 }
 
 @keyframes scaleDialogEnter {
@@ -201,17 +50,175 @@
   }
 }
 
+/* Sticky top bar: total progress + close button. Opaque background so the
+   question list scrolls cleanly underneath. */
+.scaleStickyBar {
+  align-items: center;
+  background: var(--surface);
+  border-bottom: 1px solid rgba(23, 32, 38, 0.1);
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 8px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.scaleCloseButton {
+  border-radius: var(--radius-control);
+  color: rgba(23, 32, 38, 0.68);
+  flex: 0 0 auto;
+  height: 32px;
+  width: 32px;
+}
+
+.scaleCloseButton:hover {
+  background: rgba(23, 32, 38, 0.08);
+  color: var(--ink-cool);
+}
+
+/* Title block scrolls away under the sticky bar. */
+.scaleHeading {
+  padding: 16px 20px 4px;
+}
+
+.scaleHeading h2 {
+  color: var(--ink-cool);
+  font-size: clamp(20px, 3vw, 26px);
+  font-weight: 760;
+  line-height: 1.15;
+  margin: 0 0 6px;
+}
+
+.scaleHeading p {
+  color: rgba(23, 32, 38, 0.62);
+  font-size: 13.5px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* Element-qualified so it outranks the generic .scaleHeading p rule without
+   resorting to !important (the eyebrow is a <p> sibling of the subtitle). */
+.scaleHeading p.scaleEyebrow {
+  color: rgba(223, 2, 3, 0.76);
+  font-size: 11px;
+  font-weight: 780;
+  letter-spacing: 0.08em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+/* Sticky bottom bar: dev auto-fill (left) + hint and primary action (right). */
+.scaleFooter {
+  align-items: center;
+  background: var(--surface);
+  border-radius: 0 0 16px 16px;
+  border-top: 1px solid rgba(23, 32, 38, 0.1);
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 12px 20px;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+}
+
+.scaleFooterNotes {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 6px;
+  min-width: 0;
+}
+
+.scaleFooterHint {
+  color: rgba(23, 32, 38, 0.62);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Neutral, explicitly non-diagnostic screening note (PHQ-4 total >= 3). */
+.scaleScreeningNote {
+  background: var(--info-tint);
+  border-radius: var(--radius-control);
+  color: var(--info);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 1.45;
+  padding: 6px 10px;
+  width: fit-content;
+}
+
+.scaleFooterActions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.scaleSkipButton {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-control);
+  color: rgba(23, 32, 38, 0.6);
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 14px;
+  transition:
+    background-color 150ms var(--ease-out),
+    color 150ms var(--ease-out);
+}
+
+.scaleSkipButton:hover {
+  background: rgba(23, 32, 38, 0.08);
+  color: var(--ink-cool);
+}
+
+.scalePrimaryButton {
+  background: var(--ink-cool);
+  border: 1px solid var(--ink-cool);
+  border-radius: var(--radius-control);
+  color: #fff;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 740;
+  height: 40px;
+  min-width: 112px;
+  padding: 0 18px;
+  transition:
+    background-color 150ms var(--ease-out),
+    box-shadow 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+
+.scalePrimaryButton:hover:not(:disabled) {
+  box-shadow: 0 6px 16px rgba(23, 32, 38, 0.25);
+  transform: translateY(-1px);
+}
+
+.scalePrimaryButton:disabled {
+  background: rgba(23, 32, 38, 0.08);
+  border-color: rgba(23, 32, 38, 0.1);
+  color: rgba(23, 32, 38, 0.38);
+  cursor: not-allowed;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .scaleOverlay,
-  .scaleDialog {
+  .scaleDialog,
+  .scalePrimaryButton {
     animation: none;
-  }
-
-  .scaleOptions button {
     transition: none;
   }
 
-  .scaleOptions button:hover {
+  .scalePrimaryButton:hover:not(:disabled) {
     transform: none;
   }
 }

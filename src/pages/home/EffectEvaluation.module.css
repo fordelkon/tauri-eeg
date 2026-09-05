@@ -1092,6 +1092,107 @@
   color: transparent;
 }
 
+/* ------------------------------------------------------------------ */
+/* Embedded regulation player (condition node, regulation branch)      */
+/* ------------------------------------------------------------------ */
+/*
+ * The player card sits inside the condition node beneath the countdown:
+ * a quiet stage that keeps the media (video / music list) legible without
+ * competing with the ticking digits above it. Reuses the page tokens.
+ */
+.regulationPlayer {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.55));
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+}
+
+.regulationPlayerStage {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.regulationPlayerVideo {
+  background: #000;
+  border-radius: var(--ee-radius-card);
+  box-shadow: 0 16px 36px rgba(var(--ee-ink-rgb), 0.16);
+  display: block;
+  max-height: 300px;
+  max-width: 100%;
+  width: min(520px, 100%);
+}
+
+.musicHistoryList {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: min(520px, 100%);
+}
+
+/* Row buttons mirror the secondaryAction tier: quiet until active. */
+.musicHistoryItem {
+  align-items: center;
+  background: rgba(var(--ee-ink-rgb), 0.03);
+  border: 1px solid rgba(var(--ee-ink-rgb), 0.16);
+  border-radius: var(--ee-radius-control);
+  color: rgba(var(--ee-ink-rgb), 0.82);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 6px 14px;
+  text-align: left;
+  transition: background-color 160ms ease, border-color 160ms ease;
+  width: 100%;
+}
+
+.musicHistoryItem:hover {
+  background: rgba(var(--ee-ink-rgb), 0.06);
+  border-color: rgba(var(--ee-ink-rgb), 0.32);
+}
+
+.musicHistoryItem:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.1);
+  outline: none;
+}
+
+.musicHistoryItemActive {
+  background: rgba(var(--ee-brand-rgb), 0.07);
+  border-color: rgba(var(--ee-brand-rgb), 0.45);
+  color: var(--ee-ink);
+  font-weight: 700;
+}
+
+.musicHistoryItemTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.musicHistoryItemMeta {
+  color: rgba(var(--ee-ink-rgb), 0.6);
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Device error chip in the context strip: backend messages can be long, so
+   the pill is capped with an ellipsis and the full text rides on title. */
+.deviceErrorChip {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* High-contrast / forced-colors fallback: gradient-clip text would vanish. */
 @media (forced-colors: active) {
   .countdownDone,
@@ -1815,9 +1916,225 @@
   .secondaryAction,
   .dimensionTable tbody tr,
   .eegRecording::before,
+  button.pipelineHead,
   .workspace :global(.MuiButton-root),
   .workspace :global(.MuiTab-root) {
     animation: none;
     transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Pipeline board: six always-visible node cards                       */
+/* ------------------------------------------------------------------ */
+/*
+ * Single-page pipeline: the six wizard steps render as one vertical board.
+ * Done rows collapse to a summary line (click to expand the detail), the
+ * current row hosts the original step panel, pending rows gray out. Tokens
+ * reuse the page-local --ee-* set plus the app-wide --success token.
+ */
+.pipeline {
+  display: grid;
+  gap: 12px;
+}
+
+.pipelineCard {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-card);
+  box-shadow: var(--ee-shadow-card);
+  display: grid;
+}
+
+.pipelineCardCurrent {
+  border-color: rgba(var(--ee-brand-rgb), 0.42);
+  box-shadow: var(--ee-shadow-lift);
+}
+
+.pipelineCardDone {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* Pending nodes gray out (background, title, badge) until unlocked. */
+.pipelineCardPending {
+  background: rgba(255, 255, 255, 0.48);
+  box-shadow: none;
+}
+
+.pipelineHead {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  display: flex;
+  flex-wrap: wrap;
+  font: inherit;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 18px;
+  text-align: left;
+  width: 100%;
+}
+
+/* Only completed rows are buttons (they expand); hover signals that. */
+button.pipelineHead {
+  cursor: pointer;
+  transition: background-color 160ms ease;
+}
+
+button.pipelineHead:hover {
+  background: rgba(var(--ee-ink-rgb), 0.035);
+}
+
+button.pipelineHead:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.16);
+  outline: 2px solid rgba(var(--ee-brand-rgb), 0.6);
+  outline-offset: -2px;
+}
+
+.pipelineIndex {
+  align-items: center;
+  background: rgba(var(--ee-ink-rgb), 0.07);
+  border-radius: 999px;
+  color: rgba(var(--ee-ink-rgb), 0.62);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 740;
+  height: 26px;
+  justify-content: center;
+  width: 26px;
+}
+
+.pipelineCardCurrent .pipelineIndex {
+  background: var(--ee-brand-gradient);
+  box-shadow: 0 4px 10px rgba(var(--ee-brand-rgb), 0.3);
+  color: #fff;
+}
+
+/* Done index rides the app-wide success tint, matching its badge. */
+.pipelineCardDone .pipelineIndex {
+  background: rgba(34, 125, 84, 0.13);
+  border: 1px solid rgba(34, 125, 84, 0.38);
+  color: var(--success, #1c6a47);
+}
+
+.pipelineTitle {
+  color: var(--ee-ink);
+  font-size: 15px;
+  font-weight: 720;
+}
+
+.pipelineCardPending .pipelineTitle {
+  color: rgba(var(--ee-ink-rgb), 0.42);
+}
+
+.pipelineSummary {
+  color: rgba(var(--ee-ink-rgb), 0.6);
+  flex: 1 1 auto;
+  font-size: 12.5px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pipelinePendingHint {
+  color: rgba(var(--ee-ink-rgb), 0.38);
+  flex: 1 1 auto;
+  font-size: 12.5px;
+}
+
+/* Status badge: text + tint, not color alone (color-blind safe). */
+.pipelineBadge {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  font-weight: 740;
+  letter-spacing: 0.02em;
+  margin-left: auto;
+  padding: 3px 11px;
+}
+
+.pipelineBadgeDone {
+  background: rgba(34, 125, 84, 0.12);
+  border: 1px solid rgba(34, 125, 84, 0.35);
+  color: var(--success, #1c6a47);
+}
+
+.pipelineBadgeCurrent {
+  background: var(--ee-brand-gradient);
+  box-shadow: 0 3px 8px rgba(var(--ee-brand-rgb), 0.28);
+  color: #fff;
+}
+
+.pipelineBadgePending {
+  background: rgba(var(--ee-ink-rgb), 0.06);
+  border: 1px solid rgba(var(--ee-ink-rgb), 0.14);
+  color: rgba(var(--ee-ink-rgb), 0.48);
+}
+
+/* Skip marker chip on the condition row's summary line. */
+.pipelineSkippedChip {
+  background: rgba(217, 119, 6, 0.1);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  border-radius: 999px;
+  color: #8a5a10;
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 10px;
+}
+
+/* Current card body: the original step panel nests inside with an inset. */
+.pipelineBody {
+  border-top: 1px solid var(--ee-line);
+  padding: 14px 16px 16px;
+}
+
+/* Expanded done detail: the inset-well pattern the history rows use. */
+.pipelineDetails {
+  border-top: 1px solid var(--ee-line);
+  display: grid;
+  gap: 10px;
+  padding: 12px 18px 16px;
+}
+
+/* Experiment context strip under the page header. */
+.contextBar {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-control);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+}
+
+/* Trial-run badge: a stronger border so the no-device state is unmissable
+   (docs/paradigm-protocol.md section 3, 无设备模式). */
+.eegBadgeProminent {
+  border-width: 2px;
+  font-weight: 760;
+}
+
+@media (max-width: 620px) {
+  .pipelineHead {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .pipelineBadge {
+    margin-left: 0;
+  }
+
+  .pipelineBody {
+    padding: 12px 10px;
+  }
+
+  .pipelineDetails {
+    padding: 10px 12px 14px;
   }
 }

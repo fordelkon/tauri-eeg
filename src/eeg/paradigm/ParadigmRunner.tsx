@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { getEegStatus } from '../eegApi';
 import { describeEegError } from '../eegErrorMessages';
 import { useEegSession } from '../EegSessionContext';
@@ -35,6 +36,14 @@ import {
   setParadigmSessionStatus,
 } from './paradigmSessionStatus';
 import { isVideoDurationOutOfRange } from './paradigmTimeline';
+import {
+  simulateRegulationFeedback,
+  summarizeRegulationFeedback,
+} from './regulationFeedbackSim';
+import type {
+  RegulationFeedbackSample,
+  RegulationFeedbackStat,
+} from './regulationFeedbackSim';
 import { useConfirmDialog } from '../../ui/useConfirmDialog';
 import SamRatingDialog from './SamRatingDialog';
 import TrialStageRenderer, {
@@ -82,7 +91,15 @@ const TRIAL_MARK_LABELS: Record<TrialMarkKind, string> = {
   post_video_rest: '试后休息标记发送失败',
 };
 
-const STAGE_PHASES: readonly string[] = ['baseline', 'hint', 'video', 'postRest'];
+const STAGE_PHASES: readonly string[] = [
+  'baseline',
+  'hint',
+  'video',
+  'regulationCue',
+  'regulationWindow',
+  'feedback',
+  'postRest',
+];
 
 /**
  * Delay before the single mount retry of the session-id resolution. The finish
@@ -116,8 +133,14 @@ function videoNumberFor(trialIndex: number, blockStarts: number[]): number {
 export default function ParadigmRunner({ request, onExitToSetup }: Props) {
 
   const eeg = useEegSession();
+  // Finished-screen handoff: the effect-evaluation page reads the subject id
+  // from the shared storage the paradigm setup panel already wrote, so the
+  // link needs nothing but the route.
+  const navigate = useNavigate();
 
   const dryRun = request.dryRun;
+  /** Regulation sessions run the closed-loop trial flow (dry-run only for now). */
+  const isRegulationSession = request.sessionKind === 'regulation_feedback';
 
   // Promise-based MUI confirm replaces the native window.confirm calls that
 
@@ -144,6 +167,11 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
   const finishHandledRef = useRef(false);
   // Dry-run finalize results, summarized locally instead of via the backend.
   const dryRunRecordsRef = useRef<TrialRecord[]>([]);
+  // Simulated decoder output for the active regulation trial (null otherwise).
+  const [activeFeedback, setActiveFeedback] = useState<RegulationFeedbackSample | null>(null);
+  const activeFeedbackRef = useRef<RegulationFeedbackSample | null>(null);
+  // Dry-run regulation statistics, aggregated into the finished-screen summary.
+  const dryRunRegulationRef = useRef<RegulationFeedbackStat[]>([]);
 
   const currentPlan = state.currentTrialIndex >= 0
     ? state.queue[state.currentTrialIndex] ?? null
@@ -210,9 +238,17 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
 
   // Fullscreen exactly while a video is playing: enter when the video stage
   // begins, leave when it ends — baseline/hint/SAM/stage breaks stay windowed.
+  // Regulation sessions additionally fullscreen the reappraisal window and the
+  // feedback bar so the subject sees nothing but the stage after the video.
   // The native window API resizes the real OS window (WebView2's element
   // fullscreen only fills the webview) and needs no user activation.
-  const isVideoStage = state.phase === 'running' && state.trialPhase === 'video';
+  const isVideoStage = state.phase === 'running' && (
+    state.trialPhase === 'video'
+    || (isRegulationSession
+      && (state.trialPhase === 'regulationCue'
+        || state.trialPhase === 'regulationWindow'
+        || state.trialPhase === 'feedback'))
+  );
 
   useEffect(() => {
     if (!isVideoStage) {
@@ -237,8 +273,12 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     // On re-runs the phase no longer matches and both actions are ignored,
     // which is fine: a fresh Runner instance owns every session.
     dispatch({ type: 'enter_setup' });
-    dispatch({ type: 'session_started', queue: request.queue });
-  }, [request.queue]);
+    dispatch({
+      type: 'session_started',
+      queue: request.queue,
+      sessionKind: request.sessionKind,
+    });
+  }, [request.queue, request.sessionKind]);
 
   useEffect(() => {
     if (dryRun) {
@@ -309,6 +349,13 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     begunTrialIndexRef.current = nextIndex;
 
     if (dryRun) {
+      // Regulation trials draw one simulated decoder output per trial; the
+      // feedback stage reads it and the finalize path records the statistics.
+      const simulatedFeedback = dryRun && isRegulationSession
+        ? simulateRegulationFeedback(item.emotion)
+        : null;
+      activeFeedbackRef.current = simulatedFeedback;
+      setActiveFeedback(simulatedFeedback);
       setSnapshot(makeDryRunSnapshot(item));
       setVideoDurationSeconds(null);
       videoMarkedRef.current = false;
@@ -316,6 +363,8 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
       return;
     }
 
+    activeFeedbackRef.current = null;
+    setActiveFeedback(null);
     setIsStartingTrial(true);
     beginEegTrial({
       trialIndex: item.trialIndex,
@@ -340,7 +389,7 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
       .finally(() => {
         setIsStartingTrial(false);
       });
-  }, [state.phase, state.trialPhase, state.currentTrialIndex, state.queue, blockStarts, blockGate, beginRetryToken, dryRun]);
+  }, [state.phase, state.trialPhase, state.currentTrialIndex, state.queue, blockStarts, blockGate, beginRetryToken, dryRun, isRegulationSession]);
 
   const runTrialMark = useCallback(async (mark: TrialMarkKind) => {
     if (dryRun) {
@@ -416,7 +465,7 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
   }, [dryRun, isEndingTrial]);
 
   const handleCountdownComplete = useCallback(() => {
-    if (state.trialPhase === 'postRest') {
+    if (state.trialPhase === 'postRest' || state.trialPhase === 'feedback') {
       void runEndTrial();
       return;
     }
@@ -482,13 +531,18 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     dispatch({
       type: 'self_report_submitted',
       selfReport,
-      suggestedQuality: evaluateParadigmAcceptance(
-        plan.emotion,
-        selfReport.valence,
-        selfReport.arousal,
-      ),
+      // Regulation SAM scores reflect the outcome of the reappraisal attempt,
+      // not whether the video induced its class, so the induction acceptance
+      // rule does not apply there (finalize falls back to 'accepted').
+      suggestedQuality: isRegulationSession
+        ? null
+        : evaluateParadigmAcceptance(
+          plan.emotion,
+          selfReport.valence,
+          selfReport.arousal,
+        ),
     });
-  }, [state.queue, state.currentTrialIndex]);
+  }, [state.queue, state.currentTrialIndex, isRegulationSession]);
 
   const preselectedArtifactFlags = useMemo(() => {
     const flags: string[] = [];
@@ -537,6 +591,17 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
             null,
           ),
         ];
+        if (isRegulationSession && activeFeedbackRef.current) {
+          dryRunRegulationRef.current = [
+            ...dryRunRegulationRef.current,
+            {
+              emotion: snapshot.emotion,
+              baselineScore: activeFeedbackRef.current.baselineScore,
+              regulationScore: activeFeedbackRef.current.regulationScore,
+              deltaScore: activeFeedbackRef.current.deltaScore,
+            },
+          ];
+        }
       }
       dispatch({ type: 'trial_finalized' });
       return;
@@ -574,6 +639,7 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     dryRun,
     snapshot,
     preselectedArtifactFlags,
+    isRegulationSession,
   ]);
 
   // --- Session finish ----------------------------------------------------
@@ -685,6 +751,12 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
 
   // --- Render ------------------------------------------------------------
 
+  // Dry-run regulation summary: simulated decoder statistics (baseline vs
+  // regulation proximity, learning index) collected across the session.
+  const regulationSummary = dryRun && isRegulationSession
+    ? summarizeRegulationFeedback(dryRunRegulationRef.current)
+    : null;
+
   if (state.phase === 'finished') {
     return (
       <div className={styles.panel} aria-label="范式 Session 训练前统计">
@@ -742,6 +814,26 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
               <span>唤醒度均值 {summary.arousalMean === null ? '—' : summary.arousalMean.toFixed(2)}</span>
             </div>
 
+            {regulationSummary ? (
+              <div className={styles.regulationSummary} aria-label="调控反馈统计">
+                <h3 className={styles.regulationSummaryTitle}>模拟解码统计(试次 {regulationSummary.totalTrials})</h3>
+                <div className={styles.summaryMeans}>
+                  <span>观看时接近度 {regulationSummary.baselineMean.toFixed(2)}</span>
+                  <span>调控后接近度 {regulationSummary.regulationMean.toFixed(2)}</span>
+                  <span>
+                    学习指数 L1
+                    {' '}
+                    {regulationSummary.deltaMean >= 0 ? '+' : ''}
+                    {regulationSummary.deltaMean.toFixed(2)}
+                  </span>
+                  <span>改善试次 {regulationSummary.improvedTrials} / {regulationSummary.totalTrials}</span>
+                </div>
+                <p className={styles.sectionHint}>
+                  R = 调控段目标接近度 − 观看段接近度;正值表示调控向目标状态移动。
+                </p>
+              </div>
+            ) : null}
+
             {summary.warnings.length > 0 ? (
               <ul className={styles.summaryWarnings}>
                 {summary.warnings.map((warning) => (
@@ -762,6 +854,13 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
           >
             返回设置
           </button>
+          <button
+            type="button"
+            className={styles.secondaryButton}
+            onClick={() => navigate('/effect-evaluation')}
+          >
+            前往效果评价
+          </button>
         </div>
       </div>
     );
@@ -775,7 +874,7 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
   );
   const canRetryEndTrial = (
     state.phase === 'running'
-    && state.trialPhase === 'postRest'
+    && (state.trialPhase === 'postRest' || state.trialPhase === 'feedback')
     && state.errorMessage !== null
     && !isEndingTrial
   );
@@ -859,6 +958,7 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
             plan={currentPlan}
             trialLabel={`视频 ${currentVideoNumber} / ${PARADIGM_TRIALS_PER_CLASS}`}
             videoNumber={currentVideoNumber}
+            feedback={state.trialPhase === 'feedback' ? activeFeedback : null}
             onRequestEarlyEnd={handleEarlyEnd}
             onCountdownComplete={handleCountdownComplete}
             onVideoFirstPlay={handleVideoFirstPlay}

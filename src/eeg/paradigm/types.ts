@@ -8,8 +8,16 @@
  * Rust contract one-to-one.
  */
 
-/** Session variants offered on the acquisition page (A/B). */
-export type ParadigmSessionKind = 'personal_calibration' | 'held_out_generation';
+/**
+ * Session variants offered on the acquisition page. 'regulation_feedback' is
+ * the closed-loop regulation rehearsal (video induction -> reappraisal ->
+ * simulated intermittent feedback); it currently runs in 试运行 mode only
+ * (no device, simulated decoder scores).
+ */
+export type ParadigmSessionKind =
+  | 'personal_calibration'
+  | 'held_out_generation'
+  | 'regulation_feedback';
 
 /** Full studySession union accepted by the backend ParadigmInfo. */
 export type ParadigmStudySession = ParadigmSessionKind | 'regulation_feedback';
@@ -144,10 +152,11 @@ export const trialQualityLabels: Record<TrialQuality, string> = {
   uncertain: '不确定',
 };
 
-/** Chinese display labels for the two session kinds. */
+/** Chinese display labels for the session kinds (happy: legacy records). */
 export const paradigmSessionKindLabels: Record<ParadigmSessionKind, string> = {
   held_out_generation: 'Session B 独立诱发调控',
   personal_calibration: 'Session A 个人校准',
+  regulation_feedback: '调控反馈(闭环·试运行)',
 };
 
 /** Artifact flag ids the operator can attach to a trial review. */
@@ -188,12 +197,13 @@ export const PARADIGM_TRIALS_PER_CLASS = 5;
 /**
  * Block schedule mirroring the Rust blocks_for_session_kind: personal
  * calibration collects only the calm baseline block; the held-out generation
- * run induces anxiety, depression, and fear in order (R8, 大纲 6.1; happy
- * retired from every schedule).
+ * and regulation feedback runs induce anxiety, depression, and fear in order
+ * (R8, 大纲 6.1; happy retired from every schedule).
  */
 export const PARADIGM_BLOCKS_BY_KIND: Record<ParadigmSessionKind, readonly ParadigmEmotion[]> = {
   personal_calibration: ['calm'],
   held_out_generation: ['anxiety', 'depression', 'fear'],
+  regulation_feedback: ['anxiety', 'depression', 'fear'],
 };
 
 /** Display order for the setup page (calm first, then the induction classes). */

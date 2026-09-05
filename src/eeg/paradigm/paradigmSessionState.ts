@@ -1,4 +1,5 @@
 import type {
+  ParadigmSessionKind,
   ParadigmTrialPlanItem,
   SelfReport,
   TrialQuality,
@@ -9,11 +10,17 @@ export type ParadigmSessionPhase = 'idle' | 'setup' | 'running' | 'finished' | '
 /**
  * Per-trial stage. 'interTrial' sits between finalize and the next
  * begin_eeg_trial (also used before the first trial and after the last one).
+ * The regulation_* / feedback stages only occur in regulation_feedback
+ * sessions: the induction video flows into the reappraisal window (no
+ * post-video rest) and the trial ends after the intermittent feedback bar.
  */
 export type ParadigmTrialPhaseState =
   | 'baseline'
   | 'hint'
   | 'video'
+  | 'regulationCue'
+  | 'regulationWindow'
+  | 'feedback'
   | 'postRest'
   | 'selfReport'
   | 'qualityCheck'
@@ -22,6 +29,8 @@ export type ParadigmTrialPhaseState =
 export type ParadigmSessionState = {
   phase: ParadigmSessionPhase;
   trialPhase: ParadigmTrialPhaseState;
+  /** Session variant; drives which phase sequence a trial follows. */
+  sessionKind: ParadigmSessionKind;
   queue: ParadigmTrialPlanItem[];
   /** Index into the queue of the active trial; -1 before the first trial. */
   currentTrialIndex: number;
@@ -35,12 +44,13 @@ export type ParadigmSessionState = {
 
 export type ParadigmSessionAction =
   | { type: 'enter_setup' }
-  | { type: 'session_started'; queue: ParadigmTrialPlanItem[] }
+  /** sessionKind is optional so legacy dispatch sites keep compiling. */
+  | { type: 'session_started'; queue: ParadigmTrialPlanItem[]; sessionKind?: ParadigmSessionKind }
   | { type: 'session_id_resolved'; sessionId: string }
   | { type: 'trial_started'; trialIndex: number }
   | { type: 'advance_trial_phase' }
   | { type: 'trial_ended' }
-  | { type: 'self_report_submitted'; selfReport: SelfReport; suggestedQuality: TrialQuality }
+  | { type: 'self_report_submitted'; selfReport: SelfReport; suggestedQuality: TrialQuality | null }
   | { type: 'trial_skipped' }
   | { type: 'artifact_flags_changed'; flags: string[] }
   | { type: 'operator_notes_changed'; notes: string }
@@ -53,6 +63,7 @@ export type ParadigmSessionAction =
 export const initialParadigmSessionState: ParadigmSessionState = {
   phase: 'idle',
   trialPhase: 'interTrial',
+  sessionKind: 'held_out_generation',
   queue: [],
   currentTrialIndex: -1,
   selfReport: null,
@@ -63,24 +74,65 @@ export const initialParadigmSessionState: ParadigmSessionState = {
   sessionId: null,
 };
 
-/** Phases whose only legal driver is the fixed countdown (no IPC gate). */
-const COUNTDOWN_ADVANCE_FROM: readonly ParadigmTrialPhaseState[] = [
-  'baseline',
-  'hint',
-  'video',
-];
+/**
+ * Phases whose only legal driver is the fixed countdown (no IPC gate). The
+ * regulation window is countdown-driven; the feedback stage is too, but it
+ * ends the trial instead of advancing to another stage.
+ */
+export function countdownAdvanceFrom(
+  sessionKind: ParadigmSessionKind,
+): readonly ParadigmTrialPhaseState[] {
+  return sessionKind === 'regulation_feedback'
+    ? ['baseline', 'hint', 'video', 'regulationCue', 'regulationWindow']
+    : ['baseline', 'hint', 'video'];
+}
 
-const NEXT_COUNTDOWN_PHASE: Record<string, ParadigmTrialPhaseState> = {
-  baseline: 'hint',
-  hint: 'video',
-  video: 'postRest',
-};
+/**
+ * Kind-aware countdown transitions. Induction trials end the capture with
+ * postRest; regulation trials flow video -> reappraisal -> feedback, and
+ * trial_ended carries feedback into the SAM stage.
+ */
+function nextCountdownPhase(
+  sessionKind: ParadigmSessionKind,
+  phase: ParadigmTrialPhaseState,
+): ParadigmTrialPhaseState | null {
+  if (sessionKind === 'regulation_feedback') {
+    switch (phase) {
+      case 'baseline':
+        return 'hint';
+      case 'hint':
+        return 'video';
+      case 'video':
+        return 'regulationCue';
+      case 'regulationCue':
+        return 'regulationWindow';
+      case 'regulationWindow':
+        return 'feedback';
+      default:
+        return null;
+    }
+  }
+
+  switch (phase) {
+    case 'baseline':
+      return 'hint';
+    case 'hint':
+      return 'video';
+    case 'video':
+      return 'postRest';
+    default:
+      return null;
+  }
+}
 
 /** Stages a failed trial can be skipped from: everything before finalize. */
 const SKIPPABLE_TRIAL_PHASES: readonly ParadigmTrialPhaseState[] = [
   'baseline',
   'hint',
   'video',
+  'regulationCue',
+  'regulationWindow',
+  'feedback',
   'postRest',
   'selfReport',
 ];
@@ -97,12 +149,19 @@ export function canEnterSetup(state: ParadigmSessionState) {
 export function canAdvanceTrialPhase(state: ParadigmSessionState) {
   return (
     state.phase === 'running' &&
-    COUNTDOWN_ADVANCE_FROM.includes(state.trialPhase)
+    countdownAdvanceFrom(state.sessionKind).includes(state.trialPhase)
   );
 }
 
+/**
+ * Capture ends at postRest (induction) or after the feedback display
+ * (regulation); the two phases never coexist in one session kind.
+ */
 export function canEndTrial(state: ParadigmSessionState) {
-  return state.phase === 'running' && state.trialPhase === 'postRest';
+  return (
+    state.phase === 'running' &&
+    (state.trialPhase === 'postRest' || state.trialPhase === 'feedback')
+  );
 }
 
 export function canSubmitSelfReport(state: ParadigmSessionState) {
@@ -172,6 +231,7 @@ export function paradigmSessionReducer(
         ...clearTrialReview(state),
         phase: 'running',
         trialPhase: 'interTrial',
+        sessionKind: action.sessionKind ?? 'held_out_generation',
         queue: action.queue,
         currentTrialIndex: -1,
         sessionId: null,
@@ -203,15 +263,14 @@ export function paradigmSessionReducer(
         errorMessage: null,
       };
 
-    case 'advance_trial_phase':
+    case 'advance_trial_phase': {
       if (!canAdvanceTrialPhase(state)) {
         return state;
       }
 
-      return {
-        ...state,
-        trialPhase: NEXT_COUNTDOWN_PHASE[state.trialPhase],
-      };
+      const nextPhase = nextCountdownPhase(state.sessionKind, state.trialPhase);
+      return nextPhase === null ? state : { ...state, trialPhase: nextPhase };
+    }
 
     case 'trial_ended':
       if (!canEndTrial(state)) {

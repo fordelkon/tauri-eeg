@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { PHQ4_TIMEFRAME } from './instruments/phq4';
 import type { MentalScaleAnswers, MentalScaleDefinition } from './mentalScaleGate';
 import { buildMentalScaleStatus, measuredDimensionKeys, type MentalScaleDimensionKey } from './mentalScaleStatus';
 import { readStoredSubjectId } from '../storage/currentSubject';
@@ -17,8 +18,10 @@ export type ScaleRecordInput = {
   subjectId: string | null;
   scaleId: string;
   phase: ScalePhase;
-  dimensionScores: Record<MentalScaleDimensionKey, number>;
-  rawAnswers: MentalScaleAnswers;
+  /** Instrument-computed dimension scores, already polarity-normalized. */
+  dimensionScores: Record<string, number>;
+  /** Stored verbatim as JSON (the backend accepts any shape). */
+  rawAnswers: Record<string, unknown>;
   /** Target emotion bound by the evaluation wizard; absent on gate saves. */
   emotion?: string | null;
   /**
@@ -155,6 +158,17 @@ type PersistSubmissionOptions = {
  * Fire-and-forget persistence of one completed gate submission. The gate's
  * memory-cache behavior is untouched; a persistence failure must never block
  * navigation, so it only lands in the console.
+ *
+ * Stored as the PHQ-4 screening instrument (doc scale-instruments.md §3.3):
+ * scale_id 'phq4_screen_v1' and the trait-style 'past_2_weeks' timeframe ride
+ * inside raw_answers. The record keeps phase 'baseline' and no condition —
+ * the backend only accepts 'baseline'/'post' (scale_records.rs validate_phase
+ * rejects a literal 'screen' phase), and leaving condition NULL keeps the
+ * screening row out of every explicit-condition pairing pool of the wizard
+ * (build_effect_history pairs baseline/post only within the same condition
+ * key; wizard legs always carry an explicit condition). Gate rows can
+ * therefore only ever pair with pre-R6 legacy NULL rows, a pre-existing
+ * vector that predates the instrument swap.
  */
 export function persistMentalScaleSubmission(
   scale: MentalScaleDefinition,
@@ -169,10 +183,10 @@ export function persistMentalScaleSubmission(
     subjectId: options.subjectId !== undefined
       ? normalizeSubjectId(options.subjectId)
       : normalizeSubjectId(readStoredSubjectId()),
-    scaleId: scale.path,
+    scaleId: scale.scaleId,
     phase: options.phase ?? 'baseline',
     dimensionScores: buildScaleDimensionScores(scale, answers),
-    rawAnswers: answers,
+    rawAnswers: { ...answers, timeframe: PHQ4_TIMEFRAME },
     // Gate submissions carry the same measured markers so a gate baseline
     // paired with a wizard post keeps the marker-based comparison (R4/F1).
     measuredDimensions: measuredDimensionKeys(scale, answers),
@@ -181,40 +195,51 @@ export function persistMentalScaleSubmission(
   });
 }
 
+export type PhaseInstrumentRecordInput = {
+  userId: string | null;
+  subjectId: string | null;
+  /** scale_id of the instrument (e.g. the battery's 'stai_panas_battery_v1'). */
+  scaleId: string;
+  phase: ScalePhase;
+  /** Instrument-computed dimension scores (doc scale-instruments.md §3.3). */
+  dimensionScores: Record<string, number>;
+  /** Instrument raw-answers payload, stored verbatim as JSON. */
+  rawAnswers: Record<string, unknown>;
+  /** Dimension keys actually measured by this submission (R4/F1). */
+  measuredDimensions: string[];
+  emotion?: string | null;
+  condition?: string | null;
+  durationMinutes?: number | null;
+  regulationSkipped?: boolean;
+  eegSessionId?: string | null;
+};
+
 /**
- * Awaited save used by the effect-evaluation wizard: the caller needs the
- * persisted record id to pair baseline/post and compute the improvement.
- * The wizard's target emotion, run condition, planned duration, and (on the
- * post leg) the skip marker plus the associated EEG session id ride along for
- * the history view, cross-condition comparison, and report exports.
+ * Awaited save used by the effect-evaluation wizard for one phase (②/④) of
+ * the standardized battery: the caller needs the persisted record id to pair
+ * baseline/post and compute the improvement. Scores and raw answers arrive
+ * already computed by the instrument module so the wizard stays
+ * instrument-agnostic. The wizard's target emotion, run condition, planned
+ * duration, and (on the post leg) the skip marker plus the associated EEG
+ * session id ride along for the history view, cross-condition comparison,
+ * and report exports.
  */
-export function savePhaseScaleRecord(
-  scale: MentalScaleDefinition,
-  answers: MentalScaleAnswers,
-  context: {
-    userId: string | null;
-    subjectId: string | null;
-    phase: ScalePhase;
-    emotion?: string | null;
-    condition?: string | null;
-    durationMinutes?: number | null;
-    regulationSkipped?: boolean;
-    eegSessionId?: string | null;
-  },
+export function savePhaseInstrumentRecord(
+  input: PhaseInstrumentRecordInput,
 ): Promise<ScaleRecordView> {
   return saveScaleRecord({
-    userId: context.userId,
-    subjectId: normalizeSubjectId(context.subjectId),
-    scaleId: scale.path,
-    phase: context.phase,
-    dimensionScores: buildScaleDimensionScores(scale, answers),
-    rawAnswers: answers,
-    emotion: context.emotion ?? null,
-    condition: context.condition ?? null,
-    durationMinutes: context.durationMinutes ?? null,
-    regulationSkipped: context.regulationSkipped ?? false,
-    measuredDimensions: measuredDimensionKeys(scale, answers),
-    eegSessionId: context.eegSessionId ?? null,
+    userId: input.userId,
+    subjectId: normalizeSubjectId(input.subjectId),
+    scaleId: input.scaleId,
+    phase: input.phase,
+    dimensionScores: input.dimensionScores,
+    rawAnswers: input.rawAnswers,
+    emotion: input.emotion ?? null,
+    condition: input.condition ?? null,
+    durationMinutes: input.durationMinutes ?? null,
+    regulationSkipped: input.regulationSkipped ?? false,
+    measuredDimensions: input.measuredDimensions,
+    eegSessionId: input.eegSessionId ?? null,
   });
 }
 

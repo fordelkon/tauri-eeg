@@ -9,7 +9,11 @@ import {
   type MentalScaleAnswerValue,
   type MentalScaleDefinition,
 } from './mentalScaleGate';
+import ScaleAnchorGroup from './scaleUi/ScaleAnchorGroup';
+import ScaleItemRow from './scaleUi/ScaleItemRow';
+import ScaleProgressBar from './scaleUi/ScaleProgressBar';
 import styles from './MentalScaleDialog.module.css';
+import sectionStyles from './InstrumentScaleDialog.module.css';
 
 type MentalScaleDialogProps = {
   onComplete: (answers: MentalScaleAnswers) => void;
@@ -26,6 +30,19 @@ export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
   const hasAnyAnswer = Object.keys(scaleAnswers).length > 0;
   const isScaleReady = isMentalScaleComplete(scale, scaleAnswers);
+  const answeredCount = scale.questions.filter(
+    (question) => scaleAnswers[question.id] !== undefined,
+  ).length;
+  // Screening cutoff note (doc scale-instruments.md §2.1): a neutral,
+  // explicitly non-diagnostic hint once the completed total reaches the
+  // literature threshold; scales without a screening note never show it.
+  const totalScore = Object.values(scaleAnswers).reduce<number>(
+    (total, value) => total + (value ?? 0),
+    0,
+  );
+  const screeningNote = scale.screening && isScaleReady && totalScore >= scale.screening.threshold
+    ? scale.screening.message
+    : null;
 
   const handleAnswer = (questionId: string, value: MentalScaleAnswerValue) => {
     setScaleAnswers((answers) => ({
@@ -61,17 +78,13 @@ export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }
       role="presentation"
     >
       <section
-        className={`${styles.scaleDialog} grid gap-20px overflow-y-auto w-full max-w-720px`}
+        className={`${styles.scaleDialog} w-full max-w-720px`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="mental-scale-title"
       >
-        <div className={`${styles.scaleHeader} flex items-start justify-between gap-18px`}>
-          <div>
-            <p className={styles.scaleEyebrow}>心理量表</p>
-            <h2 id="mental-scale-title">{scale.title}</h2>
-            <p>{scale.subtitle}</p>
-          </div>
+        <div className={styles.scaleStickyBar}>
+          <ScaleProgressBar answered={answeredCount} total={scale.questions.length} />
           <IconButton
             className={styles.scaleCloseButton}
             aria-label="关闭心理量表"
@@ -82,40 +95,37 @@ export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }
           </IconButton>
         </div>
 
-        <div className="grid gap-14px">
-          {scale.questions.map((question, questionIndex) => (
-            <fieldset className={`${styles.scaleQuestion} grid gap-14px m-0 p-16px`} key={question.id}>
-              <legend className="flex items-center gap-10px p-0">
-                <span className="inline-flex flex-none items-center justify-center h-24px w-24px">{questionIndex + 1}</span>
-                {question.prompt}
-              </legend>
-              <div className={`${styles.scaleOptions} grid gap-8px`}>
-                {mentalScaleAnswerOptions.map((option) => {
-                  const isSelected = scaleAnswers[question.id] === option.value;
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      className={`${isSelected ? styles.isScaleOptionSelected : ''} grid items-center gap-4px min-h-62px px-8px py-9px`}
-                      aria-pressed={isSelected}
-                      onClick={() => handleAnswer(question.id, option.value)}
-                    >
-                      <strong>{option.value}</strong>
-                      <span>{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
-          ))}
+        <div className={styles.scaleHeading}>
+          <p className={styles.scaleEyebrow}>心理量表</p>
+          <h2 id="mental-scale-title">{scale.title}</h2>
+          <p>{scale.subtitle}</p>
         </div>
 
-        <div className={`${styles.scaleFooter} flex items-center justify-between gap-14px`}>
-          <span className={styles.scaleFooterHint}>
-            {isScaleReady ? '已完成，可以进入调控页面。' : '完成全部题目后继续。'}
-          </span>
-          <div className="flex flex-none items-center gap-10px">
+        <div className={sectionStyles.scaleBody}>
+          <div className={sectionStyles.itemList}>
+            {scale.questions.map((question, questionIndex) => (
+              <ScaleItemRow badge={String(questionIndex + 1)} prompt={question.prompt} key={question.id}>
+                <ScaleAnchorGroup
+                  layout="discrete"
+                  minValue={mentalScaleAnswerOptions[0].value}
+                  anchorLabels={mentalScaleAnswerOptions.map((option) => option.label)}
+                  value={scaleAnswers[question.id]}
+                  onSelect={(value) => handleAnswer(question.id, value as MentalScaleAnswerValue)}
+                  ariaLabel={question.prompt}
+                />
+              </ScaleItemRow>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.scaleFooter}>
+          <div className={styles.scaleFooterNotes}>
+            <span className={styles.scaleFooterHint}>
+              {isScaleReady ? '已完成，可以进入调控页面。' : '完成全部题目后继续。'}
+            </span>
+            {screeningNote ? <span className={styles.scaleScreeningNote}>{screeningNote}</span> : null}
+          </div>
+          <div className={styles.scaleFooterActions}>
             {onSkip ? (
               <button
                 type="button"

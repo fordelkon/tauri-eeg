@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { KeyboardEvent } from 'react';
+import DevAutoFillButton, { type ScaleFillItem } from '../../mentalScale/scaleUi/DevAutoFillButton';
+import ScaleAnchorGroup from '../../mentalScale/scaleUi/ScaleAnchorGroup';
 import type { SelfReport } from './types';
 import styles from './ParadigmSession.module.css';
 
@@ -13,7 +15,9 @@ type Props = {
 
 type RatingRowKey = 'valence' | 'arousal' | 'dominance';
 
-const RATING_VALUES: readonly number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+/** SAM bipolar range (doc scale-instruments.md §2.4): 1-9 per dimension. */
+const RATING_MIN = 1;
+const RATING_MAX = 9;
 
 const valenceScaleHints: Record<number, string> = {
   1: '非常负性',
@@ -35,6 +39,9 @@ const dominanceScaleHints: Record<number, string> = {
 
 type RatingRowProps = {
   legend: string;
+  /** Chinese pole labels bracketing the 1-9 rail (from the hint copy). */
+  lowLabel: string;
+  highLabel: string;
   value: number | null;
   hints: Record<number, string>;
   onSelect: (value: number) => void;
@@ -44,8 +51,15 @@ type RatingRowProps = {
   autoFocusFirstOption?: boolean;
 };
 
+/**
+ * One SAM dimension: the legend (frozen copy) above the shared bipolar
+ * anchor row, so the visuals match the battery dialog's SAM section. The
+ * registered wrapper div keeps being the focus target of the digit flow.
+ */
 function RatingRow({
   legend,
+  lowLabel,
+  highLabel,
   value,
   hints,
   onSelect,
@@ -54,27 +68,21 @@ function RatingRow({
   autoFocusFirstOption = false,
 }: RatingRowProps) {
   return (
-    <fieldset className={styles.ratingScale} onKeyDown={onKeyDown}>
+    <fieldset className={styles.ratingRow} onKeyDown={onKeyDown}>
       <legend className={styles.ratingLegend}>{legend}</legend>
-      <div className={styles.ratingOptions} ref={registerOptionsContainer}>
-        {RATING_VALUES.map((option) => {
-          const isSelected = value === option;
-          const hint = hints[option];
-
-          return (
-            <button
-              key={option}
-              type="button"
-              autoFocus={autoFocusFirstOption && option === RATING_VALUES[0]}
-              className={`${styles.ratingOption} ${isSelected ? styles.selectedRatingOption : ''}`}
-              aria-pressed={isSelected}
-              aria-label={hint ? `${option}(${hint})` : String(option)}
-              onClick={() => onSelect(option)}
-            >
-              {option}
-            </button>
-          );
-        })}
+      <div ref={registerOptionsContainer}>
+        <ScaleAnchorGroup
+          layout="bipolar"
+          minValue={RATING_MIN}
+          maxValue={RATING_MAX}
+          lowLabel={lowLabel}
+          highLabel={highLabel}
+          value={value ?? undefined}
+          onSelect={onSelect}
+          ariaLabel={legend}
+          valueHints={hints}
+          autoFocusFirst={autoFocusFirstOption}
+        />
       </div>
     </fieldset>
   );
@@ -166,6 +174,26 @@ export default function SamRatingDialog({
       }
     };
 
+  // Dev-only auto-fill: visible rows only (a hidden dominance row must not
+  // receive data), riding the same per-row setters as manual clicks.
+  const fillItems: ScaleFillItem[] = visibleRowKeys.map((rowKey) => ({
+    id: rowKey,
+    minValue: RATING_MIN,
+    maxValue: RATING_MAX,
+  }));
+  const answeredRowIds = visibleRowKeys.filter((rowKey) => {
+    if (rowKey === 'valence') {
+      return valence !== null;
+    }
+
+    return rowKey === 'arousal' ? arousal !== null : dominance !== null;
+  });
+  const handleClearRatings = () => {
+    setValence(null);
+    setArousal(null);
+    setDominance(null);
+  };
+
   // Modal focus trap: keep Tab cycling within the dialog.
   const handleDialogKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== 'Tab') {
@@ -217,6 +245,8 @@ export default function SamRatingDialog({
 
         <RatingRow
           legend="愉悦度(1 非常负性 ~ 9 非常正性)"
+          lowLabel={valenceScaleHints[1]}
+          highLabel={valenceScaleHints[9]}
           value={valence}
           hints={valenceScaleHints}
           onSelect={setValence}
@@ -227,6 +257,8 @@ export default function SamRatingDialog({
 
         <RatingRow
           legend="唤醒度(1 非常平静 ~ 9 非常激动)"
+          lowLabel={arousalScaleHints[1]}
+          highLabel={arousalScaleHints[9]}
           value={arousal}
           hints={arousalScaleHints}
           onSelect={setArousal}
@@ -237,6 +269,8 @@ export default function SamRatingDialog({
         {isDominanceOpen ? (
           <RatingRow
             legend="优势感,选填(1 非常被动 ~ 9 非常主动)"
+            lowLabel={dominanceScaleHints[1]}
+            highLabel={dominanceScaleHints[9]}
             value={dominance}
             hints={dominanceScaleHints}
             onSelect={setDominance}
@@ -254,6 +288,12 @@ export default function SamRatingDialog({
         )}
 
         <footer className={styles.dialogFooter}>
+          <DevAutoFillButton
+            items={fillItems}
+            answeredIds={answeredRowIds}
+            onAnswer={(rowId, value) => selectForRow(rowId as RatingRowKey)(value)}
+            onClear={handleClearRatings}
+          />
           <span className={styles.dialogFooterHint}>
             {isReady ? '两项必选评分已完成。' : '请先完成愉悦度与唤醒度评分。'}
           </span>

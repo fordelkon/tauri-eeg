@@ -1,0 +1,38 @@
+/* Battery-specific layout for the multi-section instrument dialog: per-section
+   blocks with sticky headers that ride just below the dialog's sticky total
+   progress bar, and the shared item list rhythm. Shell chrome (overlay,
+   dialog frame, sticky bar, footer, buttons) lives in MentalScaleDialog.module.css. */
+
+.scaleBody {
+  display: grid;
+  gap: 8px;
+  padding: 8px 20px 20px;
+}
+
+.scaleSection {
+  border-top: 1px solid rgba(23, 32, 38, 0.1);
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.scaleSection:first-child {
+  border-top: none;
+  padding-top: 8px;
+}
+
+/* Section header sticks right below the dialog's sticky top bar; the offset
+   var is declared on the dialog shell (MentalScaleDialog.module.css). */
+.scaleStickySectionHead {
+  background: var(--surface);
+  padding: 10px 0 6px;
+  position: sticky;
+  top: var(--scale-sticky-offset, 48px);
+  z-index: 2;
+}
+
+/* Question rhythm: 20px between item rows (prompt + anchors stay one unit). */
+.itemList {
+  display: grid;
+  gap: 20px;
+}

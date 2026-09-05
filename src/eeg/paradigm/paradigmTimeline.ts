@@ -11,6 +11,18 @@ export const VIDEO_MIN_SECONDS = 45;
 export const VIDEO_MAX_SECONDS = 90;
 
 /**
+ * Regulation trial stages (closed-loop rehearsal, Li et al. 2024 template):
+ * after the induction video the subject re-appraises for the regulation
+ * window with no feedback on screen, then one intermittent feedback bar
+ * (baseline vs regulation target-proximity) is shown for the display span.
+ */
+export const REGULATION_CUE_MS = 2000;
+export const REGULATION_WINDOW_MS = 24000;
+export const FEEDBACK_DISPLAY_MS = 2000;
+/** Decode windows inside the regulation window (24 s / 2 s sliding windows). */
+export const REGULATION_DECODE_STEPS = 12;
+
+/**
  * Watchdog for the video stage: a missing file or stalled decoder can leave
  * the fullscreen stage black without any error event ever firing. Armed until
  * playback demonstrably advances; the grace on top of the spec's max duration
@@ -22,11 +34,14 @@ export type ParadigmTrialPhase =
   | 'baseline'
   | 'hint'
   | 'video'
+  | 'regulationCue'
+  | 'regulationWindow'
+  | 'feedback'
   | 'postRest'
   | 'selfReport'
   | 'qualityCheck';
 
-/** Operator-facing order of the stages inside one trial. */
+/** Operator-facing order of the stages inside one induction trial. */
 export const PARADIGM_TRIAL_PHASE_SEQUENCE: readonly ParadigmTrialPhase[] = [
   'baseline',
   'hint',
@@ -36,10 +51,29 @@ export const PARADIGM_TRIAL_PHASE_SEQUENCE: readonly ParadigmTrialPhase[] = [
   'qualityCheck',
 ];
 
+/**
+ * Regulation trial stages: the induction video feeds the reappraisal window
+ * directly (no post-video rest) and the trial ends after the intermittent
+ * feedback display.
+ */
+export const PARADIGM_REGULATION_PHASE_SEQUENCE: readonly ParadigmTrialPhase[] = [
+  'baseline',
+  'hint',
+  'video',
+  'regulationCue',
+  'regulationWindow',
+  'feedback',
+  'selfReport',
+  'qualityCheck',
+];
+
 export const PARADIGM_TIMED_PHASES: readonly ParadigmTrialPhase[] = [
   'baseline',
   'hint',
   'postRest',
+  'regulationCue',
+  'regulationWindow',
+  'feedback',
 ];
 
 export function getNextTrialPhase(
@@ -64,6 +98,15 @@ export function getTimedPhaseDurationMs(
   }
   if (phase === 'postRest') {
     return POST_VIDEO_REST_MS;
+  }
+  if (phase === 'regulationCue') {
+    return REGULATION_CUE_MS;
+  }
+  if (phase === 'regulationWindow') {
+    return REGULATION_WINDOW_MS;
+  }
+  if (phase === 'feedback') {
+    return FEEDBACK_DISPLAY_MS;
   }
   return null;
 }

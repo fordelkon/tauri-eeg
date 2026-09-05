@@ -18,6 +18,7 @@ import {
   PARADIGM_TRIALS_PER_CLASS,
   paradigmEmotionLabels,
 } from './types';
+import { FEEDBACK_DISPLAY_MS, REGULATION_WINDOW_MS } from './paradigmTimeline';
 import type {
   ParadigmEmotion,
   ParadigmSessionKind,
@@ -61,16 +62,20 @@ type Props = {
 const sessionKindDescriptions: Record<ParadigmSessionKind, string> = {
   personal_calibration: '只采集平静基准,用于训练被试个性化情绪模型。',
   held_out_generation: '依次诱发焦虑、抑郁、恐惧三类情绪,按流程采集评价。',
+  regulation_feedback:
+    '视频诱发负性情绪后进行认知重评,调控结束显示间歇式脑状态反馈;当前为模拟反馈,仅试运行模式可用。',
 };
 
 const sessionKindShortLabels: Record<ParadigmSessionKind, string> = {
   personal_calibration: '个人校准',
   held_out_generation: '独立诱发调控',
+  regulation_feedback: '调控反馈',
 };
 
 const sessionKinds: readonly ParadigmSessionKind[] = [
   'personal_calibration',
   'held_out_generation',
+  'regulation_feedback',
 ];
 
 const libraryClassKeys: Record<ParadigmEmotion, keyof Omit<ParadigmVideoLibrary, 'rootPath' | 'valid' | 'problems'>> = {
@@ -199,9 +204,11 @@ export default function ParadigmSetupPanel({
 
   const activeBlocks = PARADIGM_BLOCKS_BY_KIND[sessionKind];
   const scheduleText = activeBlocks.map((emotion) => paradigmEmotionLabels[emotion]).join(' → ');
-  const scheduleHint = activeBlocks.length === 1
-    ? `${scheduleText} · 点击开始后连续随机播放 ${PARADIGM_TRIALS_PER_CLASS} 个视频`
-    : `${scheduleText} · 每类 ${PARADIGM_TRIALS_PER_CLASS} 个视频连续随机播放,阶段间休息`;
+  const scheduleHint = sessionKind === 'regulation_feedback'
+    ? `${scheduleText} · 每个视频结束后进行 ${REGULATION_WINDOW_MS / 1000} 秒认知重评,再显示 ${FEEDBACK_DISPLAY_MS / 1000} 秒间歇式反馈`
+    : activeBlocks.length === 1
+      ? `${scheduleText} · 点击开始后连续随机播放 ${PARADIGM_TRIALS_PER_CLASS} 个视频`
+      : `${scheduleText} · 每类 ${PARADIGM_TRIALS_PER_CLASS} 个视频连续随机播放,阶段间休息`;
 
   // Restore the last validated video library root on mount (same best-effort
   // memory as subjectId). A directory that has gone missing or no longer
@@ -318,27 +325,34 @@ export default function ParadigmSetupPanel({
   const subjectIdTrimmed = subjectId.trim();
   const sessionRunIdTrimmed = sessionRunId.trim();
   const libraryValid = library?.valid ?? false;
+  // The regulation rehearsal has no real decoder yet: its feedback values are
+  // simulated, so starting it against live hardware/recording is meaningless
+  // and the run is limited to dry-run mode.
+  const regulationNeedsDryRun = sessionKind === 'regulation_feedback' && !dryRun;
   const canStartSession = (
     (dryRun || devicesReady)
     && libraryValid
     && subjectIdTrimmed.length > 0
     && sessionRunIdTrimmed.length > 0
+    && !regulationNeedsDryRun
     && !startPending
     && !startingSession
   );
 
   // One-line readiness reason, highest priority first (E-Prime startup style).
-  const notReadyReason = dryRun
-    ? '试运行模式:跳过设备检查,数据不写入。'
-    : !devicesReady
-      ? '等待 EEG 与 Trigger 连接…'
-      : !libraryValid
-        ? '等待有效的视频根目录…'
-        : subjectIdTrimmed.length === 0
-          ? '请填写被试 ID'
-          : sessionRunIdTrimmed.length === 0
-            ? '请填写本次唯一的会话运行 ID'
-            : null;
+  const notReadyReason = regulationNeedsDryRun
+    ? '调控反馈范式当前仅支持试运行模式(反馈为模拟解码值,不连接设备)。'
+    : dryRun
+      ? '试运行模式:跳过设备检查,数据不写入。'
+      : !devicesReady
+        ? '等待 EEG 与 Trigger 连接…'
+        : !libraryValid
+          ? '等待有效的视频根目录…'
+          : subjectIdTrimmed.length === 0
+            ? '请填写被试 ID'
+            : sessionRunIdTrimmed.length === 0
+              ? '请填写本次唯一的会话运行 ID'
+              : null;
 
   // Stable handler handed to the memoized ParadigmLibraryList so the list
   // never re-renders because of a new preview-opening closure.

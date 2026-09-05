@@ -607,7 +607,9 @@
 }
 
 /* Self-report dialog, mirrors the mental scale dialog look. Form-class
-   overlay: warm scrim + blur, fading in while the panel scales up. */
+   overlay: warm scrim + blur, fading in while the panel scales up. The three
+   rating rows render the shared bipolar anchor control from
+   mentalScale/scaleUi, so only row chrome is styled here. */
 
 .dialogOverlay {
   animation: overlayFade 180ms var(--ease-out) backwards;
@@ -681,42 +683,20 @@
   margin: 0;
 }
 
-.ratingScale {
+.ratingRow {
   border: 1px solid rgba(23, 32, 38, 0.12);
-  border-radius: 8px;
+  border-radius: var(--radius-card);
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin: 0;
-  padding: 12px;
+  padding: 14px 16px;
 }
 
 .ratingLegend {
-  font-size: 13px;
-  font-weight: 740;
+  color: var(--ink-cool);
+  font-size: 13.5px;
+  font-weight: 700;
   padding: 0;
-}
-
-.ratingOptions {
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-}
-
-.ratingOption {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(23, 32, 38, 0.16);
-  border-radius: 6px;
-  color: #172026;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 740;
-  min-height: 44px;
-}
-
-.selectedRatingOption {
-  background: rgba(34, 139, 94, 0.16);
-  border-color: #22613c;
-  box-shadow: inset 0 0 0 1px #22613c;
 }
 
 .dialogFooter {
@@ -910,4 +890,95 @@
   max-height: calc(100vh - 96px);
   max-width: calc(100vw - 64px);
   width: 100%;
+}
+
+/* --- Regulation feedback stage (间歇式反馈双横条) ---------------------- */
+
+.feedbackBars {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  width: min(520px, 72vw);
+}
+
+.feedbackBarRow {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 64px 1fr 48px;
+  width: 100%;
+}
+
+.feedbackBarLabel {
+  color: rgba(245, 240, 235, 0.72);
+  font-size: 13px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.feedbackBarTrack {
+  background: rgba(245, 240, 235, 0.12);
+  border-radius: 999px;
+  height: 18px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.feedbackBarFill {
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+  transition: width 400ms var(--ease-out);
+}
+
+.feedbackBarFillBaseline {
+  background: rgba(245, 240, 235, 0.42);
+}
+
+.feedbackBarFillTarget {
+  background: linear-gradient(90deg, rgba(34, 139, 94, 0.85), rgba(78, 199, 146, 0.95));
+}
+
+.feedbackBarValue {
+  color: #f5f0eb;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.feedbackDeltaBadge {
+  border-radius: 999px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+  min-height: 30px;
+  padding: 4px 16px;
+}
+
+.feedbackDeltaUp {
+  background: rgba(34, 139, 94, 0.24);
+  color: #6fdcac;
+}
+
+.feedbackDeltaDown {
+  background: rgba(194, 121, 20, 0.22);
+  color: #e3a22c;
+}
+
+/* --- Regulation summary block (结束页统计) ----------------------------- */
+
+.regulationSummary {
+  border: 1px solid rgba(34, 139, 94, 0.35);
+  border-radius: 10px;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 14px 16px;
+  width: 100%;
+}
+
+.regulationSummaryTitle {
+  font-size: 14px;
+  font-weight: 720;
+  margin: 0;
 }
