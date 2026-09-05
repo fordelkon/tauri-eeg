@@ -3,19 +3,27 @@
 /* ------------------------------------------------------------------ */
 /*
  * Page-local tokens for the effect-evaluation wizard, aligned with the
- * app-wide cream/ink/red language (MusicRegulation / GameRegulation):
- * one ink, one brand red + gradient partner, a fixed radius scale
- * (18 surfaces / 14 inner cards / 10 controls) and two layered card
- * shadows. Keeping them on .workspace scopes the tokens to this page.
+ * app's calm pages (scaleUi / MusicRegulation): ink accents for controls,
+ * coral for warm beacons/hairlines, muted brick for negative data - the
+ * calm dialect never fills a control with saturated red. Fixed radius
+ * scale (18 surfaces / 14 inner cards / 10 controls) and two layered ink
+ * card shadows. Accents stay flat solids - the calm-language rule is at
+ * most one subtle gradient detail per surface, and this page spends its
+ * budget nowhere. Keeping them on .workspace scopes the tokens to this
+ * page.
  */
 .workspace {
   --ee-ink: #172026;
   --ee-ink-rgb: 23, 32, 38;
-  --ee-brand: var(--brand, #df0203);
-  --ee-brand-rgb: 223, 2, 3;
-  --ee-brand-soft: var(--brand-coral, #fb7f6e);
-  --ee-brand-gradient: linear-gradient(135deg, #f0413a, var(--brand, #df0203));
-  --ee-brand-gradient-hover: linear-gradient(135deg, #e63730, #c60202);
+  /* Controls accent on ink (the scaleUi recipe); hover is a lifted ink. */
+  --ee-accent: var(--ink-cool, #172026);
+  --ee-accent-hover: #24333d;
+  /* Warm beacon/indicator accent - coral, never saturated red. */
+  --ee-warm: var(--brand-coral, #fb7f6e);
+  --ee-warm-rgb: 251, 127, 110;
+  /* Negative data semantics - the chart's muted brick POST color. */
+  --ee-negative: #c0524c;
+  --ee-negative-rgb: 192, 82, 76;
   --ee-line: rgba(var(--ee-ink-rgb), 0.1);
   --ee-line-strong: rgba(var(--ee-ink-rgb), 0.18);
   --ee-radius-surface: 18px;
@@ -66,7 +74,7 @@
 /*
  * The page mixes custom controls with stock MUI (Button, Stepper, Alert).
  * Without a theme provider those render in Material blue #1976d2, which
- * fights the cream/ink/red language. These :global overrides pull every
+ * fights the cream/ink language. These :global overrides pull every
  * MUI piece on the page onto the token set; they are scoped under
  * .workspace so other routes are untouched.
  */
@@ -85,28 +93,26 @@
 }
 
 .workspace :global(.MuiButton-root:focus-visible) {
-  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.28);
-  outline: 2px solid rgba(var(--ee-brand-rgb), 0.65);
+  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.16);
+  outline: 2px solid rgba(var(--ee-ink-rgb), 0.55);
   outline-offset: 1px;
 }
 
+/* Primary button: the scaleUi ink recipe - flat solid ink, white text,
+   one soft ink shadow. Hover darkens the fill a step; the halo never
+   grows. */
 .workspace :global(.MuiButton-contained) {
-  background: var(--ee-brand-gradient);
-  box-shadow:
-    0 6px 16px rgba(var(--ee-brand-rgb), 0.26),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  background: var(--ee-accent);
+  box-shadow: 0 6px 16px rgba(var(--ee-ink-rgb), 0.24);
   color: #fff;
 }
 
 .workspace :global(.MuiButton-contained:hover) {
-  background: var(--ee-brand-gradient-hover);
-  box-shadow:
-    0 8px 20px rgba(var(--ee-brand-rgb), 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  background: var(--ee-accent-hover);
 }
 
 .workspace :global(.MuiButton-contained:active) {
-  box-shadow: 0 3px 10px rgba(var(--ee-brand-rgb), 0.26);
+  box-shadow: 0 2px 6px rgba(var(--ee-ink-rgb), 0.18);
 }
 
 .workspace :global(.MuiButton-contained.Mui-disabled) {
@@ -146,152 +152,6 @@
 
 .workspace :global(.MuiButton-text) {
   color: rgba(var(--ee-ink-rgb), 0.78);
-}
-
-/* Stepper: active/completed steps ride the brand red, pending steps stay
-   hairline gray, labels gain a weight step when their step activates.
-   The bar also pins to the top of the content scrollport: the result
-   step is tall, and without it the flow progress scrolls out of sight
-   while reviewing charts/history. Frosted glass keeps scrolled content
-   readable underneath. */
-.stepper {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--ee-line);
-  border-radius: var(--ee-radius-surface);
-  box-shadow: var(--ee-shadow-card);
-  padding: 16px 18px 10px;
-}
-
-.stepper :global(.MuiStepIcon-root) {
-  color: rgba(var(--ee-ink-rgb), 0.32);
-  transition: color 200ms ease;
-}
-
-.stepper :global(.MuiStepIcon-root.Mui-active) {
-  color: var(--ee-brand);
-}
-
-.stepper :global(.MuiStepIcon-root.Mui-active text) {
-  fill: #fff;
-}
-
-.stepper :global(.MuiStepIcon-root.Mui-completed) {
-  color: rgba(var(--ee-brand-rgb), 0.62);
-}
-
-.stepper :global(.MuiStepLabel-label) {
-  color: rgba(var(--ee-ink-rgb), 0.55);
-  font-size: 13.5px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  transition: color 200ms ease;
-}
-
-.stepper :global(.MuiStepLabel-label.Mui-active) {
-  color: var(--ee-ink);
-  font-weight: 750;
-}
-
-.stepper :global(.MuiStepLabel-label.Mui-completed) {
-  color: rgba(var(--ee-ink-rgb), 0.72);
-}
-
-.stepper :global(.MuiStepConnector-line) {
-  border-color: rgba(var(--ee-ink-rgb), 0.16);
-}
-
-/* ------------------------------------------------------------------ */
-/* Immersive step strip (steps 2-4)                                    */
-/* ------------------------------------------------------------------ */
-/*
- * The three mid-flow steps swap the full stepper card for this one-line
- * strip. Height is a fixed 40px box (border included) and the element sits
- * in the same sticky slot on every immersive step, so advancing 2 → 3 → 4
- * never shifts anything below; all the height the stepper card used to take
- * lands on the countdown stage and the scale gate instead.
- */
-.miniProgress {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--ee-line);
-  border-radius: 999px;
-  box-shadow: var(--ee-shadow-card);
-  box-sizing: border-box;
-  display: flex;
-  gap: 16px;
-  height: 40px;
-  justify-content: space-between;
-  min-width: 0;
-  padding: 0 20px;
-}
-
-.miniProgressLabel {
-  color: var(--ee-ink);
-  flex: 1 1 auto;
-  font-size: 13px;
-  font-weight: 720;
-  letter-spacing: 0.01em;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Screen-reader-only text (mini progress, status announcements). */
-.srOnly {
-  border: 0;
-  clip: rect(0, 0, 0, 0);
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  padding: 0;
-  position: absolute;
-  white-space: nowrap;
-  width: 1px;
-}
-
-/* Six-segment tracker: completed steps carry a dimmed brand tint, the
-   active one the full brand gradient (and a wider pill - the one token of
-   emphasis this compact bar gets), pending ones a hairline gray. */
-.miniProgressTrack {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 5px;
-}
-
-.miniProgressSeg {
-  border-radius: 999px;
-  display: block;
-  height: 6px;
-  transition:
-    background-color 240ms ease,
-    box-shadow 240ms ease,
-    width 240ms cubic-bezier(0.16, 1, 0.3, 1);
-  width: 18px;
-}
-
-.miniProgressSegDone {
-  background: rgba(var(--ee-brand-rgb), 0.42);
-}
-
-.miniProgressSegActive {
-  background: var(--ee-brand-gradient);
-  box-shadow: 0 1px 5px rgba(var(--ee-brand-rgb), 0.4);
-  width: 26px;
-}
-
-.miniProgressSegPending {
-  background: rgba(var(--ee-ink-rgb), 0.15);
 }
 
 /* Alerts (verdict banners, gate hints, export notices) adopt the calm
@@ -380,9 +240,11 @@
   padding-top: 8px;
 }
 
+/* Neutral ink kicker: labels stay gray-ink; color is reserved for
+   interactive/semantic accents, not for announcing a section. */
 .eyebrow {
   align-items: center;
-  color: rgba(var(--ee-brand-rgb), 0.78);
+  color: rgba(var(--ee-ink-rgb), 0.58);
   display: flex;
   font-size: 12px;
   font-weight: 760;
@@ -392,7 +254,7 @@
 }
 
 .eyebrow::before {
-  background: linear-gradient(135deg, var(--brand-coral, #fb7f6e), var(--brand, #df0203));
+  background: rgba(var(--ee-ink-rgb), 0.35);
   border-radius: 999px;
   content: "";
   display: block;
@@ -426,7 +288,7 @@
 }
 
 .tabBar :global(.MuiTabs-indicator) {
-  background: linear-gradient(90deg, var(--brand-coral, #fb7f6e), var(--brand, #df0203));
+  background: var(--ee-warm);
   border-radius: 999px 999px 0 0;
   height: 3px;
 }
@@ -444,8 +306,10 @@
   color: rgba(var(--ee-ink-rgb), 0.88);
 }
 
+/* The coral indicator carries the tab accent; the selected label stays
+   ink and reads through weight alone. */
 .tabBar :global(.MuiTab-root.Mui-selected) {
-  color: var(--ee-brand);
+  color: var(--ee-ink);
   font-weight: 740;
 }
 
@@ -611,17 +475,19 @@
   transform: rotate(135deg);
 }
 
-/* Hover lifts the row a hair - the affordance for "this row expands". */
+/* Hover lifts the row a hair - the affordance for "this row expands".
+   The engaged border warms to coral at low alpha (the MusicRegulation
+   hairline role); red never outlines whole rows here. */
 .historyRow:hover {
   background: #fff;
-  border-color: rgba(var(--ee-brand-rgb), 0.45);
+  border-color: rgba(var(--ee-warm-rgb), 0.35);
   box-shadow: 0 6px 18px rgba(var(--ee-ink-rgb), 0.08);
   transform: translateY(-1px);
 }
 
 .historyRow:focus-visible {
-  border-color: rgba(var(--ee-brand-rgb), 0.55);
-  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.12);
+  border-color: rgba(var(--ee-warm-rgb), 0.35);
+  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.1);
   outline: none;
 }
 
@@ -629,7 +495,7 @@
    detail below reads as part of the selected run. */
 .historyRow[aria-expanded='true'] {
   background: #fff;
-  border-color: rgba(var(--ee-brand-rgb), 0.45);
+  border-color: rgba(var(--ee-warm-rgb), 0.35);
   box-shadow: 0 4px 12px rgba(var(--ee-ink-rgb), 0.05);
 }
 
@@ -653,16 +519,19 @@
   padding: 3px 12px;
 }
 
+/* System semantic recipes (MusicRegulation / MUI overrides above): muted
+   fill + slightly stronger border + dark ink text. One recipe per
+   severity, shared by every chip/banner on the page. */
 .outcomePass {
-  background: rgba(72, 168, 104, 0.14);
-  border: 1px solid rgba(72, 168, 104, 0.4);
-  color: #22683a;
+  background: rgba(34, 125, 84, 0.12);
+  border: 1px solid rgba(34, 125, 84, 0.24);
+  color: var(--success, #1c6a47);
 }
 
 .outcomeFail {
-  background: rgba(var(--ee-brand-rgb), 0.08);
-  border: 1px solid rgba(var(--ee-brand-rgb), 0.35);
-  color: #a30102;
+  background: rgba(var(--ee-negative-rgb), 0.1);
+  border: 1px solid rgba(var(--ee-negative-rgb), 0.22);
+  color: var(--danger-ink, #8d2d25);
 }
 
 .outcomeUnknown {
@@ -727,9 +596,10 @@
   margin: 0;
 }
 
-/* Small accent bar tying panel titles back to the brand red. */
+/* Small flat coral accent bar - coral reads as a quiet marker next to ink
+   headings, not a highlight. */
 .panelTitle::before {
-  background: linear-gradient(180deg, var(--brand-coral, #fb7f6e), var(--brand, #df0203));
+  background: var(--ee-warm);
   border-radius: 999px;
   content: "";
   display: block;
@@ -744,14 +614,6 @@
 .stepHeader {
   display: grid;
   gap: 6px;
-}
-
-/* Steps 2-4 (immersive): a tighter panel rhythm - the compact top strip
-   freed vertical space, and the panels hand it to the scale gate and the
-   countdown stage rather than reclaiming it as padding. */
-.panelImmersive {
-  gap: 14px;
-  padding: 20px 24px;
 }
 
 .panelHint {
@@ -771,7 +633,7 @@
   gap: 8px;
 }.loadingHint::before {
   animation: loadingPulse 1.1s ease-in-out infinite;
-  background: var(--ee-brand);
+  background: var(--ee-warm);
   border-radius: 999px;
   content: "";
   display: block;
@@ -898,8 +760,8 @@
 
 .textInput:focus,
 .selectInput:focus {
-  border-color: rgba(var(--ee-brand-rgb), 0.55);
-  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.1);
+  border-color: rgba(var(--ee-ink-rgb), 0.5);
+  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.1);
   outline: none;
 }
 
@@ -939,20 +801,22 @@
 }
 
 .pillRadio:focus-visible {
-  border-color: rgba(var(--ee-brand-rgb), 0.55);
-  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.12);
+  border-color: rgba(var(--ee-ink-rgb), 0.45);
+  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.12);
   outline: none;
 }
 
+/* Selected pill: the scaleUi selected-anchor recipe - solid ink fill,
+   white text, soft ink shadow. Red never fills a control on this page. */
 .pillRadio.isSelected {
-  background: var(--ee-brand-gradient);
-  border-color: var(--ee-brand);
-  box-shadow: 0 6px 16px rgba(var(--ee-brand-rgb), 0.28);
+  background: var(--ee-accent);
+  border-color: var(--ee-accent);
+  box-shadow: 0 6px 16px rgba(var(--ee-ink-rgb), 0.24);
   color: #fff;
 }
 
 .pillRadio.isSelected:hover {
-  background: var(--ee-brand-gradient-hover);
+  background: var(--ee-accent-hover);
 }
 
 .actionsRow {
@@ -961,12 +825,6 @@
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
-}
-
-/* Footer-tier reset sits opposite the step CTA (left) so the primary
-   advance keeps the right edge to itself. */
-.actionsRowStart {
-  justify-content: flex-start;
 }
 
 /* Ghost-tier action (reset flow) - the one custom button left on the
@@ -996,10 +854,10 @@
 }
 
 .errorBanner {
-  background: rgba(var(--ee-brand-rgb), 0.08);
-  border: 1px solid rgba(var(--ee-brand-rgb), 0.35);
+  background: rgba(var(--ee-negative-rgb), 0.1);
+  border: 1px solid rgba(var(--ee-negative-rgb), 0.22);
   border-radius: var(--ee-radius-control);
-  color: #a30102;
+  color: var(--danger-ink, #8d2d25);
   font-size: 13px;
   font-weight: 650;
   padding: 10px 14px;
@@ -1074,22 +932,21 @@
 }
 
 .statusActive {
-  background: rgba(93, 143, 232, 0.14);
-  border: 1px solid rgba(93, 143, 232, 0.42);
-  color: #2b5bbf;
+  background: rgba(45, 113, 184, 0.08);
+  border: 1px solid rgba(45, 113, 184, 0.2);
+  color: var(--info, #245f9d);
 }
 
 .statusDone {
-  background: rgba(34, 125, 84, 0.13);
-  border: 1px solid rgba(34, 125, 84, 0.42);
+  background: rgba(34, 125, 84, 0.12);
+  border: 1px solid rgba(34, 125, 84, 0.24);
   color: var(--success, #1c6a47);
 }
 
+/* Finished reads as calm closure: solid system green, not a lit-up
+   gradient numeral. */
 .countdownDone {
-  background: linear-gradient(135deg, var(--brand-coral, #fb7f6e), var(--brand, #df0203));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--success, #1c6a47);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1164,9 +1021,12 @@
   outline: none;
 }
 
+/* MusicRegulation selected-card recipe: blush tint + red-warmed border +
+   ink text. Red only warms the border at low alpha - it never fills the
+   control. */
 .musicHistoryItemActive {
-  background: rgba(var(--ee-brand-rgb), 0.07);
-  border-color: rgba(var(--ee-brand-rgb), 0.45);
+  background: color-mix(in srgb, var(--ee-warm) 12%, #fff);
+  border-color: rgba(223, 2, 3, 0.35);
   color: var(--ee-ink);
   font-weight: 700;
 }
@@ -1193,9 +1053,9 @@
   white-space: nowrap;
 }
 
-/* High-contrast / forced-colors fallback: gradient-clip text would vanish. */
+/* High-contrast / forced-colors fallback: gradient-clip text would vanish,
+   so the sign-tinted hero value falls back to system CanvasText. */
 @media (forced-colors: active) {
-  .countdownDone,
   .metricHeroValue.isPositive,
   .metricHeroValue.isNegative {
     background: none;
@@ -1212,9 +1072,8 @@
 }
 
 .progressBar {
-  background: linear-gradient(90deg, var(--brand-coral, #fb7f6e), var(--brand, #df0203));
+  background: var(--ee-warm);
   border-radius: 999px;
-  box-shadow: 0 1px 4px rgba(var(--ee-brand-rgb), 0.35);
   height: 100%;
   transition: width 500ms linear;
 }
@@ -1227,9 +1086,9 @@
 }
 
 .eegSaved {
-  background: rgba(72, 168, 104, 0.14);
-  border: 1px solid rgba(72, 168, 104, 0.4);
-  color: #22683a;
+  background: rgba(34, 125, 84, 0.12);
+  border: 1px solid rgba(34, 125, 84, 0.24);
+  color: var(--success, #1c6a47);
 }
 
 .eegUnavailable {
@@ -1239,9 +1098,9 @@
 }
 
 .eegRecording {
-  background: rgba(93, 143, 232, 0.14);
-  border: 1px solid rgba(93, 143, 232, 0.4);
-  color: #2b5bbf;
+  background: rgba(45, 113, 184, 0.08);
+  border: 1px solid rgba(45, 113, 184, 0.2);
+  color: var(--info, #245f9d);
 }
 
 /* Recording pulse: reuses the loading-dot language so "linking" reads live. */
@@ -1301,23 +1160,15 @@
   }
 }
 
+/* Flat uniform tints (no diagonal sweeps): the severity reads from the
+   muted wash + border + icon disc, not from a gradient performance. */
 .heroPass {
-  background: linear-gradient(
-    135deg,
-    rgba(34, 125, 84, 0.1),
-    rgba(34, 125, 84, 0.035) 55%,
-    rgba(255, 255, 255, 0.6)
-  );
+  background: rgba(34, 125, 84, 0.08);
   border-color: rgba(34, 125, 84, 0.26);
 }
 
 .heroWarn {
-  background: linear-gradient(
-    135deg,
-    rgba(217, 119, 6, 0.1),
-    rgba(217, 119, 6, 0.035) 55%,
-    rgba(255, 255, 255, 0.6)
-  );
+  background: rgba(217, 119, 6, 0.08);
   border-color: rgba(217, 119, 6, 0.28);
 }
 
@@ -1338,14 +1189,14 @@
   width: 22px;
 }
 
+/* Flat solid discs, no colored glow: white glyph on system green /
+   muted amber carries the severity at >=4.5:1 without a halo. */
 .heroPass .heroIcon {
-  background: linear-gradient(135deg, #2f9e63, var(--success, #1c6a47));
-  box-shadow: 0 6px 16px rgba(34, 125, 84, 0.32);
+  background: var(--success, #1c6a47);
 }
 
 .heroWarn .heroIcon {
-  background: linear-gradient(135deg, #f0a13a, #c07b13);
-  box-shadow: 0 6px 16px rgba(217, 119, 6, 0.3);
+  background: #a4690f;
 }
 
 .heroCopy {
@@ -1404,8 +1255,9 @@
   }
 }
 
-/* Metric cards share the data-output look: a gradient top hairline marks
-   them as output (vs. the plain white input panels above). */
+/* Metric cards read as quiet data output: plain white wells like the
+   input panels, no neon hairline - only the headline hero keeps a
+   muted coral marker. */
 .metricCard,
 .metricHero {
   background: rgba(255, 255, 255, 0.92);
@@ -1419,9 +1271,8 @@
   position: relative;
 }
 
-.metricCard::before,
 .metricHero::before {
-  background: linear-gradient(90deg, var(--brand-coral, #fb7f6e), rgba(var(--ee-brand-rgb), 0.7), transparent);
+  background: rgba(var(--ee-warm-rgb), 0.35);
   content: "";
   display: block;
   height: 3px;
@@ -1446,20 +1297,17 @@
   line-height: 1.15;
 }
 
-/* Headline metric: the number the whole page exists to produce. A brand
-   top hairline, radial tint and one giant size step make it the focal
-   datum; the value's color rides the sign system below. */
+/* Headline metric: the number the whole page exists to produce. One
+   muted coral hairline, a barely-there warm tint (the page's single
+   gradient detail) and one giant size step make it the focal datum;
+   the value's color rides the sign system below. */
 .metricHero {
   background:
-    radial-gradient(120% 110% at 88% -18%, rgba(var(--ee-brand-rgb), 0.05), transparent 60%),
+    radial-gradient(120% 110% at 88% -18%, rgba(var(--ee-warm-rgb), 0.06), transparent 60%),
     linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.9));
   box-shadow: 0 6px 20px rgba(var(--ee-ink-rgb), 0.07);
   gap: 6px;
   padding: 18px 22px 20px;
-}
-
-.metricHero::before {
-  background: var(--ee-brand-gradient);
 }
 
 .metricHeroValue {
@@ -1473,26 +1321,20 @@
   line-height: 1.05;
 }
 
-/* Sign-tinted gradient value: green when the mean improved, brand red
-   when it worsened - the gradient keeps the big numeral from reading
-   flat while staying inside the existing positive/negative system. */
+/* Sign-tinted value: solid system green when the mean improved, muted
+   brick when it worsened - the same sign family as the chart's POST
+   series, minus the gradient-clip theatrics. */
 .metricHeroValue.isPositive {
-  background: linear-gradient(135deg, #3fb374, var(--success, #1c6a47));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--success, #1c6a47);
 }
 
 .metricHeroValue.isNegative {
-  background: var(--ee-brand-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--ee-negative);
 }
 
 /* Delta arrow beside the headline value - a plain CSS triangle tinted to
-   match the sign (explicit colors because the parent's gradient-clip
-   text makes currentColor transparent). */
+   match the sign. Explicit colors (not currentColor) so the arrow keeps
+   its hue even if the value's color treatment changes again. */
 .deltaArrow {
   border-left: 8px solid transparent;
   border-right: 8px solid transparent;
@@ -1506,13 +1348,14 @@
 }
 
 .deltaArrowDown {
-  border-top: 12px solid var(--ee-brand);
+  border-top: 12px solid var(--ee-negative);
 }
 
-/* Quiet left-accented callout for the 口径/口径-basis notes. */
+/* Quiet left-accented callout (coral hairline) for the 口径/口径-basis
+   notes. */
 .noteCallout {
   background: rgba(var(--ee-ink-rgb), 0.028);
-  border-left: 3px solid rgba(var(--ee-brand-rgb), 0.45);
+  border-left: 3px solid rgba(var(--ee-warm-rgb), 0.45);
   border-radius: 0 10px 10px 0;
   color: rgba(var(--ee-ink-rgb), 0.62);
   font-size: 12.5px;
@@ -1521,13 +1364,12 @@
   padding: 9px 14px;
 }
 
-/* Chart frame: the ECharts canvas sits in a framed card with the same
-   top-hairline accent as the metric cards, so chart + table read as one
-   data-output family. The frame only carries chrome (border + padding +
-   shadow); the chart itself mounts on the inner .chartCanvas because
-   zrender measures clientWidth/Height and lays the canvas out from the
-   content box - padding on the host would push the canvas over the
-   frame's right/bottom border. */
+/* Chart frame: the ECharts canvas sits in a plain framed card so chart +
+   table read as one data-output family. The frame only carries chrome
+   (border + padding + shadow); the chart itself mounts on the inner
+   .chartCanvas because zrender measures clientWidth/Height and lays the
+   canvas out from the content box - padding on the host would push the
+   canvas over the frame's right/bottom border. */
 .chartWrap {
   background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.55));
   border: 1px solid var(--ee-line);
@@ -1540,25 +1382,15 @@
   width: 100%;
 }
 
-.chartWrap::before {
-  background: linear-gradient(90deg, var(--brand-coral, #fb7f6e), rgba(var(--ee-brand-rgb), 0.55), transparent);
-  content: "";
-  display: block;
-  height: 3px;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-}
-
 .chartCanvas {
   height: 330px;
   width: 100%;
 }
 
 /* Leg trace cards: white mini-cards whose leading swatch matches the
-   comparison chart's series colors, keeping the on-screen pairing
-   legible next to the chart it belongs to. */
+   comparison chart's series colors (baseline gray-blue / the muted
+   brick POST_COLOR in effectResultChartOption.ts), keeping the
+   on-screen pairing legible next to the chart it belongs to. */
 .legTraceGrid {
   display: grid;
   gap: 10px;
@@ -1593,7 +1425,7 @@
 }
 
 .legTraceRegulation::before {
-  background: var(--ee-brand);
+  background: #c0524c;
 }
 
 /* Framed dimension tables (result / comparison / history detail): a
@@ -1663,7 +1495,7 @@
 }
 
 .dimensionTable tbody tr:hover {
-  background: rgba(var(--ee-brand-rgb), 0.035);
+  background: rgba(var(--ee-ink-rgb), 0.035);
 }
 
 .dimensionTable tbody tr:last-child td {
@@ -1672,7 +1504,7 @@
 
 /* Score cells: number + a mini 0-100 bar so 基线 vs 调控后 compare at a
    glance down the column (positive rate tints the post bar green,
-   negative brand red - the same sign system as the rate cells). */
+   negative the muted brick - the same sign system as the rate cells). */
 .scoreCell {
   display: grid;
   gap: 5px;
@@ -1701,11 +1533,11 @@
 }
 
 .scoreBar.barUp {
-  background: linear-gradient(90deg, #3fb374, var(--success, #1c6a47));
+  background: var(--success, #1c6a47);
 }
 
 .scoreBar.barDown {
-  background: linear-gradient(90deg, #f0413a, var(--brand, #df0203));
+  background: var(--ee-negative);
 }
 
 .rateCell {
@@ -1735,11 +1567,11 @@
 }
 
 .rateCell.isNegative {
-  color: var(--ee-brand);
+  color: var(--ee-negative);
 }
 
 .rateCell.isNegative::before {
-  border-top: 7px solid var(--ee-brand);
+  border-top: 7px solid var(--ee-negative);
 }
 
 /* Result actions close their panel with a hairline divider so the export
@@ -1790,6 +1622,10 @@
     padding: 0 4px;
   }
 
+  .wizardPane {
+    gap: 14px;
+  }
+
   .title {
     font-size: 22px;
   }
@@ -1809,37 +1645,8 @@
     width: 100%;
   }
 
-  .stepper {
-    padding: 10px 10px 6px;
-  }
-
-  .stepper :global(.MuiStepLabel-label) {
-    font-size: 12px;
-  }
-
   .panel {
     padding: 18px 16px;
-  }
-
-  .panelImmersive {
-    padding: 16px 14px;
-  }
-
-  .miniProgress {
-    gap: 10px;
-    padding: 0 14px;
-  }
-
-  .miniProgressLabel {
-    font-size: 12.5px;
-  }
-
-  .miniProgressSeg {
-    width: 14px;
-  }
-
-  .miniProgressSegActive {
-    width: 20px;
   }
 
   .resultStep {
@@ -1906,17 +1713,18 @@
   .pillRadio,
   .countdownValue,
   .scoreBar,
-  .miniProgressSeg,
-  .stepper :global(.MuiStepIcon-root),
-  .stepper :global(.MuiStepLabel-label),
+  .stationDotCurrent,
   .historyDeleteButton,
   .expandIcon,
   .textInput,
   .selectInput,
   .secondaryAction,
+  .secondaryActionDanger,
+  .doneChip,
+  .stationClickable:hover .stationLabel,
+  .stationLabel,
   .dimensionTable tbody tr,
   .eegRecording::before,
-  button.pipelineHead,
   .workspace :global(.MuiButton-root),
   .workspace :global(.MuiTab-root) {
     animation: none;
@@ -1925,180 +1733,424 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Pipeline board: six always-visible node cards                       */
+/* Horizontal timeline (the page's visual protagonist)                 */
 /* ------------------------------------------------------------------ */
 /*
- * Single-page pipeline: the six wizard steps render as one vertical board.
- * Done rows collapse to a summary line (click to expand the detail), the
- * current row hosts the original step panel, pending rows gray out. Tokens
- * reuse the page-local --ee-* set plus the app-wide --success token.
+ * Six stations on one line: done = filled green disc with a check
+ * (clickable → review popover), current = hollow coral ring with a micro
+ * pulse (clickable → scroll to the stage), pending = gray disc. The
+ * segment left of a station turns green once the walk passed it. Stations
+ * flex equally, so the connector spans from the previous dot's edge to
+ * this dot's edge via the item's ::before (27px = dot radius + gap).
  */
-.pipeline {
-  display: grid;
-  gap: 12px;
+.timeline {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  overflow-x: auto;
+  padding: 18px 6px 2px;
 }
 
-.pipelineCard {
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid var(--ee-line);
-  border-radius: var(--ee-radius-card);
-  box-shadow: var(--ee-shadow-card);
-  display: grid;
+.timelineItem {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 76px;
+  position: relative;
 }
 
-.pipelineCardCurrent {
-  border-color: rgba(var(--ee-brand-rgb), 0.42);
-  box-shadow: var(--ee-shadow-lift);
+.timelineItem + .timelineItem::before {
+  background: rgba(var(--ee-ink-rgb), 0.16);
+  border-radius: 999px;
+  content: "";
+  height: 2px;
+  left: calc(-50% + 27px);
+  position: absolute;
+  right: calc(50% + 27px);
+  top: 16px;
 }
 
-.pipelineCardDone {
-  background: rgba(255, 255, 255, 0.7);
+.timelineItem.segmentDone::before {
+  background: rgba(34, 125, 84, 0.55);
 }
 
-/* Pending nodes gray out (background, title, badge) until unlocked. */
-.pipelineCardPending {
-  background: rgba(255, 255, 255, 0.48);
-  box-shadow: none;
-}
-
-.pipelineHead {
+.station {
   align-items: center;
   background: transparent;
   border: 0;
   color: inherit;
+  cursor: default;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   font: inherit;
-  gap: 10px;
-  min-height: 52px;
-  padding: 12px 18px;
-  text-align: left;
-  width: 100%;
+  gap: 6px;
+  padding: 0;
 }
 
-/* Only completed rows are buttons (they expand); hover signals that. */
-button.pipelineHead {
+.stationClickable {
   cursor: pointer;
-  transition: background-color 160ms ease;
 }
 
-button.pipelineHead:hover {
-  background: rgba(var(--ee-ink-rgb), 0.035);
+.stationClickable:hover .stationLabel {
+  color: var(--ee-ink);
 }
 
-button.pipelineHead:focus-visible {
-  box-shadow: 0 0 0 3px rgba(var(--ee-brand-rgb), 0.16);
-  outline: 2px solid rgba(var(--ee-brand-rgb), 0.6);
-  outline-offset: -2px;
+button.station:focus-visible {
+  border-radius: 12px;
+  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.14);
+  outline: 2px solid rgba(var(--ee-ink-rgb), 0.55);
+  outline-offset: 2px;
 }
 
-.pipelineIndex {
+.stationDot {
   align-items: center;
-  background: rgba(var(--ee-ink-rgb), 0.07);
   border-radius: 999px;
-  color: rgba(var(--ee-ink-rgb), 0.62);
-  display: inline-flex;
+  box-sizing: border-box;
+  display: flex;
   flex: 0 0 auto;
-  font-size: 12px;
+  font-size: 13.5px;
   font-variant-numeric: tabular-nums;
   font-weight: 740;
-  height: 26px;
+  height: 34px;
   justify-content: center;
-  width: 26px;
+  width: 34px;
 }
 
-.pipelineCardCurrent .pipelineIndex {
-  background: var(--ee-brand-gradient);
-  box-shadow: 0 4px 10px rgba(var(--ee-brand-rgb), 0.3);
+.stationDotPending {
+  background: rgba(var(--ee-ink-rgb), 0.08);
+  color: rgba(var(--ee-ink-rgb), 0.45);
+}
+
+.stationDotDone {
+  background: var(--success, #1c6a47);
   color: #fff;
 }
 
-/* Done index rides the app-wide success tint, matching its badge. */
-.pipelineCardDone .pipelineIndex {
-  background: rgba(34, 125, 84, 0.13);
-  border: 1px solid rgba(34, 125, 84, 0.38);
-  color: var(--success, #1c6a47);
+/* Hollow coral ring + micro pulse: the "you are here" beacon. */
+.stationDotCurrent {
+  animation: stationPulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  background: #fff;
+  border: 3px solid var(--ee-warm);
+  color: var(--ee-warm);
 }
 
-.pipelineTitle {
+@keyframes stationPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--ee-warm-rgb), 0.2);
+  }
+
+  70%,
+  100% {
+    box-shadow: 0 0 0 9px rgba(var(--ee-warm-rgb), 0);
+  }
+}
+
+.stationCheck {
+  font-size: 19px;
+}
+
+.stationLabel {
   color: var(--ee-ink);
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 720;
+  transition: color 160ms ease;
+  /* Two CJK glyphs never wrap, but keep the row height stable if a future
+     label grows: overflow must ellipsis, not reflow the timeline. */
+  white-space: nowrap;
 }
 
-.pipelineCardPending .pipelineTitle {
+.stationLabelPending {
   color: rgba(var(--ee-ink-rgb), 0.42);
 }
 
-.pipelineSummary {
-  color: rgba(var(--ee-ink-rgb), 0.6);
-  flex: 1 1 auto;
-  font-size: 12.5px;
-  min-width: 0;
+/* A long status line (被试 <id> / 计时中) truncates instead of wrapping —
+   a wrapped second line would misalign every status row on the timeline. */
+.stationStatus {
+  color: rgba(var(--ee-ink-rgb), 0.55);
+  font-size: 12px;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pipelinePendingHint {
-  color: rgba(var(--ee-ink-rgb), 0.38);
-  flex: 1 1 auto;
-  font-size: 12.5px;
+/* The current station's status line rides the coral beacon so
+   "进行中/计时中" pops without relying on position alone. */
+.station[aria-current='step'] .stationStatus {
+  color: var(--ee-warm);
+  font-weight: 720;
 }
 
-/* Status badge: text + tint, not color alone (color-blind safe). */
-.pipelineBadge {
+/* ------------------------------------------------------------------ */
+/* Done compression band                                               */
+/* ------------------------------------------------------------------ */
+/* Finished nodes shrink into clickable chips so they never occupy the
+   main stage again; the strip reads as a footnote, not a task list. */
+.doneBand {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--ee-line);
   border-radius: 999px;
-  flex: 0 0 auto;
-  font-size: 11.5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 14px;
+}
+
+.doneBandLabel {
+  color: rgba(var(--ee-ink-rgb), 0.5);
+  font-size: 12px;
   font-weight: 740;
-  letter-spacing: 0.02em;
-  margin-left: auto;
-  padding: 3px 11px;
+  letter-spacing: 0.06em;
 }
 
-.pipelineBadgeDone {
-  background: rgba(34, 125, 84, 0.12);
-  border: 1px solid rgba(34, 125, 84, 0.35);
-  color: var(--success, #1c6a47);
-}
-
-.pipelineBadgeCurrent {
-  background: var(--ee-brand-gradient);
-  box-shadow: 0 3px 8px rgba(var(--ee-brand-rgb), 0.28);
-  color: #fff;
-}
-
-.pipelineBadgePending {
-  background: rgba(var(--ee-ink-rgb), 0.06);
-  border: 1px solid rgba(var(--ee-ink-rgb), 0.14);
-  color: rgba(var(--ee-ink-rgb), 0.48);
-}
-
-/* Skip marker chip on the condition row's summary line. */
-.pipelineSkippedChip {
-  background: rgba(217, 119, 6, 0.1);
-  border: 1px solid rgba(217, 119, 6, 0.3);
+.doneChip {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(34, 125, 84, 0.24);
   border-radius: 999px;
-  color: #8a5a10;
-  flex: 0 0 auto;
-  font-size: 11.5px;
+  color: var(--success, #1c6a47);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12.5px;
   font-weight: 700;
-  padding: 2px 10px;
+  gap: 4px;
+  padding: 4px 12px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
-/* Current card body: the original step panel nests inside with an inset. */
-.pipelineBody {
-  border-top: 1px solid var(--ee-line);
-  padding: 14px 16px 16px;
+.doneChip:hover {
+  background: #fff;
+  border-color: rgba(34, 125, 84, 0.36);
+  box-shadow: 0 3px 10px rgba(var(--ee-ink-rgb), 0.08);
 }
 
-/* Expanded done detail: the inset-well pattern the history rows use. */
-.pipelineDetails {
-  border-top: 1px solid var(--ee-line);
+.doneChip:focus-visible {
+  box-shadow: 0 0 0 3px rgba(34, 125, 84, 0.18);
+  outline: 2px solid rgba(34, 125, 84, 0.45);
+  outline-offset: 1px;
+}
+
+.doneChipCheck {
+  font-size: 14px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Wizard pane (timeline + done band + main stage)                     */
+/* ------------------------------------------------------------------ */
+/*
+ * The pane stays mounted on BOTH tabs: a run's induction video / embedded
+ * regulation media must keep playing while the operator peeks at the
+ * history tab, so tab switching toggles the `hidden` attribute instead of
+ * unmounting the subtree. The pane reproduces the workspace's flex column
+ * rhythm for its stack; the explicit [hidden] rule is required because an
+ * author `display` on the class would otherwise override the UA's
+ * `[hidden] { display: none }`.
+ */
+.wizardPane {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.wizardPane[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Main stage: one task at a time                                      */
+/* ------------------------------------------------------------------ */
+/*
+ * The single card that hosts the current node: a coral top hairline
+ * marks it as the page's one live surface (flat, no glow), the kicker
+ * orients (步骤 X / 6), and the panel body offers exactly one primary
+ * CTA. On the result step the shell goes transparent (.stageFlat) — the
+ * output cards carry their own chrome.
+ */
+.stage {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-surface);
+  box-shadow: var(--ee-shadow-lift);
   display: grid;
+  gap: 14px;
+  padding: 22px 26px 18px;
+  position: relative;
+}
+
+.stage::before {
+  background: rgba(var(--ee-warm-rgb), 0.38);
+  border-radius: var(--ee-radius-surface) var(--ee-radius-surface) 0 0;
+  content: "";
+  display: block;
+  height: 3px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.stageFlat {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.stageFlat::before {
+  display: none;
+}
+
+/* Same neutral-ink label recipe as the page eyebrow - the kicker
+   orients, it does not shout. */
+.stageKicker {
+  color: rgba(var(--ee-ink-rgb), 0.58);
+  font-size: 12px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.stageTitle {
+  color: var(--ee-ink);
+  font-size: 24px;
+  font-weight: 740;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.stageHint {
+  color: rgba(var(--ee-ink-rgb), 0.66);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.stageBody {
+  display: grid;
+  gap: 14px;
+}
+
+/* The one primary CTA per stage: visibly bigger than every other control
+   so "the next action" is never ambiguous. */
+.primaryCta {
+  font-size: 16px;
+  min-height: 52px;
+  padding: 8px 30px;
+}
+
+/* Primary CTA row: grid so a conditional hint (e.g. "填写被试 ID 后即可
+   开始") stacks under the button instead of floating beside it. */
+.stagePrimaryRow {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.stageSecondaryRow {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  padding: 12px 18px 16px;
+}
+
+/* Footer row: the destructive reset sits alone at the stage's bottom edge,
+   a full gap away from every CTA (misclick isolation). */
+.stageFooterRow {
+  border-top: 1px solid var(--ee-line);
+  padding-top: 12px;
+}
+
+/* Ghost danger tier for the skip escape: amber like the warning alerts,
+   quiet until hovered — it must never compete with the primary CTA. */
+.secondaryActionDanger {
+  background: transparent;
+  border: 1px solid rgba(196, 138, 24, 0.45);
+  border-radius: var(--ee-radius-control);
+  color: #96640e;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  min-height: 38px;
+  padding: 0 16px;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.secondaryActionDanger:hover {
+  background: rgba(196, 138, 24, 0.08);
+  border-color: rgba(196, 138, 24, 0.65);
+  color: #7a4f09;
+}
+
+.secondaryActionDanger:focus-visible {
+  box-shadow: 0 0 0 3px rgba(196, 138, 24, 0.18);
+  outline: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Review popover (read-only done-node overlay)                        */
+/* ------------------------------------------------------------------ */
+
+.reviewPaper {
+  border-radius: var(--ee-radius-card);
+}
+
+.reviewCard {
+  display: grid;
+  gap: 12px;
+  max-width: 460px;
+  padding: 16px 18px;
+}
+
+.reviewTitle {
+  color: var(--ee-ink);
+  font-size: 14.5px;
+  font-weight: 740;
+}
+
+.reviewFootnote {
+  color: rgba(var(--ee-ink-rgb), 0.45);
+  font-size: 12px;
+  margin: 0;
+}
+
+@media (max-width: 620px) {
+  .stationDot {
+    font-size: 12.5px;
+    height: 30px;
+    width: 30px;
+  }
+
+  .timelineItem + .timelineItem::before {
+    height: 2px;
+    left: calc(-50% + 23px);
+    right: calc(50% + 23px);
+    top: 14px;
+  }
+
+  .stationLabel {
+    font-size: 12.5px;
+  }
+
+  .stationStatus {
+    font-size: 11.5px;
+  }
+
+  .stage {
+    padding: 18px 16px 14px;
+  }
+
+  .stageTitle {
+    font-size: 21px;
+  }
+
+  .primaryCta {
+    width: 100%;
+  }
 }
 
 /* Experiment context strip under the page header. */
@@ -2120,21 +2172,26 @@ button.pipelineHead:focus-visible {
   font-weight: 760;
 }
 
+/* ------------------------------------------------------------------ */
+/* Touch hit-area floor (audit 9, narrow windows only)                 */
+/* ------------------------------------------------------------------ */
+/* The done-band chips, pill radios, and ghost secondary actions sit at
+   27-38px tall — below the 40px touch guideline. On narrow windows the
+   operator is far more likely to be tapping (tablet in the lab), so raise
+   the HIT BOX there; desktop visuals stay untouched (no color/radius
+   changes, per the settled design). */
 @media (max-width: 620px) {
-  .pipelineHead {
-    gap: 8px;
-    padding: 10px 12px;
+  .doneChip {
+    min-height: 40px;
+    padding: 4px 14px;
   }
 
-  .pipelineBadge {
-    margin-left: 0;
+  .pillRadio {
+    min-height: 40px;
   }
 
-  .pipelineBody {
-    padding: 12px 10px;
-  }
-
-  .pipelineDetails {
-    padding: 10px 12px 14px;
+  .secondaryAction,
+  .secondaryActionDanger {
+    min-height: 40px;
   }
 }

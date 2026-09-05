@@ -10,14 +10,17 @@ const readText = (url: URL) => readFileSync(url, 'utf8');
  * guard. Source-contract style matches MusicRegulation.behavior.test.ts so
  * these stay runnable in the plain-node vitest environment.
  *
- * The pipeline refactor split the former single wizard page into a page
- * layer: EffectEvaluation.tsx (board, context, exports), EffectStepPanels.tsx
- * (the per-step interaction areas) and EffectResultCards.tsx (result /
- * comparison cards). Contracts below read the file the covered markup
- * actually lives in.
+ * The timeline/stage redesign split the page into: EffectEvaluation.tsx
+ * (banner, timeline mount, stage shell, exports), EffectTimeline.tsx (the
+ * horizontal six-station timeline + done band), EffectReviewPopover.tsx (the
+ * read-only done-node overlay), EffectStepPanels.tsx (the per-step stage
+ * bodies) and EffectResultCards.tsx (result / comparison cards). Contracts
+ * below read the file the covered markup actually lives in.
  */
 
 const pageUrl = new URL('./EffectEvaluation.tsx', import.meta.url);
+const timelineUrl = new URL('./EffectTimeline.tsx', import.meta.url);
+const reviewUrl = new URL('./EffectReviewPopover.tsx', import.meta.url);
 const panelsUrl = new URL('./EffectStepPanels.tsx', import.meta.url);
 const cardsUrl = new URL('./EffectResultCards.tsx', import.meta.url);
 
@@ -63,7 +66,12 @@ describe('EffectEvaluation wiring contract', () => {
     // (doc §3.3): SAM prepends the baseline leg (node ②), GEMS-9 joins the
     // post leg (node ④) for the music condition only.
     expect(hookSource).toContain("buildBatteryDefinition({ includeSam: true })");
-    expect(hookSource).toContain("buildBatteryDefinition({ includeGems: state.method === 'music' })");
+    // GEMS-9 only mounts for the music REGULATION arm: the natural-recovery
+    // leg never plays music, so the music-emotion questionnaire must not be
+    // administered there (scale-instruments doc §2.5 manipulation semantics).
+    expect(hookSource).toContain(
+      "includeGems: state.method === 'music' && state.condition === 'regulation'",
+    );
     expect(hookSource).toContain('const BASELINE_SCALE_DEFINITION = buildBatteryDefinition');
     // Raw answers travel in the doc §3.3 shape {stai, panas, timeframe: now}
     // (sam/gems sub-objects added by the battery module when enabled) and the
@@ -122,8 +130,10 @@ describe('strong duration constraint (R3 contract)', () => {
     const panelsSource = readText(panelsUrl);
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
-    // The page derives the exit mode from the remaining countdown…
-    expect(pageSource).toContain('regulationFinishModeFromRemaining(flow.remainingSeconds)');
+    // The page derives the exit mode from the one-shot expiry fact reported
+    // by the countdown leaf (no per-tick remaining value gates the exit)…
+    expect(pageSource).toContain('regulationFinishModeFromRemaining(');
+    expect(pageSource).toContain('isWindowElapsed ? 0 : remainingRegulationSeconds(state, Date.now())');
     // …disables the primary exit while time remains…
     expect(panelsSource).toContain("disabled={finishMode.mode !== 'finish'}");
     // …and offers the escape hatch only through a second confirmation. R6
@@ -287,7 +297,7 @@ describe('six-step flow & condition split (R6 contract)', () => {
     expect(panelsSource).toContain("'结束静息，进行复测'");
     // …and keeps the regulation-page jump inside the regulation branch only.
     expect(panelsSource).toContain('flow.openRegulationPage');
-    expect(panelsSource).toContain("isNaturalRecovery ? null : (");
+    expect(panelsSource).toMatch(/isNaturalRecovery \? null : \(\s*<button/);
 
     // The pure module keeps the regulation-page context null for
     // natural-recovery windows so those pages never see a banner.
@@ -310,7 +320,7 @@ describe('six-step flow & condition split (R6 contract)', () => {
     expect(cardsSource).toContain('CONDITION_COMPARISON_FORMULA_NOTE');
     expect(cardsSource).toContain('需完成基线条件（自然恢复）与调控条件各一次完整评价');
     expect(cardsSource).toContain('跨条件平均改善率');
-    expect(cardsSource).toContain('基线条件 post');
+    expect(cardsSource).toContain('基线条件 · 条件后');
     expect(chartSource).toContain('buildConditionComparisonChartOption');
   });
 });
@@ -378,16 +388,19 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
 });
 
 describe('embedded regulation player (condition node contract)', () => {
-  test('hosts the player inside the condition panel for the regulation branch only', () => {
+  test('hosts the player inside the condition stage for the regulation branch only', () => {
     const panelsSource = readText(panelsUrl);
 
-    // The condition card embeds the media player (the main path) and keeps
-    // the standalone-page button side by side; the natural-recovery
-    // condition has no media and never mounts a player.
+    // The condition stage embeds the media player (the main path) and keeps
+    // the standalone-page entry side by side; the natural-recovery condition
+    // has no media and never mounts a player.
     expect(panelsSource).toContain("import EffectRegulationPlayer from './EffectRegulationPlayer'");
     expect(panelsSource).toContain('<EffectRegulationPlayer');
-    expect(panelsSource).toContain('remainingSeconds={flow.remainingSeconds}');
-    expect(panelsSource).toContain('!isNaturalRecovery ? (\n            <EffectRegulationPlayer');
+    // The remaining-seconds prop carries the window's one-shot expiry fact
+    // (0 once elapsed, null before/while running) — the page never tracks
+    // per-tick seconds.
+    expect(panelsSource).toContain('remainingSeconds={isWindowElapsed ? 0 : null}');
+    expect(panelsSource).toMatch(/!isNaturalRecovery \? \(\s*<EffectRegulationPlayer/);
     expect(panelsSource).toContain('onClick={flow.openRegulationPage}');
   });
 
@@ -428,5 +441,139 @@ describe('paradigm finished-screen handoff contract', () => {
 
     expect(runnerSource).toContain("navigate('/effect-evaluation')");
     expect(runnerSource).toContain('前往效果评价');
+  });
+});
+
+describe('timeline / stage / review layout contract', () => {
+  test('the page mounts the horizontal timeline, done band, and read-only review overlay', () => {
+    const pageSource = readText(pageUrl);
+    const timelineSource = readText(timelineUrl);
+    const reviewSource = readText(reviewUrl);
+
+    // The timeline is the visual protagonist; the done band compresses
+    // finished nodes into clickable chips below it.
+    expect(pageSource).toContain('<EffectTimeline');
+    expect(pageSource).toContain('<EffectDoneBand');
+    expect(pageSource).toContain('<EffectReviewPopover');
+    // The old vertical node cards are gone.
+    expect(pageSource).not.toContain('EffectPipelineCard');
+
+    // Stations: done/current are clickable, pending disabled; the click
+    // handler routes current → stage scroll, done → review popover.
+    expect(timelineSource).toContain('onStationClick');
+    expect(timelineSource).toContain('aria-current');
+    expect(timelineSource).toContain('stationDotCurrent');
+    expect(pageSource).toContain('scrollIntoView');
+    expect(pageSource).toContain('setReview({ step, anchorEl })');
+
+    // The review overlay is read-only: MUI Popover + record id chips + the
+    // skip marker, with no flow-mutating handler inside.
+    expect(reviewSource).toContain('<Popover');
+    expect(reviewSource).toContain('configChip');
+    expect(reviewSource).toContain('已跳过剩余时长');
+    expect(reviewSource).toContain('只读回顾');
+    expect(reviewSource).not.toContain('flow.');
+  });
+
+  test('the main stage presents one task with a kicker, plain-language copy, and one primary CTA per step', () => {
+    const pageSource = readText(pageUrl);
+    const panelsSource = readText(panelsUrl);
+    const modelSource = readText(new URL('./effectPipeline.ts', import.meta.url));
+
+    // Stage shell: 步骤 X / 6 kicker + derived stage title/hint, single
+    // current node rendered.
+    expect(pageSource).toContain('步骤 {state.step + 1} / {EFFECT_FLOW_STEP_COUNT}');
+    expect(pageSource).toContain('currentNode.stageTitle');
+    expect(pageSource).toContain('currentNode.stageHint');
+    expect(modelSource).toContain("stageTitle: '设置本次实验'");
+    // Each stage body offers exactly one primary CTA (four panels: setup,
+    // induction, scale, condition — the condition panel has start + finish),
+    // styled as the page's biggest button.
+    expect(panelsSource).toContain('确认配置，开始诱发');
+    expect(panelsSource).toContain('开始播放');
+    expect(panelsSource).toContain('开始填写');
+    expect(panelsSource).toContain("'开始调控'");
+    expect(panelsSource.match(/styles\.primaryCta/g)).toHaveLength(5);
+    // Secondary actions (skip / standalone page / reset) are quiet ghost
+    // controls, and the destructive reset lives in the stage footer row.
+    expect(panelsSource).toContain('stageSecondaryRow');
+    expect(panelsSource).toContain('secondaryActionDanger');
+    expect(panelsSource).toContain('跳过剩余时长…');
+    expect(pageSource).toContain('stageFooterRow');
+    expect(pageSource).toContain('重置流程');
+  });
+});
+
+describe('usability/operability fixes (audit contract)', () => {
+  test('a resumed mid-run state announces itself instead of restoring silently', () => {
+    const pageSource = readText(pageUrl);
+    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
+
+    // The hook flags mounts that restored a stored run…
+    expect(hookSource).toContain('isResumedRun: storedInitialState !== null');
+    // …and the page surfaces it as a dismissible banner naming the restored
+    // step and subject, including the wall-clock fact for a live window.
+    expect(pageSource).toContain('flow.isResumedRun && !isResumeNoticeDismissed');
+    expect(pageSource).toContain('已恢复上次进行中的评价');
+    expect(pageSource).toContain('条件计时按真实时间继续计算');
+    // A reset starts a fresh run, so the banner must retire with the old one.
+    expect(pageSource).toContain('setIsResumeNoticeDismissed(true)');
+  });
+
+  test('step transitions move viewport and focus to the new stage content', () => {
+    const pageSource = readText(pageUrl);
+
+    // The stage is a programmatic focus target; the step effect focuses it
+    // (screen readers) and scrolls it into view, skipping the initial mount.
+    expect(pageSource).toContain('tabIndex={-1}');
+    expect(pageSource).toContain('stage.focus({ preventScroll: true })');
+    expect(pageSource).toContain('hasRenderedStepRef');
+  });
+
+  test('the scale dialog stays open while the record saves (draft survives failure)', () => {
+    const panelsSource = readText(panelsUrl);
+    const dialogSource = readText(new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url));
+
+    // The panel no longer closes the dialog before the save resolves…
+    expect(panelsSource).toContain('isSubmitting={flow.isSavingScale}');
+    expect(panelsSource).toContain('submitError={flow.actionError}');
+    expect(panelsSource).not.toContain('onCloseDialog();\n            void flow.completeScaleMeasurement');
+    // …and the dialog blocks close + shows the failure above the answers.
+    expect(dialogSource).toContain('isSubmitting?: boolean');
+    expect(dialogSource).toContain('submitError?: string | null');
+    expect(dialogSource).toContain("isSubmitting ? '正在保存量表…' : '提交量表'");
+    expect(dialogSource).toContain("role=\"alert\"");
+  });
+
+  test('the hand-rolled scale overlay traps focus and closes guarded', () => {
+    const dialogSource = readText(new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url));
+
+    // Focus in on open, focus back to the opener on unmount, Tab cycled
+    // inside, and Escape riding the same discard-confirm gate as the X.
+    expect(dialogSource).toContain('openerElementRef');
+    expect(dialogSource).toContain("event.key === 'Escape'");
+    expect(dialogSource).toContain("event.key !== 'Tab'");
+    expect(dialogSource).toContain('handleCloseRequest()');
+  });
+
+  test('scale anchor rows navigate (and select) with the keyboard', () => {
+    const anchorSource = readText(new URL('../../mentalScale/scaleUi/ScaleAnchorGroup.tsx', import.meta.url));
+
+    // Arrow/Home/End sweep a row: additive to every consumer (scale dialogs
+    // and the paradigm SAM rows), click paths untouched.
+    expect(anchorSource).toContain("case 'ArrowLeft':");
+    expect(anchorSource).toContain("case 'ArrowRight':");
+    expect(anchorSource).toContain("case 'Home':");
+    expect(anchorSource).toContain('selectAnchorValue(onSelect, next)');
+  });
+
+  test('history delete warns when the target feeds the in-flight run', () => {
+    const panelSource = readText(new URL('./EffectHistoryPanel.tsx', import.meta.url));
+
+    // The active run's record ids live in sessionStorage; the confirm dialog
+    // must surface the match instead of deleting the run's data silently.
+    expect(panelSource).toContain('readFlowStateFromStorage(window.sessionStorage)');
+    expect(panelSource).toContain('isDeleteTargetOfActiveRun');
+    expect(panelSource).toContain('删除后本次运行的改善率与跨条件对比将无法计算');
   });
 });

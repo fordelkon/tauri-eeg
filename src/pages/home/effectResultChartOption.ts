@@ -14,7 +14,10 @@ import { labelForDimension } from './effectEvaluationFlow';
 export type EffectChartOption = Record<string, unknown>;
 
 const BASELINE_COLOR = '#8a93a6';
-const POST_COLOR = '#df0203';
+/** Muted brick red: keeps the regulation leg clearly "after/warm" against
+ *  the baseline gray-blue without the full-saturation brand red, which
+ *  was the page's one loud chart color. */
+const POST_COLOR = '#c0524c';
 
 /** Honors prefers-reduced-motion for the chart's entry animation. */
 function chartAnimationDuration(): number {
@@ -31,6 +34,9 @@ function chartAnimationDuration(): number {
 
 export function buildEffectChartOption(
   summary: RegulationEffectSummaryView,
+  /** Post-series label. The natural-recovery (基线) leg regulates nothing, so
+   *  it renders 静息后 instead of the default 调控后. */
+  postLabel = '调控后',
 ): EffectChartOption {
   const categories = summary.dimensions.map((item) => labelForDimension(item.dimension));
 
@@ -45,7 +51,7 @@ export function buildEffectChartOption(
       top: 44,
     },
     legend: {
-      data: ['基线', '调控后'],
+      data: ['基线', postLabel],
       textStyle: { color: 'rgba(23, 32, 38, 0.72)', fontSize: 12 },
       top: 6,
     },
@@ -61,7 +67,7 @@ export function buildEffectChartOption(
         },
       },
       {
-        name: '调控后',
+        name: postLabel,
         type: 'bar',
         data: summary.dimensions.map((item) => item.post),
         itemStyle: {

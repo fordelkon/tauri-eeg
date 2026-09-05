@@ -25,7 +25,7 @@ import {
   outcomeForEntry,
   type HistoryOutcome,
 } from './effectHistoryView';
-import { labelForDimension } from './effectEvaluationFlow';
+import { labelForDimension, readFlowStateFromStorage } from './effectEvaluationFlow';
 import styles from './EffectEvaluation.module.css';
 
 const OUTCOME_CLASS: Record<HistoryOutcome, string> = {
@@ -244,6 +244,22 @@ export default function EffectHistoryPanel() {
     setPendingDelete(entry);
   }, []);
 
+  // Destructive guard (audit 4): the wizard's in-flight run persists its
+  // record ids in sessionStorage. A history row that IS one of those records
+  // feeds the current run's result step — deleting it mid-run silently breaks
+  // the 改善率 the operator is about to read. Surface that in the confirm
+  // dialog instead of letting the pair vanish unnoticed.
+  const activeRun = useMemo(() => {
+    if (pendingDelete === null) {
+      return null;
+    }
+
+    return readFlowStateFromStorage(window.sessionStorage);
+  }, [pendingDelete]);
+  const isDeleteTargetOfActiveRun = pendingDelete !== null && activeRun !== null
+    && (pendingDelete.baselineRecordId === activeRun.baselineRecordId
+      || pendingDelete.postRecordId === activeRun.postRecordId);
+
   // prefers-reduced-motion users get an instant expand (no height animation).
   const collapseTimeout: 'auto' | 0 = typeof window !== 'undefined'
     && typeof window.matchMedia === 'function'
@@ -322,7 +338,7 @@ export default function EffectHistoryPanel() {
       ) : filteredEntries.length === 0 ? (
         <div className={styles.emptyState}>
           {entries.length === 0
-            ? '还没有完成的评价：完整走完一次 基线 → 调控 → 调控后 流程后，这里会列出每次的结果。'
+            ? '还没有完成的评价：完整走完一次 诱发 → 诱发后量表 → 条件执行 → 条件后量表 流程后，这里会列出每次的结果。'
             : '没有匹配该被试 ID 的评价记录。'}
         </div>
       ) : (
@@ -366,6 +382,13 @@ export default function EffectHistoryPanel() {
           <DialogContentText>
             将同时删除该次评价对应的基线与复测量表记录，删除后无法恢复。
           </DialogContentText>
+          {isDeleteTargetOfActiveRun ? (
+            <DialogContentText>
+              注意：该记录属于正在进行的效果评价运行
+              {activeRun?.subjectId.trim() ? `（被试 ${activeRun.subjectId.trim()}）` : ''}
+              ，删除后本次运行的改善率与跨条件对比将无法计算。建议先完成或重置本次流程，再清理历史记录。
+            </DialogContentText>
+          ) : null}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setPendingDelete(null)} disabled={isDeleting}>

@@ -122,6 +122,9 @@ type ResultCardProps = {
   isLoadingSummary: boolean;
   isExporting: boolean;
   measuredBasisNote: string | null;
+  /** Post-column label: 调控后 for the regulation leg, 静息后 for the
+   *  natural-recovery leg (nothing was regulated on that run). */
+  postLabel?: string;
   onExportCsv: () => void;
   onExportJson: () => void;
   onRetry: () => void;
@@ -140,6 +143,7 @@ export const ResultCard = memo(function ResultCard({
   isLoadingSummary,
   isExporting,
   measuredBasisNote,
+  postLabel = '调控后',
   onExportCsv,
   onExportJson,
   onRetry,
@@ -228,7 +232,7 @@ export const ResultCard = memo(function ResultCard({
                     <tr>
                       <th scope="col">维度</th>
                       <th scope="col">基线</th>
-                      <th scope="col">调控后</th>
+                      <th scope="col">{postLabel}</th>
                       <th scope="col">改善率</th>
                     </tr>
                   </thead>
@@ -346,6 +350,7 @@ export const ConditionComparisonCard = memo(function ConditionComparisonCard({
             {comparisonError}
             <br />
             需完成基线条件（自然恢复）与调控条件各一次完整评价，本卡才会展示跨条件对比。
+            本次运行的数据已保存；重置流程后选择另一条件再完整评价一次即可补齐。
           </Alert>
           <div className={styles.actionsRow}>
             <Button
@@ -416,8 +421,8 @@ export const ConditionComparisonCard = memo(function ConditionComparisonCard({
                   <thead>
                     <tr>
                       <th scope="col">维度</th>
-                      <th scope="col">基线条件 post</th>
-                      <th scope="col">调控条件 post</th>
+                      <th scope="col">基线条件 · 条件后</th>
+                      <th scope="col">调控条件 · 条件后</th>
                       <th scope="col">改善率</th>
                     </tr>
                   </thead>

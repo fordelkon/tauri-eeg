@@ -38,7 +38,6 @@ import {
   paradigmPoolKeyForEmotion,
   readFlowStateFromStorage,
   regulationPathForMethod,
-  remainingRegulationSeconds,
   setupBlockingReason,
   writeFlowStateToStorage,
   type EffectEvaluationFlowState,
@@ -56,6 +55,11 @@ import {
  * video regulation page (which unmounts this route) and coming back resumes
  * the same run with a wall-clock countdown. Only the 调控 condition jumps;
  * the 自然恢复 (基线) condition runs its countdown inside this page.
+ *
+ * Render-cost contract: this hook owns NO wall-clock interval. The condition
+ * window's 500ms tick lives entirely inside the self-contained
+ * ConditionCountdown leaf (which reads the clock and reports expiry upward),
+ * so hook consumers re-render only on real state changes — never per tick.
  */
 
 function readStoredFlowState(): EffectEvaluationFlowState | null {
@@ -83,10 +87,17 @@ export function useEffectEvaluationFlow() {
   const { currentUser } = useAuth();
   const { canStartRecord, lastRecording, startRecord, stopRecord } = useEegSession();
 
-  const [state, setState] = useState<EffectEvaluationFlowState>(
-    () => readStoredFlowState() ?? createEffectEvaluationFlowState(),
+  // Read the persisted payload once, before the first render commits: a
+  // non-null value means THIS mount resumed an in-flight run (mid-run reload
+  // or the return trip from the standalone regulation page). The page turns
+  // that into an explicit "已恢复" notice instead of silently dropping the
+  // operator onto a mid-flow step.
+  const [storedInitialState] = useState<EffectEvaluationFlowState | null>(
+    () => readStoredFlowState(),
   );
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [state, setState] = useState<EffectEvaluationFlowState>(
+    () => storedInitialState ?? createEffectEvaluationFlowState(),
+  );
   const [isSavingScale, setIsSavingScale] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [summary, setSummary] = useState<RegulationEffectSummaryView | null>(null);
@@ -125,21 +136,6 @@ export function useEffectEvaluationFlow() {
   useEffect(() => {
     eegAssociationRef.current = state.eegAssociation;
   }, [state.eegAssociation]);
-
-  const isOnConditionStep = state.step === 3;
-
-  // Wall-clock countdown while the condition window runs (both conditions):
-  // it keeps running across the 调控 condition's jump to the music/video
-  // page, so on return only the display needs refreshing.
-  useEffect(() => {
-    if (!isOnConditionStep || state.regulationStartedAtMs === null) {
-      return undefined;
-    }
-
-    const intervalId = window.setInterval(() => setNowMs(Date.now()), 500);
-
-    return () => window.clearInterval(intervalId);
-  }, [isOnConditionStep, state.regulationStartedAtMs]);
 
   // Capture the EEG session id once the backend confirms the stopped recording.
   useEffect(() => {
@@ -193,11 +189,17 @@ export function useEffectEvaluationFlow() {
    * independent of the regulation method so cross-method comparison keeps one
    * metric basis. Optional sections ride the same battery record (doc §3.3):
    * the SAM manipulation check joins the baseline leg (node ②), and GEMS-9
-   * joins the post leg (node ④) for the music condition only.
+   * joins the post leg (node ④) only for the music REGULATION condition — the
+   * natural-recovery arm never plays music, so asking music-emotion questions
+   * there would measure nothing (and would break the manipulation-check
+   * semantics of the instrument).
    */
   const postScaleDefinition = useMemo(
-    () => buildBatteryDefinition({ includeGems: state.method === 'music' }),
-    [state.method],
+    () =>
+      buildBatteryDefinition({
+        includeGems: state.method === 'music' && state.condition === 'regulation',
+      }),
+    [state.method, state.condition],
   );
 
   const scaleDefinitionFor = useCallback(
@@ -423,10 +425,11 @@ export function useEffectEvaluationFlow() {
   ]);
 
   /**
-   * Step 3 entry: starts the wall-clock timer. The EEG side either keeps the
-   * recording already running since the induction step, or starts one now
-   * (device was unavailable at induction, or a legacy resumed run). A live
-   * paradigm session blocks the entry as before.
+   * Step 3 entry: opens the wall-clock window (the countdown leaf reads its
+   * own clock from the stamped start; this hook never polls). The EEG side
+   * either keeps the recording already running since the induction step, or
+   * starts one now (device was unavailable at induction, or a legacy resumed
+   * run). A live paradigm session blocks the entry as before.
    */
   const beginRegulation = useCallback(() => {
     setActionError(null);
@@ -443,7 +446,6 @@ export function useEffectEvaluationFlow() {
         ? 'saved'
         : current.eegAssociation === 'recording' ? 'recording' : 'not-started',
     }));
-    setNowMs(Date.now());
 
     // A recording started at the induction step already spans this window.
     if (eegAssociationRef.current === 'recording') {
@@ -606,8 +608,6 @@ export function useEffectEvaluationFlow() {
     navigate(regulationPathForMethod(state.method));
   }, [navigate, state.method]);
 
-  const remainingSeconds = remainingRegulationSeconds(state, nowMs);
-
   return {
     actionError,
     beginInduction,
@@ -618,6 +618,7 @@ export function useEffectEvaluationFlow() {
     conditionComparisonError,
     finishRegulation,
     inductionStatus,
+    isResumedRun: storedInitialState !== null,
     isLoadingConditionComparison,
     isLoadingSummary,
     isInductionPoolLoading,
@@ -625,7 +626,6 @@ export function useEffectEvaluationFlow() {
     loadConditionComparison,
     loadSummary,
     openRegulationPage,
-    remainingSeconds,
     resetFlow,
     scaleDefinitionFor,
     skipRemainingRegulation,

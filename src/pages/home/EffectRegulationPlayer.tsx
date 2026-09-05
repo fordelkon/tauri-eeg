@@ -33,13 +33,18 @@ import styles from './EffectEvaluation.module.css';
  *
  * The player is deliberately frugal (experiment posture): loop + autoplay at
  * fixed volume 1, no volume/progress controls — the countdown owns the exit,
- * and once `remainingSeconds` reads 0 (hard floor, same rule that unlocks the
+ * and once the window elapsed (the same one-shot fact that unlocks the
  * finish button) playback pauses and stays stopped.
  */
 
 export type EffectRegulationPlayerProps = {
   method: EffectRegulationMethod;
-  /** Seconds left in the condition window (null before it started). */
+  /**
+   * To-zero fact of the condition window: 0 once the window elapsed, null
+   * before/while it runs. The page does not track per-tick seconds — the
+   * player consumes the pause rule only through `shouldPauseAt`, so this
+   * one-shot fact carries exactly the information that rule reads.
+   */
   remainingSeconds: number | null;
 };
 
@@ -112,7 +117,9 @@ function EmbeddedVideoPlayer({ shouldPause }: { shouldPause: boolean }) {
   if (!activeAsset) {
     return (
       <p className={styles.panelHint} role="note">
-        视频素材库为空，请先在素材库目录补齐调控视频后重试。
+        {shouldPause
+          ? '视频素材库为空，无法内嵌播放调控视频。时长已达成，可直接点上方「结束调控，进行复测」结束本轮。'
+          : '视频素材库为空，无法内嵌播放调控视频（计时仍在继续）。可用下方「在独立页打开视频调控」继续本轮，或用「跳过剩余时长…」结束本轮；下次运行前请先在素材库目录补齐调控视频。'}
       </p>
     );
   }
@@ -171,6 +178,10 @@ function EmbeddedMusicPlayer({ shouldPause }: { shouldPause: boolean }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [playError, setPlayError] = useState<string | null>(null);
+  // Bumped by the manual retry: the load effect rides on it so a failed
+  // history fetch (transient backend hiccup) is recoverable in place instead
+  // of dead-ending the embedded player mid-window.
+  const [historyReloadTick, setHistoryReloadTick] = useState(0);
 
   // Load the most recent history once (backend orders by created_at DESC and
   // the pure helper trims to the player limit); failures degrade to guidance.
@@ -197,7 +208,7 @@ function EmbeddedMusicPlayer({ shouldPause }: { shouldPause: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [currentUser]);
+  }, [currentUser, historyReloadTick]);
 
   const visibleItems = useMemo(
     () => trimMusicHistoryForPlayer(historyItems ?? [], MUSIC_HISTORY_PLAYER_LIMIT),
@@ -264,7 +275,22 @@ function EmbeddedMusicPlayer({ shouldPause }: { shouldPause: boolean }) {
   }
 
   if (loadError) {
-    return <p className={styles.panelHint} role="alert">{loadError}</p>;
+    return (
+      <div className={styles.regulationPlayerStage}>
+        <p className={styles.panelHint} role="alert">{loadError}</p>
+        <div className={styles.actionsRow}>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              setLoadError(null);
+              setHistoryReloadTick((tick) => tick + 1);
+            }}
+          >
+            重试加载
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (visibleItems.length === 0) {

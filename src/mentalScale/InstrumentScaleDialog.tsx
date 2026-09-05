@@ -1,6 +1,6 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import {
   isInstrumentSectionComplete,
@@ -26,6 +26,16 @@ type InstrumentScaleDialogProps = {
    *  happens in the battery module, never in the dialog. */
   onComplete: (answers: BatteryAnswers) => void;
   onClose: () => void;
+  /**
+   * Effect-evaluation save-in-flight state (optional so older consumers keep
+   * working): while true the submit button is busy, closing is blocked, and
+   * the dialog STAYS OPEN so a completed 40+ item fill is never lost to a
+   * failed save — the owner unmounts the dialog once the save succeeded.
+   */
+  isSubmitting?: boolean;
+  /** Owner-side failure copy (e.g. the save request failed); rendered in the
+   *  sticky footer so it is visible while the answers are still on screen. */
+  submitError?: string | null;
 };
 
 type SectionAnswerState = {
@@ -38,13 +48,20 @@ type SectionAnswerState = {
  * on top, one sticky-headed section per instrument (STAI-S 1-4, PANAS 1-5,
  * optional SAM 1-9 bipolar rows, optional GEMS-9 1-5), and a sticky footer
  * whose submit stays disabled until every question of every section is
- * answered. Rendering is visual only — scoring, persistence and the submit
- * gate are untouched (battery module + onComplete contract).
+ * answered. Scoring, persistence and the answer contract stay untouched
+ * (battery module + onComplete); what the dialog itself owns is modal
+ * hygiene: focus moves in on open, Tab is trapped inside, Escape rides the
+ * same guarded close as the X button (discard confirmation when answers
+ * exist), focus returns to the trigger on close, and with `isSubmitting` the
+ * dialog holds open (close blocked, submit busy) so a completed 40+ item
+ * fill survives a failed save.
  */
 export default function InstrumentScaleDialog({
   definition,
   onComplete,
   onClose,
+  isSubmitting = false,
+  submitError = null,
 }: InstrumentScaleDialogProps) {
   const [answersBySection, setAnswersBySection] = useState<
     Partial<Record<BatterySectionKey, InstrumentAnswers>>
@@ -52,6 +69,26 @@ export default function InstrumentScaleDialog({
   // Closing with answers already filled in asks for confirmation first; 40+
   // items are too much work to lose to one misclick.
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
+  // Focus management (audit 3/10): the overlay is a hand-rolled portal (not a
+  // MUI Dialog), so it must move focus in on open, keep Tab cycling inside,
+  // and hand focus back to the trigger on close — otherwise keyboard users
+  // keep tabbing the page behind the modal.
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const openerElementRef = useRef<Element | null>(null);
+  const dialogRefCallback = (node: HTMLElement | null) => {
+    if (node && dialogRef.current === null) {
+      openerElementRef.current = document.activeElement;
+      node.focus();
+    }
+    dialogRef.current = node;
+  };
+
+  useEffect(() => () => {
+    const opener = openerElementRef.current;
+    if (opener instanceof HTMLElement && opener.isConnected) {
+      opener.focus();
+    }
+  }, []);
 
   const sectionStates: SectionAnswerState[] = definition.sections.map((section) => ({
     section,
@@ -78,6 +115,12 @@ export default function InstrumentScaleDialog({
   };
 
   const handleCloseRequest = () => {
+    // A save is in flight: closing now would either orphan it visually or
+    // look like an abort that did not happen. Wait for it to settle.
+    if (isSubmitting) {
+      return;
+    }
+
     if (hasAnyAnswer) {
       setIsDiscardConfirmOpen(true);
       return;
@@ -86,8 +129,57 @@ export default function InstrumentScaleDialog({
     onClose();
   };
 
+  // Tab-cycling focus trap + Escape close (audit 3/10). Escape rides the same
+  // guarded close request as the X button, so a mid-fill Escape opens the
+  // discard confirmation instead of silently dropping 40+ answers. The
+  // nested MUI discard dialog traps its own focus — step aside while open.
+  const handleOverlayKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (isDiscardConfirmOpen) {
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      handleCloseRequest();
+      return;
+    }
+
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    const dialog = dialogRef.current;
+    if (!dialog) {
+      return;
+    }
+
+    const focusables = dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+    );
+
+    if (focusables.length === 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    const isInside = active instanceof Node && dialog.contains(active);
+
+    if (event.shiftKey) {
+      if (!isInside || active === first) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else if (!isInside || active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   const handleComplete = () => {
-    if (!isBatteryReady) {
+    if (!isBatteryReady || isSubmitting) {
       return;
     }
 
@@ -125,19 +217,23 @@ export default function InstrumentScaleDialog({
     <div
       className={`${styles.scaleOverlay} fixed inset-0 flex items-center justify-center p-22px`}
       role="presentation"
+      onKeyDown={handleOverlayKeyDown}
     >
       <section
         className={`${styles.scaleDialog} w-full max-w-720px`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="instrument-scale-title"
+        ref={dialogRefCallback}
+        tabIndex={-1}
       >
         <div className={styles.scaleStickyBar}>
           <ScaleProgressBar answered={answeredCount} total={totalQuestions} />
           <IconButton
             className={styles.scaleCloseButton}
-            aria-label="关闭情绪状态量表"
+            aria-label={isSubmitting ? '正在保存量表，请稍候' : '关闭情绪状态量表'}
             size="small"
+            disabled={isSubmitting}
             onClick={handleCloseRequest}
           >
             <CloseRoundedIcon fontSize="small" />
@@ -196,16 +292,25 @@ export default function InstrumentScaleDialog({
             onClear={() => setAnswersBySection({})}
           />
           <div className={styles.scaleFooterActions}>
-            <span className={styles.scaleFooterHint}>
-              {isBatteryReady ? '已完成，可以提交量表。' : `完成全部 ${sectionStates.length} 节的题目后才能提交。`}
-            </span>
+            {/* A failed save surfaces HERE, above the still-filled answers:
+                the owner keeps this dialog mounted on failure so the
+                participant can resubmit instead of refilling 40+ items. */}
+            {submitError ? (
+              <span className={`${styles.scaleFooterHint} ${sectionStyles.submitError}`} role="alert">
+                {submitError}
+              </span>
+            ) : (
+              <span className={styles.scaleFooterHint}>
+                {isBatteryReady ? '已完成，可以提交量表。' : `完成全部 ${sectionStates.length} 节的题目后才能提交。`}
+              </span>
+            )}
             <button
               type="button"
               className={styles.scalePrimaryButton}
-              disabled={!isBatteryReady}
+              disabled={!isBatteryReady || isSubmitting}
               onClick={handleComplete}
             >
-              提交量表
+              {isSubmitting ? '正在保存量表…' : '提交量表'}
             </button>
           </div>
         </div>

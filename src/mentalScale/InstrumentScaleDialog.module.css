@@ -36,3 +36,10 @@
   display: grid;
   gap: 20px;
 }
+
+/* Owner-side save failure (effect-evaluation): rendered in the sticky footer
+   above the still-filled answers, so a failed submit never reads as silent. */
+.submitError {
+  color: var(--danger-ink, #8d2d25);
+  font-weight: 650;
+}

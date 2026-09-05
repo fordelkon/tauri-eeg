@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import InstrumentScaleDialog from '../../mentalScale/InstrumentScaleDialog';
 import { toPlayableVideoUrl } from '../../video/videoRegulationCatalog';
@@ -20,13 +20,19 @@ import type { EffectEvaluationFlow } from './useEffectEvaluationFlow';
 import styles from './EffectEvaluation.module.css';
 
 /**
- * The four interactive step panels of the effect pipeline (setup, induction,
- * scale, condition). Their content is moved verbatim from the former
- * `render*Step` functions of the wizard page; only the wiring changed from
- * closures to props. Each panel mounts exclusively inside its pipeline
- * node's card body (the current node), so none of them need memoization —
- * except the countdown below, whose digits are the only wall-clock-ticking
- * output on the board.
+ * The four interactive stage bodies of the effect-evaluation loop (setup,
+ * induction, scale, condition). Each mounts exclusively inside the main
+ * stage card while its node is current, and each offers exactly ONE primary
+ * CTA (`.primaryCta`, the big button); every other action (skip, standalone
+ * page, retry, reset) is a quiet ghost control in a secondary row so the
+ * next step is never ambiguous.
+ *
+ * Performance contract: nothing in the stage re-renders on the wall clock.
+ * The condition window's 500ms poll lives entirely inside the self-contained
+ * `ConditionCountdown` child (`EffectConditionCountdown.tsx`), which ticks its
+ * own digits and reports expiry upward exactly once via `onWindowElapsed`;
+ * the panels re-render only on real flow-state changes and on that one-shot
+ * expiry flip.
  */
 
 const DURATION_MINUTE_OPTIONS = [1, 3, 5, 10, 15, 30] as const;
@@ -85,14 +91,7 @@ export function SetupStepPanel({ flow }: SetupStepPanelProps) {
   const { state } = flow;
 
   return (
-    <section className={styles.panel} aria-label="选择被试与评价配置">
-      <div className={styles.stepHeader}>
-        <h2 className={styles.panelTitle}>选择被试</h2>
-        <p className={styles.panelHint}>
-          被试 ID 会绑定到本轮的诱发后与条件后量表记录，用于配对计算改善率。
-        </p>
-      </div>
-
+    <section className={styles.stageBody} aria-label="选择被试与评价配置">
       <div className={styles.fieldGrid}>
         <label className={styles.fieldLabel}>
           <span className={styles.fieldLabelText}>被试 ID</span>
@@ -144,14 +143,19 @@ export function SetupStepPanel({ flow }: SetupStepPanelProps) {
 
       {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
 
-      <div className={styles.actionsRow}>
+      <div className={styles.stagePrimaryRow}>
         <Button
+          className={styles.primaryCta}
           variant="contained"
           disabled={state.subjectId.trim().length === 0}
           onClick={flow.startBaselineMeasurement}
         >
-          下一步：情绪诱发
+          确认配置，开始诱发
         </Button>
+        {/* The disabled CTA never guesses itself: say what is missing. */}
+        {state.subjectId.trim().length === 0 ? (
+          <p className={styles.stageHint} role="note">填写被试 ID 后即可开始。</p>
+        ) : null}
       </div>
     </section>
   );
@@ -159,7 +163,6 @@ export function SetupStepPanel({ flow }: SetupStepPanelProps) {
 
 export type InductionStepPanelProps = {
   flow: EffectEvaluationFlow;
-  configSummary: ReactNode;
   eegUnavailableHint: ReactNode;
   isInductionPlaying: boolean;
   inductionVideoFailed: boolean;
@@ -173,7 +176,6 @@ export type InductionStepPanelProps = {
 /** Node 1 interaction area: induction playback with the pool gating. */
 export function InductionStepPanel({
   flow,
-  configSummary,
   eegUnavailableHint,
   isInductionPlaying,
   inductionVideoFailed,
@@ -185,18 +187,13 @@ export function InductionStepPanel({
 }: InductionStepPanelProps) {
   const status = flow.inductionStatus;
   const { state } = flow;
+  // The blocked branch sends the operator to where the paradigm library is
+  // selected/validated; the run survives the detour in sessionStorage and
+  // resumes at this step on return (no recording is live while blocked).
+  const navigate = useNavigate();
 
   return (
-    <section className={styles.panel} aria-label="情绪诱发">
-      <div className={styles.stepHeader}>
-        <h2 className={styles.panelTitle}>情绪诱发</h2>
-        <p className={styles.panelHint}>
-          播放目标情绪的诱发素材（来自 EEG 采集页校验过的 video_paradigm 素材库）；
-          开始诱发时在设备可用的情况下自动关联 EEG 记录，素材播放完毕后进入诱发后量表。
-        </p>
-      </div>
-      {configSummary}
-
+    <section className={styles.stageBody} aria-label="情绪诱发">
       {state.eegAssociation === 'unavailable' ? eegUnavailableHint : null}
 
       {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
@@ -204,7 +201,21 @@ export function InductionStepPanel({
       {flow.isInductionPoolLoading ? (
         <p className={`${styles.panelHint} ${styles.loadingHint}`}>正在加载诱发素材库…</p>
       ) : status.kind === 'blocked' ? (
-        <Alert severity="warning">{status.copy}</Alert>
+        <>
+          {/* Blocked, not broken: the alert says what is missing, the ghost
+              button takes the operator straight there (the flow state stays
+              in sessionStorage, so returning resumes at this step). */}
+          <Alert severity="warning">{status.copy}</Alert>
+          <div className={styles.stageSecondaryRow}>
+            <button
+              type="button"
+              className={styles.secondaryAction}
+              onClick={() => navigate('/eeg-acquisition')}
+            >
+              前往 EEG 采集页处理素材库
+            </button>
+          </div>
+        </>
       ) : inductionVideoFailed && status.kind === 'ready' ? (
         <>
           {/* R7: a mid-run file failure (moved/corrupted) must not strand
@@ -214,13 +225,13 @@ export function InductionStepPanel({
             诱发素材加载失败（文件可能已被移动或损坏），播放已中断。可重试加载；
             若素材库文件已缺失，请先到 EEG 采集页补齐素材库，或重置流程返回设置步。
           </Alert>
-          <div className={styles.actionsRow}>
-            <Button variant="outlined" onClick={onRetryInductionVideo}>
+          <div className={styles.stageSecondaryRow}>
+            <button type="button" className={styles.secondaryAction} onClick={onRetryInductionVideo}>
               重试加载素材
-            </Button>
-            <Button variant="outlined" color="warning" onClick={onResetFlow}>
+            </button>
+            <button type="button" className={styles.secondaryAction} onClick={onResetFlow}>
               重置并返回设置步
-            </Button>
+            </button>
           </div>
         </>
       ) : isInductionPlaying && status.kind === 'ready' ? (
@@ -246,13 +257,13 @@ export function InductionStepPanel({
         </>
       ) : status.kind === 'ready' ? (
         <>
-          <div className={styles.actionsRow}>
-            <Button variant="contained" onClick={onBeginInduction}>
-              播放诱发素材（{status.entry.fileName}）
+          <div className={styles.stagePrimaryRow}>
+            <Button className={styles.primaryCta} variant="contained" onClick={onBeginInduction}>
+              开始播放
             </Button>
           </div>
           <p className={styles.panelHint}>
-            点击开始后播放素材并计时，同时在设备可用时自动关联本次 EEG 记录。
+            将播放素材「{status.entry.fileName}」；开始后在设备可用的情况下自动关联本次 EEG 记录。
           </p>
         </>
       ) : null}
@@ -265,7 +276,6 @@ export function InductionStepPanel({
 export type ScaleStepPanelProps = {
   flow: EffectEvaluationFlow;
   phase: 'baseline' | 'post';
-  configSummary: ReactNode;
   skippedCopy: string | null;
   isDialogOpen: boolean;
   onOpenDialog: () => void;
@@ -277,7 +287,6 @@ export type ScaleStepPanelProps = {
 export function ScaleStepPanel({
   flow,
   phase,
-  configSummary,
   skippedCopy,
   isDialogOpen,
   onOpenDialog,
@@ -287,33 +296,19 @@ export function ScaleStepPanel({
   const { state } = flow;
 
   return (
-    <section
-      className={`${styles.panel} ${styles.panelImmersive}`}
-      aria-label={isBaseline ? '诱发后量表' : '条件后量表'}
-    >
-      <div className={styles.stepHeader}>
-        <h2 className={styles.panelTitle}>{isBaseline ? '诱发后量表' : '条件后复测'}</h2>
-        <p className={styles.panelHint}>
-          {isBaseline
-            ? '情绪诱发已完成，请先完成 SAM 操纵检验与 STAI-S + PANAS 情绪状态量表，作为本次条件执行前的评价基线（phase 记为 baseline）。'
-            : state.method === 'music'
-              ? '条件执行已结束，请用同一份 STAI-S + PANAS 量表再测一次，并完成 GEMS-9 音乐情绪感受量表（仅音乐条件），用于计算各维度改善率。'
-              : '条件执行已结束，请用同一份 STAI-S + PANAS 量表再测一次，用于计算各维度改善率。'}
-        </p>
-      </div>
-      {configSummary}
-
+    <section className={styles.stageBody} aria-label={isBaseline ? '诱发后量表' : '条件后量表'}>
       {!isBaseline && skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
 
       {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
 
-      <div className={styles.actionsRow}>
+      <div className={styles.stagePrimaryRow}>
         <Button
+          className={styles.primaryCta}
           variant="contained"
           disabled={flow.isSavingScale}
           onClick={onOpenDialog}
         >
-          {flow.isSavingScale ? '正在保存量表…' : `打开${isBaseline ? '诱发后' : '复测'}量表`}
+          {flow.isSavingScale ? '正在保存量表…' : '开始填写'}
         </Button>
       </div>
 
@@ -323,8 +318,14 @@ export function ScaleStepPanel({
         <InstrumentScaleDialog
           key={`scale-${phase}`}
           definition={flow.scaleDefinitionFor(phase)}
+          isSubmitting={flow.isSavingScale}
+          submitError={flow.actionError}
           onComplete={(answers) => {
-            onCloseDialog();
+            // The dialog STAYS OPEN while the record saves: closing first used
+            // to throw away 40+ filled answers whenever the save failed. The
+            // flow advances on success, which unmounts this panel (and the
+            // dialog) naturally; on failure the answers remain on screen with
+            // the error in the dialog footer.
             void flow.completeScaleMeasurement(phase, answers);
           }}
           onClose={onCloseDialog}
@@ -340,20 +341,23 @@ export type ConditionStepPanelProps = {
   windowNoun: string;
   isNaturalRecovery: boolean;
   methodLabel: string;
-  configSummary: ReactNode;
   skippedCopy: string | null;
+  /** One-shot expiry fact of the window (drives the player's to-zero pause). */
+  isWindowElapsed: boolean;
+  /** Reported by the countdown leaf when the window first reads 0. */
+  onWindowElapsed: () => void;
   onFinishRegulation: () => void;
   onSkipRemaining: () => void;
   eegUnavailableHint: ReactNode;
 };
 
 /**
- * Node 3 interaction area, condition branch (R6): the regulation condition
- * plays its media inside this card via the embedded player (the main path);
- * the standalone method page remains available through the existing button
- * (same sessionStorage bridge, zero protocol change). The natural-recovery
- * (基线) condition runs its rest countdown inside this page only - no media,
- * no navigation, no regulation-page session context.
+ * Node 3 interaction area, condition branch (R6): before the window starts
+ * the panel offers one big start CTA; while it runs the stage turns into
+ * the countdown + embedded player with the finish exit as the single
+ * primary button and skip/standalone-page as quiet secondaries. The
+ * natural-recovery (基线) condition runs its rest countdown inside this page
+ * only - no media, no navigation, no regulation-page session context.
  */
 export function ConditionStepPanel({
   flow,
@@ -361,8 +365,9 @@ export function ConditionStepPanel({
   windowNoun,
   isNaturalRecovery,
   methodLabel,
-  configSummary,
   skippedCopy,
+  isWindowElapsed,
+  onWindowElapsed,
   onFinishRegulation,
   onSkipRemaining,
   eegUnavailableHint,
@@ -371,51 +376,45 @@ export function ConditionStepPanel({
   const isStarted = state.regulationStartedAtMs !== null;
 
   return (
-    <section className={`${styles.panel} ${styles.panelImmersive}`} aria-label="条件执行">
-      <div className={styles.stepHeader}>
-        <h2 className={styles.panelTitle}>
-          {isNaturalRecovery ? '条件执行：自然恢复（基线条件）' : '执行调控'}
-        </h2>
-        <p className={styles.panelHint}>
-          {isNaturalRecovery
-            ? '诱发后不施加任何调控手段：请让被试保持静息放松（减少眨眼与头动），按设定时长自然恢复，倒计时结束后进入复测。本步骤全程停留在本页。'
-            : `点击开始后在本页内嵌播放${methodLabel}调控素材并按设定时长计时；也可前往独立页面打开（计时与 EEG 关联不中断），结束后回到本页继续复测。`}
-        </p>
-      </div>
-
-      {configSummary}
-
+    <section className={styles.stageBody} aria-label="条件执行">
       {state.eegAssociation === 'unavailable' ? eegUnavailableHint : null}
 
       {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
 
       {!isStarted ? (
-        <Box className={styles.countdownWrap}>
+        <>
+          <div className={styles.stagePrimaryRow}>
+            <Button className={styles.primaryCta} variant="contained" onClick={flow.beginRegulation}>
+              {isNaturalRecovery ? '开始静息' : '开始调控'}
+            </Button>
+          </div>
           <p className={styles.panelHint}>
             点击开始后计时，并在设备可用时自动关联本次 EEG 记录。
           </p>
-          <Button variant="contained" onClick={flow.beginRegulation}>
-            {isNaturalRecovery ? '开始静息' : '开始调控'}
-          </Button>
-        </Box>
+          <EegAssociationChip association={state.eegAssociation} sessionId={state.eegSessionId} />
+        </>
       ) : (
         <>
-          {/* The ticking digits live only in this memo child: a wall-clock
-              tick re-renders just this subtree inside the condition card. */}
+          {/* The ticking digits live only in this self-contained child: it
+              owns the 500ms wall-clock poll, re-renders just this subtree on
+              a changed second, and reports expiry upward exactly once. */}
           <ConditionCountdown
-            remainingSeconds={flow.remainingSeconds ?? 0}
-            totalSeconds={state.durationMinutes * 60}
+            state={state}
             windowNoun={windowNoun}
+            onElapsed={onWindowElapsed}
           />
 
-          {/* Embedded regulation media: the condition card hosts the player
-              itself; it pauses when the countdown reaches 0 and unmounts
-              (stopping playback) if the operator jumps to the standalone
-              page. The natural-recovery condition has no media to play. */}
+          {/* Embedded regulation media: the stage hosts the player itself;
+              it pauses when the window elapsed and unmounts (stopping
+              playback) if the operator jumps to the standalone page. The
+              remaining-seconds prop carries the one-shot expiry fact
+              (0 once elapsed, null before/while running) — the page does
+              not track per-tick seconds. The natural-recovery condition
+              has no media to play. */}
           {!isNaturalRecovery ? (
             <EffectRegulationPlayer
               method={state.method}
-              remainingSeconds={flow.remainingSeconds}
+              remainingSeconds={isWindowElapsed ? 0 : null}
             />
           ) : null}
 
@@ -423,18 +422,11 @@ export function ConditionStepPanel({
 
           <EegAssociationChip association={state.eegAssociation} sessionId={state.eegSessionId} />
 
-          <div className={styles.actionsRow}>
-            {isNaturalRecovery ? null : (
-              <Button variant="outlined" onClick={flow.openRegulationPage}>
-                前往{methodLabel}
-              </Button>
-            )}
-            {finishMode.mode === 'requires-skip' ? (
-              <Button variant="outlined" color="error" onClick={onSkipRemaining}>
-                跳过剩余时长…
-              </Button>
-            ) : null}
+          {/* Strong duration constraint: the primary exit unlocks only at
+              zero; leaving early rides the double-confirmed skip below. */}
+          <div className={styles.stagePrimaryRow}>
             <Button
+              className={styles.primaryCta}
               variant="contained"
               disabled={finishMode.mode !== 'finish'}
               aria-describedby={finishMode.mode !== 'finish' ? 'regulation-countdown-hint' : undefined}
@@ -443,9 +435,21 @@ export function ConditionStepPanel({
               {isNaturalRecovery ? '结束静息，进行复测' : '结束调控，进行复测'}
             </Button>
           </div>
+
+          <div className={styles.stageSecondaryRow}>
+            {isNaturalRecovery ? null : (
+              <button type="button" className={styles.secondaryAction} onClick={flow.openRegulationPage}>
+                在独立页打开{methodLabel}
+              </button>
+            )}
+            {finishMode.mode === 'requires-skip' ? (
+              <button type="button" className={styles.secondaryActionDanger} onClick={onSkipRemaining}>
+                跳过剩余时长…
+              </button>
+            ) : null}
+          </div>
         </>
       )}
     </section>
   );
 }
-

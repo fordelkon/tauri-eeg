@@ -1,4 +1,5 @@
 import styles from './scaleUi.module.css';
+import { type KeyboardEvent as ReactKeyboardEvent } from 'react';
 
 /** One selectable anchor option of a row (value + optional Chinese label). */
 export type ScaleAnchorOption = {
@@ -92,6 +93,50 @@ export default function ScaleAnchorGroup({
   const isBipolar = layout === 'bipolar';
   const selected = options.find((option) => option.value === value);
 
+  // Arrow-key navigation (audit 3): every anchor is a tabbable button, which
+  // makes a 9-point bipolar row nine Tab stops. Arrows/Home/End move focus
+  // AND select — the radiogroup convention — so a keyboard participant can
+  // sweep a row without the mouse. Purely additive: click paths are unchanged
+  // for every consumer (scale dialogs + paradigm SAM rows).
+  const handleGroupKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (options.length === 0) {
+      return;
+    }
+
+    const currentIndex = options.findIndex((option) => option.value === value);
+    let nextIndex: number;
+
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        nextIndex = (currentIndex <= 0 ? 0 : currentIndex - 1);
+        break;
+      case 'ArrowRight':
+      case 'ArrowDown':
+        nextIndex = Math.min(options.length - 1, currentIndex + 1);
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = options.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+
+    const next = options[nextIndex];
+    if (!next) {
+      return;
+    }
+
+    const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>('button');
+    buttons[nextIndex]?.focus();
+    selectAnchorValue(onSelect, next);
+  };
+
   const buttons = options.map((option, index) => {
     const isSelected = option.value === value;
     const hint = valueHints?.[option.value];
@@ -121,6 +166,7 @@ export default function ScaleAnchorGroup({
       className={`${styles.base} ${styles.anchorGroup}`}
       role="group"
       aria-label={ariaLabel}
+      onKeyDown={handleGroupKeyDown}
     >
       {isBipolar ? (
         <div className={styles.bipolarRow}>
