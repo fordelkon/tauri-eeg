@@ -69,11 +69,24 @@
 }
 
 .imageFrame img {
+  /* Media breathes in on mount (Starbucks recipe): opacity only, so the
+     hover-zoom transition below keeps working untouched. */
+  animation: imageFadeIn var(--dur-med) var(--ease-out) backwards;
   display: block;
   height: 100%;
   object-fit: cover;
   transition: transform var(--dur-med) var(--ease-out);
   width: 100%;
+}
+
+@keyframes imageFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .card:hover .imageFrame img {
@@ -180,6 +193,7 @@
 @media (prefers-reduced-motion: reduce) {
   .imageFrame img,
   .entryButton {
+    animation: none;
     transition: none;
   }
 

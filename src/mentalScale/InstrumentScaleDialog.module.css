@@ -5,19 +5,20 @@
 
 .scaleBody {
   display: grid;
-  gap: 8px;
+  /* Whitespace carries the section grouping (no hairlines): 12px grid gap +
+     the section's own 16px head padding keeps sections clear of the 20px
+     question rhythm inside each section. */
+  gap: 12px;
   padding: 8px 20px 20px;
 }
 
 .scaleSection {
-  border-top: 1px solid rgba(23, 32, 38, 0.1);
   display: grid;
   gap: 16px;
   padding-top: 16px;
 }
 
 .scaleSection:first-child {
-  border-top: none;
   padding-top: 8px;
 }
 

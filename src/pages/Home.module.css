@@ -107,7 +107,9 @@
 }
 
 .sidebarHeader {
-  border-bottom: 1px solid rgba(44, 34, 24, 0.1);
+  /* No hairline: the 24px padding + 24px margin below already breathe — the
+     cream canvas separates the brand header from the nav (whitespace, not
+     dividers). */
   margin-bottom: 24px;
   padding-bottom: 24px;
 }
@@ -978,7 +980,7 @@
   font-weight: 600;
   letter-spacing: 0;
   line-height: 0.96;
-  margin: 0 0 18px;
+  margin: 0 0 16px;
 }
 
 .titleText {
