@@ -76,7 +76,7 @@ function ScoreCell({ value, barClass }: { value: number; barClass?: string }) {
       <span className={styles.scoreTrack} aria-hidden="true">
         <span
           className={`${styles.scoreBar}${barClass ? ` ${barClass}` : ''}`}
-          style={{ width: `${scoreBarPercent(value)}%` }}
+          style={{ transform: `scaleX(${scoreBarPercent(value) / 100})` }}
         />
       </span>
     </span>

@@ -96,7 +96,7 @@ export const ConditionCountdown = memo(function ConditionCountdown({
         aria-valuemax={100}
         aria-valuenow={progressPercent}
       >
-        <div className={styles.progressBar} style={{ width: `${progressPercent}%` }} />
+        <div className={styles.progressBar} style={{ transform: `scaleX(${progressPercent / 100})` }} />
       </div>
       <p className={styles.panelHint} id="regulation-countdown-hint">
         {hasElapsed

@@ -40,23 +40,29 @@ export const ParadigmLibraryList = memo(function ParadigmLibraryList({
               <span className={styles.videoListHeader}>
                 {paradigmEmotionLabels[emotion]}({entries.length})
               </span>
-              {entries.map((entry) => {
-                const isSelected = selectedVideoIds.has(entry.videoId);
+              {entries.length === 0 ? (
+                // Empty class group: a bare "(0)" header otherwise dangles
+                // with no rows beneath it (partial library loads).
+                <span className={styles.videoListEmpty}>该类暂无素材文件</span>
+              ) : (
+                entries.map((entry) => {
+                  const isSelected = selectedVideoIds.has(entry.videoId);
 
-                return (
-                  <button
-                    key={entry.fileName}
-                    type="button"
-                    className={styles.videoListRow}
-                    onClick={() => onSelectPreview(emotion, entry)}
-                  >
-                    <span className={styles.videoListName}>{entry.fileName}</span>
-                    {isSelected ? (
-                      <span className={styles.selectedVideoBadge}>入选</span>
-                    ) : null}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={entry.fileName}
+                      type="button"
+                      className={styles.videoListRow}
+                      onClick={() => onSelectPreview(emotion, entry)}
+                    >
+                      <span className={styles.videoListName}>{entry.fileName}</span>
+                      {isSelected ? (
+                        <span className={styles.selectedVideoBadge}>入选</span>
+                      ) : null}
+                    </button>
+                  );
+                })
+              )}
             </div>
           );
         })}

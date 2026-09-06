@@ -6,7 +6,7 @@
 }
 
 .panel {
-  animation: panelIn 760ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: panelIn 760ms var(--ease-out) forwards;
   background: rgba(255, 255, 255, 0.96);
   border-radius: 22px;
   box-shadow:
@@ -53,7 +53,7 @@
 }
 
 .guide {
-  animation: drawLine 1180ms cubic-bezier(0.16, 1, 0.3, 1) 240ms forwards;
+  animation: drawLine 1180ms var(--ease-out) 240ms forwards;
   fill: none;
   opacity: 0;
   stroke: #77716e;
@@ -65,7 +65,7 @@
 }
 
 .accent {
-  animation: drawLine 980ms cubic-bezier(0.16, 1, 0.3, 1) 420ms forwards;
+  animation: drawLine 980ms var(--ease-out) 420ms forwards;
   fill: none;
   opacity: 0;
   stroke: #fb7a68;
@@ -77,7 +77,7 @@
 }
 
 .eye {
-  animation: eyeIn 420ms cubic-bezier(0.16, 1, 0.3, 1) 520ms forwards;
+  animation: eyeIn 420ms var(--ease-out) 520ms forwards;
   fill: none;
   opacity: 0;
   stroke: #77716e;
@@ -89,7 +89,7 @@
 }
 
 .handleLine {
-  animation: drawLine 780ms cubic-bezier(0.16, 1, 0.3, 1) 360ms forwards;
+  animation: drawLine 780ms var(--ease-out) 360ms forwards;
   fill: none;
   opacity: 0;
   stroke: #77716e;
@@ -100,7 +100,7 @@
 }
 
 .stretchLine {
-  animation: drawLine 980ms cubic-bezier(0.16, 1, 0.3, 1) 420ms forwards;
+  animation: drawLine 980ms var(--ease-out) 420ms forwards;
   fill: none;
   opacity: 0;
   stroke: #77716e;
@@ -112,7 +112,7 @@
 }
 
 .anchor {
-  animation: anchorIn 420ms cubic-bezier(0.16, 1, 0.3, 1) 860ms forwards;
+  animation: anchorIn 420ms var(--ease-out) 860ms forwards;
   fill: #ffffff;
   opacity: 0;
   stroke: #77716e;
@@ -132,7 +132,7 @@
 }
 
 .content {
-  animation: contentIn 620ms cubic-bezier(0.16, 1, 0.3, 1) 780ms forwards;
+  animation: contentIn 620ms var(--ease-out) 780ms forwards;
 }
 
 .eyebrow {
@@ -175,8 +175,8 @@
   font-weight: 600;
   text-transform: none;
   transition:
-    box-shadow 160ms ease-out,
-    transform 100ms ease-out;
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .backButton:hover {
@@ -186,6 +186,15 @@
 
 .backButton:active {
   transform: scale(0.98);
+}
+
+.backButton:focus-visible {
+  /* Coral ring: this shell's soft accent hue (same recipe as Login's CTAs). */
+  box-shadow:
+    0 12px 26px rgba(243, 109, 90, 0.22),
+    0 0 0 3px rgba(251, 127, 110, 0.28);
+  outline: 2px solid rgba(241, 111, 93, 0.8);
+  outline-offset: 3px;
 }
 
 @media (max-width: 640px) {

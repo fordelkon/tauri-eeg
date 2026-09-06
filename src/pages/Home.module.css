@@ -40,8 +40,8 @@
   pointer-events: none;
   position: fixed;
   transition:
-    opacity 260ms cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s linear 260ms;
+    opacity var(--dur-med) var(--ease-out),
+    visibility 0s linear var(--dur-med);
   visibility: hidden;
   z-index: 3;
 }
@@ -50,7 +50,7 @@
   opacity: 1;
   pointer-events: auto;
   transition:
-    opacity 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity var(--dur-med) var(--ease-out),
     visibility 0s;
   visibility: visible;
 }
@@ -64,8 +64,8 @@
   padding: 24px 18px;
   transform: translateX(-100%);
   transition:
-    transform 420ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 420ms cubic-bezier(0.16, 1, 0.3, 1);
+    transform 420ms var(--ease-out),
+    box-shadow 420ms var(--ease-out);
   width: 100%;
 }
 
@@ -86,7 +86,7 @@
 }
 
 .menuLayer.isOpen .menuVisual {
-  animation: menuVisualIn 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: menuVisualIn 620ms var(--ease-out) both;
   display: block;
 }
 
@@ -154,13 +154,20 @@
   border-radius: 8px;
   color: #2c2218;
   height: 38px;
-  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   width: 38px;
 }
 
 .menuButton:hover {
   background: rgba(44, 34, 24, 0.08);
   transform: rotate(90deg);
+}
+
+.menuButton:active {
+  transform: rotate(90deg) translateY(1px);
 }
 
 .mobileMenuButton {
@@ -175,7 +182,12 @@
   left: 20px;
   position: fixed;
   top: 20px;
-  transition: all 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    background-color var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-med) var(--ease-out),
+    opacity var(--dur-med) var(--ease-out),
+    transform var(--dur-med) var(--ease-out),
+    visibility 0s;
   width: 44px;
   z-index: 4;
 }
@@ -184,6 +196,10 @@
   background: #f5f0eb;
   box-shadow: 0 4px 16px rgba(44, 34, 24, 0.12);
   transform: scale(1.05);
+}
+
+.mobileMenuButton:active {
+  transform: translateY(1px);
 }
 
 .mobileMenuButton.isHidden {
@@ -203,9 +219,9 @@
   pointer-events: none;
   position: fixed;
   transition:
-    background 380ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 380ms cubic-bezier(0.16, 1, 0.3, 1),
-    visibility 0s linear 380ms;
+    background 380ms var(--ease-out),
+    opacity 380ms var(--ease-out),
+    visibility 0s var(--ease-out) 380ms;
   visibility: hidden;
   z-index: 2;
 }
@@ -215,8 +231,8 @@
   opacity: 1;
   pointer-events: auto;
   transition:
-    background 380ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 380ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 380ms var(--ease-out),
+    opacity 380ms var(--ease-out),
     visibility 0s;
   visibility: visible;
 }
@@ -282,6 +298,10 @@
   color: rgba(44, 34, 24, 0.7);
   flex: 0 0 auto;
   height: 36px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   width: 36px;
 }
 
@@ -290,17 +310,39 @@
   color: #2c2218;
 }
 
+.signOutButton:active {
+  transform: translateY(1px);
+}
+
+.signOutButton:disabled {
+  cursor: not-allowed;
+  opacity: var(--disabled-opacity);
+}
+
 .storageButton {
   border-radius: 8px;
   color: rgba(44, 34, 24, 0.7);
   flex: 0 0 auto;
   height: 36px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   width: 36px;
 }
 
 .storageButton:hover {
   background: rgba(44, 34, 24, 0.08);
   color: #2c2218;
+}
+
+.storageButton:active {
+  transform: translateY(1px);
+}
+
+.storageButton:disabled {
+  cursor: not-allowed;
+  opacity: var(--disabled-opacity);
 }
 
 .storagePanel {
@@ -394,6 +436,10 @@
   font-size: 12px;
   font-weight: 600;
   height: 34px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -403,8 +449,12 @@
   color: #f5f0eb;
 }
 
+.storageActions button:active {
+  transform: scale(0.98);
+}
+
 .navItem {
-  animation: navItemIn 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: navItemIn 620ms var(--ease-out) both;
   animation-delay: calc(360ms + var(--item-index, 0) * 72ms);
   border-radius: 8px;
   color: rgba(44, 34, 24, 0.66);
@@ -413,15 +463,19 @@
   padding: 8px 12px;
   position: relative;
   transition:
-    background-color 180ms ease-out,
-    color 180ms ease-out,
-    transform 140ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .navItem:hover {
   background: rgba(44, 34, 24, 0.06);
   color: #2c2218;
   transform: translateX(3px);
+}
+
+.navItem:active {
+  transform: translate(3px, 1px);
 }
 
 .navItem.isActive,
@@ -475,7 +529,9 @@
   display: block;
   flex-shrink: 0;
   line-height: inherit;
-  transition: transform 540ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Duration rides the hover letter-roll choreography (no token above
+     --dur-med); the easing stays on the dialect curve. */
+  transition: transform 540ms var(--ease-out);
   transition-delay: calc(var(--letter-index, 0) * 13ms);
   white-space: pre;
 }
@@ -530,8 +586,8 @@
   transform: translateX(48px) scaleX(0.98);
   transform-origin: 100% 50%;
   transition:
-    opacity 520ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 520ms var(--ease-out),
+    transform 520ms var(--ease-out);
   width: 100%;
   z-index: 1;
 }
@@ -585,11 +641,11 @@
   right: clamp(18px, 3.2vw, 38px);
   text-transform: uppercase;
   transition:
-    background-color 180ms ease-out,
-    border-color 180ms ease-out,
-    box-shadow 180ms ease-out,
-    color 180ms ease-out,
-    transform 180ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
   z-index: 5;
 }
@@ -597,7 +653,7 @@
 .nextPageIcon {
   color: currentColor;
   font-size: 17px;
-  transition: transform 180ms ease-out;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
 .nextPageButton:hover {
@@ -610,6 +666,10 @@
 
 .nextPageButton:hover .nextPageIcon {
   transform: translate(2px, -2px);
+}
+
+.nextPageButton:active {
+  transform: translateX(4px) scale(0.98);
 }
 
 .nextPageButton:focus-visible {
@@ -668,9 +728,9 @@
   padding: 8px 10px;
   position: relative;
   transition:
-    background-color 180ms ease-out,
-    color 180ms ease-out,
-    transform 140ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -678,6 +738,10 @@
   background: rgba(44, 34, 24, 0.06);
   color: #2c2218;
   transform: translateX(3px);
+}
+
+.railItem:active {
+  transform: translate(3px, 1px);
 }
 
 .isRailActive {
@@ -719,8 +783,9 @@
   min-width: 36px;
   padding: 8px;
   transition:
-    background-color 180ms ease-out,
-    color 180ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .railSignOut:hover:not(:disabled) {
@@ -728,9 +793,13 @@
   color: #b81f1f;
 }
 
+.railSignOut:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 .railSignOut:disabled {
   cursor: not-allowed;
-  opacity: 0.4;
+  opacity: var(--disabled-opacity);
 }
 
 @media (min-width: 981px) {
@@ -911,7 +980,7 @@
 }
 
 .description {
-  animation: textRiseIn 620ms cubic-bezier(0.16, 1, 0.3, 1) 90ms both;
+  animation: textRiseIn 620ms var(--ease-out) 90ms both;
   color: rgba(44, 34, 24, 0.68);
   font-size: clamp(15px, 1.7vw, 18px);
   line-height: 1.7;
@@ -920,7 +989,7 @@
 }
 
 .surface {
-  animation: surfaceIn 660ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
+  animation: surfaceIn 660ms var(--ease-out) 120ms both;
   background: rgba(245, 240, 235, 0.72);
   border: 1px solid rgba(44, 34, 24, 0.08);
   border-radius: 8px;
@@ -977,8 +1046,24 @@
   .nextPageButton,
   .menuButton,
   .mobileMenuButton,
-  .navItem {
+  .navItem,
+  .signOutButton,
+  .storageButton,
+  .storageActions button,
+  .nextPageIcon {
     transition: none;
+  }
+
+  .menuButton:active,
+  .mobileMenuButton:active,
+  .signOutButton:active,
+  .storageButton:active,
+  .storageActions button:active,
+  .navItem:active,
+  .nextPageButton:active,
+  .railItem:active,
+  .railSignOut:active {
+    transform: none;
   }
 }
 

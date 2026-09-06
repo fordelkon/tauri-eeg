@@ -60,11 +60,18 @@
   font-weight: 600;
   min-height: 26px;
   padding: 4px 10px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
 .cancelButton:hover {
   background: rgba(44, 34, 24, 0.16);
+}
+
+.cancelButton:active {
+  transform: scale(0.98);
 }
 
 .cancelButton:focus-visible {
@@ -115,7 +122,20 @@
   padding: 6px 8px;
   text-align: left;
   text-overflow: ellipsis;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
+}
+
+.promptGrid button:hover,
+.confirmationActions button:hover {
+  background: rgba(44, 34, 24, 0.16);
+}
+
+.promptGrid button:active,
+.confirmationActions button:active {
+  transform: scale(0.98);
 }
 
 .message {
@@ -156,6 +176,19 @@
   border-radius: 0;
   cursor: pointer;
   list-style: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+/* The summary row is the disclosure toggle: give it the same hover wash and
+   sage focus ring as every other control on the panel. */
+.thinkingPanel .thinking:hover {
+  background: rgba(44, 34, 24, 0.06);
+}
+
+.thinkingPanel .thinking:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline-offset: -2px;
 }
 
 .thinkingPanel .thinking::-webkit-details-marker {
@@ -299,6 +332,12 @@
   padding: 0 10px;
 }
 
+.form input:focus-visible {
+  border-color: rgba(var(--calm-primary-rgb), 0.5);
+  box-shadow: var(--ring);
+  outline: none;
+}
+
 /* Send button: the calm sage primary recipe — sage, never the near-black ink
    fill (ink is text-only in the dialect); hover deepens the fill a step. */
 .form button {
@@ -310,7 +349,9 @@
   cursor: pointer;
   display: inline-flex;
   justify-content: center;
-  transition: transform 150ms var(--ease-out);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .form button:hover {
@@ -333,7 +374,7 @@
 .promptGrid button:disabled,
 .form input:disabled,
 .form button:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.62;
 }
 
@@ -355,10 +396,17 @@
     animation: none;
   }
 
+  .cancelButton,
+  .promptGrid button,
+  .confirmationActions button,
+  .thinkingPanel .thinking,
   .form button {
     transition: none;
   }
 
+  .cancelButton:active,
+  .promptGrid button:active,
+  .confirmationActions button:active,
   .form button:active {
     transform: none;
   }

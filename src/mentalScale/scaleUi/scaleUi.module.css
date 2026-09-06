@@ -76,6 +76,10 @@
   outline: none;
 }
 
+.anchorButton:active {
+  transform: scale(0.98);
+}
+
 /* Bipolar layout (SAM): both Chinese pole labels bracket a rail of round
    numeric buttons. The rail is a subtle cool->warm gradient line peeking
    between the buttons; values are literal low-alpha echoes of the --info,
@@ -258,7 +262,12 @@
   border-radius: inherit;
   display: block;
   height: 100%;
-  transition: width 180ms var(--ease-out);
+  /* Fill rides transform (not width): scaleX from the left edge keeps answer
+     updates off the layout path; the 4px track hides cap flattening. */
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--scale-motion);
+  width: 100%;
 }
 
 .barFillDone {
@@ -295,12 +304,15 @@
 
 .progressFill {
   /* Calm sage accent, same as the per-section barFill — brand red never
-     fills an indicator in the dialect. */
+     fills an indicator in the dialect. Same transform-fill recipe. */
   background: var(--scale-accent);
   border-radius: inherit;
   display: block;
   height: 100%;
-  transition: width 180ms var(--ease-out);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--scale-motion);
+  width: 100%;
 }
 
 .progressFillDone {
@@ -331,7 +343,8 @@
   transition:
     background-color var(--scale-motion),
     border-color var(--scale-motion),
-    color var(--scale-motion);
+    color var(--scale-motion),
+    transform var(--scale-motion);
   white-space: nowrap;
 }
 
@@ -339,6 +352,10 @@
   background: var(--scale-hover-wash);
   border-color: rgba(23, 32, 38, 0.52);
   color: var(--scale-ink);
+}
+
+.devFillButton:active {
+  transform: scale(0.98);
 }
 
 /* Keyboard focus (a11y bug fix): the anchor recipe's ring, dashed dev
@@ -361,12 +378,17 @@
   padding: 8px 10px;
   transition:
     background-color var(--scale-motion),
-    color var(--scale-motion);
+    color var(--scale-motion),
+    transform var(--scale-motion);
 }
 
 .devClearButton:hover {
   background: var(--scale-hover-wash);
   color: var(--scale-ink);
+}
+
+.devClearButton:active {
+  transform: scale(0.98);
 }
 
 .devClearButton:focus-visible {
@@ -385,6 +407,12 @@
 
   .anchorSelected,
   .anchorSelected:hover {
+    transform: none;
+  }
+
+  .anchorButton:active,
+  .devFillButton:active,
+  .devClearButton:active {
     transform: none;
   }
 }

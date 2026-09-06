@@ -72,12 +72,20 @@
   color: rgba(23, 32, 38, 0.68);
   flex: 0 0 auto;
   height: 32px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   width: 32px;
 }
 
 .scaleCloseButton:hover {
   background: rgba(23, 32, 38, 0.08);
   color: var(--ink-cool);
+}
+
+.scaleCloseButton:active {
+  transform: translateY(1px);
 }
 
 /* Title block scrolls away under the sticky bar. */
@@ -175,13 +183,18 @@
   padding: 8px 14px;
   white-space: nowrap;
   transition:
-    background-color 150ms var(--ease-out),
-    color 150ms var(--ease-out);
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .scaleSkipButton:hover {
   background: rgba(23, 32, 38, 0.08);
   color: var(--ink-cool);
+}
+
+.scaleSkipButton:active {
+  transform: scale(0.98);
 }
 
 .scaleSkipButton:focus-visible,
@@ -206,14 +219,18 @@
   padding: 0 18px;
   white-space: nowrap;
   transition:
-    background-color 150ms var(--ease-out),
-    box-shadow 150ms var(--ease-out),
-    transform 150ms var(--ease-out);
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .scalePrimaryButton:hover:not(:disabled) {
   box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb), 0.30);
   transform: translateY(-1px);
+}
+
+.scalePrimaryButton:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 .scalePrimaryButton:disabled {
@@ -226,12 +243,20 @@
 @media (prefers-reduced-motion: reduce) {
   .scaleOverlay,
   .scaleDialog,
-  .scalePrimaryButton {
+  .scalePrimaryButton,
+  .scaleSkipButton,
+  .scaleCloseButton {
     animation: none;
     transition: none;
   }
 
   .scalePrimaryButton:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .scaleCloseButton:active,
+  .scaleSkipButton:active,
+  .scalePrimaryButton:active:not(:disabled) {
     transform: none;
   }
 }

@@ -13,7 +13,7 @@
 .rightPanel {
   animation-duration: 760ms;
   animation-fill-mode: forwards;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  animation-timing-function: var(--ease-out);
 }
 
 .leftPanel {
@@ -108,7 +108,7 @@
 }
 
 .formPanel {
-  animation: contentFadeIn 620ms cubic-bezier(0.16, 1, 0.3, 1) 900ms forwards;
+  animation: contentFadeIn 620ms var(--ease-out) 900ms forwards;
 }
 
 .brandMark {
@@ -173,7 +173,9 @@
 }
 
 .textField.isShaking {
-  animation: inputShake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) linear;
+  /* Segment timing lives in the keyframes (var(--shake-ease)); the
+     animation-level function is only a fallback so no `linear` slips in. */
+  animation: inputShake calc(var(--shake-dur-a) * 2 + var(--shake-dur-b) * 2) var(--shake-ease);
   will-change: transform;
 }
 
@@ -222,13 +224,13 @@
   font-size: 14px;
   min-height: 52px;
   transition:
-    background-color 150ms ease-out,
-    box-shadow 150ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
 }
 
 .textField :global(.MuiOutlinedInput-notchedOutline) {
   border-color: transparent;
-  transition: border-color 150ms ease-out;
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 
 .textField :global(.MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline) {
@@ -263,13 +265,25 @@
 .textField :global(.MuiIconButton-root) {
   color: #a29d9a;
   transition:
-    background-color 140ms ease-out,
-    color 140ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .textField :global(.MuiIconButton-root:hover) {
   background-color: rgba(251, 127, 110, 0.1);
   color: #f16f5d;
+}
+
+.textField :global(.MuiIconButton-root:active) {
+  transform: scale(0.94);
+}
+
+.textField :global(.MuiIconButton-root.Mui-focusVisible) {
+  /* Coral ring: same family as the page's buttons (MUI supplies no ring for
+     keyboard focus on icon-only toggles). */
+  outline: 2px solid rgba(241, 111, 93, 0.8);
+  outline-offset: 1px;
 }
 
 .textField :global(.MuiInputBase-input::placeholder) {
@@ -289,16 +303,16 @@
   margin: -4px 0 0;
   opacity: 0;
   transition:
-    opacity var(--revert-dur) ease-out,
-    visibility 0s linear var(--revert-dur);
+    opacity var(--revert-dur) var(--ease-out),
+    visibility 0s var(--ease-out) var(--revert-dur);
   visibility: hidden;
 }
 
 .fieldGroup.isError .errorMsg {
   opacity: 1;
   transition:
-    opacity var(--revert-dur) ease-out,
-    visibility 0s linear 0s;
+    opacity var(--revert-dur) var(--ease-out),
+    visibility 0s var(--ease-out) 0s;
   visibility: visible;
 }
 
@@ -326,9 +340,9 @@
   font-weight: 600;
   text-transform: none;
   transition:
-    background-color 160ms ease-out,
-    box-shadow 160ms ease-out,
-    transform 100ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .submitButton:hover {
@@ -373,8 +387,8 @@
   font-weight: 500;
   text-transform: none;
   transition:
-    background-color 160ms ease-out,
-    color 160ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 .modeSwitchButton:hover {
@@ -399,8 +413,8 @@
   font-weight: 500;
   text-transform: none;
   transition:
-    background-color 160ms ease-out,
-    color 160ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 .forgotPassword:hover {
@@ -466,6 +480,14 @@
     animation: none;
     transform: none;
     transition: none;
+  }
+
+  .textField :global(.MuiIconButton-root) {
+    transition: none;
+  }
+
+  .textField :global(.MuiIconButton-root:active) {
+    transform: none;
   }
 }
 

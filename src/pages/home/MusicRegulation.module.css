@@ -1,5 +1,5 @@
 .workspace {
-  animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: workspaceEnter 460ms var(--ease-out) both;
   color: #172026;
   gap: 14px;
   margin: 0 auto;
@@ -222,6 +222,10 @@
   min-height: 36px;
   padding: 0 8px;
   text-align: left;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
   width: 100%;
 }
 
@@ -230,6 +234,12 @@
   border-color: rgba(23, 32, 38, 0.3);
   box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.06);
   outline: none;
+}
+
+/* Full-width selector trigger: pressed feedback deepens the wash (same row
+   language as the video page's disclosure summary, not a scale press). */
+.tagTrigger:active {
+  background: rgba(23, 32, 38, 0.05);
 }
 
 .tagDotStack {
@@ -287,7 +297,7 @@
   display: block;
   height: 9px;
   transform: rotate(45deg) translateY(-2px);
-  transition: transform 160ms ease;
+  transition: transform var(--dur-fast) var(--ease-out);
   width: 9px;
 }
 
@@ -300,13 +310,13 @@
   background: var(--scrim-form);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  animation: overlayEnter 180ms var(--ease-out) backwards;
+  animation: overlayEnter var(--dur-fast) var(--ease-out) backwards;
   justify-content: center;
   padding: 24px;
 }
 
 .tagSheet {
-  animation: overlayPanelEnter 220ms var(--ease-out) backwards;
+  animation: overlayPanelEnter var(--dur-med) var(--ease-out) backwards;
   background: #fff;
   border: 1px solid rgba(23, 32, 38, 0.12);
   border-radius: 10px;
@@ -364,6 +374,9 @@
   flex: 0 0 auto;
   height: 34px;
   justify-content: center;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   width: 34px;
 }
 
@@ -371,6 +384,10 @@
 .tagSheetClose:focus-visible {
   background: rgba(23, 32, 38, 0.1);
   outline: none;
+}
+
+.tagSheetClose:active {
+  transform: translateY(1px);
 }
 
 .tagSheetList {
@@ -520,6 +537,10 @@
   min-height: 26px;
   opacity: 0;
   padding: 0 8px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -528,12 +549,14 @@
   opacity: 1;
 }
 
-.tagOnlyButton:hover,
-.tagOnlyButton:focus-visible {
+.tagOnlyButton:hover {
   background: rgba(23, 32, 38, 0.08);
   color: #172026;
   opacity: 1;
-  outline: none;
+}
+
+.tagOnlyButton:focus-visible {
+  opacity: 1;
 }
 
 .tagCustomInput {
@@ -595,7 +618,20 @@
   font-weight: 600;
   min-height: 36px;
   padding: 0 14px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
+}
+
+.generateButton:hover:not(:disabled) {
+  background: var(--calm-primary-hover);
+  border-color: var(--calm-primary-hover);
+}
+
+.generateButton:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .generateButton:disabled {
@@ -615,7 +651,7 @@
 }
 
 .isBusy::before {
-  animation: busySpin 700ms linear infinite;
+  animation: busySpin 1200ms linear infinite;
   border: 2px solid currentColor;
   border-radius: 999px;
   border-top-color: transparent;
@@ -663,12 +699,20 @@
   justify-self: start;
   min-height: 28px;
   padding: 0 12px;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
 .cancelGenerationButton:hover {
   border-color: rgba(23, 32, 38, 0.42);
   color: #172026;
+}
+
+.cancelGenerationButton:active {
+  transform: scale(0.98);
 }
 
 .successBanner {
@@ -717,7 +761,16 @@
   cursor: pointer;
   height: 86px;
   padding: 0;
+  transition: transform var(--dur-fast) var(--ease-out);
   width: 86px;
+}
+
+.coverButton:hover {
+  transform: scale(1.03);
+}
+
+.coverButton:active {
+  transform: scale(0.98);
 }
 
 .coverArt {
@@ -886,7 +939,12 @@
   box-shadow: inset 0 0 0 1px rgba(255, 250, 243, 0.14);
   color: #fffaf3;
   height: 30px;
+  transition: transform var(--dur-fast) var(--ease-out);
   width: 30px;
+}
+
+.controlButton:active {
+  transform: translateY(1px);
 }
 
 .controlButton:global(.Mui-disabled) {
@@ -918,7 +976,12 @@
     inset 0 0 0 1px rgba(255, 255, 255, 0.72);
   color: #050505;
   height: 38px;
+  transition: transform var(--dur-fast) var(--ease-out);
   width: 38px;
+}
+
+.primaryButton:active {
+  transform: translateY(1px);
 }
 
 .primaryButton:hover {
@@ -942,13 +1005,13 @@
   background: var(--scrim-form);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  animation: overlayEnter 180ms var(--ease-out) backwards;
+  animation: overlayEnter var(--dur-fast) var(--ease-out) backwards;
   justify-content: center;
   padding: 24px;
 }
 
 .historyModal {
-  animation: overlayPanelEnter 220ms var(--ease-out) backwards;
+  animation: overlayPanelEnter var(--dur-med) var(--ease-out) backwards;
   background: #fff;
   border: 1px solid rgba(23, 32, 38, 0.12);
   border-radius: 8px;
@@ -980,12 +1043,17 @@
 .closeButton {
   color: #172026;
   height: 34px;
+  transition: transform var(--dur-fast) var(--ease-out);
   width: 34px;
 }
 
 .closeButton:hover {
   background: rgba(23, 32, 38, 0.08);
   color: #0b1115;
+}
+
+.closeButton:active {
+  transform: translateY(1px);
 }
 
 .queueList {
@@ -1038,6 +1106,11 @@
   grid-template-columns: 34px minmax(0, 1fr) auto;
   min-height: 36px;
   padding: 0;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.queueSelectButton:active {
+  transform: translateY(1px);
 }
 
 .queueSelectButton span {
@@ -1068,7 +1141,12 @@
   color: rgba(23, 32, 38, 0.74);
   height: 30px;
   justify-self: end;
+  transition: transform var(--dur-fast) var(--ease-out);
   width: 30px;
+}
+
+.deleteQueueButton:active {
+  transform: translateY(1px);
 }
 
 .deleteQueueButton:hover {
@@ -1090,6 +1168,9 @@
 .generateButton:focus-visible,
 .cancelGenerationButton:focus-visible,
 .tagSheetClose:focus-visible,
+.closeButton:focus-visible,
+.tagOnlyButton:focus-visible,
+.deleteQueueButton:focus-visible,
 .queueSelectButton:focus-visible {
   box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
@@ -1312,7 +1393,18 @@
   }
 
   .tagChevron,
-  .queueSelectButton {
+  .tagTrigger,
+  .tagOnlyButton,
+  .queueSelectButton,
+  .generateButton,
+  .cancelGenerationButton,
+  .tagOnlyButton,
+  .tagSheetClose,
+  .closeButton,
+  .deleteQueueButton,
+  .coverButton,
+  .controlButton,
+  .primaryButton {
     transition: none;
   }
 
@@ -1320,5 +1412,17 @@
   .coverBars span,
   .isBusy::before {
     animation: none;
+  }
+
+  .generateButton:active:not(:disabled),
+  .cancelGenerationButton:active,
+  .tagSheetClose:active,
+  .closeButton:active,
+  .deleteQueueButton:active,
+  .queueSelectButton:active,
+  .coverButton:active,
+  .controlButton:active,
+  .primaryButton:active {
+    transform: none;
   }
 }

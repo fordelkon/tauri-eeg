@@ -14,16 +14,18 @@
 }
 
 .routeSpinner {
-  animation: routeSpin 900ms linear infinite;
-  border: 3px solid rgba(23, 32, 38, 0.14);
+  /* Calm spinner speed: 1.2s/turn, linear (spinners are the one place
+     linear is allowed); sage track + sage head ride the dialect hues. */
+  animation: routeSpin 1200ms linear infinite;
+  border: 3px solid rgba(var(--calm-primary-rgb), 0.18);
   border-radius: 50%;
-  border-top-color: var(--brand-coral, #fb7f6e);
+  border-top-color: var(--calm-primary);
   height: 28px;
   width: 28px;
 }
 
 .routeFallbackText {
-  color: rgba(23, 32, 38, 0.62);
+  color: rgba(44, 34, 24, 0.62);
   font-size: 13px;
   font-weight: 500;
 }

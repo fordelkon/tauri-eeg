@@ -43,6 +43,15 @@ const theme = createTheme({
           // Button labels never wrap to two lines: rows wrap the whole
           // control instead (the dialect's nowrap rule for buttons/pills).
           whiteSpace: 'nowrap',
+          // Dialect motion tokens (main.tsx loads tokens.css globally, so the
+          // var()s resolve here) replace MUI's 250ms standard-curve default;
+          // transform is listed so the pressed recipe below animates.
+          transition:
+            'background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out)',
+          '&:active': {
+            // The dialect's pressed recipe, inherited by every MUI button.
+            transform: 'scale(0.98)',
+          },
           '&:focus-visible': {
             boxShadow: '0 0 0 3px rgba(92, 122, 104, 0.16)',
             outline: '2px solid rgba(92, 122, 104, 0.55)',

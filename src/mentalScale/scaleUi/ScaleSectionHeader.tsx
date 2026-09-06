@@ -41,7 +41,7 @@ export default function ScaleSectionHeader({
       <span className={styles.bar}>
         <span
           className={`${styles.barFill} ${isComplete ? styles.barFillDone : ''}`}
-          style={{ width: `${percent}%` }}
+          style={{ transform: `scaleX(${percent / 100})` }}
         />
       </span>
     </div>

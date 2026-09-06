@@ -807,10 +807,17 @@
   font-size: 12px;
   font-weight: 500;
   min-height: 28px;
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .videoListSummary:hover {
   color: #172026;
+}
+
+.videoListSummary:focus-visible {
+  box-shadow: var(--ring);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline-offset: 2px;
 }
 
 .videoListGrid {
@@ -834,6 +841,14 @@
   font-weight: 600;
 }
 
+/* Empty class group: one muted line where rows would sit (partial library
+   loads leave a "(0)" header with nothing under it otherwise). */
+.videoListEmpty {
+  color: rgba(23, 32, 38, 0.45);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .videoListRow {
   align-items: center;
   background: rgba(255, 255, 255, 0.9);
@@ -849,10 +864,17 @@
   min-height: 32px;
   padding: 0 10px;
   text-align: left;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .videoListRow:hover {
   border-color: rgba(23, 32, 38, 0.34);
+}
+
+.videoListRow:active {
+  transform: translateY(1px);
 }
 
 .videoListName {
@@ -915,11 +937,25 @@
   font-weight: 600;
   min-height: 30px;
   padding: 0 12px;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .previewCloseButton:hover {
   border-color: rgba(245, 240, 235, 0.55);
   color: #f5f0eb;
+}
+
+.previewCloseButton:focus-visible {
+  /* Dark preview chrome keeps the light-outline ring family. */
+  outline: 2px solid rgba(245, 240, 235, 0.72);
+  outline-offset: 2px;
+}
+
+.previewCloseButton:active {
+  transform: translateY(1px);
 }
 
 .previewVideo {
@@ -1019,4 +1055,24 @@
   font-size: 14px;
   font-weight: 600;
   margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Dialog/preview entrances are reveals; the trial stage's presentation
+     motion is pinned separately and intentionally left out of this guard. */
+  .dialogOverlay,
+  .dialog {
+    animation: none;
+  }
+
+  .videoListRow,
+  .videoListSummary,
+  .previewCloseButton {
+    transition: none;
+  }
+
+  .videoListRow:active,
+  .previewCloseButton:active {
+    transform: none;
+  }
 }

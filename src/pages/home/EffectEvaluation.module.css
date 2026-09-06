@@ -43,7 +43,7 @@
      into workspace-relative absolute - the modal lands mispositioned
      behind the flow content. backwards releases the transform at
      animation end (visually identical, no delay is set). */
-  animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation: workspaceEnter 460ms var(--ease-out) backwards;
   color: var(--ee-ink);
   /* display + gap give the wizard its vertical rhythm; Box defaults to a
      plain block where `gap` never applied, leaving sections stacked
@@ -89,10 +89,16 @@
   padding: 6px 18px;
   text-transform: none;
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    color 160ms ease;
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.workspace :global(.MuiButton-root:active) {
+  /* Same pressed recipe the theme hoists app-wide (AppShell MuiButton). */
+  transform: scale(0.98);
 }
 
 .workspace :global(.MuiButton-root:focus-visible) {
@@ -308,7 +314,9 @@
   /* Two-step tab hierarchy: unselected 500, selected 600. */
   font-weight: 500;
   min-height: 44px;
-  transition: background-color 160ms ease, color 160ms ease;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 .tabBar :global(.MuiTab-root:hover) {
@@ -417,10 +425,11 @@
   min-width: 40px;
   opacity: var(--disabled-opacity);
   transition:
-    color 160ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    opacity 160ms ease;
+    color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .historyRowLine:hover .historyDeleteButton,
@@ -436,6 +445,10 @@
 .historyDeleteButton:hover {
   background: rgba(179, 38, 30, 0.09);
   color: var(--danger, #b3261e);
+}
+
+.historyDeleteButton:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .historyDeleteButton:focus-visible {
@@ -464,10 +477,10 @@
   padding: 10px 12px;
   text-align: left;
   transition:
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   width: 100%;
 }
 
@@ -478,7 +491,7 @@
   flex: 0 0 auto;
   height: 8px;
   transform: rotate(45deg);
-  transition: transform 180ms ease;
+  transition: transform var(--dur-fast) var(--ease-out);
   width: 8px;
 }
 
@@ -496,9 +509,13 @@
   transform: translateY(-1px);
 }
 
+.historyRow:active {
+  transform: translateY(1px);
+}
+
 .historyRow:focus-visible {
   border-color: rgba(var(--ee-warm-rgb), 0.35);
-  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.1);
+  box-shadow: var(--ring);
   outline: none;
 }
 
@@ -580,7 +597,7 @@
      .panel as a stacking context + fixed-containing-block forever,
      which trapped the inline scale dialog under the sticky progress
      bar. Same trap the workspace animation dodges above. */
-  animation: panelEnter 360ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation: panelEnter 360ms var(--ease-out) backwards;
   background: rgba(255, 255, 255, 0.84);
   border: 1px solid var(--ee-line);
   border-radius: var(--ee-radius-surface);
@@ -679,7 +696,7 @@
 }
 
 .isBusy::before {
-  animation: busySpin 700ms linear infinite;
+  animation: busySpin 1200ms linear infinite;
   border: 2px solid currentColor;
   border-radius: 999px;
   border-top-color: transparent;
@@ -765,7 +782,7 @@
   font-size: 14px;
   min-height: 40px;
   padding: 8px 12px;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
   width: 100%;
 }
 
@@ -776,8 +793,8 @@
 
 .textInput:focus,
 .selectInput:focus {
-  border-color: rgba(var(--ee-ink-rgb), 0.5);
-  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.1);
+  border-color: rgba(var(--calm-primary-rgb), 0.5);
+  box-shadow: var(--ring);
   outline: none;
 }
 
@@ -807,10 +824,11 @@
   /* Pill option labels never wrap. */
   white-space: nowrap;
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease,
-    color 160ms ease;
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .pillRadio:hover {
@@ -818,9 +836,13 @@
   color: var(--ee-ink);
 }
 
+.pillRadio:active {
+  transform: scale(0.98);
+}
+
 .pillRadio:focus-visible {
-  border-color: rgba(var(--ee-ink-rgb), 0.45);
-  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.12);
+  border-color: rgba(var(--calm-primary-rgb), 0.5);
+  box-shadow: var(--ring);
   outline: none;
 }
 
@@ -858,7 +880,7 @@
   min-height: 38px;
   padding: 0 16px;
   white-space: nowrap;
-  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .secondaryAction:hover {
@@ -867,8 +889,12 @@
   color: var(--ee-ink);
 }
 
+.secondaryAction:active {
+  transform: scale(0.98);
+}
+
 .secondaryAction:focus-visible {
-  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.1);
+  box-shadow: var(--ring);
   outline: none;
 }
 
@@ -941,7 +967,7 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   line-height: 1;
-  transition: color 300ms ease;
+  transition: color var(--dur-med) var(--ease-out);
 }
 
 /* Countdown status pill: text + shape, not color alone (color-blind safe). */
@@ -1030,7 +1056,7 @@
   min-height: 42px;
   padding: 6px 14px;
   text-align: left;
-  transition: background-color 160ms ease, border-color 160ms ease;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
   width: 100%;
 }
 
@@ -1039,8 +1065,12 @@
   border-color: rgba(var(--ee-ink-rgb), 0.32);
 }
 
+.musicHistoryItem:active {
+  transform: translateY(1px);
+}
+
 .musicHistoryItem:focus-visible {
-  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.1);
+  box-shadow: var(--ring);
   outline: none;
 }
 
@@ -1094,11 +1124,17 @@
   width: min(420px, 100%);
 }
 
+/* Fill rides transform (not width): scaleX from the left edge keeps the
+   per-tick updates off the layout path; the rounded caps flatten briefly
+   at partial scales, which the 8px track hides. */
 .progressBar {
   background: var(--ee-warm);
   border-radius: 999px;
   height: 100%;
-  transition: width 500ms linear;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-med) var(--ease-out);
+  width: 100%;
 }
 
 .eegChip {
@@ -1163,7 +1199,7 @@
    A severity-tinted banner whose icon disc is the "completed" visual
    anchor - the finish reads as an achievement, not a side note. */
 .resultHero {
-  animation: heroEnter 420ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation: heroEnter 420ms var(--ease-out) backwards;
   border: 1px solid transparent;
   border-radius: var(--ee-radius-card);
   display: grid;
@@ -1519,7 +1555,7 @@
 }
 
 .dimensionTable tbody tr {
-  transition: background-color 140ms ease;
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
 
 .dimensionTable tbody tr:hover {
@@ -1552,12 +1588,17 @@
   width: 72px;
 }
 
+/* Same transform-fill recipe as .progressBar (72px mini bars: scale keeps
+   value changes off the layout path). */
 .scoreBar {
   background: rgba(var(--ee-ink-rgb), 0.34);
   border-radius: 999px;
   display: block;
   height: 100%;
-  transition: width 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-med) var(--ease-out);
+  width: 100%;
 }
 
 .scoreBar.barUp {
@@ -1749,6 +1790,8 @@
   .secondaryAction,
   .secondaryActionDanger,
   .doneChip,
+  .musicHistoryItem,
+  .stationDot,
   .stationClickable:hover .stationLabel,
   .stationLabel,
   .dimensionTable tbody tr,
@@ -1757,6 +1800,22 @@
   .workspace :global(.MuiTab-root) {
     animation: none;
     transition: none;
+  }
+
+  .isBusy::before {
+    animation: none;
+  }
+
+  .historyDeleteButton:active:not(:disabled),
+  .historyRow:active,
+  .pillRadio:active,
+  .musicHistoryItem:active,
+  .secondaryAction:active,
+  .secondaryActionDanger:active,
+  .doneChip:active,
+  .stationClickable:active .stationDot,
+  .workspace :global(.MuiButton-root:active) {
+    transform: none;
   }
 }
 
@@ -1841,7 +1900,12 @@ button.station:focus-visible {
   font-weight: 600;
   height: 34px;
   justify-content: center;
+  transition: transform var(--dur-fast) var(--ease-out);
   width: 34px;
+}
+
+.stationClickable:active .stationDot {
+  transform: translateY(1px);
 }
 
 .stationDotPending {
@@ -1856,7 +1920,7 @@ button.station:focus-visible {
 
 /* Hollow coral ring + micro pulse: the "you are here" beacon. */
 .stationDotCurrent {
-  animation: stationPulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  animation: stationPulse 2s var(--ease-out) infinite;
   background: #fff;
   border: 3px solid var(--ee-warm);
   color: var(--ee-warm);
@@ -1881,7 +1945,7 @@ button.station:focus-visible {
   color: var(--ee-ink);
   font-size: 13.5px;
   font-weight: 600;
-  transition: color 160ms ease;
+  transition: color var(--dur-fast) var(--ease-out);
   /* Two CJK glyphs never wrap, but keep the row height stable if a future
      label grows: overflow must ellipsis, not reflow the timeline. */
   white-space: nowrap;
@@ -1946,15 +2010,20 @@ button.station:focus-visible {
   padding: 4px 12px;
   white-space: nowrap;
   transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .doneChip:hover {
   background: #fff;
   border-color: rgba(34, 125, 84, 0.36);
   box-shadow: 0 3px 10px rgba(var(--ee-ink-rgb), 0.08);
+}
+
+.doneChip:active {
+  transform: scale(0.98);
 }
 
 .doneChip:focus-visible {
@@ -2110,13 +2179,17 @@ button.station:focus-visible {
   min-height: 38px;
   padding: 0 16px;
   white-space: nowrap;
-  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .secondaryActionDanger:hover {
   background: rgba(196, 138, 24, 0.08);
   border-color: rgba(196, 138, 24, 0.65);
   color: #7a4f09;
+}
+
+.secondaryActionDanger:active {
+  transform: scale(0.98);
 }
 
 .secondaryActionDanger:focus-visible {

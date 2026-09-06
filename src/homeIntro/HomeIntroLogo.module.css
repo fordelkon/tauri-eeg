@@ -65,9 +65,10 @@
   right: max(20px, env(safe-area-inset-right));
   white-space: nowrap;
   transition:
-    background-color 160ms ease-out,
-    color 160ms ease-out,
-    border-color 160ms ease-out;
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   z-index: 2;
 }
 
@@ -75,6 +76,10 @@
   background: rgba(44, 34, 24, 0.1);
   border-color: rgba(44, 34, 24, 0.28);
   color: #2c2218;
+}
+
+.skipButton:active {
+  transform: scale(0.98);
 }
 
 .skipButton:focus-visible {
@@ -94,6 +99,10 @@
     animation-duration: 1ms;
     animation-iteration-count: 1;
     transition: none;
+  }
+
+  .skipButton:active {
+    transform: none;
   }
 }
 

@@ -71,7 +71,7 @@
   display: block;
   height: 100%;
   object-fit: cover;
-  transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform var(--dur-med) var(--ease-out);
   width: 100%;
 }
 
@@ -139,12 +139,20 @@
   height: 40px;
   margin-top: auto;
   padding: 0 16px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
 .entryButton:hover:not(:disabled) {
   background: var(--calm-primary-hover);
   border-color: var(--calm-primary-hover);
+}
+
+.entryButton:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .entryButton:focus-visible {
@@ -165,5 +173,16 @@
 
   .imageFrame {
     aspect-ratio: 16 / 10;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .imageFrame img,
+  .entryButton {
+    transition: none;
+  }
+
+  .entryButton:active:not(:disabled) {
+    transform: none;
   }
 }

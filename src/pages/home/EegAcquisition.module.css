@@ -2,7 +2,7 @@
 @import "../../styles/tokens.css";
 
 .workspace {
-  animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: workspaceEnter 460ms var(--ease-out) both;
   color: var(--ink-cool);
   gap: 14px;
   height: 100%;

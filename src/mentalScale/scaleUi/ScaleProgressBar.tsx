@@ -23,7 +23,7 @@ export default function ScaleProgressBar({ answered, total, label }: ScaleProgre
       <span className={styles.progressTrack}>
         <span
           className={`${styles.progressFill} ${isDone ? styles.progressFillDone : ''}`}
-          style={{ width: `${percent}%` }}
+          style={{ transform: `scaleX(${percent / 100})` }}
         />
       </span>
     </div>

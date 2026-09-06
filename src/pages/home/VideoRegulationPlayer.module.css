@@ -77,13 +77,26 @@
   height: 36px;
   justify-content: center;
   padding: 0;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   width: 36px;
 }
 
-.closeButton:hover, .closeButton:focus-visible {
+/* Dark player chrome keeps the light-outline ring family (same as the music
+   player's transport controls) — sage reads poorly on this surface. */
+.closeButton:hover {
   background: rgba(255, 250, 243, 0.12);
   color: #fffaf3;
-  outline: none;
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid rgba(255, 250, 243, 0.72);
+  outline-offset: 2px;
+}
+
+.closeButton:active {
+  transform: translateY(1px);
 }
 
 .closeButton svg {
@@ -138,5 +151,13 @@
   .videoOverlay,
   .videoModal {
     animation: none;
+  }
+
+  .closeButton {
+    transition: none;
+  }
+
+  .closeButton:active {
+    transform: none;
   }
 }

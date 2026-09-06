@@ -1,5 +1,5 @@
 .workspace {
-  animation: workspaceEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: workspaceEnter 460ms var(--ease-out) both;
   color: #172026;
   gap: 18px;
   max-width: 1040px;
@@ -78,18 +78,30 @@
   font-weight: 600;
   min-height: 32px;
   padding: 0 12px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
-.libraryButton:hover,
-.libraryButton:focus-visible {
+.libraryButton:hover {
   background: #ffffff;
   border-color: rgba(23, 32, 38, 0.3);
-  outline: none;
+}
+
+.libraryButton:focus-visible {
+  box-shadow: var(--ring);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline-offset: 1px;
+}
+
+.libraryButton:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .libraryButton:disabled {
-  cursor: wait;
+  cursor: not-allowed;
   opacity: 0.64;
 }
 
@@ -102,7 +114,7 @@
 }
 
 .libraryButton.isBusy::before {
-  animation: busySpin 700ms linear infinite;
+  animation: busySpin 1200ms linear infinite;
   border: 2px solid currentColor;
   border-radius: 999px;
   border-top-color: transparent;
@@ -257,7 +269,24 @@
   gap: 12px;
   min-height: 40px;
   padding: 0 12px;
+  transition: background-color var(--dur-fast) var(--ease-out);
   user-select: none;
+}
+
+.tagGroupSummary:hover {
+  background: rgba(23, 32, 38, 0.05);
+}
+
+/* Full-width disclosure row: pressed feedback deepens the wash instead of a
+   scale press (rows read as surfaces, not controls). */
+.tagGroupSummary:active {
+  background: rgba(23, 32, 38, 0.08);
+}
+
+.tagGroupSummary:focus-visible {
+  box-shadow: var(--ring);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline-offset: -2px;
 }
 
 .tagGroupSummary::-webkit-details-marker {
@@ -271,7 +300,7 @@
   content: "";
   flex: none;
   height: 0;
-  transition: transform 160ms ease;
+  transition: transform var(--dur-fast) var(--ease-out);
   width: 0;
 }
 
@@ -306,6 +335,9 @@
   min-height: 64px;
   padding: 10px;
   text-align: center;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .trailButton span {
@@ -323,9 +355,18 @@
   white-space: nowrap;
 }
 
-.trailButton:hover, .trailButton:focus-visible {
+.trailButton:hover {
   border-color: rgba(23, 32, 38, 0.28);
-  outline: none;
+}
+
+.trailButton:focus-visible {
+  box-shadow: var(--ring);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline-offset: 1px;
+}
+
+.trailButton:active {
+  transform: scale(0.98);
 }
 
 /* Reached selection steps: the shared success tint family (token-based),
@@ -354,6 +395,10 @@
   gap: 8px;
   min-height: 38px;
   padding: 0 14px;
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
@@ -390,15 +435,24 @@
 }
 
 .customTagInput:focus {
-  border-color: rgba(23, 32, 38, 0.42);
-  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.08);
+  border-color: rgba(var(--calm-primary-rgb), 0.5);
+  box-shadow: var(--ring);
   outline: none;
 }
 
-.tagButton:hover, .tagButton:focus-visible {
+.tagButton:hover {
   border-color: rgba(23, 32, 38, 0.32);
   box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.06);
-  outline: none;
+}
+
+.tagButton:focus-visible {
+  box-shadow: var(--ring);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline-offset: 1px;
+}
+
+.tagButton:active {
+  transform: scale(0.98);
 }
 
 .activeTagButton {
@@ -527,12 +581,31 @@
   font-weight: 600;
   min-height: 36px;
   padding: 0 14px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
-.startButton:hover, .startButton:focus-visible, .resetButton:hover, .resetButton:focus-visible {
+.startButton:hover, .resetButton:hover {
   background: var(--calm-primary-hover);
-  outline: none;
+}
+
+.startButton:focus-visible, .resetButton:focus-visible {
+  background: var(--calm-primary-hover);
+  /* Sage ring family (the calm dialect's control ring) on keyboard focus. */
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline-offset: 1px;
+}
+
+.startButton:active:not(:disabled), .resetButton:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.startButton:disabled, .resetButton:disabled {
+  cursor: not-allowed;
+  opacity: var(--disabled-opacity, 0.45);
 }
 
 .emptyState {
@@ -607,11 +680,25 @@
     animation: none;
   }
 
-  .tagGroupSummary::before {
+  .tagGroupSummary,
+  .tagGroupSummary::before,
+  .trailButton,
+  .tagButton,
+  .libraryButton,
+  .startButton,
+  .resetButton {
     transition: none;
   }
 
   .libraryButton.isBusy::before {
     animation: none;
+  }
+
+  .libraryButton:active:not(:disabled),
+  .trailButton:active,
+  .tagButton:active,
+  .startButton:active:not(:disabled),
+  .resetButton:active:not(:disabled) {
+    transform: none;
   }
 }
