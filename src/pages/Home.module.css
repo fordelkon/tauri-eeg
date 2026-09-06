@@ -276,9 +276,10 @@
 }
 
 .userLabel {
-  color: rgba(44, 34, 24, 0.5);
+  color: rgba(44, 34, 24, 0.62);
   font-size: 11px;
-  /* Micro caps label: secondary step, same as the agent panel's 11px labels. */
+  /* Micro caps label: metadata step (0.62 floor), same as the agent panel's
+     11px labels. */
   font-weight: 500;
   letter-spacing: 0.05em;
   line-height: 1.2;
@@ -297,7 +298,7 @@
 
 .signOutButton {
   border-radius: 8px;
-  color: rgba(44, 34, 24, 0.7);
+  color: rgba(44, 34, 24, 0.72);
   flex: 0 0 auto;
   height: 36px;
   transition:
@@ -323,7 +324,7 @@
 
 .storageButton {
   border-radius: 8px;
-  color: rgba(44, 34, 24, 0.7);
+  color: rgba(44, 34, 24, 0.72);
   flex: 0 0 auto;
   height: 36px;
   transition:
@@ -364,9 +365,9 @@
 }
 
 .storageField span {
-  color: rgba(44, 34, 24, 0.58);
+  color: rgba(44, 34, 24, 0.62);
   font-size: 11px;
-  /* Micro caps label: secondary step (the input it names is not emphasis). */
+  /* Micro caps label: metadata step (the input it names is not emphasis). */
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -396,7 +397,7 @@
 }
 
 .storagePreview {
-  color: rgba(44, 34, 24, 0.58);
+  color: rgba(44, 34, 24, 0.62);
   display: grid;
   font-size: 12px;
   gap: 4px;
@@ -459,7 +460,7 @@
   animation: navItemIn 620ms var(--ease-out) both;
   animation-delay: calc(360ms + var(--item-index, 0) * 72ms);
   border-radius: 8px;
-  color: rgba(44, 34, 24, 0.66);
+  color: rgba(44, 34, 24, 0.72);
   min-height: 50px;
   overflow: hidden;
   padding: 8px 12px;
@@ -720,7 +721,7 @@
   background: transparent;
   border: 0;
   border-radius: 8px;
-  color: rgba(44, 34, 24, 0.66);
+  color: rgba(44, 34, 24, 0.72);
   cursor: pointer;
   display: flex;
   font-family: inherit;
@@ -778,7 +779,7 @@
   background: transparent;
   border: 0;
   border-radius: 8px;
-  color: rgba(44, 34, 24, 0.55);
+  color: rgba(44, 34, 24, 0.72);
   cursor: pointer;
   display: inline-flex;
   justify-content: center;
@@ -960,7 +961,7 @@
 }
 
 .eyebrow {
-  color: rgba(44, 34, 24, 0.58);
+  color: rgba(44, 34, 24, 0.62);
   font-size: 13px;
   /* Caps labels sit at the secondary step (500) — the display title below
      is the only 600 in the header block. */
@@ -1011,7 +1012,7 @@
 }
 
 .surfaceText {
-  color: rgba(44, 34, 24, 0.62);
+  color: rgba(44, 34, 24, 0.72);
   font-size: 14px;
   line-height: 1.65;
 }

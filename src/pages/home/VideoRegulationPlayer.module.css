@@ -44,7 +44,7 @@
 }
 
 .videoModalHeader span {
-  color: rgba(255, 250, 243, 0.58);
+  color: rgba(255, 250, 243, 0.62);
 }
 
 .videoModalHeader strong {
@@ -57,7 +57,7 @@
 }
 
 .videoModalHeader code {
-  color: rgba(255, 250, 243, 0.58);
+  color: rgba(255, 250, 243, 0.62);
   display: block;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;

@@ -48,7 +48,7 @@
 }
 
 .eyebrow {
-  color: rgba(23, 32, 38, 0.58);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -66,7 +66,7 @@
 }
 
 .statusBar {
-  color: rgba(23, 32, 38, 0.68);
+  color: rgba(23, 32, 38, 0.72);
   font-size: 13px;
   font-weight: 500;
   gap: 10px;
@@ -154,7 +154,7 @@
 .durationField span,
 .historyHeader span,
 .generationProgressHeader span {
-  color: rgba(23, 32, 38, 0.54);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -348,7 +348,7 @@
 }
 
 .tagSheetHeader span {
-  color: rgba(23, 32, 38, 0.54);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -532,7 +532,7 @@
   background: transparent;
   border: 0;
   border-radius: var(--radius-control-sm);
-  color: rgba(23, 32, 38, 0.58);
+  color: rgba(23, 32, 38, 0.72);
   cursor: pointer;
   font: inherit;
   font-size: 12px;
@@ -683,7 +683,7 @@
 }
 
 .generationHint {
-  color: rgba(23, 32, 38, 0.62);
+  color: rgba(23, 32, 38, 0.72);
   font-size: 12px;
   line-height: 1.5;
   margin: 0;
@@ -1071,7 +1071,7 @@
   background: rgba(23, 32, 38, 0.04);
   border: 1px dashed rgba(23, 32, 38, 0.18);
   border-radius: 8px;
-  color: rgba(23, 32, 38, 0.58);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 13px;
   font-weight: 500;
   line-height: 1.35;
@@ -1096,11 +1096,11 @@
 }
 
 .queueItem:hover .queueSelectButton span {
-  color: rgba(23, 32, 38, 0.52);
+  color: rgba(23, 32, 38, 0.72);
 }
 
 .queueItem:hover .queueSelectButton em {
-  color: rgba(23, 32, 38, 0.58);
+  color: rgba(23, 32, 38, 0.72);
 }
 
 .queueSelectButton {
@@ -1120,7 +1120,7 @@
 }
 
 .queueSelectButton span {
-  color: rgba(23, 32, 38, 0.42);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   font-weight: 500;
@@ -1135,7 +1135,7 @@
 }
 
 .queueSelectButton em {
-  color: rgba(23, 32, 38, 0.46);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
   font-style: normal;
   font-variant-numeric: tabular-nums;
@@ -1211,12 +1211,12 @@
 
 .activeQueueItem .queueSelectButton span,
 .activeQueueItem .queueSelectButton em {
-  color: rgba(23, 32, 38, 0.58);
+  color: rgba(23, 32, 38, 0.72);
 }
 
 .activeQueueItem:hover .queueSelectButton span,
 .activeQueueItem:hover .queueSelectButton em {
-  color: rgba(23, 32, 38, 0.62);
+  color: rgba(23, 32, 38, 0.72);
 }
 
 .activeQueueItem .queueSelectButton {

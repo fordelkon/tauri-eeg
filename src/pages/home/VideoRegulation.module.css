@@ -26,7 +26,7 @@
 .tagGroupHeader span,
 .videoMeta span,
 .videoModalHeader span {
-  color: rgba(23, 32, 38, 0.56);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -44,7 +44,7 @@
 }
 
 .description {
-  color: rgba(23, 32, 38, 0.64);
+  color: rgba(23, 32, 38, 0.72);
   font-size: 14px;
   font-weight: 500;
   line-height: 1.55;
@@ -54,7 +54,7 @@
 }
 
 .statusBar {
-  color: rgba(23, 32, 38, 0.68);
+  color: rgba(23, 32, 38, 0.72);
   font-size: 13px;
   font-weight: 500;
   gap: 10px;
@@ -140,7 +140,7 @@
 }
 
 .libraryNotice span {
-  color: rgba(23, 32, 38, 0.56);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
   font-weight: 500;
 }
@@ -310,7 +310,7 @@
 }
 
 .tagGroupSummary strong {
-  color: rgba(23, 32, 38, 0.54);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   margin-left: auto;
@@ -342,13 +342,13 @@
 }
 
 .trailButton span {
-  color: rgba(23, 32, 38, 0.5);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 11px;
   font-weight: 500;
 }
 
 .trailButton strong {
-  color: rgba(23, 32, 38, 0.58);
+  color: rgba(23, 32, 38, 0.72);
   font-size: 13px;
   font-weight: 500;
   overflow: hidden;
@@ -416,7 +416,7 @@
 }
 
 .customTagField span {
-  color: rgba(23, 32, 38, 0.56);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -562,7 +562,7 @@
 }
 
 .videoMeta code {
-  color: rgba(23, 32, 38, 0.52);
+  color: rgba(23, 32, 38, 0.62);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
   overflow: hidden;

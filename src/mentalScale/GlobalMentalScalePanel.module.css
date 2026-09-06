@@ -22,7 +22,7 @@
 /* Neutral ink kicker (effect-page recipe): labels stay gray-ink; color is
    reserved for interactive/semantic accents. */
 .eyebrow {
-  color: rgba(44, 34, 24, 0.58);
+  color: rgba(44, 34, 24, 0.62);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.08em;

@@ -35,7 +35,7 @@
 }
 
 .eyebrow {
-  color: rgba(23, 32, 38, 0.58);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -53,7 +53,7 @@
 }
 
 .statusBar {
-  color: rgba(23, 32, 38, 0.68);
+  color: rgba(23, 32, 38, 0.72);
   font-size: 13px;
   font-weight: 500;
   gap: 10px;
@@ -317,7 +317,7 @@
    primary device/record commands. Two-class specificity because MUI's
    late-injected .MuiButton-root color would flatten a single class. */
 .controlStrip .ghostButton {
-  color: rgba(23, 32, 38, 0.64);
+  color: rgba(23, 32, 38, 0.72);
 }
 
 .controlStrip .ghostButton:hover {

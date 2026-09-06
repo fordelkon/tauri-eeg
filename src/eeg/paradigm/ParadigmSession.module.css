@@ -28,7 +28,7 @@
 }
 
 .sectionHint {
-  color: rgba(23, 32, 38, 0.62);
+  color: rgba(23, 32, 38, 0.72);
   font-size: 12px;
   font-weight: 500;
   margin: 0;
@@ -92,7 +92,7 @@
 
 .subSectionRow {
   align-items: center;
-  color: rgba(23, 32, 38, 0.55);
+  color: rgba(23, 32, 38, 0.62);
   display: flex;
   font-size: 12px;
   font-weight: 500;
@@ -698,7 +698,7 @@
 }
 
 .dialogEyebrow {
-  color: rgba(23, 32, 38, 0.58);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -712,7 +712,7 @@
 }
 
 .dialogDescription {
-  color: rgba(23, 32, 38, 0.62);
+  color: rgba(23, 32, 38, 0.72);
   font-size: 13px;
   font-weight: 500;
   margin: 0;
@@ -742,7 +742,7 @@
 }
 
 .dialogFooterHint {
-  color: rgba(23, 32, 38, 0.6);
+  color: rgba(23, 32, 38, 0.72);
   font-size: 12px;
   font-weight: 500;
 }
@@ -770,7 +770,7 @@
 }
 
 .summaryTable thead th {
-  color: rgba(23, 32, 38, 0.6);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
 }
 
@@ -802,7 +802,7 @@
 }
 
 .videoListSummary {
-  color: rgba(23, 32, 38, 0.68);
+  color: rgba(23, 32, 38, 0.72);
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
@@ -844,7 +844,7 @@
 /* Empty class group: one muted line where rows would sit (partial library
    loads leave a "(0)" header with nothing under it otherwise). */
 .videoListEmpty {
-  color: rgba(23, 32, 38, 0.45);
+  color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
   font-weight: 500;
 }

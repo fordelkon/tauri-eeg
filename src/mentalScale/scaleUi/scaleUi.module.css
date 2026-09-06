@@ -12,7 +12,7 @@
      pressed anchor, the primary button and the badges stay one color story
      (ink stays text-only, sage is the action hue). */
   --scale-ink: var(--ink-cool);
-  --scale-ink-soft: rgba(23, 32, 38, 0.6);
+  --scale-ink-soft: rgba(23, 32, 38, 0.62);
   --scale-accent: var(--calm-primary);
   --scale-accent-ink: #fff;
   --scale-line: rgba(23, 32, 38, 0.14);
