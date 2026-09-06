@@ -476,7 +476,9 @@
 .tagCheck {
   align-items: center;
   background: #fff;
-  border: 1px solid rgba(23, 32, 38, 0.34);
+  /* Resting hairline (0.14, the .tagTrigger tier); the checked state owns
+     the sage fill, so the resting border never needs the heavy 0.34 ink. */
+  border: 1px solid rgba(23, 32, 38, 0.14);
   border-radius: var(--radius-control-sm);
   display: inline-flex;
   height: 22px;
@@ -708,7 +710,9 @@
 }
 
 .cancelGenerationButton:hover {
-  border-color: rgba(23, 32, 38, 0.42);
+  /* 0.3: the page's hover border tier (.tagTrigger:hover), a visible step
+     above the 0.2 outlined-quiet resting border without the heavy 0.42 ink. */
+  border-color: rgba(23, 32, 38, 0.3);
   color: #172026;
 }
 
