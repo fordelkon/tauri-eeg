@@ -289,7 +289,10 @@
 }
 
 .textField :global(.MuiInputBase-input::placeholder) {
-  color: #9a9aa0;
+  /* Warm ink at 0.55: legible example text (≈3.5:1) that still reads as a
+     hint next to full-ink values — the old cool #9a9aa0 sat near 2.7:1 and
+     brought a cool gray onto the warm page. */
+  color: rgba(44, 34, 24, 0.55);
   opacity: 1;
 }
 

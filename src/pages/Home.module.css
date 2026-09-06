@@ -367,9 +367,10 @@
 }
 
 .storageField span {
-  color: rgba(44, 34, 24, 0.62);
+  /* Field label = essential text: 0.72 secondary tier (≈4.9:1), not the
+     0.62 metadata step (taste-skill §4.5 form-label contrast floor). */
+  color: rgba(44, 34, 24, 0.72);
   font-size: 11px;
-  /* Micro caps label: metadata step (the input it names is not emphasis). */
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;

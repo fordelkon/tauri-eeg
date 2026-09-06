@@ -145,6 +145,7 @@ export function TagEditorSheet({
                     className={styles.tagCustomInput}
                     value={customValue || ''}
                     maxLength={80}
+                    aria-label="自定义标签内容"
                     onChange={(event) => onCustomChange?.(event.currentTarget.value)}
                     placeholder={customPlaceholder}
                   />

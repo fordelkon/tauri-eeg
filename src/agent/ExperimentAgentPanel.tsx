@@ -249,6 +249,7 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
           disabled={isPlanning}
           maxLength={100}
           placeholder="输入：下一步"
+          aria-label="助手指令"
           onChange={(event) => setInput(event.currentTarget.value)}
         />
         <button type="submit" disabled={isPlanning} aria-label="发送助手指令">

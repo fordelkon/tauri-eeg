@@ -150,11 +150,21 @@
 }
 
 .promptHeader span,
-.promptField span,
-.durationField span,
 .historyHeader span,
 .generationProgressHeader span {
   color: rgba(23, 32, 38, 0.62);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Field labels NAME inputs — essential text, so they ride the 0.72 secondary
+   tier (≈4.9:1) instead of the 0.62 metadata step the header kickers keep
+   (taste-skill §4.5: form labels grayer than 4.5:1 are banned). */
+.promptField span,
+.durationField span {
+  color: rgba(23, 32, 38, 0.72);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -579,8 +589,11 @@
 
 .tagCustomInput:focus {
   background: #fff;
-  border-color: rgba(23, 32, 38, 0.36);
-  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.08);
+  /* The dialect's control ring rides the calm primary, matching the
+     .tagMenuToggle checkbox ring above and VideoRegulation's identical
+     field — the ink halo fought the sage action color. */
+  border-color: rgba(var(--calm-primary-rgb), 0.5);
+  box-shadow: var(--ring);
 }
 
 .promptField input:focus,

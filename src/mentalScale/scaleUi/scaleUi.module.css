@@ -93,7 +93,10 @@
 }
 
 .bipolarPoleLabel {
-  color: var(--scale-ink-soft);
+  /* Legend text for the rating control (names what each pole means) —
+     essential, so it rides 0.72 secondary instead of --scale-ink-soft 0.62
+     (taste-skill §4.5: form labels grayer than 4.5:1 are banned). */
+  color: rgba(23, 32, 38, 0.72);
   font-size: 12px;
   font-weight: 500;
   text-align: center;
