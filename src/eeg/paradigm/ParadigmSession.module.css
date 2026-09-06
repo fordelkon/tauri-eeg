@@ -770,7 +770,9 @@
 }
 
 .summaryTable thead th {
-  color: rgba(23, 32, 38, 0.62);
+  /* Column headers NAME the data — essential text at the 0.72 secondary
+     tier (≈4.9:1), not the 0.62 metadata step. */
+  color: rgba(23, 32, 38, 0.72);
   font-size: 12px;
 }
 
