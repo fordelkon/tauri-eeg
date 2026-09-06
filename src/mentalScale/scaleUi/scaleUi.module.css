@@ -293,7 +293,9 @@
 }
 
 .progressFill {
-  background: var(--brand-grad);
+  /* Calm sage accent, same as the per-section barFill — brand red never
+     fills an indicator in the dialect. */
+  background: var(--scale-accent);
   border-radius: inherit;
   display: block;
   height: 100%;

@@ -67,7 +67,8 @@
 }
 
 .cancelButton:focus-visible {
-  outline: 2px solid #b81f1f;
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 2px;
 }
 
@@ -294,9 +295,11 @@
   padding: 0 10px;
 }
 
+/* Send button: the calm sage primary recipe — sage, never the near-black ink
+   fill (ink is text-only in the dialect); hover deepens the fill a step. */
 .form button {
   align-items: center;
-  background: #2c2218;
+  background: var(--calm-primary);
   border: 0;
   border-radius: 8px;
   color: #f5f0eb;
@@ -306,6 +309,10 @@
   transition: transform 150ms var(--ease-out);
 }
 
+.form button:hover {
+  background: var(--calm-primary-hover);
+}
+
 .form button:active {
   transform: scale(0.98);
 }
@@ -313,8 +320,9 @@
 .promptGrid button:focus-visible,
 .confirmationActions button:focus-visible,
 .form button:focus-visible {
-  /* Same shell ring family as .cancelButton. */
-  outline: 2px solid #b81f1f;
+  /* Same sage ring family as .cancelButton. */
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 2px;
 }
 

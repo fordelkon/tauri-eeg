@@ -121,8 +121,9 @@
 }
 
 /* Standard field: 40px tall, cool-ink border that deepens on hover, and the
-   app-wide brand-tinted focus ring (the old green focus fought with the green
-   primary action next to it — green stays acquisition-primary only). */
+   app-wide sage focus ring (the dialect's control ring — the old green focus
+   fought the green primary action next to it, and green stays
+   acquisition-primary only). */
 .textInput {
   background: #fff;
   border: 1px solid rgba(23, 32, 38, 0.18);
@@ -141,7 +142,7 @@
 }
 
 .textInput:focus {
-  border-color: rgba(223, 2, 3, 0.55);
+  border-color: rgba(var(--calm-primary-rgb), 0.55);
   box-shadow: var(--ring);
   outline: none;
 }
@@ -645,7 +646,8 @@
   animation: dialogEnter 220ms var(--ease-out) backwards;
   background: #f5f0eb;
   border-radius: 12px;
-  box-shadow: 0 24px 60px rgba(12, 18, 22, 0.35);
+  /* Same calm dialog recipe as the MUI dialog paper in AppShell. */
+  box-shadow: 0 24px 56px rgba(44, 34, 24, 0.16);
   color: var(--ink-cool);
   display: grid;
   gap: 16px;

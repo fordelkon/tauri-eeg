@@ -118,11 +118,13 @@
   margin: 0;
 }
 
+/* Entry button: the calm sage primary recipe — sage fill, white text, hover
+   deepens a step; the near-black ink fill is out of the dialect. */
 .entryButton {
   align-items: center;
   align-self: flex-start;
-  background: rgba(44, 34, 24, 0.92);
-  border: 1px solid rgba(44, 34, 24, 0.92);
+  background: var(--calm-primary);
+  border: 1px solid var(--calm-primary);
   border-radius: 8px;
   color: #f5f0eb;
   display: inline-flex;
@@ -135,9 +137,14 @@
   padding: 0 16px;
 }
 
+.entryButton:hover:not(:disabled) {
+  background: var(--calm-primary-hover);
+  border-color: var(--calm-primary-hover);
+}
+
 .entryButton:focus-visible {
-  box-shadow: 0 0 0 3px rgba(44, 34, 24, 0.16);
-  outline: 2px solid rgba(44, 34, 24, 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 1px;
 }
 

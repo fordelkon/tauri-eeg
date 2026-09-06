@@ -689,7 +689,9 @@
     linear-gradient(105deg, color-mix(in srgb, var(--cover-primary) 62%, #252220) 0%, #151514 100%);
   border: 1px solid rgba(245, 240, 235, 0.14);
   border-radius: 22px;
-  box-shadow: 0 18px 44px rgba(23, 32, 38, 0.18);
+  /* Calm depth: warm + diffuse; the dark stage keeps its drop but the heavy
+     cool-ink alpha is out of the dialect. */
+  box-shadow: 0 16px 40px rgba(44, 34, 24, 0.12);
   color: #f7f4ef;
   display: grid;
   gap: 14px;

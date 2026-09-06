@@ -347,7 +347,9 @@
   box-shadow:
     0 10px 24px rgba(243, 109, 90, 0.28),
     0 0 0 3px rgba(251, 127, 110, 0.28);
-  outline: 2px solid #b81f1f;
+  /* Ring tinted with this shell's own coral accent (not the old brick red):
+     hue-consistent with the coral art and soft per the calm dialect. */
+  outline: 2px solid rgba(241, 111, 93, 0.8);
   outline-offset: 3px;
 }
 
@@ -381,7 +383,8 @@
 .modeSwitchButton:focus-visible {
   background-color: rgba(251, 127, 110, 0.08);
   box-shadow: 0 0 0 3px rgba(251, 127, 110, 0.2);
-  outline: 2px solid #b81f1f;
+  /* Coral ring: this shell's soft accent hue, never brick red. */
+  outline: 2px solid rgba(241, 111, 93, 0.8);
   outline-offset: 3px;
 }
 
@@ -406,7 +409,8 @@
 .forgotPassword:focus-visible {
   background-color: rgba(251, 127, 110, 0.08);
   box-shadow: 0 0 0 3px rgba(251, 127, 110, 0.2);
-  outline: 2px solid #b81f1f;
+  /* Coral ring: this shell's soft accent hue, never brick red. */
+  outline: 2px solid rgba(241, 111, 93, 0.8);
   outline-offset: 3px;
 }
 

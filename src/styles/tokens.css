@@ -47,15 +47,18 @@
   /* Elevation (two-layer recipes from EffectEvaluation) */
   --shadow-card: 0 1px 2px rgba(28, 22, 14, 0.06), 0 12px 32px rgba(28, 22, 14, 0.1);
   --shadow-lift: 0 2px 4px rgba(28, 22, 14, 0.08), 0 18px 44px rgba(28, 22, 14, 0.14);
-  --shadow-overlay: 0 24px 64px rgba(12, 18, 22, 0.28);
+  /* Calm depth: warm-tinted and diffuse, same recipe as the MUI dialog paper
+     in AppShell — heavy cool-ink drops are out of the dialect. */
+  --shadow-overlay: 0 24px 56px rgba(44, 34, 24, 0.16);
 
   /* Scrims */
   --scrim-form: rgba(44, 34, 24, 0.38);
   --scrim-media: rgba(6, 10, 12, 0.66);
 
-  /* Focus */
-  --focus-ring: 0 0 0 2px #f5f0eb, 0 0 0 4px rgba(223, 2, 3, 0.55);
-  --ring: 0 0 0 3px rgba(223, 2, 3, 0.14);
+  /* Focus: rings ride the calm primary hue like every other control accent
+     (the old brand-red halos fought the sage action color). */
+  --focus-ring: 0 0 0 2px #f5f0eb, 0 0 0 4px rgba(var(--calm-primary-rgb), 0.55);
+  --ring: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
 
   /* Motion */
   --dur-fast: 150ms;

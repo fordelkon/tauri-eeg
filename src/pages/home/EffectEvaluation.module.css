@@ -1022,12 +1022,12 @@
   outline: none;
 }
 
-/* MusicRegulation selected-card recipe: blush tint + red-warmed border +
-   ink text. Red only warms the border at low alpha - it never fills the
-   control. */
+/* MusicRegulation selected-card recipe: blush tint + coral-warmed border +
+   ink text. The border warms at low alpha in the coral accent family - it
+   never fills the control, and saturated brand red stays out of chrome. */
 .musicHistoryItemActive {
   background: color-mix(in srgb, var(--ee-warm) 12%, #fff);
-  border-color: rgba(223, 2, 3, 0.35);
+  border-color: rgba(251, 127, 110, 0.45);
   color: var(--ee-ink);
   font-weight: 700;
 }

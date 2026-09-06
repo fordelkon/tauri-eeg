@@ -78,10 +78,10 @@
 
 .skipButton:focus-visible {
   background: rgba(44, 34, 24, 0.1);
-  border-color: rgba(184, 31, 31, 0.55);
-  box-shadow: 0 0 0 3px rgba(184, 31, 31, 0.22);
+  border-color: rgba(var(--calm-primary-rgb), 0.5);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
   color: #2c2218;
-  outline: 2px solid #b81f1f;
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 2px;
 }
 
