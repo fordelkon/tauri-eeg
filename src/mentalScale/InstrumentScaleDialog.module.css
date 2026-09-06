@@ -41,5 +41,5 @@
    above the still-filled answers, so a failed submit never reads as silent. */
 .submitError {
   color: var(--danger-ink, #8d2d25);
-  font-weight: 650;
+  font-weight: 600;
 }

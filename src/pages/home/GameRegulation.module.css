@@ -2,7 +2,7 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: clamp(22px, 4vw, 34px);
+  gap: clamp(24px, 4vw, 32px);
   max-width: 980px;
   width: 100%;
 }
@@ -17,7 +17,7 @@
 .eyebrow {
   color: rgba(44, 34, 24, 0.58);
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 500;
   letter-spacing: 0.08em;
   line-height: 1;
   margin: 0;
@@ -27,10 +27,11 @@
 .header h1 {
   color: #2c2218;
   font-size: clamp(34px, 5vw, 62px);
-  font-weight: 760;
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 0.98;
   margin: 0;
+  text-wrap: balance;
 }
 
 .header p:last-child {
@@ -39,11 +40,12 @@
   line-height: 1.65;
   margin: 0;
   max-width: 640px;
+  text-wrap: pretty;
 }
 
 .grid {
   display: grid;
-  gap: clamp(16px, 2vw, 22px);
+  gap: clamp(16px, 2vw, 24px);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -85,11 +87,12 @@
   color: #f5f0eb;
   display: inline-flex;
   font-size: 12px;
-  font-weight: 780;
+  font-weight: 600;
   gap: 6px;
   left: 14px;
   min-height: 32px;
-  padding: 0 11px;
+  padding: 0 12px;
+  white-space: nowrap;
   position: absolute;
   top: 14px;
 }
@@ -105,7 +108,7 @@
 .cardBody h2 {
   color: #2c2218;
   font-size: clamp(18px, 2vw, 22px);
-  font-weight: 760;
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.2;
   margin: 0;
@@ -116,6 +119,7 @@
   font-size: 13px;
   line-height: 1.55;
   margin: 0;
+  text-wrap: pretty;
 }
 
 /* Entry button: the calm sage primary recipe — sage fill, white text, hover
@@ -130,11 +134,12 @@
   display: inline-flex;
   font: inherit;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 600;
   gap: 8px;
   height: 40px;
   margin-top: auto;
   padding: 0 16px;
+  white-space: nowrap;
 }
 
 .entryButton:hover:not(:disabled) {

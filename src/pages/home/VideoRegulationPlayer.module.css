@@ -38,7 +38,7 @@
 
 .videoModalHeader div {
   display: grid;
-  gap: 3px;
+  gap: 4px;
 }
 
 .videoModalHeader span {
@@ -48,7 +48,7 @@
 .videoModalHeader strong {
   color: #fffaf3;
   font-size: 17px;
-  font-weight: 760;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -59,7 +59,7 @@
   display: block;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

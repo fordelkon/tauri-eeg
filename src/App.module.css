@@ -6,7 +6,7 @@
   background: var(--surface, #f5f0eb);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   inset: 0;
   justify-content: center;
   position: fixed;
@@ -25,7 +25,7 @@
 .routeFallbackText {
   color: rgba(23, 32, 38, 0.62);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 @keyframes routeSpin {

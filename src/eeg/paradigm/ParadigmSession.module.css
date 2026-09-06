@@ -23,19 +23,19 @@
 .sectionTitle {
   color: #172026;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 600;
   margin: 0;
 }
 
 .sectionHint {
   color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   margin: 0;
 }
 
 /* Compact E-Prime style pill radios for the experiment type. Unified with the
-   EegAcquisition mode switch: 999px capsule, 34px tall, 13px/700; selection
+   EegAcquisition mode switch: 999px capsule, 34px tall, 13px/600; selection
    reads through the calm sage fill (the dialect's selected-pill recipe —
    green stays acquisition-status semantics, not control chrome). */
 
@@ -49,7 +49,7 @@
 .pillRadioLabel {
   color: var(--ink-cool);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .pillRadio {
@@ -59,9 +59,11 @@
   color: var(--ink-cool);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   min-height: 34px;
   padding: 0 14px;
+  /* Pill option labels never wrap to two lines. */
+  white-space: nowrap;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
@@ -83,7 +85,7 @@
   border-color: var(--calm-primary);
   box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb), 0.30);
   color: #fff;
-  font-weight: 720;
+  font-weight: 600;
 }
 
 /* Divider label inside the single startup card (── 视频素材 ── / ── 就绪 ──). */
@@ -93,7 +95,7 @@
   color: rgba(23, 32, 38, 0.55);
   display: flex;
   font-size: 12px;
-  font-weight: 740;
+  font-weight: 500;
   gap: 10px;
   letter-spacing: 0.05em;
 }
@@ -116,7 +118,7 @@
   color: var(--ink-cool);
   display: grid;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   gap: 6px;
 }
 
@@ -150,7 +152,7 @@
 .fieldError {
   color: var(--danger-ink);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 /* Bottom readiness row: mini device lights + start controls in one line. */
@@ -172,7 +174,7 @@
   color: rgba(23, 32, 38, 0.66);
   display: inline-flex;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   gap: 8px;
   min-height: 28px;
   padding: 4px 12px;
@@ -217,12 +219,15 @@
 
 .classChip {
   background: var(--info-tint);
-  border: 1px solid rgba(45, 113, 184, 0.22);
+  /* 0.2: the shared info-chip border tier (0.22 was a one-off). */
+  border: 1px solid rgba(45, 113, 184, 0.2);
   border-radius: 999px;
   color: var(--info);
   font-size: 12px;
-  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
   padding: 4px 8px;
+  white-space: nowrap;
 }
 
 .classChip.isShort {
@@ -240,7 +245,7 @@
   color: #8a560e;
   display: grid;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
   gap: 4px;
   margin: 0;
   padding-left: 18px;
@@ -260,9 +265,11 @@
   color: #f8fbfc;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 720;
+  font-weight: 600;
   min-height: 38px;
   padding: 0 16px;
+  /* Button labels never wrap to two lines. */
+  white-space: nowrap;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out),
@@ -291,9 +298,10 @@
   color: var(--ink-cool);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   min-height: 38px;
   padding: 0 14px;
+  white-space: nowrap;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
@@ -324,14 +332,17 @@
 
 .dangerButton {
   background: rgba(179, 38, 30, 0.08);
-  border: 1px solid rgba(179, 38, 30, 0.3);
+  /* 0.26: the danger-button border tier shared with EegAcquisition (0.3 was a
+     one-off). */
+  border: 1px solid rgba(179, 38, 30, 0.26);
   border-radius: var(--radius-control);
   color: var(--danger-ink);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 720;
+  font-weight: 600;
   min-height: 38px;
   padding: 0 14px;
+  white-space: nowrap;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
@@ -371,7 +382,7 @@
   color: var(--danger-ink);
   display: grid;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   gap: 8px;
   padding: 10px 12px;
   /* This z-index CANNOT lift the banner above the fullscreen trial stage:
@@ -391,7 +402,7 @@
   border-radius: 8px;
   color: var(--warning-ink);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   padding: 8px 12px;
 }
 
@@ -468,7 +479,7 @@
   color: #f5f0eb;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 650;
   min-height: 38px;
   padding: 0 18px;
 }
@@ -617,7 +628,8 @@
   display: flex;
   flex-wrap: wrap;
   font-size: 13px;
-  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
   gap: 10px;
   justify-content: space-between;
 }
@@ -688,21 +700,21 @@
 .dialogEyebrow {
   color: rgba(23, 32, 38, 0.58);
   font-size: 12px;
-  font-weight: 760;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .dialogTitle {
   font-size: 20px;
-  font-weight: 740;
+  font-weight: 600;
   margin: 0;
 }
 
 .dialogDescription {
   color: rgba(23, 32, 38, 0.62);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   margin: 0;
 }
 
@@ -718,7 +730,7 @@
 .ratingLegend {
   color: var(--ink-cool);
   font-size: 13.5px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 0;
 }
 
@@ -732,7 +744,7 @@
 .dialogFooterHint {
   color: rgba(23, 32, 38, 0.6);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 /* Session summary */
@@ -740,7 +752,8 @@
 .summaryTable {
   border-collapse: collapse;
   font-size: 13px;
-  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
   width: 100%;
 }
 
@@ -766,7 +779,8 @@
   display: flex;
   flex-wrap: wrap;
   font-size: 13px;
-  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
   gap: 12px;
 }
 
@@ -774,7 +788,7 @@
   color: #8a560e;
   display: grid;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
   gap: 4px;
   margin: 0;
   padding-left: 18px;
@@ -791,7 +805,7 @@
   color: rgba(23, 32, 38, 0.68);
   cursor: pointer;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
   min-height: 28px;
 }
 
@@ -817,7 +831,7 @@
 .videoListHeader {
   color: #172026;
   font-size: 12px;
-  font-weight: 740;
+  font-weight: 600;
 }
 
 .videoListRow {
@@ -829,7 +843,7 @@
   cursor: pointer;
   display: flex;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
   gap: 8px;
   justify-content: space-between;
   min-height: 32px;
@@ -854,7 +868,7 @@
   color: var(--success);
   flex: none;
   font-size: 11px;
-  font-weight: 720;
+  font-weight: 600;
   padding: 1px 6px;
 }
 
@@ -874,7 +888,7 @@
   color: rgba(245, 240, 235, 0.85);
   display: flex;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   gap: 16px;
   justify-content: space-between;
   left: 0;
@@ -898,7 +912,7 @@
   cursor: pointer;
   flex: none;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 600;
   min-height: 30px;
   padding: 0 12px;
 }
@@ -991,7 +1005,8 @@
 /* --- Regulation summary block (结束页统计) ----------------------------- */
 
 .regulationSummary {
-  border: 1px solid rgba(28, 106, 71, 0.3);
+  /* 0.26: the shared success-border tier (0.3 was a one-off). */
+  border: 1px solid rgba(28, 106, 71, 0.26);
   border-radius: 10px;
   display: grid;
   gap: 10px;
@@ -1002,6 +1017,6 @@
 
 .regulationSummaryTitle {
   font-size: 14px;
-  font-weight: 720;
+  font-weight: 600;
   margin: 0;
 }

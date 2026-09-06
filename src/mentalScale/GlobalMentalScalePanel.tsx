@@ -171,7 +171,8 @@ export default function GlobalMentalScalePanel({ children }: Props) {
         axisName: {
           color: radarInkAxisName,
           fontSize: 12,
-          fontWeight: 700,
+          // App-wide weight scale tops out at 600 (no 700 display weights).
+          fontWeight: 600,
         },
         axisLine: {
           lineStyle: {
@@ -221,7 +222,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
         textStyle: {
           color: radarSurface,
           fontSize: 12,
-          fontWeight: 700,
+          fontWeight: 600,
         },
         valueFormatter: (value: number) => `${value}%`,
       },

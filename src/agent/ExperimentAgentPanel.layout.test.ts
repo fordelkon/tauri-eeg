@@ -15,7 +15,7 @@ describe('ExperimentAgentPanel layout contract', () => {
 
     expect(agentCss).not.toMatch(/position:\s*fixed/);
     expect(agentCss).not.toMatch(/\.dragHandle\s*{/s);
-    expect(agentCss).toMatch(/\.panel\s*{[^}]*gap:\s*7px;/s);
+    expect(agentCss).toMatch(/\.panel\s*{[^}]*gap:\s*8px;/s);
     expect(agentCss).toMatch(/\.content\s*{[^}]*flex:\s*1\s+1\s+auto;/s);
     expect(agentCss).toMatch(/\.content\s*{[^}]*overflow:\s*hidden;/s);
     expect(agentCss).toMatch(/\.activity\s*{[^}]*overflow-y:\s*auto;/s);

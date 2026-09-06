@@ -32,7 +32,7 @@
   --pointer-y: 0px;
   aspect-ratio: 1.85;
   cursor: grab;
-  margin: auto 0 30px;
+  margin: auto 0 32px;
   max-width: 560px;
   touch-action: none;
   width: min(100%, 64vw);
@@ -138,8 +138,9 @@
 .eyebrow {
   color: #fb7a68;
   font-size: 12px;
-  font-weight: 650;
-  letter-spacing: 0.12em;
+  /* Caps labels sit at the secondary step (500); the title is the 600. */
+  font-weight: 500;
+  letter-spacing: 0.1em;
   margin: 0 0 12px;
   text-transform: uppercase;
 }
@@ -148,7 +149,8 @@
   color: #141414;
   font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
   font-size: clamp(28px, 4vw, 42px);
-  font-weight: 560;
+  /* Page's primary heading rides the 600 step like every other page title. */
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.1;
   margin: 0 0 12px;
@@ -158,8 +160,9 @@
   color: #8e8986;
   font-size: clamp(14px, 1.8vw, 16px);
   line-height: 1.6;
-  margin: 0 0 30px;
+  margin: 0 0 32px;
   max-width: 440px;
+  text-wrap: pretty;
 }
 
 .backButton {
@@ -168,7 +171,8 @@
   box-shadow: none;
   color: #ffffff;
   font-size: 14px;
-  font-weight: 560;
+  /* Primary tier: 600 like every other primary CTA in the dialect. */
+  font-weight: 600;
   text-transform: none;
   transition:
     box-shadow 160ms ease-out,
@@ -191,7 +195,7 @@
   }
 
   .scene {
-    margin-bottom: 22px;
+    margin-bottom: 24px;
     width: min(100%, 78vw);
   }
 }

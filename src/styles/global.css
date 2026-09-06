@@ -29,5 +29,7 @@ body {
 
 strong,
 b {
-  font-weight: 700;
+  /* Semantic bold rides the primary emphasis step; the app-wide weight
+     scale is 400/500/600 (no 700 display weights). */
+  font-weight: 600;
 }

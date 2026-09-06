@@ -142,7 +142,9 @@
   color: #141414;
   font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
   font-size: clamp(25px, 3vw, 34px);
-  font-weight: 560;
+  /* Page's primary heading rides the 600 step like every other page title
+     (the weight scale is 400/500/600). */
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.1;
 }
@@ -158,7 +160,7 @@
    flattens single-class margins — the subtitle used to sit flush against
    the h1 with zero gap. */
 .formPanel .subtitle {
-  margin: 14px 0 34px;
+  margin: 14px 0 32px;
 }
 
 .fieldGroup {
@@ -178,7 +180,7 @@
 .textField :global(.MuiInputLabel-root) {
   color: #67615e;
   font-size: 13px;
-  font-weight: 520;
+  font-weight: 500;
 }
 
 /* Field labels become real block headings above each input with a
@@ -319,7 +321,9 @@
     0 1px 2px rgba(27, 24, 22, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
   font-size: 14px;
-  font-weight: 560;
+  /* Primary tier: 600 like every other primary CTA in the dialect; the
+     tertiary text buttons below keep the 500 step. */
+  font-weight: 600;
   text-transform: none;
   transition:
     background-color 160ms ease-out,
@@ -366,7 +370,7 @@
 .modeSwitchButton {
   color: #f16f5d;
   font-size: 13px;
-  font-weight: 560;
+  font-weight: 500;
   text-transform: none;
   transition:
     background-color 160ms ease-out,

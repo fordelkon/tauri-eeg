@@ -40,6 +40,9 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
+          // Button labels never wrap to two lines: rows wrap the whole
+          // control instead (the dialect's nowrap rule for buttons/pills).
+          whiteSpace: 'nowrap',
           '&:focus-visible': {
             boxShadow: '0 0 0 3px rgba(92, 122, 104, 0.16)',
             outline: '2px solid rgba(92, 122, 104, 0.55)',
@@ -91,7 +94,10 @@ const theme = createTheme({
         root: {
           borderRadius: 12,
           fontSize: 13.5,
-          fontWeight: 650,
+          // Banner body at the secondary step (500); <strong> verdict leads
+          // inside the message carry the primary 600. Weight scale is
+          // 400/500/600 app-wide.
+          fontWeight: 500,
           lineHeight: 1.55,
           padding: '10px 14px',
           // MUI v9 composes variant+color as two classes (MuiAlert-standard +

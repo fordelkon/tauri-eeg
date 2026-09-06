@@ -37,7 +37,7 @@
 .eyebrow {
   color: rgba(23, 32, 38, 0.58);
   font-size: 12px;
-  font-weight: 760;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -45,16 +45,17 @@
 .title {
   color: #172026;
   font-size: 30px;
-  font-weight: 720;
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.05;
   margin: 4px 0 0;
+  text-wrap: balance;
 }
 
 .statusBar {
   color: rgba(23, 32, 38, 0.68);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   gap: 10px;
 }
 
@@ -65,15 +66,16 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Unified status pill: 999px capsule, 28px tall, 12.5px/700 label. */
+/* Unified status pill: 999px capsule, 28px tall, 12.5px/600 label. */
 .statusPill {
   border-radius: 999px;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 600;
   gap: 6px;
   min-height: 28px;
   padding: 4px 12px;
   text-transform: capitalize;
+  white-space: nowrap;
 }
 
 /* Neutral state: derived from the cool ink (borders/tints track --ink-cool). */
@@ -89,7 +91,8 @@
 .starting,
 .stopping {
   background: var(--info-tint);
-  border: 1px solid rgba(45, 113, 184, 0.24);
+  /* 0.2: the shared info-banner border tier (0.24 was a one-off). */
+  border: 1px solid rgba(45, 113, 184, 0.2);
   color: var(--info);
 }
 
@@ -145,7 +148,7 @@
   display: flex;
   flex-wrap: wrap;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   gap: 8px 12px;
   padding: 10px 12px;
 }
@@ -164,9 +167,10 @@
   flex-shrink: 0;
   font: inherit;
   font-size: 12px;
-  font-weight: 720;
+  font-weight: 600;
   min-height: 28px;
   padding: 0 12px;
+  white-space: nowrap;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
@@ -196,7 +200,7 @@
   border-radius: 8px;
   color: var(--info);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   padding: 10px 12px;
 }
 
@@ -209,7 +213,7 @@
   display: flex;
   flex-wrap: wrap;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   gap: 6px 14px;
   padding: 10px 12px;
 }
@@ -217,7 +221,7 @@
 /* Full storage paths get long; truncate instead of blowing up the bar. */
 .resultBannerPath {
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-weight: 600;
+  font-weight: 500;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -243,7 +247,7 @@
 }
 
 /* Mode switch shares the pill-radio language with the paradigm setup panel:
-   999px capsule, 34px tall, 13px/700, calm sage fill when selected (the
+   999px capsule, 34px tall, 13px/600, calm sage fill when selected (the
    dialect's selected-pill recipe; green stays live/recording status). */
 .modeSwitchButton {
   background: rgba(255, 255, 255, 0.72);
@@ -252,9 +256,10 @@
   color: var(--ink-cool);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   min-height: 34px;
   padding: 0 14px;
+  white-space: nowrap;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
@@ -281,7 +286,7 @@
   border-color: var(--calm-primary);
   box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb), 0.30);
   color: #fff;
-  font-weight: 720;
+  font-weight: 600;
 }
 
 .modeSwitchButton:focus-visible {
@@ -299,7 +304,7 @@
 .modeLockHint {
   color: #8a560e;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .controlButton {
@@ -357,7 +362,7 @@
   display: grid;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
   grid-auto-rows: 1fr;
   padding: 12px 8px;
 }
@@ -392,7 +397,7 @@
 .panelTitle {
   color: #172026;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 600;
   margin-bottom: 8px;
 }
 
@@ -413,13 +418,13 @@
   color: rgba(23, 32, 38, 0.78);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .footer {
   color: rgba(23, 32, 38, 0.62);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
   gap: 12px;
 }
 

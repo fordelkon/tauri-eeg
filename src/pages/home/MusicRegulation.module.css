@@ -50,7 +50,7 @@
 .eyebrow {
   color: rgba(23, 32, 38, 0.58);
   font-size: 12px;
-  font-weight: 760;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -58,16 +58,17 @@
 .title {
   color: #172026;
   font-size: 26px;
-  font-weight: 720;
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.05;
   margin: 4px 0 0;
+  text-wrap: balance;
 }
 
 .statusBar {
   color: rgba(23, 32, 38, 0.68);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   gap: 10px;
 }
 
@@ -98,7 +99,7 @@
   border-radius: 8px;
   color: #8d2d25;
   font-size: 13px;
-  font-weight: 680;
+  font-weight: 500;
   padding: 10px 12px;
 }
 
@@ -110,7 +111,7 @@
   border-radius: 8px;
   color: #245f9d;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   padding: 10px 12px;
 }
 
@@ -122,7 +123,10 @@
   border-radius: 8px;
   color: #245f9d;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
+  /* The banner carries the live 剩余时长 countdown; tabular figures stop the
+     ticking digits from width-jittering. */
+  font-variant-numeric: tabular-nums;
   padding: 10px 12px;
 }
 
@@ -135,13 +139,13 @@
   border: 1px solid rgba(23, 32, 38, 0.12);
   border-radius: 8px;
   box-shadow: 0 10px 24px rgba(23, 32, 38, 0.06);
-  gap: 9px;
+  gap: 8px;
   max-width: 500px;
   padding: 12px;
 }
 
 .promptHeader {
-  gap: 3px;
+  gap: 4px;
 }
 
 .promptHeader span,
@@ -151,7 +155,7 @@
 .generationProgressHeader span {
   color: rgba(23, 32, 38, 0.54);
   font-size: 11px;
-  font-weight: 760;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -159,7 +163,7 @@
 .promptHeader strong {
   color: #172026;
   font-size: 15px;
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .layeredFields {
@@ -168,7 +172,7 @@
 
 .promptField,
 .durationField {
-  gap: 5px;
+  gap: 4px;
 }
 
 .promptField input,
@@ -176,12 +180,13 @@
 .promptField textarea,
 .durationField select {
   background: #fff;
-  border: 1px solid rgba(23, 32, 38, 0.15);
+  /* 0.14: the page's cool-ink hairline tier (0.15 was a one-off). */
+  border: 1px solid rgba(23, 32, 38, 0.14);
   border-radius: 8px;
   color: #172026;
   font: inherit;
   font-size: 13px;
-  font-weight: 620;
+  font-weight: 500;
   outline: none;
 }
 
@@ -212,10 +217,10 @@
   cursor: pointer;
   display: grid;
   font: inherit;
-  gap: 7px;
+  gap: 8px;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   min-height: 36px;
-  padding: 0 9px;
+  padding: 0 8px;
   text-align: left;
   width: 100%;
 }
@@ -257,7 +262,7 @@
 .tagTriggerText {
   color: #172026;
   font-size: 13px;
-  font-weight: 740;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -271,7 +276,7 @@
   display: inline-flex;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  font-weight: 760;
+  font-weight: 500;
   min-height: 24px;
   padding: 0 8px;
 }
@@ -327,14 +332,14 @@
 .tagSheetHeader div {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 
 .tagSheetHeader span {
   color: rgba(23, 32, 38, 0.54);
   font-size: 11px;
-  font-weight: 760;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -342,7 +347,7 @@
 .tagSheetHeader strong {
   color: #172026;
   font-size: 15px;
-  font-weight: 760;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -497,7 +502,7 @@
 
 .tagOptionLabel {
   font-size: 14px;
-  font-weight: 690;
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -511,10 +516,11 @@
   cursor: pointer;
   font: inherit;
   font-size: 12px;
-  font-weight: 740;
+  font-weight: 600;
   min-height: 26px;
   opacity: 0;
-  padding: 0 7px;
+  padding: 0 8px;
+  white-space: nowrap;
 }
 
 .tagMenuItem:hover .tagOnlyButton,
@@ -537,12 +543,12 @@
   color: #172026;
   font: inherit;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   grid-column: 1 / -1;
   margin: 0 0 8px 32px;
   min-height: 32px;
   outline: none;
-  padding: 0 9px;
+  padding: 0 8px;
 }
 
 .tagCustomInput:focus {
@@ -565,10 +571,10 @@
   border-radius: 8px;
   color: rgba(23, 32, 38, 0.72);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.35;
   overflow: hidden;
-  padding: 7px 10px;
+  padding: 8px 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -586,7 +592,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 14px;
-  font-weight: 760;
+  font-weight: 600;
   min-height: 36px;
   padding: 0 14px;
   white-space: nowrap;
@@ -627,14 +633,14 @@
 }
 
 .generationProgress {
-  gap: 7px;
+  gap: 8px;
 }
 
 .generationProgressHeader strong {
   color: rgba(23, 32, 38, 0.72);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .generationHint {
@@ -646,16 +652,18 @@
 
 .cancelGenerationButton {
   background: transparent;
-  border: 1px solid rgba(23, 32, 38, 0.22);
+  /* 0.2: the page's outlined-quiet border tier (0.22 was a one-off). */
+  border: 1px solid rgba(23, 32, 38, 0.2);
   border-radius: 8px;
   color: rgba(23, 32, 38, 0.72);
   cursor: pointer;
   font: inherit;
   font-size: 12px;
-  font-weight: 740;
+  font-weight: 600;
   justify-self: start;
   min-height: 28px;
   padding: 0 12px;
+  white-space: nowrap;
 }
 
 .cancelGenerationButton:hover {
@@ -669,7 +677,7 @@
   border-radius: 8px;
   color: #1c6a47;
   font-size: 13px;
-  font-weight: 680;
+  font-weight: 500;
   padding: 10px 12px;
 }
 
@@ -763,7 +771,7 @@
 .playerMain {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -784,7 +792,7 @@
 .playerMeta strong {
   color: #f7f4ef;
   font-size: 17px;
-  font-weight: 780;
+  font-weight: 600;
   letter-spacing: 0;
   line-height: 1.1;
   overflow: hidden;
@@ -795,7 +803,7 @@
 .playerMeta span {
   color: rgba(247, 244, 239, 0.62);
   font-size: 11px;
-  font-weight: 720;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -807,7 +815,8 @@
   color: rgba(247, 244, 239, 0.72);
   display: inline-flex;
   font-size: 11px;
-  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
   min-height: 24px;
   padding: 0 8px;
 }
@@ -818,7 +827,7 @@
   display: grid;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
-  font-weight: 680;
+  font-weight: 500;
   gap: 8px;
   grid-template-columns: 34px minmax(0, 1fr) 40px;
 }
@@ -959,13 +968,13 @@
 .historyHeader div {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .historyHeader strong {
   color: #172026;
   font-size: 16px;
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .closeButton {
@@ -990,7 +999,7 @@
   border-radius: 8px;
   color: rgba(23, 32, 38, 0.58);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.35;
   padding: 12px;
 }
@@ -1034,12 +1043,13 @@
 .queueSelectButton span {
   color: rgba(23, 32, 38, 0.42);
   font-size: 12px;
-  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
 .queueSelectButton strong {
   font-size: 13px;
-  font-weight: 720;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1049,7 +1059,8 @@
   color: rgba(23, 32, 38, 0.46);
   font-size: 12px;
   font-style: normal;
-  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
 .deleteQueueButton {

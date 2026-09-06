@@ -58,11 +58,12 @@
   color: rgba(44, 34, 24, 0.72);
   cursor: pointer;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 600;
   min-height: 36px;
   padding: 0 18px;
   position: absolute;
   right: max(20px, env(safe-area-inset-right));
+  white-space: nowrap;
   transition:
     background-color 160ms ease-out,
     color 160ms ease-out,
