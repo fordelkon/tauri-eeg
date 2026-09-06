@@ -3,7 +3,7 @@
 /* ------------------------------------------------------------------ */
 /*
  * Page-local tokens for the effect-evaluation wizard, aligned with the
- * app's calm pages (scaleUi / MusicRegulation): ink accents for controls,
+ * app's calm pages (scaleUi / MusicRegulation): sage accents for controls,
  * coral for warm beacons/hairlines, muted brick for negative data - the
  * calm dialect never fills a control with saturated red. Fixed radius
  * scale (18 surfaces / 14 inner cards / 10 controls) and two layered ink
@@ -15,9 +15,10 @@
 .workspace {
   --ee-ink: #172026;
   --ee-ink-rgb: 23, 32, 38;
-  /* Controls accent on ink (the scaleUi recipe); hover is a lifted ink. */
-  --ee-accent: var(--ink-cool, #172026);
-  --ee-accent-hover: #24333d;
+  /* Controls accent on calm sage (the scaleUi recipe); hover is a deeper
+     sage step. Sage, not ink: ink is text-only in the calm dialect. */
+  --ee-accent: var(--calm-primary, #5c7a68);
+  --ee-accent-hover: var(--calm-primary-hover, #4e6b59);
   /* Warm beacon/indicator accent - coral, never saturated red. */
   --ee-warm: var(--brand-coral, #fb7f6e);
   --ee-warm-rgb: 251, 127, 110;
@@ -93,17 +94,17 @@
 }
 
 .workspace :global(.MuiButton-root:focus-visible) {
-  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.16);
-  outline: 2px solid rgba(var(--ee-ink-rgb), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.16);
+  outline: 2px solid rgba(var(--calm-primary-rgb, 92, 122, 104), 0.55);
   outline-offset: 1px;
 }
 
-/* Primary button: the scaleUi ink recipe - flat solid ink, white text,
-   one soft ink shadow. Hover darkens the fill a step; the halo never
+/* Primary button: the scaleUi sage recipe - flat solid sage, white text,
+   one soft sage shadow. Hover deepens the fill a step; the halo never
    grows. */
 .workspace :global(.MuiButton-contained) {
   background: var(--ee-accent);
-  box-shadow: 0 6px 16px rgba(var(--ee-ink-rgb), 0.24);
+  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.30);
   color: #fff;
 }
 
@@ -112,7 +113,7 @@
 }
 
 .workspace :global(.MuiButton-contained:active) {
-  box-shadow: 0 2px 6px rgba(var(--ee-ink-rgb), 0.18);
+  box-shadow: 0 2px 6px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.24);
 }
 
 .workspace :global(.MuiButton-contained.Mui-disabled) {
@@ -806,12 +807,12 @@
   outline: none;
 }
 
-/* Selected pill: the scaleUi selected-anchor recipe - solid ink fill,
-   white text, soft ink shadow. Red never fills a control on this page. */
+/* Selected pill: the scaleUi selected-anchor recipe - solid sage fill,
+   white text, soft sage shadow. Red never fills a control on this page. */
 .pillRadio.isSelected {
   background: var(--ee-accent);
   border-color: var(--ee-accent);
-  box-shadow: 0 6px 16px rgba(var(--ee-ink-rgb), 0.24);
+  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.30);
   color: #fff;
 }
 
@@ -1797,8 +1798,8 @@
 
 button.station:focus-visible {
   border-radius: 12px;
-  box-shadow: 0 0 0 3px rgba(var(--ee-ink-rgb), 0.14);
-  outline: 2px solid rgba(var(--ee-ink-rgb), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb, 92, 122, 104), 0.55);
   outline-offset: 2px;
 }
 

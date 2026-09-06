@@ -472,8 +472,8 @@
 }
 
 .tagMenuToggle input:checked + .tagCheck {
-  background: #172026;
-  border-color: #172026;
+  background: var(--calm-primary);
+  border-color: var(--calm-primary);
 }
 
 .tagMenuToggle input:checked + .tagCheck::after {
@@ -481,7 +481,7 @@
 }
 
 .tagMenuToggle input:focus-visible + .tagCheck {
-  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.1);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.1);
 }
 
 .tagOptionDot {
@@ -579,8 +579,8 @@
 }
 
 .generateButton {
-  background: #172026;
-  border: 1px solid #172026;
+  background: var(--calm-primary);
+  border: 1px solid var(--calm-primary);
   border-radius: 8px;
   color: #f7f4ef;
   cursor: pointer;
@@ -1073,13 +1073,13 @@
 }
 
 /* Keyboard focus: visible rings everywhere. Light-surface controls use the
-   ink ring recipe; the dark player-card controls keep the light outline. */
+   sage ring recipe; the dark player-card controls keep the light outline. */
 .generateButton:focus-visible,
 .cancelGenerationButton:focus-visible,
 .tagSheetClose:focus-visible,
 .queueSelectButton:focus-visible {
-  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.14);
-  outline: 2px solid rgba(23, 32, 38, 0.5);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 1px;
 }
 

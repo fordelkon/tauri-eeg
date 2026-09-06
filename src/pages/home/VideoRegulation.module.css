@@ -509,8 +509,8 @@
 
 .startButton,
 .resetButton {
-  background: #172026;
-  border: 1px solid #172026;
+  background: var(--calm-primary);
+  border: 1px solid var(--calm-primary);
   border-radius: 8px;
   color: #fffaf3;
   cursor: pointer;
@@ -523,7 +523,7 @@
 }
 
 .startButton:hover, .startButton:focus-visible, .resetButton:hover, .resetButton:focus-visible {
-  background: #0b1115;
+  background: var(--calm-primary-hover);
   outline: none;
 }
 

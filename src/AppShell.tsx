@@ -5,18 +5,19 @@ import type { ReactNode } from 'react';
 // Theme mirrors the hand-rolled tokens in src/styles/tokens.css so MUI
 // surfaces (dialogs, pickers, buttons) match the warm-ink design language.
 //
-// R3 consistency pass: the primary palette is the calm INK (#172026), not the
-// saturated brand red — the approved effect-evaluation dialect fills controls
-// with ink and reserves coral/red for decorative art and semantic tints. The
-// coral marketing art on Login / Home / NotFound is painted by CSS-module
-// background-image gradients, which render on top of any palette
-// background-color, so the brand shells survive this change untouched. The
-// button/alert recipes below are the same values the effect page already
-// scopes via .workspace, hoisted so every page that does NOT override still
-// lands on the dialect.
+// Calm-dialect pass: the primary palette is muted SAGE (#5c7a68) — the calm
+// primary action hue; ink stays text-only and coral/red stay decorative art
+// and semantic tints. Shadows follow the calm depth rule: soft, diffuse and
+// tinted with the fill's own hue (sage controls get sage shadows), never
+// heavy near-black drops. The coral marketing art on Login / Home / NotFound
+// is painted by CSS-module background-image gradients, which render on top of
+// any palette background-color, so the brand shells survive this change
+// untouched. The button/alert recipes below are the same values the effect
+// page already scopes via .workspace, hoisted so every page that does NOT
+// override still lands on the dialect.
 const theme = createTheme({
   palette: {
-    primary: { main: '#172026', contrastText: '#ffffff' },
+    primary: { main: '#5c7a68', contrastText: '#ffffff' },
     secondary: { main: '#fb7f6e' },
     success: { main: '#1c6a47' },
     warning: { main: '#8a560e' },
@@ -40,8 +41,8 @@ const theme = createTheme({
         root: {
           textTransform: 'none',
           '&:focus-visible': {
-            boxShadow: '0 0 0 3px rgba(23, 32, 38, 0.16)',
-            outline: '2px solid rgba(23, 32, 38, 0.55)',
+            boxShadow: '0 0 0 3px rgba(92, 122, 104, 0.16)',
+            outline: '2px solid rgba(92, 122, 104, 0.55)',
             outlineOffset: 1,
           },
         },
@@ -50,15 +51,15 @@ const theme = createTheme({
           // background-image and erase the coral gradient art on the Login /
           // NotFound marketing buttons (CSS-module background-image paints
           // over any palette background-color).
-          backgroundColor: '#172026',
-          boxShadow: '0 6px 16px rgba(23, 32, 38, 0.24)',
+          backgroundColor: '#5c7a68',
+          boxShadow: '0 3px 12px rgba(92, 122, 104, 0.30)',
           color: '#fff',
           '&:hover': {
-            backgroundColor: '#24333d',
-            boxShadow: '0 6px 16px rgba(23, 32, 38, 0.24)',
+            backgroundColor: '#4e6b59',
+            boxShadow: '0 3px 12px rgba(92, 122, 104, 0.30)',
           },
           '&:active': {
-            boxShadow: '0 2px 6px rgba(23, 32, 38, 0.18)',
+            boxShadow: '0 2px 6px rgba(92, 122, 104, 0.24)',
           },
           '&.Mui-disabled': {
             backgroundColor: 'rgba(23, 32, 38, 0.14)',
@@ -82,7 +83,7 @@ const theme = createTheme({
         },
         // No `text` override: text-variant buttons carry color semantics
         // (color="error" destructive actions) through --variant-textColor,
-        // which now resolves to the ink primary for the default color.
+        // which now resolves to the sage primary for the default color.
       },
     },
     MuiAlert: {
@@ -137,7 +138,8 @@ const theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 14,
-          boxShadow: '0 24px 64px rgba(12, 18, 22, 0.28)',
+          // Calm depth: warm-tinted and softer than the old cool-ink drop.
+          boxShadow: '0 24px 56px rgba(44, 34, 24, 0.16)',
         },
       },
     },

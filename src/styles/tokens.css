@@ -3,11 +3,20 @@
  * Values are distilled from the existing pages (warm ink shell, cool ink
  * monitor pages, coral brand gradient, green acquisition dialect) so pages
  * can adopt them incrementally without visual rewrites.
+ *
+ * Hue roles: sage (--calm-primary) is the primary ACTION hue (fills the
+ * primary controls); ink is TEXT ONLY — it never fills a control.
  */
 :root {
   /* Ink (text) */
   --ink: #2c2218; /* warm — shell, login, regulation, agent, scale, game */
   --ink-cool: #172026; /* cool — acquisition/paradigm monitor pages */
+
+  /* Calm primary action: muted sage — white text on it ≈ 4.7:1 (WCAG AA);
+     green reads as tranquility/health, unlike high-contrast ink fills. */
+  --calm-primary: #5c7a68;
+  --calm-primary-hover: #4e6b59;
+  --calm-primary-rgb: 92, 122, 104;
 
   /* Surfaces */
   --surface: #f5f0eb;

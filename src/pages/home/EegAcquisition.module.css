@@ -243,7 +243,7 @@
 }
 
 /* Mode switch shares the pill-radio language with the paradigm setup panel:
-   999px capsule, 34px tall, 13px/700, calm ink fill when selected (the
+   999px capsule, 34px tall, 13px/700, calm sage fill when selected (the
    dialect's selected-pill recipe; green stays live/recording status). */
 .modeSwitchButton {
   background: rgba(255, 255, 255, 0.72);
@@ -277,21 +277,21 @@
 
 .activeModeSwitchButton,
 .activeModeSwitchButton:hover:not(:disabled) {
-  background: var(--ink-cool);
-  border-color: var(--ink-cool);
-  box-shadow: 0 6px 16px rgba(23, 32, 38, 0.24);
+  background: var(--calm-primary);
+  border-color: var(--calm-primary);
+  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb), 0.30);
   color: #fff;
   font-weight: 720;
 }
 
 .modeSwitchButton:focus-visible {
-  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.14);
-  outline: 2px solid rgba(23, 32, 38, 0.5);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 1px;
 }
 
 /* The selected pill can be disabled too (paradigm session runs): keep white
-   text on the ink fill instead of the muted-on-ink disabled color. */
+   text on the sage fill instead of the muted-on-sage disabled color. */
 .modeSwitchButton:disabled.activeModeSwitchButton {
   color: rgba(255, 255, 255, 0.72);
 }

@@ -183,14 +183,14 @@
 
 .scaleSkipButton:focus-visible,
 .scalePrimaryButton:focus-visible {
-  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.14);
-  outline: 2px solid rgba(23, 32, 38, 0.5);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 1px;
 }
 
 .scalePrimaryButton {
-  background: var(--ink-cool);
-  border: 1px solid var(--ink-cool);
+  background: var(--calm-primary);
+  border: 1px solid var(--calm-primary);
   border-radius: var(--radius-control);
   color: #fff;
   cursor: pointer;
@@ -208,7 +208,7 @@
 }
 
 .scalePrimaryButton:hover:not(:disabled) {
-  box-shadow: 0 6px 16px rgba(23, 32, 38, 0.25);
+  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb), 0.30);
   transform: translateY(-1px);
 }
 

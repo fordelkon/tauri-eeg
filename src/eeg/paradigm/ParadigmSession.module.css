@@ -36,7 +36,7 @@
 
 /* Compact E-Prime style pill radios for the experiment type. Unified with the
    EegAcquisition mode switch: 999px capsule, 34px tall, 13px/700; selection
-   reads through the calm ink fill (the dialect's selected-pill recipe —
+   reads through the calm sage fill (the dialect's selected-pill recipe —
    green stays acquisition-status semantics, not control chrome). */
 
 .pillRadioRow {
@@ -79,9 +79,9 @@
 
 .selectedPillRadio,
 .selectedPillRadio:hover {
-  background: var(--ink-cool);
-  border-color: var(--ink-cool);
-  box-shadow: 0 6px 16px rgba(23, 32, 38, 0.24);
+  background: var(--calm-primary);
+  border-color: var(--calm-primary);
+  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb), 0.30);
   color: #fff;
   font-weight: 720;
 }
@@ -253,7 +253,7 @@
 }
 
 .primaryButton {
-  background: var(--ink-cool);
+  background: var(--calm-primary);
   border: none;
   border-radius: var(--radius-control);
   color: #f8fbfc;
@@ -269,8 +269,8 @@
 }
 
 .primaryButton:hover:not(:disabled) {
-  background: #24333d;
-  box-shadow: 0 6px 16px rgba(23, 32, 38, 0.24);
+  background: var(--calm-primary-hover);
+  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb), 0.30);
 }
 
 .primaryButton:active:not(:disabled) {
@@ -346,14 +346,14 @@
   transform: scale(0.98);
 }
 
-/* Keyboard focus rings (dialect): ink ring on chrome controls; the danger
+/* Keyboard focus rings (dialect): sage ring on chrome controls; the danger
    action rings in its own semantic hue. */
 .pillRadio:focus-visible,
 .primaryButton:focus-visible,
 .secondaryButton:focus-visible,
 .videoListRow:focus-visible {
-  box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.14);
-  outline: 2px solid rgba(23, 32, 38, 0.5);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 1px;
 }
 
