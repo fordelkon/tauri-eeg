@@ -27,7 +27,8 @@
   animation: scaleDialogEnter 220ms var(--ease-out) backwards;
   background: var(--surface);
   border: 1px solid rgba(44, 34, 24, 0.12);
-  border-radius: 16px;
+  /* Dialog step: matches the MUI dialog paper in AppShell. */
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-overlay);
   color: var(--ink-cool);
   display: flex;
@@ -56,7 +57,7 @@
   align-items: center;
   background: var(--surface);
   border-bottom: 1px solid rgba(23, 32, 38, 0.1);
-  border-radius: 16px 16px 0 0;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
   display: flex;
   flex: 0 0 auto;
   gap: 12px;
@@ -126,7 +127,7 @@
 .scaleFooter {
   align-items: center;
   background: var(--surface);
-  border-radius: 0 0 16px 16px;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
   border-top: 1px solid rgba(23, 32, 38, 0.1);
   display: flex;
   gap: 14px;

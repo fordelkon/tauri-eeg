@@ -161,7 +161,7 @@
 .retryButton {
   background: transparent;
   border: 1px solid rgba(179, 38, 30, 0.45);
-  border-radius: 6px;
+  border-radius: var(--radius-control-sm);
   color: var(--danger-ink);
   cursor: pointer;
   flex-shrink: 0;
@@ -408,7 +408,7 @@
 }
 
 .channelToggle {
-  border-radius: 6px;
+  border-radius: var(--radius-control-sm);
   margin: 0;
   min-height: 28px;
   padding-right: 4px;

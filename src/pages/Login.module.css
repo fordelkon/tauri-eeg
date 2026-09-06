@@ -213,7 +213,9 @@
 }
 
 .textField :global(.MuiInputLabel-root.Mui-error) {
-  color: #d70015;
+  /* Semantic error red rides the shared --danger token (the old #d70015
+     was a harsher off-dialect red). */
+  color: var(--danger, #b3261e);
 }
 
 .textField :global(.MuiOutlinedInput-root) {
@@ -250,12 +252,12 @@
 
 .textField :global(.MuiOutlinedInput-root.Mui-error) {
   box-shadow:
-    0 0 0 4px rgba(215, 0, 21, 0.1),
+    0 0 0 4px rgba(179, 38, 30, 0.1),
     0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .textField :global(.MuiOutlinedInput-root.Mui-error .MuiOutlinedInput-notchedOutline) {
-  border-color: #d70015;
+  border-color: var(--danger, #b3261e);
 }
 
 .textField :global(.MuiInputAdornment-root) {
@@ -297,7 +299,7 @@
 }
 
 .errorMsg {
-  color: #d70015;
+  color: var(--danger, #b3261e);
   font-size: 13px;
   line-height: 1.35;
   margin: -4px 0 0;
@@ -319,7 +321,7 @@
 /* Persistent reset-success notice: mounted only while a message is set
    (cleared once the user starts typing), so it needs no visibility toggle. */
 .successMsg {
-  color: #2e7d32;
+  color: var(--success, #1c6a47);
   font-size: 13px;
   line-height: 1.35;
   margin: -4px 0 0;

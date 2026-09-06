@@ -5,9 +5,9 @@
  * Page-local tokens for the effect-evaluation wizard, aligned with the
  * app's calm pages (scaleUi / MusicRegulation): sage accents for controls,
  * coral for warm beacons/hairlines, muted brick for negative data - the
- * calm dialect never fills a control with saturated red. Fixed radius
- * scale (18 surfaces / 14 inner cards / 10 controls) and two layered ink
- * card shadows. Accents stay flat solids - the calm-language rule is at
+ * calm dialect never fills a control with saturated red. Radius scale rides
+ * the global tokens (18 surfaces / 14 cards / 8 controls) and two layered
+ * ink card shadows. Accents stay flat solids - the calm-language rule is at
  * most one subtle gradient detail per surface, and this page spends its
  * budget nowhere. Keeping them on .workspace scopes the tokens to this
  * page.
@@ -27,9 +27,9 @@
   --ee-negative-rgb: 192, 82, 76;
   --ee-line: rgba(var(--ee-ink-rgb), 0.1);
   --ee-line-strong: rgba(var(--ee-ink-rgb), 0.18);
-  --ee-radius-surface: 18px;
-  --ee-radius-card: 14px;
-  --ee-radius-control: 10px;
+  --ee-radius-surface: var(--radius-surface);
+  --ee-radius-card: var(--radius-card);
+  --ee-radius-control: var(--radius-control);
   --ee-shadow-card:
     0 1px 2px rgba(var(--ee-ink-rgb), 0.04),
     0 12px 32px rgba(var(--ee-ink-rgb), 0.07);
@@ -167,7 +167,8 @@
    banner palette the regulation pages already use, instead of MUI's
    default saturated tints. */
 .workspace :global(.MuiAlert-root) {
-  border-radius: 12px;
+  /* Banner radius rides the shared 8px control step (AppShell MuiAlert). */
+  border-radius: var(--radius-control);
   font-size: 13.5px;
   /* Banner body sits at the secondary step; the <strong> verdict lead
      below carries the primary 600. */
@@ -254,25 +255,13 @@
 /* Neutral ink kicker: labels stay gray-ink; color is reserved for
    interactive/semantic accents, not for announcing a section. */
 .eyebrow {
-  align-items: center;
   color: rgba(var(--ee-ink-rgb), 0.58);
-  display: flex;
   font-size: 12px;
   /* Caps labels sit at the secondary step; the title above them is the
      only 600 in the header block. */
   font-weight: 500;
-  gap: 8px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.eyebrow::before {
-  background: rgba(var(--ee-ink-rgb), 0.35);
-  border-radius: 999px;
-  content: "";
-  display: block;
-  height: 10px;
-  width: 10px;
 }
 
 .title {
@@ -361,12 +350,12 @@
 }
 
 /* Subject groups: a slightly deeper tint than the panel behind them so
-   the list reads as one nested level, with its own soft shadow. */
+   the list reads as one nested level. Hairline only - a shadow inside the
+   panel would stack a third surface signal on the rows. */
 .historyGroup {
   background: rgba(255, 255, 255, 0.56);
   border: 1px solid var(--ee-line);
   border-radius: var(--ee-radius-card);
-  box-shadow: 0 6px 20px rgba(var(--ee-ink-rgb), 0.04);
   display: grid;
   gap: 10px;
   padding: 14px 16px;
@@ -1092,9 +1081,12 @@
 
 .musicHistoryItemMeta {
   color: rgba(var(--ee-ink-rgb), 0.6);
+  display: inline-flex;
   flex: none;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  /* Time and duration separate by gap, not a "·" separator. */
+  gap: 6px;
 }
 
 /* Device error chip in the context strip: backend messages can be long, so
@@ -1234,7 +1226,7 @@
 
 .heroIcon {
   align-items: center;
-  border-radius: 13px;
+  border-radius: var(--radius-card);
   color: #fff;
   display: flex;
   flex: 0 0 auto;
@@ -1317,14 +1309,13 @@
 }
 
 /* Metric cards read as quiet data output: plain white wells like the
-   input panels, no neon hairline - only the headline hero keeps a
-   muted coral marker. */
+   input panels, hairline only (no nested shadow inside the result
+   panel) - only the headline hero keeps a muted coral marker. */
 .metricCard,
 .metricHero {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid var(--ee-line);
   border-radius: var(--ee-radius-card);
-  box-shadow: 0 4px 14px rgba(var(--ee-ink-rgb), 0.05);
   display: grid;
   gap: 8px;
   overflow: hidden;
@@ -1417,7 +1408,7 @@
 .noteCallout {
   background: rgba(var(--ee-ink-rgb), 0.028);
   border-left: 3px solid rgba(var(--ee-warm-rgb), 0.45);
-  border-radius: 0 10px 10px 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
   color: rgba(var(--ee-ink-rgb), 0.62);
   font-size: 12.5px;
   line-height: 1.55;
@@ -1435,7 +1426,6 @@
   background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.55));
   border: 1px solid var(--ee-line);
   border-radius: var(--ee-radius-card);
-  box-shadow: 0 4px 14px rgba(var(--ee-ink-rgb), 0.05);
   box-sizing: border-box;
   overflow: hidden;
   padding: 14px 16px 12px;
@@ -1496,7 +1486,6 @@
   background: #fff;
   border: 1px solid var(--ee-line);
   border-radius: var(--ee-radius-card);
-  box-shadow: 0 4px 14px rgba(var(--ee-ink-rgb), 0.05);
   overflow-x: auto;
 }
 
@@ -1628,11 +1617,11 @@
 }
 
 .rateCell.isPositive {
-  color: #22683a;
+  color: var(--success, #1c6a47);
 }
 
 .rateCell.isPositive::before {
-  border-bottom: 7px solid #22683a;
+  border-bottom: 7px solid var(--success, #1c6a47);
 }
 
 .rateCell.isNegative {
@@ -1771,7 +1760,8 @@
 @media (prefers-reduced-motion: reduce) {
   .workspace,
   .panel,
-  .resultHero {
+  .resultHero,
+  .metricGrid > * {
     animation: none;
   }
 
@@ -1883,7 +1873,7 @@
 }
 
 button.station:focus-visible {
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.14);
   outline: 2px solid rgba(var(--calm-primary-rgb, 92, 122, 104), 0.55);
   outline-offset: 2px;

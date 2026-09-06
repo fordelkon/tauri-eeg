@@ -174,7 +174,7 @@
   background: rgba(245, 240, 235, 0.94);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(44, 34, 24, 0.12);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   box-shadow: 0 2px 12px rgba(44, 34, 24, 0.08);
   color: #2c2218;
   display: inline-flex;
@@ -686,8 +686,9 @@
   backdrop-filter: blur(8px);
   background: rgba(245, 240, 235, 0.94);
   border: 1px solid rgba(44, 34, 24, 0.12);
-  border-radius: 14px;
-  box-shadow: 0 4px 18px rgba(44, 34, 24, 0.08);
+  border-radius: var(--radius-card);
+  /* Floating rail rides the shared card shadow recipe. */
+  box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -789,8 +790,10 @@
 }
 
 .railSignOut:hover:not(:disabled) {
-  background: rgba(184, 31, 31, 0.08);
-  color: #b81f1f;
+  /* Destructive hover rides the shared --danger family (the old stray red
+     was a near-duplicate hue). */
+  background: rgba(179, 38, 30, 0.08);
+  color: var(--danger, #b3261e);
 }
 
 .railSignOut:active:not(:disabled) {

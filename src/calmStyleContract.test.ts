@@ -97,11 +97,6 @@ const brandRedAllowlist = [
     path: 'src/homeIntro/LottieEegLogo.module.css',
   },
   {
-    // .railSignOut:hover — destructive sign-out affordance (muted red tint,
-    // paired with an icon); danger semantics keep their own hue.
-    path: 'src/pages/Home.module.css',
-  },
-  {
     // Bipolar-scale red pole stop — semantic endpoint paired with the blue
     // pole and text labels (never the sole meaning carrier).
     path: 'src/mentalScale/scaleUi/scaleUi.module.css',

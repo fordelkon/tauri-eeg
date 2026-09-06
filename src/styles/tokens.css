@@ -40,6 +40,9 @@
 
   /* Radii */
   --radius-control: 8px;
+  /* Micro-control optical exception: compact <=32px controls (checkboxes,
+     chips, mini buttons) read bulbous at the 8px step. */
+  --radius-control-sm: 6px;
   --radius-card: 14px;
   --radius-surface: 18px;
   --radius-overlay: 22px;

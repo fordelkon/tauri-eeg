@@ -101,7 +101,9 @@ const theme = createTheme({
     MuiAlert: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          // Banners share the 8px control step (same as the hand-rolled
+          // error/success/environment banners on the regulation pages).
+          borderRadius: 8,
           fontSize: 13.5,
           // Banner body at the secondary step (500); <strong> verdict leads
           // inside the message carry the primary 600. Weight scale is

@@ -64,7 +64,7 @@ export function EegAssociationChip({
         {association === 'saved'
           ? `✓ ${describeEegAssociation(association)}${sessionId ? `（会话 ${`${sessionId.slice(0, 8)}…`}）` : ''}`
           : association === 'recording'
-            ? `● ${describeEegAssociation(association)}`
+            ? describeEegAssociation(association)
             : `! ${describeEegAssociation(association)}`}
       </span>
     </div>

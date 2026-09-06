@@ -298,7 +298,8 @@ function EmbeddedMusicPlayer({ shouldPause }: { shouldPause: boolean }) {
                   {isActive ? '♪ ' : ''}{title}
                 </span>
                 <span className={styles.musicHistoryItemMeta}>
-                  {formatMusicHistoryTime(item.createdAt)} · {formatMusicDurationLabel(item.durationSeconds)}
+                  <span>{formatMusicHistoryTime(item.createdAt)}</span>
+                  <span>{formatMusicDurationLabel(item.durationSeconds)}</span>
                 </span>
               </button>
             </li>
