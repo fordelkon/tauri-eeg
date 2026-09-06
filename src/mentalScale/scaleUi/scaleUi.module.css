@@ -333,15 +333,18 @@
 }
 
 .devFillButton {
+  align-items: center;
   background: transparent;
   border: 1px dashed var(--scale-line-strong);
   border-radius: var(--radius-control);
   color: var(--scale-ink-soft);
   cursor: pointer;
+  display: inline-flex;
   flex: 0 0 auto;
   font: inherit;
   font-size: 12px;
   font-weight: 600;
+  gap: 5px;
   padding: 8px 12px;
   transition:
     background-color var(--scale-motion),
@@ -349,6 +352,10 @@
     color var(--scale-motion),
     transform var(--scale-motion);
   white-space: nowrap;
+}
+
+.devFillButton svg {
+  font-size: 14px;
 }
 
 .devFillButton:hover {

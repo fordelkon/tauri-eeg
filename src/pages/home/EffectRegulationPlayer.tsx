@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import { useAuth } from '../../auth/AuthContext';
 import {
   getAllVideoRegulationAssets,
@@ -294,9 +295,12 @@ function EmbeddedMusicPlayer({ shouldPause }: { shouldPause: boolean }) {
                 aria-pressed={isActive}
                 onClick={() => handleSelectTrack(item.id)}
               >
-                <span className={styles.musicHistoryItemTitle}>
-                  {isActive ? '♪ ' : ''}{title}
-                </span>
+                {/* Family glyph instead of the '♪' text prefix: it sits outside
+                    the ellipsized title span so long titles can't truncate it. */}
+                {isActive ? (
+                  <MusicNoteRoundedIcon aria-hidden="true" className={styles.musicHistoryItemIcon} />
+                ) : null}
+                <span className={styles.musicHistoryItemTitle}>{title}</span>
                 <span className={styles.musicHistoryItemMeta}>
                   <span>{formatMusicHistoryTime(item.createdAt)}</span>
                   <span>{formatMusicDurationLabel(item.durationSeconds)}</span>

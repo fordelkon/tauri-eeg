@@ -7,6 +7,9 @@
   animation: scaleOverlayEnter 180ms var(--ease-out) backwards;
   background: var(--scrim-form);
   backdrop-filter: blur(10px);
+  /* Local overlay tier, kept raw on purpose: raising it to the --z40 modal
+     tier would change stacking against ParadigmSession's fullscreen stage
+     (--z30) should the two ever coexist (taste-skill §6.F mapping pass). */
   z-index: 10;
 }
 
@@ -65,7 +68,7 @@
   padding: 8px 20px;
   position: sticky;
   top: 0;
-  z-index: 3;
+  z-index: var(--z3);
 }
 
 .scaleCloseButton {
@@ -135,7 +138,7 @@
   padding: 12px 20px;
   position: sticky;
   bottom: 0;
-  z-index: 3;
+  z-index: var(--z3);
 }
 
 .scaleFooterNotes {

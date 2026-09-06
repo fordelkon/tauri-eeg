@@ -13,7 +13,7 @@
   overflow: hidden;
   pointer-events: none;
   position: fixed;
-  z-index: 0;
+  z-index: var(--z0);
 }
 
 .heroCore {
@@ -43,7 +43,7 @@
     opacity var(--dur-med) var(--ease-out),
     visibility 0s linear var(--dur-med);
   visibility: hidden;
-  z-index: 3;
+  z-index: var(--z3);
 }
 
 .menuLayer.isOpen {
@@ -193,7 +193,7 @@
     transform var(--dur-med) var(--ease-out),
     visibility 0s;
   width: 44px;
-  z-index: 4;
+  z-index: var(--z4);
 }
 
 .mobileMenuButton:hover {
@@ -227,7 +227,7 @@
     opacity 380ms var(--ease-out),
     visibility 0s var(--ease-out) 380ms;
   visibility: hidden;
-  z-index: 2;
+  z-index: var(--z2);
 }
 
 .sidebarOverlay.isOpen {
@@ -556,7 +556,7 @@
   min-height: 100dvh;
   position: relative;
   width: 100%;
-  z-index: 1;
+  z-index: var(--z1);
 }
 
 .shell::before {
@@ -573,7 +573,7 @@
   transform: rotate(90deg);
   transform-origin: top left;
   width: 100dvh;
-  z-index: 3;
+  z-index: var(--z3);
 }
 
 .content {
@@ -595,7 +595,7 @@
     opacity 520ms var(--ease-out),
     transform 520ms var(--ease-out);
   width: 100%;
-  z-index: 1;
+  z-index: var(--z1);
 }
 
 .content.isVisible {
@@ -653,7 +653,7 @@
     color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
-  z-index: 5;
+  z-index: var(--z5);
 }
 
 .nextPageIcon {
@@ -704,7 +704,7 @@
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 3;
+  z-index: var(--z3);
 }
 
 .railLogo {
@@ -960,7 +960,7 @@
   max-width: min(54vw, 520px);
   position: relative;
   width: min(54vw, 520px);
-  z-index: 1;
+  z-index: var(--z1);
 }
 
 .eyebrow {

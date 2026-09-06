@@ -1,4 +1,4 @@
-import ActivityRoundedIcon from '@mui/icons-material/GraphicEqRounded';
+import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import {
   Button,
   Dialog,
@@ -197,7 +197,7 @@ export default function EegAcquisition() {
         </div>
         <div className={`${styles.statusBar} flex flex-wrap items-center justify-end`}>
           <span className={`${styles.statusPill} inline-flex items-center ${styles[eeg.deviceStatus]}`}>
-            <ActivityRoundedIcon fontSize="small" />
+            <GraphicEqRoundedIcon fontSize="small" />
             设备 {deviceStatusLabel}
           </span>
           <span className={`${styles.statusPill} inline-flex items-center ${styles[eeg.recordStatus]}`}>

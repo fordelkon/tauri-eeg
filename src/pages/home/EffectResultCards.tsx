@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import ErrorOutlineRoundedIcon from '@mui/icons-material/ErrorOutlineRounded';
 import type {
   ConditionComparisonLegView,
   ConditionEffectComparisonView,
@@ -51,13 +53,9 @@ function VerdictBanner({
       role="status"
     >
       <span className={styles.heroIcon} aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor" focusable="false">
-          {isPass ? (
-            <path d="M9.55 17.57 4.88 12.9l1.41-1.41 3.26 3.25 8.16-8.16 1.41 1.42z" />
-          ) : (
-            <path d="M11 7h2v8h-2zm0 10h2v2h-2z" />
-          )}
-        </svg>
+        {/* Family glyphs (taste-skill §3.C: no hand-rolled icon paths); the
+            .heroIcon svg 22px rule still sizes these. */}
+        {isPass ? <CheckRoundedIcon /> : <ErrorOutlineRoundedIcon />}
       </span>
       <p className={styles.heroCopy}>
         <strong className={styles.heroTitle}>{copy.title}</strong>

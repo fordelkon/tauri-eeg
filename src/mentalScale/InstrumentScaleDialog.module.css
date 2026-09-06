@@ -29,7 +29,7 @@
   padding: 10px 0 6px;
   position: sticky;
   top: var(--scale-sticky-offset, 48px);
-  z-index: 2;
+  z-index: var(--z2);
 }
 
 /* Question rhythm: 20px between item rows (prompt + anchors stay one unit). */

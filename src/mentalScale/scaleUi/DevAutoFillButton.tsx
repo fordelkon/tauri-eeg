@@ -1,3 +1,4 @@
+import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import styles from './scaleUi.module.css';
 
 /** One fillable item: its answer key and the legal numeric range. */
@@ -84,7 +85,8 @@ export default function DevAutoFillButton({
         className={styles.devFillButton}
         onClick={() => applyRandomFill(items, answeredIds, onAnswer)}
       >
-        ⚡ 一键填写（开发）
+        <BoltRoundedIcon aria-hidden="true" fontSize="inherit" />
+        一键填写（开发）
       </button>
       {onClear ? (
         <button type="button" className={styles.devClearButton} onClick={onClear}>

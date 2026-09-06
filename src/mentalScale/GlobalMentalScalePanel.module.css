@@ -10,7 +10,7 @@
   overflow: hidden;
   padding: clamp(72px, 8vh, 86px) clamp(18px, 2.4vw, 30px) clamp(24px, 4vh, 42px);
   position: relative;
-  z-index: 1;
+  z-index: var(--z1);
 }
 
 .header {

@@ -70,4 +70,22 @@
 
   /* Misc */
   --disabled-opacity: 0.45;
+
+  /* Layer scale (taste-skill §6.F): z-index is reserved for systemic layers,
+     never arbitrary per-element values. --z0…--z5 are the in-page ladder
+     (Home's shell/scrim/drawer/float stack is the reference consumer);
+     --z30…--z50 are fullscreen stage & modal layers (ParadigmSession).
+     Within-illustration stacking (e.g. MusicRegulation .tagDotStack) is
+     local art ordering and exempt. MUI portal dialogs (~1300) always paint
+     above this scale. */
+  --z0: 0;
+  --z1: 1;
+  --z2: 2;
+  --z3: 3;
+  --z4: 4;
+  --z5: 5;
+  --z30: 30;
+  --z35: 35;
+  --z40: 40;
+  --z50: 50;
 }

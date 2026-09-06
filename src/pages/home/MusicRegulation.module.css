@@ -419,6 +419,8 @@
   padding: 0 8px;
 }
 
+/* .tagDotStack z-indexes 1–10 are deliberately raw: they encode the pile
+   ordering of one decorative illustration, not systemic layer tiers. */
 .tagDotStack span:nth-child(1) {
   z-index: 1;
 }
@@ -822,7 +824,7 @@
   display: inline-flex;
   gap: 3px;
   position: relative;
-  z-index: 1;
+  z-index: var(--z1);
 }
 
 .coverBars span {

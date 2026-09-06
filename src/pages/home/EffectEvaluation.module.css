@@ -1079,6 +1079,12 @@
   white-space: nowrap;
 }
 
+.musicHistoryItemIcon {
+  color: inherit;
+  flex: 0 0 auto;
+  font-size: 15px;
+}
+
 .musicHistoryItemMeta {
   color: rgba(var(--ee-ink-rgb), 0.6);
   display: inline-flex;
