@@ -20,6 +20,7 @@ const readText = (url: URL) => readFileSync(url, 'utf8');
 
 const pageUrl = new URL('./EffectEvaluation.tsx', import.meta.url);
 const timelineUrl = new URL('./EffectTimeline.tsx', import.meta.url);
+const disclosureUrl = new URL('./EffectProgressDisclosure.tsx', import.meta.url);
 const reviewUrl = new URL('./EffectReviewPopover.tsx', import.meta.url);
 const panelsUrl = new URL('./EffectStepPanels.tsx', import.meta.url);
 const cardsUrl = new URL('./EffectResultCards.tsx', import.meta.url);
@@ -469,15 +470,23 @@ describe('paradigm finished-screen handoff contract', () => {
 });
 
 describe('timeline / stage / review layout contract', () => {
-  test('the page mounts the horizontal timeline, done band, and read-only review overlay', () => {
+  test('the page mounts the collapsible progress disclosure hosting the timeline, done band, and review overlay', () => {
     const pageSource = readText(pageUrl);
     const timelineSource = readText(timelineUrl);
     const reviewSource = readText(reviewUrl);
+    const disclosureSource = readText(disclosureUrl);
 
-    // The timeline is the visual protagonist; the done band compresses
-    // finished nodes into clickable chips below it.
-    expect(pageSource).toContain('<EffectTimeline');
-    expect(pageSource).toContain('<EffectDoneBand');
+    // Round 7: the six-station timeline lives behind a collapsible pill
+    // instead of squatting above the stage; the done band compresses
+    // finished nodes into clickable chips inside the expanded panel.
+    expect(pageSource).toContain('<EffectProgressDisclosure');
+    expect(pageSource).not.toContain('<EffectTimeline');
+    expect(pageSource).not.toContain('<EffectDoneBand');
+    expect(disclosureSource).toContain('<EffectTimeline');
+    expect(disclosureSource).toContain('<EffectDoneBand');
+    // The page-owned scale dialog state is handed down so the disclosure
+    // can force-collapse while the instrument owns the viewport.
+    expect(pageSource).toContain('scaleDialogOpen={isScaleDialogOpen}');
     expect(pageSource).toContain('<EffectReviewPopover');
     // The old vertical node cards are gone.
     expect(pageSource).not.toContain('EffectPipelineCard');

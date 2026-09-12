@@ -23,7 +23,8 @@ import {
 import EffectDeviceQuickStart from './EffectDeviceQuickStart';
 import EffectHistoryPanel from './EffectHistoryPanel';
 import { EffectReviewPopover } from './EffectReviewPopover';
-import { EffectDoneBand, EffectTimeline, type EffectReviewTarget, type EffectStationClick } from './EffectTimeline';
+import type { EffectReviewTarget, EffectStationClick } from './EffectTimeline';
+import { EffectProgressDisclosure } from './EffectProgressDisclosure';
 import { useEffectEvaluationFlow } from './useEffectEvaluationFlow';
 import { useEffectPipelineNodes } from './useEffectPipelineNodes';
 import { useEffectReportExports } from './useEffectReportExports';
@@ -33,10 +34,10 @@ import styles from './EffectEvaluation.module.css';
 /**
  * Effect-evaluation loop, built for 10-second onboarding. The page reads top
  * down as: (1) a compact experiment banner (run facts + EEG badge + device
- * quick start, no forms), (2) the horizontal timeline — the visual
- * protagonist showing where the run is, (3) the compression band of finished
- * nodes, and (4) ONE main-stage card always presenting the current task with
- * a single primary CTA.
+ * quick start, no forms), (2) a collapsible progress disclosure — one light
+ * step pill by default, with the six-station timeline + done band blooming
+ * behind it on demand and on step changes (round 7), and (3) ONE main-stage
+ * card always presenting the current task with a single primary CTA.
  *
  * Layer split: status/stage copy derivation lives in the pure `effectPipeline`
  * module; the flow state machine and handlers stay untouched in
@@ -51,9 +52,10 @@ import styles from './EffectEvaluation.module.css';
  * own digits (identical integer seconds bail out of the update, so it renders
  * at ~1Hz) and reports expiry upward exactly once via `onWindowElapsed`; the
  * page flips the finish gate with that one-shot fact instead of tracking
- * `remainingSeconds` per tick. On top of that, `EffectTimeline` /
- * `EffectDoneBand` are memoized on stable props (node array derived from the
- * specific state fields the pipeline reads + stable callbacks) and bail out
+ * `remainingSeconds` per tick. On top of that, `EffectProgressDisclosure`
+ * (hosting `EffectTimeline` / `EffectDoneBand`) is memoized on stable props
+ * (node array derived from the
+ * specific state fields the pipeline reads + stable callbacks) and bails out
  * on unrelated page re-renders; the ticking digits are confined to the
  * countdown leaf; result cards are memoized and receive only stable props.
  */
@@ -441,11 +443,17 @@ export default function EffectEvaluation() {
           </Alert>
         ) : null}
 
-        <EffectTimeline nodes={pipelineNodes} onStationClick={handleStationClick} />
-
-        {/* Finished nodes shrink into this strip; the stage below never
-            renders them. Chips open the same review popover as stations. */}
-        <EffectDoneBand doneNodes={doneNodes} onChipClick={openReview} />
+        {/* Collapsible progress disclosure (round 7): the six-station
+            timeline lives behind one light pill row instead of squatting
+            above the stage on every step. It blooms briefly on step
+            changes, stays while pinned open, and force-collapses whenever
+            the scale dialog opens (scaleDialogOpen). Station/chip clicks
+            keep their review/scroll semantics inside the panel. */}
+        <EffectProgressDisclosure
+          nodes={pipelineNodes} doneNodes={doneNodes}
+          onStationClick={handleStationClick} onChipClick={openReview}
+          scaleDialogOpen={isScaleDialogOpen} step={state.step}
+        />
 
         {/* Main stage: exactly one task at a time. The kicker orients
             (步骤 X / 6), the title/hint say what to do, the panel's single

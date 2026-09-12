@@ -5,9 +5,11 @@ import type { EffectPipelineNode } from './effectPipeline';
 import styles from './EffectEvaluation.module.css';
 
 /**
- * The page's visual protagonist: a horizontal six-station timeline
+ * The expanded panel's body (round 7): a horizontal six-station timeline
  * (配置 → 诱发 → 量表 → 调控/静息 → 复测 → 结果) plus the compression band
- * that keeps finished nodes out of the main stage.
+ * that keeps finished nodes out of the main stage. Mounted inside
+ * `EffectProgressDisclosure`, which owns the collapsed pill / announce
+ * behavior — these two components stay pure renderers of the node array.
  *
  * Station semantics:
  * - done   → filled green disc with a check; clickable (opens the read-only

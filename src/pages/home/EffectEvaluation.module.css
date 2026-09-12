@@ -1780,6 +1780,8 @@
   .countdownValue,
   .scoreBar,
   .stationDotCurrent,
+  .progressDotCurrent,
+  .progressChevron,
   .historyDeleteButton,
   .expandIcon,
   .textInput,
@@ -1817,7 +1819,132 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Horizontal timeline (the page's visual protagonist)                 */
+/* Collapsible progress disclosure (round 7)                           */
+/* ------------------------------------------------------------------ */
+/*
+ * The six-station timeline no longer squats above the stage on every step.
+ * Default = ONE light pill row (mini progress dots + 步骤 X / 6 · 当前站 +
+ * an expand toggle); the full timeline + done band live behind it. The
+ * panel blooms briefly on step changes (self-collapses after ~2s), stays
+ * while the operator keeps it open, and always yields when a scale dialog
+ * opens. Calm-ink recipes: hairline border, quiet ink alphas, coral only
+ * on the "you are here" dot.
+ */
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.progressToggle {
+  align-items: center;
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--ee-line);
+  border-radius: 999px;
+  color: rgba(var(--ee-ink-rgb), 0.66);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  gap: 10px;
+  /* The one collapsed-state control: reachable at the 40px touch floor
+     on every viewport, not just narrow windows. */
+  min-height: 40px;
+  padding: 4px 16px;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.progressToggle:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(var(--ee-ink-rgb), 0.24);
+}
+
+.progressToggle:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb, 92, 122, 104), 0.55);
+  outline-offset: 2px;
+}
+
+.progressDots {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+}
+
+.progressDot {
+  border-radius: 999px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  height: 9px;
+  width: 9px;
+}
+
+.progressDotDone {
+  background: var(--success, #1c6a47);
+}
+
+/* The hollow coral ring mirrors the expanded timeline's current station. */
+.progressDotCurrent {
+  animation: progressDotPulse 2s var(--ease-out) infinite;
+  background: #fff;
+  border: 2px solid var(--ee-warm);
+}
+
+@keyframes progressDotPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--ee-warm-rgb), 0.2);
+  }
+
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px rgba(var(--ee-warm-rgb), 0);
+  }
+}
+
+.progressDotPending {
+  background: rgba(var(--ee-ink-rgb), 0.18);
+}
+
+.progressSummary {
+  color: var(--ee-ink);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.progressChevron {
+  color: rgba(var(--ee-ink-rgb), 0.45);
+  font-size: 18px;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.progressChevronOpen {
+  transform: rotate(180deg);
+}
+
+/* The verb sits apart from the summary behind a hairline, so the toggle
+   reads as one control with two whispers of copy, not a button + label. */
+.progressToggleHint {
+  border-left: 1px solid var(--ee-line);
+  color: rgba(var(--ee-ink-rgb), 0.5);
+  font-size: 12px;
+  padding-left: 10px;
+}
+
+/* Expanded panel: a quiet host card for the timeline + done band; the
+   timeline's own styles below stay untouched. */
+.progressPanel {
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--ee-line);
+  border-radius: var(--ee-radius-control);
+  padding: 4px 12px 8px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Horizontal timeline (inside the expanded progress panel)            */
 /* ------------------------------------------------------------------ */
 /*
  * Six stations on one line: done = filled green disc with a check
@@ -2226,6 +2353,12 @@ button.station:focus-visible {
     font-size: 12.5px;
     height: 30px;
     width: 30px;
+  }
+
+  /* The chevron already says expandable; the verb drop keeps the pill
+     inside a 360px viewport beside the dots + summary. */
+  .progressToggleHint {
+    display: none;
   }
 
   .timelineItem + .timelineItem::before {

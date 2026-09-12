@@ -43,6 +43,7 @@ const mountedWizardTreeFiles = [
   './EffectConditionCountdown.tsx',
   './EffectRegulationPlayer.tsx',
   './EffectTimeline.tsx',
+  './EffectProgressDisclosure.tsx',
   './EffectReviewPopover.tsx',
   './EffectResultCards.tsx',
   './EffectResultChartView.tsx',
