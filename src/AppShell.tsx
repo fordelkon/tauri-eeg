@@ -81,14 +81,14 @@ const theme = createTheme({
           // NotFound marketing buttons (CSS-module background-image paints
           // over any palette background-color).
           backgroundColor: '#c46757',
-          boxShadow: '0 3px 12px rgba(196, 103, 87, 0.30)',
+          boxShadow: 'var(--shadow-control)',
           color: '#fff',
           '&:hover': {
             backgroundColor: '#ad5343',
-            boxShadow: '0 3px 12px rgba(196, 103, 87, 0.30)',
+            boxShadow: 'var(--shadow-control)',
           },
           '&:active': {
-            boxShadow: '0 2px 6px rgba(196, 103, 87, 0.24)',
+            boxShadow: 'var(--shadow-control-active)',
           },
           '&.Mui-disabled': {
             backgroundColor: 'rgba(23, 32, 38, 0.14)',
@@ -121,7 +121,7 @@ const theme = createTheme({
           // Banners share the 8px control step (same as the hand-rolled
           // error/success/environment banners on the regulation pages).
           borderRadius: 8,
-          fontSize: 13.5,
+          fontSize: 13,
           // Banner body at the secondary step (500); <strong> verdict leads
           // inside the message carry the primary 600. Weight scale is
           // 400/500/600 app-wide.

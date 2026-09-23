@@ -55,12 +55,12 @@
    stage, but reachable by pointer, keyboard (Tab) and screen readers. */
 .skipButton {
   background: rgba(44, 34, 24, 0.06);
-  border: 1px solid rgba(44, 34, 24, 0.16);
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
   bottom: max(20px, env(safe-area-inset-bottom));
   color: rgba(44, 34, 24, 0.72);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   min-height: 36px;
   padding: 0 18px;
@@ -88,7 +88,7 @@
 .skipButton:focus-visible {
   background: rgba(44, 34, 24, 0.1);
   border-color: rgba(var(--calm-primary-rgb), 0.5);
-  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  box-shadow: var(--ring);
   color: #2c2218;
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 2px;

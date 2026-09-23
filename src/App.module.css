@@ -26,7 +26,7 @@
 
 .routeFallbackText {
   color: rgba(44, 34, 24, 0.62);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 

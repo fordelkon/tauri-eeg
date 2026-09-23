@@ -27,7 +27,7 @@
 .videoMeta span,
 .videoModalHeader span {
   color: rgba(23, 32, 38, 0.62);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -45,7 +45,7 @@
 
 .description {
   color: rgba(23, 32, 38, 0.72);
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 500;
   line-height: 1.55;
   margin: 8px 0 0;
@@ -55,7 +55,7 @@
 
 .statusBar {
   color: rgba(23, 32, 38, 0.72);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   gap: 10px;
 }
@@ -69,12 +69,12 @@
 
 .libraryButton {
   background: #fffaf3;
-  border: 1px solid rgba(23, 32, 38, 0.18);
+  border: 1px solid var(--line-cool-strong);
   border-radius: 8px;
   color: #172026;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   min-height: 32px;
   padding: 0 12px;
@@ -133,7 +133,7 @@
 
 .libraryNotice {
   background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(23, 32, 38, 0.1);
+  border: 1px solid var(--line-cool-soft);
   border-radius: 8px;
   gap: 4px;
   padding: 10px 12px;
@@ -141,14 +141,14 @@
 
 .libraryNotice span {
   color: rgba(23, 32, 38, 0.62);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 
 .libraryNotice code {
   color: #172026;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -156,7 +156,7 @@
 
 .libraryNotice strong {
   color: var(--danger-ink, #8d2d25);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -167,7 +167,7 @@
   border: 1px solid rgba(45, 113, 184, 0.2);
   border-radius: 8px;
   color: #245f9d;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   padding: 8px 10px;
 }
@@ -179,7 +179,7 @@
   border: 1px solid rgba(45, 113, 184, 0.2);
   border-radius: 8px;
   color: #245f9d;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   /* The banner carries the live 剩余时长 countdown; tabular figures stop the
      ticking digits from width-jittering. */
@@ -191,7 +191,7 @@
    success-family playing. */
 .idle {
   background: rgba(23, 32, 38, 0.08);
-  border: 1px solid rgba(23, 32, 38, 0.2);
+  border: 1px solid var(--line-cool-strong);
   color: rgba(23, 32, 38, 0.66);
 }
 
@@ -213,7 +213,7 @@
 .selectorPanel,
 .libraryPanel {
   background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(23, 32, 38, 0.12);
+  border: 1px solid var(--line-cool);
   border-radius: 8px;
   /* Shared panel paper recipe (warm, diffuse) — same as the music page. */
   box-shadow: var(--shadow-card);
@@ -231,7 +231,7 @@
 
 .panelHeader strong {
   color: #172026;
-  font-size: 16px;
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 
@@ -242,7 +242,7 @@
 
 .tagGroupHeader strong {
   color: rgba(23, 32, 38, 0.62);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
@@ -257,7 +257,7 @@
 
 .tagGroupSection {
   background: rgba(23, 32, 38, 0.035);
-  border: 1px solid rgba(23, 32, 38, 0.1);
+  border: 1px solid var(--line-cool-soft);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -265,7 +265,7 @@
 .tagGroupSummary {
   color: #172026;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   gap: 12px;
   min-height: 40px;
@@ -311,7 +311,7 @@
 
 .tagGroupSummary strong {
   color: rgba(23, 32, 38, 0.62);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
   margin-left: auto;
 }
@@ -328,7 +328,7 @@
 
 .trailButton {
   background: rgba(23, 32, 38, 0.04);
-  border: 1px solid rgba(23, 32, 38, 0.12);
+  border: 1px solid var(--line-cool);
   border-radius: 8px;
   cursor: pointer;
   display: grid;
@@ -343,13 +343,13 @@
 
 .trailButton span {
   color: rgba(23, 32, 38, 0.62);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
 }
 
 .trailButton strong {
   color: rgba(23, 32, 38, 0.72);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -385,13 +385,13 @@
   --tag-color: #48a868;
   align-items: center;
   background: #ffffff;
-  border: 1px solid rgba(23, 32, 38, 0.14);
+  border: 1px solid var(--line-cool);
   border-radius: 999px;
   color: rgba(23, 32, 38, 0.72);
   cursor: pointer;
   display: inline-flex;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 600;
   gap: 8px;
   min-height: 38px;
@@ -419,18 +419,18 @@
   /* Field label = essential text: 0.72 secondary tier (taste-skill §4.5
      form-label contrast floor), not the 0.62 metadata step. */
   color: rgba(23, 32, 38, 0.72);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   letter-spacing: 0.08em;
 }
 
 .customTagInput {
   background: #ffffff;
-  border: 1px solid rgba(23, 32, 38, 0.14);
+  border: 1px solid var(--line-cool);
   border-radius: 8px;
   color: #172026;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   min-height: 38px;
   padding: 0 12px;
@@ -477,7 +477,7 @@
 .videoCard {
   align-items: start;
   background: rgba(23, 32, 38, 0.04);
-  border: 1px solid rgba(23, 32, 38, 0.1);
+  border: 1px solid var(--line-cool-soft);
   border-radius: 8px;
   gap: 10px;
   grid-template-columns: 54px minmax(0, 1fr);
@@ -511,7 +511,7 @@
   bottom: 4px;
   color: #fffaf3;
   /* 10px was below the legibility floor; 11px keeps the chip readable. */
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   line-height: 1;
@@ -526,7 +526,7 @@
 
 .videoMeta h2 {
   color: #172026;
-  font-size: 17px;
+  font-size: var(--text-lg);
   font-weight: 600;
   letter-spacing: 0;
   line-height: 1.15;
@@ -535,7 +535,7 @@
 
 .videoMeta p {
   color: rgba(23, 32, 38, 0.62);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   line-height: 1.5;
   margin: 0;
@@ -556,7 +556,7 @@
   border: 1px solid rgba(45, 113, 184, 0.2);
   border-radius: 999px;
   color: rgba(23, 32, 38, 0.72);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   line-height: 1;
   padding: 4px 8px;
@@ -566,7 +566,7 @@
 .videoMeta code {
   color: rgba(23, 32, 38, 0.62);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -580,7 +580,7 @@
   color: #fffaf3;
   cursor: pointer;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   min-height: 36px;
   padding: 0 14px;
@@ -597,7 +597,7 @@
 .startButton:focus-visible, .resetButton:focus-visible {
   background: var(--calm-primary-hover);
   /* Sage ring family (the calm dialect's control ring) on keyboard focus. */
-  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  box-shadow: var(--ring);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 1px;
 }
@@ -618,7 +618,7 @@
   border-radius: 8px;
   color: rgba(23, 32, 38, 0.62);
   display: flex;
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 500;
   justify-content: center;
   min-height: 160px;
@@ -649,13 +649,13 @@
 
 .previewState strong {
   color: #172026;
-  font-size: 18px;
+  font-size: var(--text-xl);
   font-weight: 600;
 }
 
 .previewState span {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 

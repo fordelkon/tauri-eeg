@@ -36,7 +36,7 @@
 
 .eyebrow {
   color: rgba(23, 32, 38, 0.62);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -54,7 +54,7 @@
 
 .statusBar {
   color: rgba(23, 32, 38, 0.72);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   gap: 10px;
 }
@@ -69,7 +69,7 @@
 /* Unified status pill: 999px capsule, 28px tall, 12.5px/600 label. */
 .statusPill {
   border-radius: 999px;
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   font-weight: 600;
   gap: 6px;
   min-height: 28px;
@@ -83,7 +83,7 @@
 .idle,
 .stopped {
   background: rgba(23, 32, 38, 0.08);
-  border: 1px solid rgba(23, 32, 38, 0.2);
+  border: 1px solid var(--line-cool-strong);
   color: rgba(23, 32, 38, 0.66);
 }
 
@@ -147,7 +147,7 @@
   color: var(--danger-ink);
   display: flex;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   gap: 8px 12px;
   padding: 10px 12px;
@@ -166,7 +166,7 @@
   cursor: pointer;
   flex-shrink: 0;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   min-height: 28px;
   padding: 0 12px;
@@ -199,7 +199,7 @@
   border: 1px solid rgba(45, 113, 184, 0.2);
   border-radius: 8px;
   color: var(--info);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   padding: 10px 12px;
 }
@@ -212,7 +212,7 @@
   color: var(--success);
   display: flex;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   gap: 6px 14px;
   padding: 10px 12px;
@@ -251,11 +251,11 @@
    dialect's selected-pill recipe; green stays live/recording status). */
 .modeSwitchButton {
   background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(23, 32, 38, 0.18);
+  border: 1px solid var(--line-cool-strong);
   border-radius: 999px;
   color: var(--ink-cool);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   min-height: 34px;
   padding: 0 14px;
@@ -284,13 +284,13 @@
 .activeModeSwitchButton:hover:not(:disabled) {
   background: var(--calm-primary);
   border-color: var(--calm-primary);
-  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb), 0.30);
+  box-shadow: var(--shadow-control);
   color: #fff;
   font-weight: 600;
 }
 
 .modeSwitchButton:focus-visible {
-  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  box-shadow: var(--ring);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 1px;
 }
@@ -303,7 +303,7 @@
 
 .modeLockHint {
   color: #8a560e;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 
@@ -346,7 +346,7 @@
 
 .waveformPanel {
   background: #202722;
-  border: 1px solid rgba(44, 34, 24, 0.16);
+  border: 1px solid var(--line-strong);
   box-shadow: inset 0 1px 0 rgba(245, 240, 235, 0.06);
   border-radius: 8px;
   display: grid;
@@ -361,7 +361,7 @@
   color: rgba(239, 235, 228, 0.76);
   display: grid;
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   grid-auto-rows: 1fr;
   padding: 12px 8px;
@@ -386,7 +386,7 @@
 
 .channelPanel {
   background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(23, 32, 38, 0.1);
+  border: 1px solid var(--line-cool-soft);
   border-radius: 8px;
   max-height: min(31dvh, 210px);
   min-width: 0;
@@ -396,7 +396,7 @@
 
 .panelTitle {
   color: #172026;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   margin-bottom: 8px;
 }
@@ -417,13 +417,13 @@
 .channelToggle :global(.MuiFormControlLabel-label) {
   color: rgba(23, 32, 38, 0.78);
   font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 
 .footer {
   color: rgba(23, 32, 38, 0.62);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   gap: 12px;
 }

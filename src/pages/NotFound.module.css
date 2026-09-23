@@ -137,7 +137,7 @@
 
 .eyebrow {
   color: #fb7a68;
-  font-size: 12px;
+  font-size: var(--text-xs);
   /* Caps labels sit at the secondary step (500); the title is the 600. */
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -170,7 +170,7 @@
   border-radius: 999px;
   box-shadow: none;
   color: #ffffff;
-  font-size: 14px;
+  font-size: var(--text-base);
   /* Primary tier: 600 like every other primary CTA in the dialect. */
   font-weight: 600;
   text-transform: none;

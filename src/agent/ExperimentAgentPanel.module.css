@@ -1,6 +1,6 @@
 .panel {
   background: rgba(255, 255, 255, 0.36);
-  border: 1px solid rgba(44, 34, 24, 0.1);
+  border: 1px solid var(--line-soft);
   border-radius: 8px;
   box-sizing: border-box;
   color: #2c2218;
@@ -31,14 +31,14 @@
 .header span,
 .timeline span {
   color: rgba(44, 34, 24, 0.62);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .header strong {
-  font-size: 14px;
+  font-size: var(--text-base);
   line-height: 1.1;
 }
 
@@ -51,12 +51,12 @@
 
 .cancelButton {
   background: rgba(44, 34, 24, 0.08);
-  border: 1px solid rgba(44, 34, 24, 0.1);
+  border: 1px solid var(--line-soft);
   border-radius: 8px;
   color: #2c2218;
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   min-height: 26px;
   padding: 4px 10px;
@@ -75,7 +75,7 @@
 }
 
 .cancelButton:focus-visible {
-  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  box-shadow: var(--ring);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 2px;
 }
@@ -110,12 +110,12 @@
 .promptGrid button,
 .confirmationActions button {
   background: rgba(44, 34, 24, 0.08);
-  border: 1px solid rgba(44, 34, 24, 0.1);
+  border: 1px solid var(--line-soft);
   border-radius: 8px;
   color: #2c2218;
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   min-height: 30px;
   overflow: hidden;
@@ -140,10 +140,10 @@
 
 .message {
   background: rgba(245, 240, 235, 0.56);
-  border: 1px solid rgba(44, 34, 24, 0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 8px;
   flex: 0 0 auto;
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.45;
   margin: 0;
   padding: 8px;
@@ -152,7 +152,7 @@
 .thinking {
   align-items: center;
   background: rgba(44, 34, 24, 0.06);
-  border: 1px solid rgba(44, 34, 24, 0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 8px;
   color: rgba(44, 34, 24, 0.72);
   display: flex;
@@ -164,7 +164,7 @@
 
 .thinkingPanel {
   background: rgba(44, 34, 24, 0.06);
-  border: 1px solid rgba(44, 34, 24, 0.08);
+  border: 1px solid var(--line-soft);
   border-radius: 8px;
   flex: 0 0 auto;
   overflow: hidden;
@@ -186,7 +186,7 @@
 }
 
 .thinkingPanel .thinking:focus-visible {
-  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  box-shadow: var(--ring);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: -2px;
 }
@@ -200,7 +200,7 @@
   box-sizing: border-box;
   color: rgba(44, 34, 24, 0.72);
   display: grid;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   gap: 4px;
   line-height: 1.5;
   margin: 0;
@@ -225,7 +225,7 @@
 }
 
 .thinking strong {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   line-height: 1.2;
   /* The label carries the live "思考中 X.X s" elapsed seconds; tabular
@@ -257,7 +257,7 @@
 .idleGuideItem {
   color: rgba(44, 34, 24, 0.72);
   display: flex;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   gap: 8px;
   line-height: 1.5;
 }
@@ -277,7 +277,7 @@
 }
 
 .timeline strong {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   line-height: 1.35;
 }
@@ -297,7 +297,7 @@
 }
 
 .confirmation strong {
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.4;
 }
 
@@ -321,12 +321,12 @@
 
 .form input {
   background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(44, 34, 24, 0.14);
+  border: 1px solid var(--line);
   border-radius: 8px;
   box-sizing: border-box;
   color: #2c2218;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
   height: 38px;
   min-width: 0;
   padding: 0 10px;
@@ -366,7 +366,7 @@
 .confirmationActions button:focus-visible,
 .form button:focus-visible {
   /* Same sage ring family as .cancelButton. */
-  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  box-shadow: var(--ring);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 2px;
 }

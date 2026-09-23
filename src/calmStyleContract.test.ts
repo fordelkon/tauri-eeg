@@ -122,6 +122,22 @@ const heavyInkShadows = findPattern(
   /box-shadow:[^;]*rgba\(\s*23,\s*32,\s*38,\s*0\.24/,
 );
 
+// Round-9 quiet-the-surface: the UI text band snaps to the {11…20} token
+// scale, so every raw px font-size in the 10–21 band is a violation (22px+
+// display numerals and clamp() heads stay bespoke).
+const rawUiFontSizes = findPattern(
+  cssFiles,
+  /font-size:\s*(?:1[0-9]|2[01])(?:\.\d+)?px/,
+);
+
+// Round-9 hairline ladder: 1px ink borders ride --line* tokens instead of
+// ad-hoc warm/cool rgba alphas. Semantic tint borders (info/success/…)
+// don't match these patterns and stay free-form.
+const rawInkHairlines = findPattern(
+  cssFiles,
+  /border: 1px solid rgba\(\s*(?:44,\s*34,\s*24|23,\s*32,\s*38),/,
+);
+
 describe('calm style contract', () => {
   test('the terracotta dialect tokens are defined', () => {
     const tokens = readText(new URL('src/styles/tokens.css', SRC_ROOT));
@@ -136,8 +152,9 @@ describe('calm style contract', () => {
 
     expect(shell).toContain("main: '#c46757'");
     expect(shell).not.toMatch(/main:\s*'#(?:172026|df0203)'/);
-    // Contained buttons carry the terracotta-tinted soft shadow recipe.
-    expect(shell).toContain('rgba(196, 103, 87, 0.30)');
+    // Contained buttons carry the tokenized terracotta lift (--shadow-control,
+    // round-9); the literal rgba recipe is retired everywhere.
+    expect(shell).toContain('var(--shadow-control)');
   });
 
   test('no control is filled with ink (text-only rule)', () => {
@@ -150,5 +167,13 @@ describe('calm style contract', () => {
 
   test('the heavy ink shadow recipe stays retired', () => {
     expect(heavyInkShadows).toEqual([]);
+  });
+
+  test('UI font sizes ride the round-9 type-scale tokens (no raw 10–21px)', () => {
+    expect(rawUiFontSizes).toEqual([]);
+  });
+
+  test('1px ink borders ride the round-9 hairline tokens (no raw rgba)', () => {
+    expect(rawInkHairlines).toEqual([]);
   });
 });

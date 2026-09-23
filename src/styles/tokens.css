@@ -40,6 +40,19 @@
   --danger-ink: #8d2d25;
   --warning-ink: #8a560e;
 
+  /* Type scale (round-9 quiet-the-surface): the UI text band snaps to
+     {11, 12, 13, 14, 16, 18, 20} and every `font-size:` below 22px rides one
+     of these tokens. The half-pixel strays (11.5/12.5/13.5/14.5/15.5) and the
+     in-between steps (15/17/19/21) are retired — fewer sizes, calmer rhythm.
+     Display sizes (>=22px hero numerals, clamp() heads) stay bespoke. */
+  --text-2xs: 11px; /* micro captions, unit labels, icon glyphs */
+  --text-xs: 12px; /* secondary meta, chips, badges */
+  --text-sm: 13px; /* body-small, control labels, banners */
+  --text-base: 14px; /* body, nav labels */
+  --text-lg: 16px; /* card/sheet titles */
+  --text-xl: 18px; /* section titles */
+  --text-2xl: 20px; /* panel headers */
+
   /* Radii */
   --radius-control: 8px;
   /* Micro-control optical exception: compact <=32px controls (checkboxes,
@@ -48,6 +61,24 @@
   --radius-card: 14px;
   --radius-surface: 18px;
   --radius-overlay: 22px;
+
+  /* Hairlines (round-9): every 1px ink border rides one of three steps per
+     ink family instead of ad-hoc alphas. Warm ink (--line*) serves the shell
+     pages, cool ink (--line-cool*) the monitor pages — same ladder, so a
+     warm/cool pair still reads at the same weight. Semantic indicator
+     borders (info/success/warning/danger tints) are NOT hairlines and keep
+     their own recipes. */
+  --line-soft: rgba(44, 34, 24, 0.1);
+  --line: rgba(44, 34, 24, 0.14);
+  --line-strong: rgba(44, 34, 24, 0.18);
+  --line-cool-soft: rgba(23, 32, 38, 0.1);
+  --line-cool: rgba(23, 32, 38, 0.14);
+  --line-cool-strong: rgba(23, 32, 38, 0.2);
+
+  /* Control shadows (round-9): the contained-button lift is one recipe,
+     tokenized so pages stop re-typing the rgba. */
+  --shadow-control: 0 3px 12px rgba(var(--calm-primary-rgb), 0.3);
+  --shadow-control-active: 0 2px 6px rgba(var(--calm-primary-rgb), 0.24);
 
   /* Elevation (two-layer recipes from EffectEvaluation) */
   --shadow-card: 0 1px 2px rgba(28, 22, 14, 0.06), 0 12px 32px rgba(28, 22, 14, 0.1);
