@@ -1,5 +1,5 @@
 .workspace {
-  animation: workspaceEnter 460ms var(--ease-out) both;
+  animation: workspaceEnter var(--dur-enter) var(--ease-out) both;
   color: #172026;
   gap: 14px;
   margin: 0 auto;

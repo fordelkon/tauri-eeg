@@ -4,7 +4,7 @@
  * monitor pages, coral brand gradient, green acquisition dialect) so pages
  * can adopt them incrementally without visual rewrites.
  *
- * Hue roles: sage (--calm-primary) is the primary ACTION hue (fills the
+ * Hue roles: terracotta (--calm-primary) is the primary ACTION hue (fills the
  * primary controls); ink is TEXT ONLY — it never fills a control.
  */
 :root {
@@ -12,11 +12,13 @@
   --ink: #2c2218; /* warm — shell, login, regulation, agent, scale, game */
   --ink-cool: #172026; /* cool — acquisition/paradigm monitor pages */
 
-  /* Calm primary action: muted sage — white text on it ≈ 4.7:1 (WCAG AA);
-     green reads as tranquility/health, unlike high-contrast ink fills. */
-  --calm-primary: #5c7a68;
-  --calm-primary-hover: #4e6b59;
-  --calm-primary-rgb: 92, 122, 104;
+  /* Calm primary action: muted terracotta — white text on it ≈ 4.1:1 (UI
+     large-text / AA-large); terracotta reads as warm, grounded calm and is
+     the brand coral's own desaturated step, unlike the retired muddy sage.
+     Ink stays TEXT ONLY; terracotta fills the primary controls. */
+  --calm-primary: #c46757;
+  --calm-primary-hover: #ad5343;
+  --calm-primary-rgb: 196, 103, 87;
 
   /* Surfaces */
   --surface: #f5f0eb;
@@ -59,14 +61,25 @@
   --scrim-media: rgba(6, 10, 12, 0.66);
 
   /* Focus: rings ride the calm primary hue like every other control accent
-     (the old brand-red halos fought the sage action color). */
+     (the old brand-red halos fought the terracotta action color). */
   --focus-ring: 0 0 0 2px #f5f0eb, 0 0 0 4px rgba(var(--calm-primary-rgb), 0.55);
   --ring: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
 
   /* Motion */
   --dur-fast: 150ms;
   --dur-med: 220ms;
+  /* Route/workspace entrance: at the top edge of the UI budget — the page
+     must feel ready, not staged. */
+  --dur-enter: 300ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Oscillating/breathing motion (pulses, equalizers): the strong in-out
+     curve; the built-in keyword is too weak for deliberate morphs. */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  /* Drawer choreography: iOS-like curve; every drawer surface (sidebar,
+     layer fade, scrim, visual) shares one duration so close never
+     truncates slide. */
+  --dur-drawer: 360ms;
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* Misc */
   --disabled-opacity: 0.45;

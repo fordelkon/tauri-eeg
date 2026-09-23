@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { EChartsType } from 'echarts/core';
 import type { ReactNode } from 'react';
+import { chartAnimationDuration } from '../pages/home/effectResultChartOption';
 import {
   getMentalScaleStatusSnapshot,
   subscribeMentalScaleStatus,
@@ -35,9 +36,10 @@ const getScaleTitleLabel = (title: string) => scaleTitleLabels[title] ?? title;
  * Radar palette rides the global design tokens (src/styles/tokens.css) so the
  * chart follows the brand without another hardcoded palette. Values are read
  * once at module scope; every fallback equals the token value verbatim, so a
- * not-yet-loaded stylesheet renders exactly the previous chart.
+ * not-yet-loaded stylesheet renders exactly the previous chart. The series
+ * color itself is the muted brick constant (radarBrand above) — see the
+ * calm-dialect note there.
  */
-const FALLBACK_BRAND = '#df0203';
 const FALLBACK_INK = '#2c2218';
 const FALLBACK_SURFACE = '#f5f0eb';
 
@@ -58,10 +60,13 @@ function tokenRgba(tokenValue: string, fallback: string, alpha: number): string 
   return `rgba(${(rgb >> 16) & 255}, ${(rgb >> 8) & 255}, ${rgb & 255}, ${alpha})`;
 }
 
-const radarBrand = readTokenColor('--brand', FALLBACK_BRAND);
+// Muted brick, not the full-saturation --brand red: the calm dialect keeps
+// chart series on the muted step (same value as the effect chart's POST
+// color) — #df0203 screamed against the cream sidebar.
+const radarBrand = '#c0524c';
 const radarInk = readTokenColor('--ink', FALLBACK_INK);
 const radarSurface = readTokenColor('--surface', FALLBACK_SURFACE);
-const radarBrandArea = tokenRgba(radarBrand, FALLBACK_BRAND, 0.18);
+const radarBrandArea = tokenRgba(radarBrand, radarBrand, 0.18);
 const radarInkAxisName = tokenRgba(radarInk, FALLBACK_INK, 0.72);
 const radarInkAxisLine = tokenRgba(radarInk, FALLBACK_INK, 0.16);
 const radarInkSplitLine = tokenRgba(radarInk, FALLBACK_INK, 0.12);
@@ -158,7 +163,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
     }
 
     chart.setOption({
-      animationDuration: 520,
+      animationDuration: chartAnimationDuration(),
       animationEasing: 'cubicOut',
       color: [radarBrand],
       radar: {

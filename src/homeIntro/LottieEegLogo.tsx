@@ -27,6 +27,9 @@ export default function LottieEegLogo({
     let cancelled = false;
     let animation: AnimationItem | null = null;
     let detachVisibilitySync: (() => void) | null = null;
+    // loop={false} consumers rest after one cycle: latch completion so
+    // visibility changes never resurrect the idle animation.
+    let hasCompleted = false;
 
     // Load the light player lazily so the lottie runtime stays off every
     // route's critical path; it is only fetched once a logo actually mounts.
@@ -61,7 +64,7 @@ export default function LottieEegLogo({
       syncPausedState();
 
       const syncPlayback = () => {
-        const shouldPlay = !prefersReducedMotion && isVisible && isPageVisible;
+        const shouldPlay = !prefersReducedMotion && isVisible && isPageVisible && !hasCompleted;
         if (shouldPlay === playing) return;
         playing = shouldPlay;
         if (shouldPlay) {
@@ -71,6 +74,15 @@ export default function LottieEegLogo({
         }
         syncPausedState();
       };
+
+      // Looping consumers never fire this; loop={false} consumers latch it
+      // so the logo rests after one full cycle (the data-paused hook stops
+      // the CSS keyframe layers together with the lottie player).
+      animation.addEventListener('complete', () => {
+        hasCompleted = true;
+        playing = false;
+        syncPausedState();
+      });
 
       const handleVisibilityChange = () => {
         isPageVisible = !document.hidden;

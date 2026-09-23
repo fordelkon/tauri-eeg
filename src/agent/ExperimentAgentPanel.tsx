@@ -17,6 +17,17 @@ const formatThinkingSeconds = (durationMs: number) => `${(durationMs / 1000).toF
  * than dead space (R2-7): the input stays anchored to the panel bottom, and
  * this card fills the void until the first conversation entry replaces it.
  */
+/** Phase ids are internal route slugs; the header shows the Chinese label. */
+const phaseLabels: Record<AgentPhase, string> = {
+  intro: '流程引导',
+  baseline: '基线采集',
+  video_regulation: '视频调控',
+  game_regulation: 'VR调控',
+  music_regulation: '音乐调控',
+  recovery: '恢复阶段',
+  finish: '流程完成',
+};
+
 const phaseGuideItems: Record<AgentPhase, readonly string[]> = {
   intro: [
     '点击上方推荐操作，或直接输入“开始实验”',
@@ -164,7 +175,7 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
       <div className={styles.header}>
         <div>
           <span>{isPlannerAvailable ? '智能可用' : '智能不可用'}</span>
-          <strong>{phase}</strong>
+          <strong>{phaseLabels[phase] ?? phase}</strong>
         </div>
         <div className={styles.headerActions}>
           {isPlanning ? (

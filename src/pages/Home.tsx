@@ -253,9 +253,13 @@ export default function Home() {
       className={`${styles.page} box-border flex min-h-screen overflow-hidden relative`}
       onClick={handleAgentActionClick}
     >
-      <div className={styles.heroBloom} aria-hidden="true">
-        <span className={styles.heroCore} />
-      </div>
+      {/* The 760px coral hero disc is the /home brand stage; on monitor
+          pages it reads as a stain behind dense UI, so it stays home-only. */}
+      {activeItem.path === '/home' ? (
+        <div className={styles.heroBloom} aria-hidden="true">
+          <span className={styles.heroCore} />
+        </div>
+      ) : null}
 
       <IconButton
         className={`${styles.mobileMenuButton} ${isSidebarOpen ? styles.isHidden : ''}`}

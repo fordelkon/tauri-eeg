@@ -1,6 +1,6 @@
 .overlay {
   align-items: center;
-  animation: overlayIn 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: overlayIn 320ms var(--ease-out) both;
   background:
     radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.72), transparent 23%),
     radial-gradient(circle at 50% 48%, rgba(184, 31, 31, 0.06), transparent 34%),
@@ -29,7 +29,10 @@
 }
 
 .isLeaving {
-  animation: overlayOut 480ms cubic-bezier(0.7, 0, 0.84, 0) both;
+  /* Deliberate exit curve (fast leave, no settle) — the overlay hands
+     the scene back to the app; ease-in shape is correct for exits. */
+  --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  animation: overlayOut 480ms var(--ease-exit) both;
   pointer-events: none;
 }
 
@@ -43,7 +46,7 @@
 }
 
 .logoMark {
-  animation: logoIn 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: logoIn 700ms var(--ease-out) both;
   filter: drop-shadow(0 22px 38px rgba(44, 34, 24, 0.16));
   width: clamp(220px, 36vw, 360px);
 }

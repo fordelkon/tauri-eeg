@@ -1,5 +1,5 @@
 .workspace {
-  animation: workspaceEnter 460ms var(--ease-out) both;
+  animation: workspaceEnter var(--dur-enter) var(--ease-out) both;
   color: #172026;
   gap: 18px;
   max-width: 1040px;
@@ -13,7 +13,7 @@
 
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 

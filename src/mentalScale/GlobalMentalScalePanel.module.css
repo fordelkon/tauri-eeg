@@ -8,7 +8,9 @@
   height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
-  padding: clamp(72px, 8vh, 86px) clamp(18px, 2.4vw, 30px) clamp(24px, 4vh, 42px);
+  /* Bottom padding clears the shell's fixed nextPage CTA (bottom 38-80px,
+     right edge) so the agent composer never slides beneath it. */
+  padding: clamp(72px, 8vh, 86px) clamp(18px, 2.4vw, 30px) clamp(96px, 12vh, 116px);
   position: relative;
   z-index: var(--z1);
 }

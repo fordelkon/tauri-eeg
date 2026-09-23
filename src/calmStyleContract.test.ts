@@ -8,7 +8,8 @@ const readText = (url: URL) => readFileSync(url, 'utf8');
  * App-wide calm-style contract (sibling of timersContract.test.ts), pinning
  * the research-backed 平静 dialect at the source level:
  *
- * Sage (--calm-primary #5c7a68) is the ONLY control-fill hue; ink (#2c2218 /
+ * Terracotta (--calm-primary #c46757) is the ONLY control-fill hue; ink
+ * (#2c2218 /
  * #172026) is text-only; brand red / brick red is decorative art or a
  * destructive/semantic indicator only; shadows are diffuse and hue-tinted
  * (the heavy ink recipe `rgba(23, 32, 38, 0.24)` is retired).
@@ -122,7 +123,7 @@ const heavyInkShadows = findPattern(
 );
 
 describe('calm style contract', () => {
-  test('the sage dialect tokens are defined', () => {
+  test('the terracotta dialect tokens are defined', () => {
     const tokens = readText(new URL('src/styles/tokens.css', SRC_ROOT));
 
     expect(tokens).toContain('--calm-primary:');
@@ -130,13 +131,13 @@ describe('calm style contract', () => {
     expect(tokens).toContain('--calm-primary-rgb:');
   });
 
-  test('the MUI theme primary stays on calm sage, not ink or brand red', () => {
+  test('the MUI theme primary stays on calm terracotta, not ink or brand red', () => {
     const shell = readText(new URL('src/AppShell.tsx', SRC_ROOT));
 
-    expect(shell).toContain("main: '#5c7a68'");
+    expect(shell).toContain("main: '#c46757'");
     expect(shell).not.toMatch(/main:\s*'#(?:172026|df0203)'/);
-    // Contained buttons carry the sage-tinted soft shadow recipe.
-    expect(shell).toContain('rgba(92, 122, 104, 0.30)');
+    // Contained buttons carry the terracotta-tinted soft shadow recipe.
+    expect(shell).toContain('rgba(196, 103, 87, 0.30)');
   });
 
   test('no control is filled with ink (text-only rule)', () => {

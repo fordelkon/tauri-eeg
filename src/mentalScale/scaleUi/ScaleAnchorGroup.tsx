@@ -177,14 +177,13 @@ export default function ScaleAnchorGroup({
       ) : (
         <div className={styles.anchorRow}>{buttons}</div>
       )}
-      {!isBipolar ? (
+      {!isBipolar && selected ? (
         // Redundant for assistive tech (the pressed button already carries the
-        // value), so the live label stays visual-only.
-        <p
-          className={`${styles.anchorValueLabel} ${selected ? '' : styles.anchorValueLabelMuted}`}
-          aria-hidden="true"
-        >
-          {selected?.label ?? '—'}
+        // value), so the live label stays visual-only. Rendered only once a
+        // value exists — the muted "—" placeholder read as stray debris
+        // under every unanswered question.
+        <p className={styles.anchorValueLabel} aria-hidden="true">
+          {selected.label}
         </p>
       ) : null}
     </div>

@@ -40,8 +40,8 @@
   pointer-events: none;
   position: fixed;
   transition:
-    opacity var(--dur-med) var(--ease-out),
-    visibility 0s linear var(--dur-med);
+    opacity var(--dur-drawer) var(--ease-drawer),
+    visibility 0s linear var(--dur-drawer);
   visibility: hidden;
   z-index: var(--z3);
 }
@@ -50,7 +50,7 @@
   opacity: 1;
   pointer-events: auto;
   transition:
-    opacity var(--dur-med) var(--ease-out),
+    opacity var(--dur-drawer) var(--ease-drawer),
     visibility 0s;
   visibility: visible;
 }
@@ -63,7 +63,7 @@
   padding: 24px 18px;
   transform: translateX(-100%);
   transition:
-    transform 420ms var(--ease-out);
+    transform var(--dur-drawer) var(--ease-drawer);
   width: 100%;
 }
 
@@ -83,11 +83,13 @@
   min-height: 100vh;
   overflow: hidden;
   position: relative;
+  transform: translateX(100%);
+  transition: transform var(--dur-drawer) var(--ease-drawer);
 }
 
 .menuLayer.isOpen .menuVisual {
-  animation: menuVisualIn 620ms var(--ease-out) both;
   display: block;
+  transform: translateX(0);
 }
 
 @media (max-width: 860px) {
@@ -188,9 +190,9 @@
   top: 20px;
   transition:
     background-color var(--dur-med) var(--ease-out),
-    box-shadow var(--dur-med) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
     opacity var(--dur-med) var(--ease-out),
-    transform var(--dur-med) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out),
     visibility 0s;
   width: 44px;
   z-index: var(--z4);
@@ -203,7 +205,7 @@
 }
 
 .mobileMenuButton:active {
-  transform: translateY(1px);
+  transform: scale(0.97) translateY(1px);
 }
 
 .mobileMenuButton.isHidden {
@@ -223,9 +225,9 @@
   pointer-events: none;
   position: fixed;
   transition:
-    background 380ms var(--ease-out),
-    opacity 380ms var(--ease-out),
-    visibility 0s var(--ease-out) 380ms;
+    background var(--dur-drawer) var(--ease-drawer),
+    opacity var(--dur-drawer) var(--ease-drawer),
+    visibility 0s var(--ease-drawer) var(--dur-drawer);
   visibility: hidden;
   z-index: var(--z2);
 }
@@ -235,8 +237,8 @@
   opacity: 1;
   pointer-events: auto;
   transition:
-    background 380ms var(--ease-out),
-    opacity 380ms var(--ease-out),
+    background var(--dur-drawer) var(--ease-drawer),
+    opacity var(--dur-drawer) var(--ease-drawer),
     visibility 0s;
   visibility: visible;
 }
@@ -477,11 +479,10 @@
 .navItem:hover {
   background: rgba(44, 34, 24, 0.06);
   color: #2c2218;
-  transform: translateX(3px);
 }
 
 .navItem:active {
-  transform: translate(3px, 1px);
+  transform: translateY(1px);
 }
 
 .navItem.isActive,
@@ -535,10 +536,10 @@
   display: block;
   flex-shrink: 0;
   line-height: inherit;
-  /* Duration rides the hover letter-roll choreography (no token above
-     --dur-med); the easing stays on the dialect curve. */
-  transition: transform 540ms var(--ease-out);
-  transition-delay: calc(var(--letter-index, 0) * 13ms);
+  /* Letter-roll stays inside the UI budget (280ms); the easing stays on
+     the dialect curve. */
+  transition: transform 280ms var(--ease-out);
+  transition-delay: calc(var(--letter-index, 0) * 8ms);
   white-space: pre;
 }
 
@@ -592,8 +593,8 @@
   transform: translateX(48px) scaleX(0.98);
   transform-origin: 100% 50%;
   transition:
-    opacity 520ms var(--ease-out),
-    transform 520ms var(--ease-out);
+    opacity var(--dur-enter) var(--ease-out),
+    transform var(--dur-enter) var(--ease-out);
   width: 100%;
   z-index: var(--z1);
 }
@@ -744,11 +745,10 @@
 .railItem:hover {
   background: rgba(44, 34, 24, 0.06);
   color: #2c2218;
-  transform: translateX(3px);
 }
 
 .railItem:active {
-  transform: translate(3px, 1px);
+  transform: translateY(1px);
 }
 
 .isRailActive {
@@ -1074,6 +1074,15 @@
   .railSignOut:active {
     transform: none;
   }
+
+  .menuButton:hover,
+  .mobileMenuButton:hover,
+  .navItem:hover,
+  .railItem:hover,
+  .nextPageButton:hover,
+  .nextPageButton:hover .nextPageIcon {
+    transform: none;
+  }
 }
 
 .menuButton:focus-visible,
@@ -1102,16 +1111,6 @@
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes menuVisualIn {
-  from {
-    transform: translateX(100%);
-  }
-
-  to {
-    transform: translateX(0);
   }
 }
 

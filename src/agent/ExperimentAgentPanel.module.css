@@ -221,7 +221,7 @@
 }
 
 .thinkingActive span {
-  animation: agentThinkingPulse 0.9s ease-in-out infinite;
+  animation: agentThinkingPulse 0.9s var(--ease-in-out) infinite;
 }
 
 .thinking strong {

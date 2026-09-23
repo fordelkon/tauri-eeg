@@ -1,11 +1,28 @@
 import CssBaseline from '@mui/material/CssBaseline';
+import Grow from '@mui/material/Grow';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+
+/**
+ * Dialog/Popover motion rides the calm dialect curve (--ease-out) instead
+ * of MUI's default 225ms standard curve, so portal dialogs land the same
+ * way the hand-rolled 220ms dialogs do. Exit is slightly quicker than
+ * enter — the response snaps, the dismissal leaves sooner.
+ */
+const CalmGrow = (props: ComponentProps<typeof Grow>) => (
+  <Grow
+    {...props}
+    easing={{
+      enter: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      exit: 'cubic-bezier(0.7, 0, 0.84, 0)',
+    }}
+  />
+);
 
 // Theme mirrors the hand-rolled tokens in src/styles/tokens.css so MUI
 // surfaces (dialogs, pickers, buttons) match the warm-ink design language.
 //
-// Calm-dialect pass: the primary palette is muted SAGE (#5c7a68) — the calm
+// Calm-dialect pass: the primary palette is muted TERRACOTTA (#c46757) — the calm
 // primary action hue; ink stays text-only and coral/red stay decorative art
 // and semantic tints. Shadows follow the calm depth rule: soft, diffuse and
 // tinted with the fill's own hue (sage controls get sage shadows), never
@@ -17,7 +34,7 @@ import type { ReactNode } from 'react';
 // override still lands on the dialect.
 const theme = createTheme({
   palette: {
-    primary: { main: '#5c7a68', contrastText: '#ffffff' },
+    primary: { main: '#c46757', contrastText: '#ffffff' },
     secondary: { main: '#fb7f6e' },
     success: { main: '#1c6a47' },
     warning: { main: '#8a560e' },
@@ -53,8 +70,8 @@ const theme = createTheme({
             transform: 'scale(0.98)',
           },
           '&:focus-visible': {
-            boxShadow: '0 0 0 3px rgba(92, 122, 104, 0.16)',
-            outline: '2px solid rgba(92, 122, 104, 0.55)',
+            boxShadow: '0 0 0 3px rgba(196, 103, 87, 0.16)',
+            outline: '2px solid rgba(196, 103, 87, 0.55)',
             outlineOffset: 1,
           },
         },
@@ -63,15 +80,15 @@ const theme = createTheme({
           // background-image and erase the coral gradient art on the Login /
           // NotFound marketing buttons (CSS-module background-image paints
           // over any palette background-color).
-          backgroundColor: '#5c7a68',
-          boxShadow: '0 3px 12px rgba(92, 122, 104, 0.30)',
+          backgroundColor: '#c46757',
+          boxShadow: '0 3px 12px rgba(196, 103, 87, 0.30)',
           color: '#fff',
           '&:hover': {
-            backgroundColor: '#4e6b59',
-            boxShadow: '0 3px 12px rgba(92, 122, 104, 0.30)',
+            backgroundColor: '#ad5343',
+            boxShadow: '0 3px 12px rgba(196, 103, 87, 0.30)',
           },
           '&:active': {
-            boxShadow: '0 2px 6px rgba(92, 122, 104, 0.24)',
+            boxShadow: '0 2px 6px rgba(196, 103, 87, 0.24)',
           },
           '&.Mui-disabled': {
             backgroundColor: 'rgba(23, 32, 38, 0.14)',
@@ -152,11 +169,31 @@ const theme = createTheme({
       },
     },
     MuiDialog: {
+      defaultProps: {
+        // MUI v9: TransitionComponent was migrated to slots.transition;
+        // easing/timeout ride slotProps.transition.
+        slots: { transition: CalmGrow },
+        slotProps: {
+          transition: {
+            timeout: { enter: 220, exit: 180 },
+          },
+        },
+      },
       styleOverrides: {
         paper: {
           borderRadius: 14,
           // Calm depth: warm-tinted and softer than the old cool-ink drop.
           boxShadow: '0 24px 56px rgba(44, 34, 24, 0.16)',
+        },
+      },
+    },
+    MuiPopover: {
+      defaultProps: {
+        slots: { transition: CalmGrow },
+        slotProps: {
+          transition: {
+            timeout: { enter: 220, exit: 180 },
+          },
         },
       },
     },

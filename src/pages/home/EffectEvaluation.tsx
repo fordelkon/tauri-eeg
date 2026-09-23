@@ -464,19 +464,24 @@ export default function EffectEvaluation() {
           className={`${styles.stage}${state.step === 5 ? ` ${styles.stageFlat}` : ''}`}
           aria-label="当前任务"
         >
-          <p className={styles.stageKicker}>
-            步骤 {state.step + 1} / {EFFECT_FLOW_STEP_COUNT} · {currentNode.title}
-          </p>
-          {/* While the condition window runs the countdown digits are the
-              headline — the title/hint step aside. */}
-          {!isWindowRunning ? (
-            <>
-              <h2 className={styles.stageTitle}>{currentNode.stageTitle}</h2>
-              <p className={styles.stageHint}>{currentNode.stageHint}</p>
-            </>
-          ) : null}
+          {/* Keyed by the flow step: each advance replays one short rise
+              (.stageSwap). The countdown branch stays INSIDE the wrapper so
+              its own appearing/disappearing never re-triggers the entrance. */}
+          <div key={state.step} className={styles.stageSwap}>
+            <p className={styles.stageKicker}>
+              步骤 {state.step + 1} / {EFFECT_FLOW_STEP_COUNT} · {currentNode.title}
+            </p>
+            {/* While the condition window runs the countdown digits are the
+                headline — the title/hint step aside. */}
+            {!isWindowRunning ? (
+              <>
+                <h2 className={styles.stageTitle}>{currentNode.stageTitle}</h2>
+                <p className={styles.stageHint}>{currentNode.stageHint}</p>
+              </>
+            ) : null}
 
-          {renderStageBody(state.step)}
+            {renderStageBody(state.step)}
+          </div>
 
           {/* Destructive reset lives in the quiet footer row, visually
               far from every primary CTA. At the result step the same

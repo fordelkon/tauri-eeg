@@ -49,12 +49,11 @@
   top: var(--exit-top, 0);
   transform-origin: 50% 50%;
   width: var(--exit-width, 100vw);
-  will-change: inset, width, height, border-radius;
   z-index: 4;
 }
 
 .container.isExiting .rightPanel {
-  animation: loginFormExit 520ms ease-out forwards;
+  animation: loginFormExit 520ms var(--ease-out) forwards;
 }
 
 .leftPanel::before {
@@ -164,10 +163,14 @@
 }
 
 .fieldGroup {
+  /* Local exception: 280ms sits between --dur-fast and --dur-med by design —
+     the form-revert snap is calmer than a control press. */
   --revert-dur: 280ms;
   --shake-distance: 6px;
   --shake-dur-a: 80ms;
   --shake-dur-b: 60ms;
+  /* Deliberate shake variant of --ease-out (softer attack for error jitter);
+     do not swap to the token. */
   --shake-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --shake-overshoot: 4px;
 }
@@ -469,8 +472,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* The .container.isExiting variants match the exit rules' (0,3,0)
+     specificity — without them `animation: none` loses and the 940ms
+     layout animation survives the guard. */
   .leftPanel,
+  .container.isExiting .leftPanel,
   .rightPanel,
+  .container.isExiting .rightPanel,
   .formPanel {
     animation: none;
     opacity: 1;
@@ -492,6 +500,10 @@
   }
 
   .textField :global(.MuiIconButton-root:active) {
+    transform: none;
+  }
+
+  .submitButton:hover {
     transform: none;
   }
 }

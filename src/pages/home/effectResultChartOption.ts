@@ -20,7 +20,7 @@ const BASELINE_COLOR = '#8a93a6';
 const POST_COLOR = '#c0524c';
 
 /** Honors prefers-reduced-motion for the chart's entry animation. */
-function chartAnimationDuration(): number {
+export function chartAnimationDuration(): number {
   try {
     const query = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)');
     if (query?.matches) {

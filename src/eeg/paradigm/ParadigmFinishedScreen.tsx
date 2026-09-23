@@ -36,7 +36,7 @@ export default function ParadigmFinishedScreen({
   const navigate = useNavigate();
 
   return (
-    <div className={styles.panel} aria-label="范式 Session 训练前统计">
+    <div className={`${styles.panel} ${styles.panelFinished}`} aria-label="范式 Session 训练前统计">
       <header className={styles.dialogHeader}>
         <p className={styles.dialogEyebrow}>Session 完成</p>
         <h2 className={styles.dialogTitle}>训练前统计</h2>

@@ -3,7 +3,7 @@
 /* ------------------------------------------------------------------ */
 /*
  * Page-local tokens for the effect-evaluation wizard, aligned with the
- * app's calm pages (scaleUi / MusicRegulation): sage accents for controls,
+ * app's calm pages (scaleUi / MusicRegulation): terracotta accents for controls,
  * coral for warm beacons/hairlines, muted brick for negative data - the
  * calm dialect never fills a control with saturated red. Radius scale rides
  * the global tokens (18 surfaces / 14 cards / 8 controls) and two layered
@@ -15,10 +15,10 @@
 .workspace {
   --ee-ink: #172026;
   --ee-ink-rgb: 23, 32, 38;
-  /* Controls accent on calm sage (the scaleUi recipe); hover is a deeper
-     sage step. Sage, not ink: ink is text-only in the calm dialect. */
-  --ee-accent: var(--calm-primary, #5c7a68);
-  --ee-accent-hover: var(--calm-primary-hover, #4e6b59);
+  /* Controls accent on calm terracotta (the scaleUi recipe); hover is a deeper
+     terracotta step. Terracotta, not ink: ink is text-only in the calm dialect. */
+  --ee-accent: var(--calm-primary, #c46757);
+  --ee-accent-hover: var(--calm-primary-hover, #ad5343);
   /* Warm beacon/indicator accent - coral, never saturated red. */
   --ee-warm: var(--brand-coral, #fb7f6e);
   --ee-warm-rgb: 251, 127, 110;
@@ -43,7 +43,7 @@
      into workspace-relative absolute - the modal lands mispositioned
      behind the flow content. backwards releases the transform at
      animation end (visually identical, no delay is set). */
-  animation: workspaceEnter 460ms var(--ease-out) backwards;
+  animation: workspaceEnter var(--dur-enter) var(--ease-out) backwards;
   color: var(--ee-ink);
   /* display + gap give the wizard its vertical rhythm; Box defaults to a
      plain block where `gap` never applied, leaving sections stacked
@@ -102,17 +102,17 @@
 }
 
 .workspace :global(.MuiButton-root:focus-visible) {
-  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.16);
-  outline: 2px solid rgba(var(--calm-primary-rgb, 92, 122, 104), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 196, 103, 87), 0.16);
+  outline: 2px solid rgba(var(--calm-primary-rgb, 196, 103, 87), 0.55);
   outline-offset: 1px;
 }
 
-/* Primary button: the scaleUi sage recipe - flat solid sage, white text,
-   one soft sage shadow. Hover deepens the fill a step; the halo never
+/* Primary button: the scaleUi terracotta recipe - flat solid terracotta, white text,
+   one soft terracotta shadow. Hover deepens the fill a step; the halo never
    grows. */
 .workspace :global(.MuiButton-contained) {
   background: var(--ee-accent);
-  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.30);
+  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb, 196, 103, 87), 0.30);
   color: #fff;
 }
 
@@ -121,7 +121,7 @@
 }
 
 .workspace :global(.MuiButton-contained:active) {
-  box-shadow: 0 2px 6px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.24);
+  box-shadow: 0 2px 6px rgba(var(--calm-primary-rgb, 196, 103, 87), 0.24);
 }
 
 .workspace :global(.MuiButton-contained.Mui-disabled) {
@@ -177,11 +177,11 @@
   padding: 10px 14px;
 }
 
-.workspace :global(.MuiAlert-root .MuiAlert-message) {
+.workspace :global(.MuiAlert-root .MuiAlert-mesterracotta) {
   padding: 2px 0;
 }
 
-.workspace :global(.MuiAlert-root .MuiAlert-message strong) {
+.workspace :global(.MuiAlert-root .MuiAlert-mesterracotta strong) {
   font-weight: 600;
   /* Breathing room before the "--" separator so the verdict's bold lead
      reads as its own beat instead of running into the detail. */
@@ -654,7 +654,7 @@
   display: flex;
   gap: 8px;
 }.loadingHint::before {
-  animation: loadingPulse 1.1s ease-in-out infinite;
+  animation: loadingPulse 1.1s var(--ease-in-out) infinite;
   background: var(--ee-warm);
   border-radius: 999px;
   content: "";
@@ -835,12 +835,12 @@
   outline: none;
 }
 
-/* Selected pill: the scaleUi selected-anchor recipe - solid sage fill,
-   white text, soft sage shadow. Red never fills a control on this page. */
+/* Selected pill: the scaleUi selected-anchor recipe - solid terracotta fill,
+   white text, soft terracotta shadow. Red never fills a control on this page. */
 .pillRadio.isSelected {
   background: var(--ee-accent);
   border-color: var(--ee-accent);
-  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.30);
+  box-shadow: 0 3px 12px rgba(var(--calm-primary-rgb, 196, 103, 87), 0.30);
   color: #fff;
 }
 
@@ -1095,7 +1095,7 @@
   gap: 6px;
 }
 
-/* Device error chip in the context strip: backend messages can be long, so
+/* Device error chip in the context strip: backend mesterracottas can be long, so
    the pill is capped with an ellipsis and the full text rides on title. */
 .deviceErrorChip {
   max-width: 420px;
@@ -1163,7 +1163,7 @@
 
 /* Recording pulse: reuses the loading-dot language so "linking" reads live. */
 .eegRecording::before {
-  animation: loadingPulse 1.1s ease-in-out infinite;
+  animation: loadingPulse 1.1s var(--ease-in-out) infinite;
   background: currentColor;
   border-radius: 999px;
   content: "";
@@ -1768,7 +1768,8 @@
   .workspace,
   .panel,
   .resultHero,
-  .metricGrid > * {
+  .metricGrid > *,
+  .stageSwap {
     animation: none;
   }
 
@@ -1862,8 +1863,8 @@
 }
 
 .progressToggle:focus-visible {
-  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.14);
-  outline: 2px solid rgba(var(--calm-primary-rgb, 92, 122, 104), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 196, 103, 87), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb, 196, 103, 87), 0.55);
   outline-offset: 2px;
 }
 
@@ -2008,8 +2009,8 @@
 
 button.station:focus-visible {
   border-radius: var(--radius-control);
-  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 92, 122, 104), 0.14);
-  outline: 2px solid rgba(var(--calm-primary-rgb, 92, 122, 104), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--calm-primary-rgb, 196, 103, 87), 0.14);
+  outline: 2px solid rgba(var(--calm-primary-rgb, 196, 103, 87), 0.55);
   outline-offset: 2px;
 }
 
@@ -2199,6 +2200,11 @@ button.station:focus-visible {
   box-shadow: var(--ee-shadow-lift);
   display: grid;
   gap: 14px;
+  /* Programmatic focus target only (tabIndex={-1}): the browser's auto
+     focus ring painted a permanent dark frame around the stage card after
+     every step change — focus here is a scroll cue, not a keyboard
+     affordance. */
+  outline: none;
   padding: 24px 24px 20px;
   position: relative;
 }
@@ -2258,6 +2264,28 @@ button.station:focus-visible {
 .stageBody {
   display: grid;
   gap: 14px;
+}
+
+/* Step-change entrance: keyed by the flow step in EffectEvaluation.tsx,
+   so each advance replays one short rise. backwards releases the
+   transform at animation end (same fixed-position rationale as
+   .workspace above). */
+.stageSwap {
+  animation: stageSwapIn 200ms var(--ease-out) backwards;
+  display: grid;
+  gap: 14px;
+}
+
+@keyframes stageSwapIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 /* The one primary CTA per stage: visibly bigger than every other control

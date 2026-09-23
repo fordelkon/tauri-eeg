@@ -59,8 +59,11 @@ describe('progress disclosure contract (round 7)', () => {
     // clicks keep their page-routed review/scroll semantics.
     expect(source).toContain('<EffectTimeline nodes={nodes} onStationClick={onStationClick} />');
     expect(source).toContain('<EffectDoneBand doneNodes={doneNodes} onChipClick={onChipClick} />');
-    // The panel is conditional on the same isOpen the toggle drives.
-    expect(source).toMatch(/isOpen \?\s*\(\s*<div id="effect-progress-panel"/);
+    // The panel is driven by the same isOpen the toggle owns, through a
+    // retargetable Collapse (round-8 motion contract: no hard mount cut —
+    // open, timer fold, and dialog force-collapse all animate).
+    expect(source).toContain('<Collapse in={isOpen}');
+    expect(source).toContain('unmountOnExit');
   });
 
   test('step changes announce then self-collapse, and a manual open pins the panel', () => {

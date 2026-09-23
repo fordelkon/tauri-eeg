@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import Collapse from '@mui/material/Collapse';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import { EFFECT_FLOW_STEP_COUNT, type EffectFlowStep } from './effectEvaluationFlow';
 import type { EffectPipelineNode } from './effectPipeline';
@@ -116,6 +117,11 @@ export const EffectProgressDisclosure = memo(function EffectProgressDisclosure({
 
   const currentNode = nodes.find((node) => node.status === 'current') ?? nodes[step];
 
+  // One-shot media query (no listener/state): 0ms under reduced motion so the
+  // reveal is an instant cut, 220ms (--dur-med) otherwise. Computed in render,
+  // never at module scope, so node-env imports never touch `window`.
+  const collapseTimeout = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220;
+
   return (
     <section className={styles.progress} aria-label="评价流程进度">
       <button
@@ -149,12 +155,12 @@ export const EffectProgressDisclosure = memo(function EffectProgressDisclosure({
         />
         <span className={styles.progressToggleHint}>{isOpen ? '收起' : '展开'}</span>
       </button>
-      {isOpen ? (
+      <Collapse in={isOpen} timeout={collapseTimeout} unmountOnExit>
         <div id="effect-progress-panel" className={styles.progressPanel}>
           <EffectTimeline nodes={nodes} onStationClick={onStationClick} />
           <EffectDoneBand doneNodes={doneNodes} onChipClick={onChipClick} />
         </div>
-      ) : null}
+      </Collapse>
     </section>
   );
 });

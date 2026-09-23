@@ -185,6 +185,18 @@ export function createMatterBackground({
     render.options.width = width;
     render.options.height = height;
     Render.setPixelRatio(render, window.devicePixelRatio);
+    // Assigning canvas.width/height above RESETS the 2D context transform,
+    // and Matter's setPixelRatio early-returns when the ratio is unchanged —
+    // so without this, the whole scene renders at 1/dpr in the top-left on
+    // any display with devicePixelRatio != 1.
+    render.context.setTransform(
+      window.devicePixelRatio,
+      0,
+      0,
+      window.devicePixelRatio,
+      0,
+      0,
+    );
 
     Composite.clear(engine.world, false);
     titleBarrier = null;
@@ -418,7 +430,17 @@ export function createMatterBackground({
     syncSceneRunning();
   };
 
-  const resizeObserver = new ResizeObserver(buildWorld);
+  // Drag-resize fires an observation per frame; coalesce to one world
+  // rebuild per animation frame (same shape as EegWaveformPanel's
+  // resize handling) instead of reallocating canvas + 36 bodies each fire.
+  let resizeFrame = 0;
+  const resizeObserver = new ResizeObserver(() => {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      buildWorld();
+    });
+  });
   resizeObserver.observe(host);
   const intersectionObserver = new IntersectionObserver(([entry]) => {
     isVisible = entry.isIntersecting;
@@ -431,6 +453,10 @@ export function createMatterBackground({
 
   const destroy = () => {
     stopLoop();
+    if (resizeFrame) {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = 0;
+    }
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     intersectionObserver.disconnect();
     resizeObserver.disconnect();

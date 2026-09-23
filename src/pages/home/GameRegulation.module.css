@@ -200,4 +200,8 @@
   .entryButton:active:not(:disabled) {
     transform: none;
   }
+
+  .card:hover .imageFrame img {
+    transform: none;
+  }
 }

@@ -230,7 +230,7 @@ function FeedbackBars({
         <span className={styles.feedbackBarTrack}>
           <span
             className={`${styles.feedbackBarFill} ${styles.feedbackBarFillBaseline}`}
-            style={{ width: toPercent(baselineScore) }}
+            style={{ transform: `scaleX(${Math.min(1, Math.max(0, baselineScore))})` }}
           />
         </span>
         <span className={styles.feedbackBarValue}>{toPercent(baselineScore)}</span>
@@ -240,7 +240,7 @@ function FeedbackBars({
         <span className={styles.feedbackBarTrack}>
           <span
             className={`${styles.feedbackBarFill} ${styles.feedbackBarFillTarget}`}
-            style={{ width: toPercent(regulationScore) }}
+            style={{ transform: `scaleX(${Math.min(1, Math.max(0, regulationScore))})` }}
           />
         </span>
         <span className={styles.feedbackBarValue}>{toPercent(regulationScore)}</span>
