@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import {
@@ -30,12 +30,22 @@ export default function ScaleGateRoute() {
   const [isAllowed, setIsAllowed] = useState(
     () => scale === null || isScaleSatisfiedForPath(scale.path),
   );
+  const evaluatedPathRef = useRef(location.pathname);
 
-  // Re-evaluate whenever the path changes (component is remounted per route
-  // by the key below, but keep this guard for safety).
+  // Re-evaluate ONLY when the path actually changes (the same mounted gate
+  // instance serves all three gated routes). Effects here must not re-read
+  // the store on a re-run for the SAME path: under StrictMode the effects
+  // execute setup → cleanup → setup, and the consume effect below spends the
+  // skip pass in between — a same-path re-read would then see no skip and no
+  // completion, flip isAllowed back to false, and pop the scale dialog a
+  // second time right after the operator skipped it.
   useEffect(() => {
+    if (evaluatedPathRef.current === location.pathname) {
+      return;
+    }
+    evaluatedPathRef.current = location.pathname;
     setIsAllowed(scale === null || isScaleSatisfiedForPath(scale.path));
-  }, [scale]);
+  }, [location.pathname, scale]);
 
   // The skip pass is spent HERE, at the final checkpoint, once the gated page
   // has actually mounted: the next navigation into a gated page re-prompts.

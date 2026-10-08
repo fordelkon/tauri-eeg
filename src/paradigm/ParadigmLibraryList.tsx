@@ -53,6 +53,7 @@ export const ParadigmLibraryList = memo(function ParadigmLibraryList({
                       key={entry.fileName}
                       type="button"
                       className={styles.videoListRow}
+                      title={entry.fileName}
                       onClick={() => onSelectPreview(emotion, entry)}
                     >
                       <span className={styles.videoListName}>{entry.fileName}</span>

@@ -405,11 +405,11 @@ export default function ParadigmSetupPanel({
             type="button"
             role="switch"
             aria-checked={dryRun}
-            title="排练不发送硬件 Trigger，仍保存实验事件与 SAM"
+            title="切换排练模式。排练不发送硬件 Trigger，仍保存实验事件与 SAM"
             className={`${styles.pillRadio} ${dryRun ? styles.selectedPillRadio : ''}`}
             onClick={() => setDryRun((value) => !value)}
           >
-            排练
+            {dryRun ? '排练 · 不发送 Trigger' : '正式 · 发送 Trigger'}
           </button>
           <span className={`${styles.deviceLight} ${styles.miniLight} ${triggerConnected ? styles.connectedLight : ''}`}>
             <span

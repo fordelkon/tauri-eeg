@@ -7,6 +7,7 @@ import { describeFriendlyError } from '../ui/friendlyError';
 import styles from '../pages/home/ExperimentSettings.module.css';
 
 const statusLabels: Record<string, string> = { active: '进行中', running: '进行中', completed: '完成', aborted: '中止', interrupted: '中断', failed: '失败' };
+const flowLabels: Record<string, string> = { effect_evaluation: '效果评价', personal_calibration: '个人校准', held_out_generation: '独立诱发' };
 export default function ExperimentRunHistory() {
   const { currentUser } = useAuth();
   const [runs, setRuns] = useState<ExperimentRun[]>([]);
@@ -33,8 +34,8 @@ export default function ExperimentRunHistory() {
     {notice && <p role="status" className={styles.resultBanner}>{notice}</p>}
     {!runs.length && <p className={styles.muted}>完成排练或正式实验后，在此关联 BDF 并导出日志。</p>}
     {runs.map((run) => <details className={styles.history} key={run.runId}>
-      <summary>{run.subjectId} · {run.mode === 'formal' ? '正式' : '排练'} · {statusLabels[run.status] ?? run.status} · {new Date(run.startedAt).toLocaleString()}<br />{run.runId}</summary>
-      <p>{run.kind} · {run.emotion} · {run.condition} · {run.method}</p>
+      <summary>{run.subjectId} · {flowLabels[run.kind] ?? run.kind} · {run.mode === 'formal' ? '正式' : '排练'} · {statusLabels[run.status] ?? run.status} · {new Date(run.startedAt).toLocaleString()}<br />{run.runId}</summary>
+      <p>{[run.emotion, run.condition, run.method].filter(Boolean).join(' · ')}</p>
       <p>BDF：{run.bdfFiles.length ? run.bdfFiles.join('、') : '尚未关联'}</p>
       <div className={styles.row}>
         <button disabled={busy || run.mode !== 'formal' || run.status === 'running' || run.status === 'active'} className={busy ? styles.isBusy : undefined} onClick={() => void perform(async () => {

@@ -179,6 +179,43 @@ fn transport_writes_one_binary_byte_without_ascii_or_reset() {
 }
 
 #[test]
+fn transport_returns_after_write_without_waiting_for_driver_flush() {
+    struct Driver {
+        bytes: Vec<u8>,
+    }
+    impl std::io::Write for Driver {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.bytes.extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "driver flush does not finish",
+            ))
+        }
+    }
+    let mut driver = Driver { bytes: Vec::new() };
+    super::worker::write_code(&mut driver, 254).unwrap();
+    assert_eq!(driver.bytes, vec![254]);
+}
+
+#[test]
+fn transport_reports_failed_write_without_retrying() {
+    struct Disconnected;
+    impl std::io::Write for Disconnected {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::ErrorKind::BrokenPipe.into())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            unreachable!()
+        }
+    }
+    let error = super::worker::write_code(&mut Disconnected, 254).unwrap_err();
+    assert_eq!(error.kind(), std::io::ErrorKind::BrokenPipe);
+}
+
+#[test]
 fn comparison_excludes_rehearsal_and_aborted_and_preserves_legacy() {
     use crate::scale_records::{self, SaveScaleRecordInput};
     let (db, service) = setup();
@@ -277,4 +314,3 @@ fn comparison_excludes_rehearsal_and_aborted_and_preserves_legacy() {
         Some("regulation-run".into())
     );
 }
-

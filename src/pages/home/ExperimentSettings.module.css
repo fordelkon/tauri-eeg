@@ -243,7 +243,9 @@
    unchanged (same recipe as EffectEvaluation .isBusy). */
 .isBusy {
   align-items: center;
+  display: inline-flex;
   gap: 8px;
+  justify-content: center;
 }
 
 .isBusy::before {

@@ -20,8 +20,10 @@ export function useEffectEvaluationFlow() {
   const { currentUser } = useAuth();
   const [storedInitialState] = useState(() => readFlowStateFromStorage(window.sessionStorage));
   const [state, setState] = useState<EffectEvaluationFlowState>(() => storedInitialState
-    ? { ...storedInitialState, interrupted: storedInitialState.runId !== null && storedInitialState.step < 5 }
-    : { ...createEffectEvaluationFlowState(), subjectId: readStoredSubjectId() });
+    ? { ...storedInitialState,
+      runMode: storedInitialState.runId ? storedInitialState.runMode : readExperimentPreferences().mode,
+      interrupted: storedInitialState.runId !== null && storedInitialState.step < 5 }
+    : { ...createEffectEvaluationFlowState(), subjectId: readStoredSubjectId(), runMode: readExperimentPreferences().mode });
   const stateRef = useRef(state);
   stateRef.current = state;
   const [isSavingScale, setIsSavingScale] = useState(false);
@@ -162,7 +164,7 @@ export function useEffectEvaluationFlow() {
       catch (error) { setActionError(describeFriendlyError(error, '结束实验')); return; }
     }
     sentEvents.current.clear(); resultReports.clearResults();
-    setState(createEffectEvaluationFlowState()); clearFlowStateFromStorage(window.sessionStorage); setActionError(null);
+    setState({ ...createEffectEvaluationFlowState(), runMode: readExperimentPreferences().mode }); clearFlowStateFromStorage(window.sessionStorage); setActionError(null);
   }, [resultReports]);
   const openRegulationPage = useCallback(() => setActionError('运行中请使用当前播放器。独立页面仅用于实验前准备素材。'), []);
   return { ...resultReports, actionError, beginInduction, inductionOnset, playbackError, beginRegulation, conditionElapsed, completeInduction, completeScaleMeasurement, finishRegulation: () => leaveRegulationStep(), inductionStatus, isResumedRun: storedInitialState !== null, isInductionPoolLoading, isRegulationPoolLoading, isSavingScale, isStartingRun, openRegulationPage, resetFlow, regulationPoolStatus, scaleDefinitionFor, skipRemainingRegulation: () => leaveRegulationStep(true), startBaselineMeasurement, state, updateDraft };

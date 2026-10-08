@@ -13,8 +13,16 @@ use std::{
 type Db = Arc<Mutex<Connection>>;
 type Job = Box<dyn FnOnce(&mut Worker) -> Result<Value, String> + Send>;
 pub fn write_code<W: Write + ?Sized>(writer: &mut W, code: u8) -> std::io::Result<()> {
-    writer.write_all(&[code])?;
-    writer.flush()
+    // Windows FlushFileBuffers ignores serial write timeouts. A completed write
+    // means the driver accepted the byte; receipt must still be checked in BDF.
+    writer.write_all(&[code])
+}
+fn connection_error(name: &str, error: serialport::Error) -> String {
+    if error.kind == serialport::ErrorKind::Io(std::io::ErrorKind::PermissionDenied) {
+        format!("无法打开 {name}：访问被拒绝。请关闭其他 tauri-eeg 窗口和串口测试程序，仅保留一个应用后重试。若仍失败，请重新插拔触发盒并刷新端口。")
+    } else {
+        format!("连接 {name} 失败：{error}")
+    }
 }
 #[derive(Clone)]
 pub struct Service {
@@ -75,6 +83,9 @@ impl Worker {
         if name.trim().is_empty() {
             return Err("COM port is required.".into());
         }
+        if self.port.is_some() && self.status.port_name.as_deref() == Some(name.as_str()) {
+            return value(self.status.clone());
+        }
         let port = serialport::new(&name, 115200)
             .data_bits(serialport::DataBits::Eight)
             .parity(serialport::Parity::None)
@@ -82,7 +93,7 @@ impl Worker {
             .flow_control(serialport::FlowControl::None)
             .timeout(Duration::from_millis(500))
             .open()
-            .map_err(|e| e.to_string())?;
+            .map_err(|error| connection_error(&name, error))?;
         self.port = Some(port);
         self.status = Status {
             connected: true,
@@ -336,6 +347,17 @@ impl Worker {
 #[cfg(test)]
 mod queue_tests {
     use super::*;
+    #[test]
+    fn denied_port_explains_how_to_release_exclusive_access() {
+        let error = connection_error(
+            "COM5",
+            serialport::Error::new(
+                serialport::ErrorKind::Io(std::io::ErrorKind::PermissionDenied),
+                "Access is denied.",
+            ),
+        );
+        assert_eq!(error, "无法打开 COM5：访问被拒绝。请关闭其他 tauri-eeg 窗口和串口测试程序，仅保留一个应用后重试。若仍失败，请重新插拔触发盒并刷新端口。");
+    }
     #[test]
     fn saturated_queue_returns_error_without_waiting_or_dropping_silently() {
         let (tx, _receiver) = mpsc::sync_channel(1);

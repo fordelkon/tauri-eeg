@@ -1,5 +1,6 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { toPlayableVideoUrl } from '../video/videoRegulationCatalog';
 import { paradigmEmotionLabels } from './types';
 import type { ParadigmEmotion, ParadigmVideoEntry } from './types';
@@ -11,7 +12,12 @@ type Props = {
   onClose: () => void;
 };
 
-/** Paradigm-style fullscreen preview: black stage, centered video. */
+/** Paradigm-style fullscreen preview: black stage, centered video. Portal to
+ * document.body — the setup panel lives inside the Home shell's stacking
+ * context (.content z1), so a plain fixed overlay would paint BELOW the
+ * floating nav rail (z3) and the agent panel column. Every other fullscreen
+ * surface in the app (ParadigmRunner, scale dialogs, fullscreen regulation
+ * stages) portals for the same reason. */
 export default function ParadigmVideoPreview({ emotion, entry, onClose }: Props) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -24,7 +30,7 @@ export default function ParadigmVideoPreview({ emotion, entry, onClose }: Props)
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className={styles.previewOverlay} role="dialog" aria-label="素材预览" onClick={onClose}>
       <div className={styles.previewTopBar} onClick={(event) => event.stopPropagation()}>
         <span className={styles.previewTitle}>
@@ -47,7 +53,7 @@ export default function ParadigmVideoPreview({ emotion, entry, onClose }: Props)
         }}
         onClick={(event) => event.stopPropagation()}
       />
-    </div>
+    </div>,
+    document.body,
   );
 }
-

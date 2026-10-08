@@ -681,7 +681,9 @@
    prepended through ::before; the button keeps its exact busy copy. */
 .isBusy {
   align-items: center;
+  display: inline-flex;
   gap: 8px;
+  justify-content: center;
 }
 
 .isBusy::before {
