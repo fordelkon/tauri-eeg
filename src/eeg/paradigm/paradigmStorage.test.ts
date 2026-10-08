@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  defaultParadigmLibraryRootPath,
   readStoredLibraryRootPath,
   writeStoredLibraryRootPath,
 } from './paradigmStorage';
@@ -27,7 +28,7 @@ describe('readStoredLibraryRootPath / writeStoredLibraryRootPath', () => {
   it('round-trips a stored root path', () => {
     stubLocalStorage(makeMapStorage());
 
-    expect(readStoredLibraryRootPath()).toBe('');
+    expect(readStoredLibraryRootPath()).toBe(defaultParadigmLibraryRootPath);
     writeStoredLibraryRootPath('D:\\paradigm-videos');
     expect(readStoredLibraryRootPath()).toBe('D:\\paradigm-videos');
   });
@@ -41,17 +42,17 @@ describe('readStoredLibraryRootPath / writeStoredLibraryRootPath', () => {
     expect(readStoredLibraryRootPath()).toBe('E:\\new');
   });
 
-  it('degrades to empty reads when localStorage is missing', () => {
+  it('falls back to the bundled library when localStorage is missing', () => {
     stubLocalStorage(undefined);
 
-    expect(readStoredLibraryRootPath()).toBe('');
+    expect(readStoredLibraryRootPath()).toBe(defaultParadigmLibraryRootPath);
     expect(() => writeStoredLibraryRootPath('D:\\x')).not.toThrow();
   });
 
   it('degrades silently when window itself is absent (node/test env)', () => {
     vi.stubGlobal('window', undefined);
 
-    expect(readStoredLibraryRootPath()).toBe('');
+    expect(readStoredLibraryRootPath()).toBe(defaultParadigmLibraryRootPath);
     expect(() => writeStoredLibraryRootPath('D:\\x')).not.toThrow();
   });
 
@@ -65,7 +66,7 @@ describe('readStoredLibraryRootPath / writeStoredLibraryRootPath', () => {
       },
     });
 
-    expect(readStoredLibraryRootPath()).toBe('');
+    expect(readStoredLibraryRootPath()).toBe(defaultParadigmLibraryRootPath);
     expect(() => writeStoredLibraryRootPath('D:\\x')).not.toThrow();
   });
 });

@@ -30,6 +30,7 @@ import {
   type EffectEvaluationFlowState,
 } from './effectEvaluationFlow';
 import { useEffectInductionPool } from './useEffectInductionPool';
+import { useEffectRegulationPool } from './useEffectRegulationPool';
 import { useEffectResultReports } from './useEffectResultReports';
 
 /**
@@ -99,6 +100,10 @@ export function useEffectEvaluationFlow() {
   // Induction-step video pool + result-step reports load through their own
   // focused hooks; both expose loading flags and retry loaders to the page.
   const { inductionStatus, isInductionPoolLoading } = useEffectInductionPool(state.emotion, state.step);
+  const { isRegulationPoolLoading, regulationPoolStatus } = useEffectRegulationPool(
+    state.condition === 'regulation' && state.method === 'video',
+    state.step,
+  );
   const resultReports = useEffectResultReports(state);
   // Set when this flow started the EEG recording and still expects its session
   // id; a ref because stopRecord resolves before the context publishes the row.
@@ -478,9 +483,11 @@ export function useEffectEvaluationFlow() {
     inductionStatus,
     isResumedRun: storedInitialState !== null,
     isInductionPoolLoading,
+    isRegulationPoolLoading,
     isSavingScale,
     openRegulationPage,
     resetFlow,
+    regulationPoolStatus,
     scaleDefinitionFor,
     skipRemainingRegulation,
     startBaselineMeasurement,

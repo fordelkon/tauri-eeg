@@ -293,9 +293,10 @@ describe('six-step flow & condition split (R6 contract)', () => {
       .toContain('describeInductionPoolStatus');
     expect(panelsSource).toContain('flow.inductionStatus');
     expect(panelsSource).toContain('status.copy');
-    expect(panelsSource).toContain('toPlayableVideoUrl(status.entry.absolutePath, convertFileSrc)');
+    const inductionStageSource = readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url));
+    expect(inductionStageSource).toContain('toPlayableInductionUrl(entry.absolutePath)');
     // The induction completion advances only when the video actually ended.
-    expect(panelsSource).toContain('onEnded={() => flow.completeInduction()}');
+    expect(inductionStageSource).toContain('onEnded={onFinished}');
   });
 
   test('the natural-recovery condition runs its countdown inside the wizard page', () => {
@@ -386,12 +387,13 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
     expect(panelsSource).toContain("inductionVideoFailed && status.kind === 'ready'");
     // The panel marks the failure through the page-owned callback (the
     // setter itself stays on the page with the other player state).
-    expect(panelsSource).toContain('onError={onVideoError}');
+    const inductionStageSource = readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url));
+    expect(inductionStageSource).toContain('onError={onError}');
     expect(pageSource).toContain('setInductionVideoFailed(true)');
     expect(panelsSource).toContain('重试加载素材');
     expect(panelsSource).toContain('重置并返回设置步');
     // The retry remounts a fresh element (the counter rides on the key).
-    expect(panelsSource).toContain('`${status.entry.videoId}-${inductionRetryCount}`');
+    expect(inductionStageSource).toContain('`${entry.videoId}-${retryCount}`');
   });
 
   test('the history panel shows each run\'s condition with a legacy tag', () => {
@@ -406,20 +408,54 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
 });
 
 describe('embedded regulation player (condition node contract)', () => {
-  test('hosts the player inside the condition stage for the regulation branch only', () => {
+  test('presents both video branches in a fullscreen stage with an explicit ready cue', () => {
     const panelsSource = readText(panelsUrl);
+    const inductionStageSource = readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url));
+    const regulationStageSource = readText(new URL('./EffectFullscreenVideoRegulation.tsx', import.meta.url));
+    const fullscreenHookSource = readText(new URL('./useParticipantFullscreen.ts', import.meta.url));
 
-    // The condition stage embeds the media player (the main path) and keeps
-    // the standalone-page entry side by side; the natural-recovery condition
-    // has no media and never mounts a player.
+    expect(panelsSource).toContain("import { EffectFullscreenInduction } from './EffectFullscreenInduction'");
+    expect(panelsSource).toContain('<EffectFullscreenInduction');
+    expect(panelsSource).not.toContain('className={styles.inductionVideo}');
+    expect(inductionStageSource).toContain('准备播放诱发视频');
+    expect(inductionStageSource).toContain('开始播放诱发视频');
+    expect(regulationStageSource).toContain('准备播放调控视频');
+    expect(regulationStageSource).toContain('开始播放调控视频');
+    expect(inductionStageSource).toContain('正在预载诱发素材');
+    expect(regulationStageSource).toContain('正在预载平静调控素材');
+    expect(fullscreenHookSource).toContain('document.documentElement.requestFullscreen');
+  });
+
+  test('presents video regulation as a fullscreen stage while music stays embedded', () => {
+    const panelsSource = readText(panelsUrl);
+    const fullscreenSource = readText(new URL('./EffectFullscreenVideoRegulation.tsx', import.meta.url));
+
+    // Music remains inside the condition card. The participant-facing video
+    // branch mounts a portal stage instead, so the ordinary app chrome and
+    // media controls do not compete with the stimulus.
     expect(panelsSource).toContain("import EffectRegulationPlayer from './EffectRegulationPlayer'");
+    expect(panelsSource).toContain("import { EffectFullscreenVideoRegulation } from './EffectFullscreenVideoRegulation'");
     expect(panelsSource).toContain('<EffectRegulationPlayer');
-    // The remaining-seconds prop carries the window's one-shot expiry fact
-    // (0 once elapsed, null before/while running) — the page never tracks
-    // per-tick seconds.
+    expect(panelsSource).toContain('<EffectFullscreenVideoRegulation');
+    expect(panelsSource).toContain("state.method === 'video' && !isNaturalRecovery");
+    expect(panelsSource).toContain("!isNaturalRecovery && state.method !== 'video'");
     expect(panelsSource).toContain('remainingSeconds={isWindowElapsed ? 0 : null}');
-    expect(panelsSource).toMatch(/!isNaturalRecovery \? \(\s*<EffectRegulationPlayer/);
-    expect(panelsSource).toContain('onClick={flow.openRegulationPage}');
+
+    // The fullscreen component owns the same flow-derived timer and pauses
+    // video when the finish gate opens. The shared hook enters native Tauri
+    // fullscreen first and falls back to the document fullscreen API.
+    expect(fullscreenSource).toContain('createPortal(');
+    const fullscreenHookSource = readText(new URL('./useParticipantFullscreen.ts', import.meta.url));
+    expect(fullscreenHookSource).toContain('const appWindow = getCurrentWindow();');
+    expect(fullscreenHookSource).toContain('appWindow.setFullscreen(true)');
+    expect(fullscreenHookSource).toContain('getCurrentWindow().setFullscreen(false)');
+    expect(fullscreenSource).toContain('onElapsed={onWindowElapsed}');
+    expect(fullscreenSource).toContain('shouldPauseAt(isPlaying && finishMode.mode === \'finish\' ? 0 : null)');
+    expect(fullscreenSource).not.toMatch(/<video[\s\S]*\bcontrols\b/);
+    expect(fullscreenSource).toContain('type { ParadigmVideoEntry }');
+    expect(fullscreenSource).not.toContain('getAllVideoRegulationAssets');
+    expect(panelsSource).toContain('flow.isRegulationPoolLoading');
+    expect(panelsSource).toContain('flow.regulationPoolStatus');
   });
 
   test('the player pauses at zero through the pure to-zero rule', () => {
@@ -523,10 +559,11 @@ describe('timeline / stage / review layout contract', () => {
     // induction, scale, condition — the condition panel has start + finish),
     // styled as the page's biggest button.
     expect(panelsSource).toContain('确认配置，开始诱发');
-    expect(panelsSource).toContain('开始播放');
+    expect(readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url)))
+      .toContain('开始播放诱发视频');
     expect(panelsSource).toContain('开始填写');
     expect(panelsSource).toContain("'开始调控'");
-    expect(panelsSource.match(/styles\.primaryCta/g)).toHaveLength(5);
+    expect(panelsSource).toContain('进入全屏准备');
     // Secondary actions (skip / standalone page / reset) are quiet ghost
     // controls, and the destructive reset lives in the stage footer row.
     expect(panelsSource).toContain('stageSecondaryRow');

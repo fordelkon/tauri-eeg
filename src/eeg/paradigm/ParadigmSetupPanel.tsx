@@ -381,6 +381,14 @@ export default function ParadigmSetupPanel({
           </ul>
         ) : null}
 
+        {library && library.readinessWarnings.length > 0 ? (
+          <div className={styles.warningBanner} role="note">
+            {library.readinessWarnings.map((warning) => (
+              <p key={warning}>{warning}</p>
+            ))}
+          </div>
+        ) : null}
+
         {library ? (
           <ParadigmLibraryList
             library={library}

@@ -1,5 +1,3 @@
-import type { VideoRegulationAsset } from '../../video/videoRegulationCatalog';
-
 /**
  * Pure helpers for the embedded regulation player that lives inside the
  * condition-step panel (EffectRegulationPlayer.tsx). They are kept out of the
@@ -25,7 +23,7 @@ export function shouldPauseAt(remainingSeconds: number | null): boolean {
  * (the first usable entry). -1 when the catalog is empty so callers can
  * render the empty state instead of indexing.
  */
-export function selectDefaultVideoIndex(assets: readonly VideoRegulationAsset[]): number {
+export function selectDefaultVideoIndex<T>(assets: readonly T[]): number {
   return assets.length > 0 ? 0 : -1;
 }
 

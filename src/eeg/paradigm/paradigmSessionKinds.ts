@@ -25,7 +25,10 @@ export const sessionKinds: readonly ParadigmSessionKind[] = [
   'regulation_feedback',
 ];
 
-export const libraryClassKeys: Record<ParadigmEmotion, keyof Omit<ParadigmVideoLibrary, 'rootPath' | 'valid' | 'problems'>> = {
+export const libraryClassKeys: Record<ParadigmEmotion, keyof Pick<
+  ParadigmVideoLibrary,
+  'anxiety' | 'calm' | 'depression' | 'fear' | 'happy'
+>> = {
   anxiety: 'anxiety',
   calm: 'calm',
   depression: 'depression',

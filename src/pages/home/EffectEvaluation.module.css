@@ -931,6 +931,188 @@
   width: min(720px, 100%);
 }
 
+/* Subject-facing regulation stage. It portals beyond the application shell so
+   no navigation, workspace card, or default media controls remain visible. */
+.fullscreenRegulationStage {
+  animation: fullscreenStageEnter 180ms var(--ease-out) both;
+  background: #000;
+  color: #f5f0eb;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  inset: 0;
+  overflow: hidden;
+  position: fixed;
+  z-index: var(--z50);
+}
+
+@keyframes fullscreenStageEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fullscreenStageHeader {
+  color: rgba(245, 240, 235, 0.56);
+  display: flex;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  justify-content: space-between;
+  padding: 16px 20px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.fullscreenVideoFrame {
+  align-items: center;
+  display: grid;
+  justify-items: center;
+  min-height: 0;
+  position: relative;
+}
+
+.fullscreenRegulationVideo {
+  background: #000;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.fullscreenPreloadedVideo {
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.fullscreenStageNotice {
+  align-items: center;
+  background: rgba(36, 12, 12, 0.86);
+  border: 1px solid rgba(242, 184, 173, 0.42);
+  border-radius: var(--radius-control);
+  bottom: 28px;
+  color: #f2b8ad;
+  display: grid;
+  font-size: var(--text-sm);
+  gap: 4px;
+  left: 50%;
+  max-width: min(92vw, 600px);
+  padding: 12px 16px;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.fullscreenReadyCue {
+  align-items: center;
+  color: #f5f0eb;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  max-width: min(88vw, 560px);
+  text-align: center;
+}
+
+.fullscreenReadyCue > span,
+.fullscreenPlaybackHint {
+  color: rgba(245, 240, 235, 0.64);
+  font-size: var(--text-sm);
+}
+
+.fullscreenReadyCue h2 {
+  font-size: clamp(28px, 4vw, 46px);
+  margin: 0;
+}
+
+.fullscreenReadyCue p {
+  color: rgba(245, 240, 235, 0.74);
+  line-height: 1.7;
+  margin: 0;
+}
+
+.fullscreenStageFooter {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 16px 20px 20px;
+  z-index: 1;
+}
+
+.fullscreenCountdown {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.fullscreenCountdown .statusPill {
+  background: rgba(245, 240, 235, 0.12);
+  border: 1px solid rgba(245, 240, 235, 0.22);
+  color: rgba(245, 240, 235, 0.82);
+}
+
+.fullscreenCountdown .statusDone {
+  background: rgba(34, 125, 84, 0.22);
+  border-color: rgba(114, 207, 158, 0.46);
+  color: #b7e5cb;
+}
+
+.fullscreenCountdown .countdownValue {
+  color: #f5f0eb;
+  font-size: 32px;
+}
+
+.fullscreenCountdown .countdownDone {
+  color: #b7e5cb;
+}
+
+.fullscreenStageActions {
+  display: flex;
+  gap: 10px;
+}
+
+.fullscreenStagePrimaryAction,
+.fullscreenStageSecondaryAction {
+  background: rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(245, 240, 235, 0.34);
+  border-radius: var(--radius-control);
+  color: rgba(245, 240, 235, 0.84);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  min-height: 38px;
+  padding: 0 14px;
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.fullscreenStagePrimaryAction {
+  background: rgba(34, 125, 84, 0.88);
+  border-color: rgba(183, 229, 203, 0.42);
+  color: #fff;
+}
+
+.fullscreenStagePrimaryAction:disabled {
+  cursor: wait;
+  opacity: 0.48;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fullscreenStagePrimaryAction:hover {
+    background: rgba(34, 125, 84, 1);
+  }
+
+  .fullscreenStageSecondaryAction:hover {
+    border-color: rgba(245, 240, 235, 0.62);
+    color: #f5f0eb;
+  }
+}
+
+.fullscreenStagePrimaryAction:focus-visible,
+.fullscreenStageSecondaryAction:focus-visible {
+  outline: 2px solid #f5f0eb;
+  outline-offset: 3px;
+}
+
 /* ------------------------------------------------------------------ */
 /* Countdown stage                                                     */
 /* ------------------------------------------------------------------ */
@@ -2264,6 +2446,10 @@ button.station:focus-visible {
 .stageBody {
   display: grid;
   gap: 14px;
+}
+
+.visuallyHidden {
+  display: none;
 }
 
 /* Step-change entrance: keyed by the flow step in EffectEvaluation.tsx,

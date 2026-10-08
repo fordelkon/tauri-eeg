@@ -16,6 +16,8 @@ use super::paradigm::{
 /// shakedown (the repurposed happy clips are placeholders anyway - see the
 /// r8 summary).
 const MIN_VIDEOS_PER_CLASS: usize = 5;
+/// S-04 acceptance target for each contract-required negative emotion pool.
+const CONTRACT_VIDEOS_PER_REQUIRED_EMOTION: usize = 50;
 const TRIALS_PER_CLASS: usize = 5;
 const VIDEO_EXTENSION: &str = "mp4";
 
@@ -37,6 +39,7 @@ pub fn load_paradigm_video_library(root_path: &str) -> Result<ParadigmVideoLibra
     let root = PathBuf::from(trimmed);
 
     let mut problems = Vec::new();
+    let mut readiness_warnings = Vec::new();
     let mut library = ParadigmVideoLibrary {
         root_path: root.to_string_lossy().to_string(),
         depression: Vec::new(),
@@ -46,6 +49,7 @@ pub fn load_paradigm_video_library(root_path: &str) -> Result<ParadigmVideoLibra
         happy: Vec::new(),
         valid: false,
         problems: Vec::new(),
+        readiness_warnings: Vec::new(),
     };
 
     for emotion in PARADIGM_EMOTIONS {
@@ -71,6 +75,17 @@ pub fn load_paradigm_video_library(root_path: &str) -> Result<ParadigmVideoLibra
                 entries.len()
             ));
         }
+        if matches!(
+            emotion,
+            ParadigmEmotion::Anxiety | ParadigmEmotion::Depression | ParadigmEmotion::Fear
+        ) && entries.len() < CONTRACT_VIDEOS_PER_REQUIRED_EMOTION
+        {
+            readiness_warnings.push(format!(
+                "{} currently has {} MP4 files; S-04 acceptance requires at least {CONTRACT_VIDEOS_PER_REQUIRED_EMOTION} induction clips.",
+                emotion.display_name(),
+                entries.len()
+            ));
+        }
         match emotion {
             ParadigmEmotion::Depression => library.depression = entries,
             ParadigmEmotion::Anxiety => library.anxiety = entries,
@@ -82,6 +97,7 @@ pub fn load_paradigm_video_library(root_path: &str) -> Result<ParadigmVideoLibra
 
     library.valid = problems.is_empty();
     library.problems = problems;
+    library.readiness_warnings = readiness_warnings;
     Ok(library)
 }
 
@@ -193,17 +209,45 @@ fn find_emotion_subdirectory(
     Ok(None)
 }
 
-fn collect_mp4_entries(directory: &Path, emotion: ParadigmEmotion) -> Result<Vec<ParadigmVideoEntry>, String> {
+fn collect_mp4_entries(
+    directory: &Path,
+    emotion: ParadigmEmotion,
+) -> Result<Vec<ParadigmVideoEntry>, String> {
+    let mut videos = Vec::new();
+    collect_mp4_entries_recursively(directory, directory, emotion, &mut videos)?;
+    videos.sort_by(|left, right| left.file_name.cmp(&right.file_name));
+    Ok(videos)
+}
+
+/// Accept an emotion folder's nested material categories as one stable pool.
+/// `file_name` and `video_id` use slash-delimited paths relative to that
+/// emotion root, which preserves direct-file ids and prevents nested-name
+/// collisions from making trial or playback records ambiguous.
+fn collect_mp4_entries_recursively(
+    root: &Path,
+    directory: &Path,
+    emotion: ParadigmEmotion,
+    videos: &mut Vec<ParadigmVideoEntry>,
+) -> Result<(), String> {
     let entries = fs::read_dir(directory).map_err(|_| {
-        format!("Failed to read video subdirectory: {}.", emotion.display_name())
+        format!(
+            "Failed to read video subdirectory: {}.",
+            emotion.display_name()
+        )
     })?;
 
-    let mut videos = Vec::new();
     for entry in entries {
         let entry = entry.map_err(|_| {
-            format!("Failed to read video subdirectory: {}.", emotion.display_name())
+            format!(
+                "Failed to read video subdirectory: {}.",
+                emotion.display_name()
+            )
         })?;
         let path = entry.path();
+        if path.is_dir() {
+            collect_mp4_entries_recursively(root, &path, emotion, videos)?;
+            continue;
+        }
         let is_mp4 = path
             .extension()
             .and_then(|value| value.to_str())
@@ -211,19 +255,22 @@ fn collect_mp4_entries(directory: &Path, emotion: ParadigmEmotion) -> Result<Vec
         if !path.is_file() || !is_mp4 {
             continue;
         }
-        let file_name = entry.file_name().to_string_lossy().to_string();
+        let relative_path = path.strip_prefix(root).map_err(|_| {
+            format!(
+                "Failed to read video subdirectory: {}.",
+                emotion.display_name()
+            )
+        })?;
+        let file_name = relative_path.to_string_lossy().replace('\\', "/");
+        let mut relative_id_path = relative_path.to_path_buf();
+        relative_id_path.set_extension("");
         videos.push(ParadigmVideoEntry {
-            video_id: Path::new(&file_name)
-                .file_stem()
-                .map(|stem| stem.to_string_lossy().to_string())
-                .unwrap_or(file_name.clone()),
+            video_id: relative_id_path.to_string_lossy().replace('\\', "/"),
             absolute_path: path.to_string_lossy().to_string(),
             file_name,
         });
     }
-
-    videos.sort_by(|left, right| left.file_name.cmp(&right.file_name));
-    Ok(videos)
+    Ok(())
 }
 
 /// FNV-1a 64-bit hash; seeds the queue shuffler from the session run id.
@@ -326,8 +373,8 @@ mod tests {
         let root = temp_library_root("scan");
         seed_library(&root, 6);
 
-        let library = load_paradigm_video_library(root.to_str().expect("utf8 path"))
-            .expect("load library");
+        let library =
+            load_paradigm_video_library(root.to_str().expect("utf8 path")).expect("load library");
 
         assert!(library.valid);
         assert!(library.problems.is_empty());
@@ -340,6 +387,55 @@ mod tests {
         let mut sorted = library.depression.clone();
         sorted.sort_by(|left, right| left.file_name.cmp(&right.file_name));
         assert_eq!(library.depression, sorted);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn library_scan_includes_nested_material_categories_with_unique_relative_ids() {
+        let root = temp_library_root("nested-calm");
+        seed_library(&root, MIN_VIDEOS_PER_CLASS);
+        let calm_root = root.join("Calm");
+        fs::write(calm_root.join("shared-name.mp4"), b"").expect("create direct calm video");
+        let nested = calm_root.join("scenery");
+        fs::create_dir_all(&nested).expect("create nested category");
+        fs::write(nested.join("shared-name.mp4"), b"").expect("create nested calm video");
+
+        let library = load_paradigm_video_library(root.to_str().expect("utf8 path"))
+            .expect("load library");
+
+        assert!(library.valid);
+        assert_eq!(library.calm.len(), MIN_VIDEOS_PER_CLASS + 2);
+        assert!(library
+            .calm
+            .iter()
+            .any(|entry| entry.video_id == "shared-name"));
+        assert!(library
+            .calm
+            .iter()
+            .any(|entry| entry.video_id == "scenery/shared-name"));
+        assert!(library
+            .calm
+            .iter()
+            .any(|entry| entry.file_name == "scenery/shared-name.mp4"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn library_scan_reports_contract_readiness_without_blocking_a_valid_shakedown() {
+        let root = temp_library_root("readiness");
+        seed_library(&root, MIN_VIDEOS_PER_CLASS);
+
+        let library =
+            load_paradigm_video_library(root.to_str().expect("utf8 path")).expect("load library");
+
+        assert!(library.valid);
+        assert_eq!(library.readiness_warnings.len(), 3);
+        assert!(library
+            .readiness_warnings
+            .iter()
+            .any(|warning| warning.starts_with("Fear currently has 5 MP4 files")));
 
         let _ = fs::remove_dir_all(root);
     }

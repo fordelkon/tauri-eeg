@@ -1,11 +1,11 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { convertFileSrc } from '@tauri-apps/api/core';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import InstrumentScaleDialog from '../../mentalScale/InstrumentScaleDialog';
-import { toPlayableVideoUrl } from '../../video/videoRegulationCatalog';
 import EffectRegulationPlayer from './EffectRegulationPlayer';
+import { EffectFullscreenInduction } from './EffectFullscreenInduction';
+import { EffectFullscreenVideoRegulation } from './EffectFullscreenVideoRegulation';
 import { ConditionCountdown } from './EffectConditionCountdown';
 import {
   EFFECT_CONDITION_OPTIONS,
@@ -125,17 +125,23 @@ export function SetupStepPanel({ flow }: SetupStepPanelProps) {
       />
       <div className={styles.setupSection}>
         <PillGroup
-          label="调控手段（仅调控条件使用）:"
-          options={EFFECT_METHOD_OPTIONS.map(({ value, label }) => ({ value, label }))}
-          selectedValue={state.method}
-          onSelect={(value) => flow.updateDraft({ method: value })}
-        />
-        <PillGroup
           label="实验条件:"
           options={EFFECT_CONDITION_OPTIONS.map(({ value, label }) => ({ value, label }))}
           selectedValue={state.condition}
           onSelect={(value) => flow.updateDraft({ condition: value })}
         />
+        {state.condition === 'regulation' ? (
+          <PillGroup
+            label="调控手段:"
+            options={EFFECT_METHOD_OPTIONS.map(({ value, label }) => ({ value, label }))}
+            selectedValue={state.method}
+            onSelect={(value) => flow.updateDraft({ method: value })}
+          />
+        ) : (
+          <p className={styles.noteCallout} role="note">
+            基线条件不播放调控素材。完成本次自然恢复后，可用同一被试和目标情绪再运行调控条件进行比较。
+          </p>
+        )}
         <p className={styles.noteCallout} role="note">
           实验条件说明：基线条件（自然恢复）＝情绪诱发后不施加调控手段，静息自然恢复；调控条件＝情绪诱发后施加所选调控手段（音乐/视频）。同被试同情绪完成两种条件各一次后，结果步会给出跨条件对比。
         </p>
@@ -235,37 +241,25 @@ export function InductionStepPanel({
           </div>
         </>
       ) : isInductionPlaying && status.kind === 'ready' ? (
-        <>
-          <video
-            key={`${status.entry.videoId}-${inductionRetryCount}`}
-            className={styles.inductionVideo}
-            src={toPlayableVideoUrl(status.entry.absolutePath, convertFileSrc)}
-            controls
-            autoPlay
-            playsInline
-            ref={(node) => {
-              if (node) {
-                node.volume = 1;
-              }
-            }}
-            onEnded={() => flow.completeInduction()}
-            onError={onVideoError}
-          />
-          <p className={styles.panelHint}>
-            正在播放诱发素材「{status.entry.fileName}」，播放结束后自动进入诱发后量表。
-          </p>
-        </>
+        <EffectFullscreenInduction
+          entry={status.entry}
+          isPlaying={isInductionPlaying}
+          onError={onVideoError}
+          onFinished={flow.completeInduction}
+          onStartPlayback={onBeginInduction}
+          retryCount={inductionRetryCount}
+          subjectId={state.subjectId}
+        />
       ) : status.kind === 'ready' ? (
-        <>
-          <div className={styles.stagePrimaryRow}>
-            <Button className={styles.primaryCta} variant="contained" onClick={onBeginInduction}>
-              开始播放
-            </Button>
-          </div>
-          <p className={styles.panelHint}>
-            将播放素材「{status.entry.fileName}」；开始后在设备可用的情况下自动关联本次 EEG 记录。
-          </p>
-        </>
+        <EffectFullscreenInduction
+          entry={status.entry}
+          isPlaying={false}
+          onError={onVideoError}
+          onFinished={flow.completeInduction}
+          onStartPlayback={onBeginInduction}
+          retryCount={inductionRetryCount}
+          subjectId={state.subjectId}
+        />
       ) : null}
 
       <EegAssociationChip association={state.eegAssociation} sessionId={state.eegSessionId} />
@@ -373,7 +367,11 @@ export function ConditionStepPanel({
   eegUnavailableHint,
 }: ConditionStepPanelProps) {
   const { state } = flow;
+  const navigate = useNavigate();
+  const [isVideoRegulationPrepared, setIsVideoRegulationPrepared] = useState(false);
   const isStarted = state.regulationStartedAtMs !== null;
+  const requiresVideoPool = state.method === 'video' && !isNaturalRecovery;
+  const isVideoPresentationActive = requiresVideoPool && (isVideoRegulationPrepared || isStarted);
 
   return (
     <section className={styles.stageBody} aria-label="条件执行">
@@ -381,23 +379,55 @@ export function ConditionStepPanel({
 
       {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
 
-      {!isStarted ? (
+      {isVideoPresentationActive ? (
+        <EffectFullscreenVideoRegulation
+          assets={flow.regulationPoolStatus.kind === 'ready' ? flow.regulationPoolStatus.entries : []}
+          finishMode={finishMode}
+          isPlaying={isStarted}
+          onFinish={onFinishRegulation}
+          onSkip={onSkipRemaining}
+          onStartPlayback={flow.beginRegulation}
+          onWindowElapsed={onWindowElapsed}
+          state={state}
+          windowNoun={windowNoun}
+        />
+      ) : !isStarted ? (
         <>
-          <div className={styles.stagePrimaryRow}>
-            <Button className={styles.primaryCta} variant="contained" onClick={flow.beginRegulation}>
-              {isNaturalRecovery ? '开始静息' : '开始调控'}
-            </Button>
-          </div>
-          <p className={styles.panelHint}>
-            点击开始后计时，并在设备可用时自动关联本次 EEG 记录。
-          </p>
+          {requiresVideoPool && flow.isRegulationPoolLoading ? (
+            <p className={`${styles.panelHint} ${styles.loadingHint}`}>正在加载平静调控素材库…</p>
+          ) : requiresVideoPool && flow.regulationPoolStatus.kind === 'blocked' ? (
+            <>
+              <Alert severity="warning">{flow.regulationPoolStatus.copy}</Alert>
+              <div className={styles.stageSecondaryRow}>
+                <button
+                  type="button"
+                  className={styles.secondaryAction}
+                  onClick={() => navigate('/eeg-acquisition')}
+                >
+                  前往 EEG 采集页处理素材库
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={styles.stagePrimaryRow}>
+                <Button
+                  className={styles.primaryCta}
+                  variant="contained"
+                  onClick={requiresVideoPool ? () => setIsVideoRegulationPrepared(true) : flow.beginRegulation}
+                >
+                  {requiresVideoPool ? '进入全屏准备' : isNaturalRecovery ? '开始静息' : '开始调控'}
+                </Button>
+              </div>
+              <p className={styles.panelHint}>
+                点击开始后计时，并在设备可用时自动关联本次 EEG 记录。
+              </p>
+            </>
+          )}
           <EegAssociationChip association={state.eegAssociation} sessionId={state.eegSessionId} />
         </>
       ) : (
         <>
-          {/* The ticking digits live only in this self-contained child: it
-              owns the 500ms wall-clock poll, re-renders just this subtree on
-              a changed second, and reports expiry upward exactly once. */}
           <ConditionCountdown
             state={state}
             windowNoun={windowNoun}
@@ -411,7 +441,7 @@ export function ConditionStepPanel({
               (0 once elapsed, null before/while running) — the page does
               not track per-tick seconds. The natural-recovery condition
               has no media to play. */}
-          {!isNaturalRecovery ? (
+          {!isNaturalRecovery && state.method !== 'video' ? (
             <EffectRegulationPlayer
               method={state.method}
               remainingSeconds={isWindowElapsed ? 0 : null}
@@ -420,11 +450,13 @@ export function ConditionStepPanel({
 
           {skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
 
-          <EegAssociationChip association={state.eegAssociation} sessionId={state.eegSessionId} />
+          {state.method !== 'video' || isNaturalRecovery ? (
+            <EegAssociationChip association={state.eegAssociation} sessionId={state.eegSessionId} />
+          ) : null}
 
           {/* Strong duration constraint: the primary exit unlocks only at
               zero; leaving early rides the double-confirmed skip below. */}
-          <div className={styles.stagePrimaryRow}>
+          <div className={state.method === 'video' && !isNaturalRecovery ? styles.visuallyHidden : styles.stagePrimaryRow}>
             <Button
               className={styles.primaryCta}
               variant="contained"
@@ -436,7 +468,7 @@ export function ConditionStepPanel({
             </Button>
           </div>
 
-          <div className={styles.stageSecondaryRow}>
+          <div className={state.method === 'video' && !isNaturalRecovery ? styles.visuallyHidden : styles.stageSecondaryRow}>
             {isNaturalRecovery ? null : (
               <button type="button" className={styles.secondaryAction} onClick={flow.openRegulationPage}>
                 在独立页打开{methodLabel}

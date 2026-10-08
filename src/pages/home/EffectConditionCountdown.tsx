@@ -12,6 +12,8 @@ type ConditionCountdownProps = {
   windowNoun: string;
   /** Fired once when the countdown first reads 0 — the page's finish-gate flip. */
   onElapsed: () => void;
+  /** Subject-facing video stage only shows the time and state, not the long operator hint. */
+  compact?: boolean;
 };
 
 /**
@@ -29,7 +31,7 @@ type ConditionCountdownProps = {
  * interval is cleaned up on unmount and StrictMode double-mount safe.
  */
 export const ConditionCountdown = memo(function ConditionCountdown({
-  state, windowNoun, onElapsed,
+  compact = false, state, windowNoun, onElapsed,
 }: ConditionCountdownProps) {
   const [remainingSeconds, setRemainingSeconds] = useState(
     () => remainingRegulationSeconds(state, Date.now()) ?? 0,
@@ -75,7 +77,7 @@ export const ConditionCountdown = memo(function ConditionCountdown({
     : 100;
 
   return (
-    <div className={styles.countdownWrap}>
+    <div className={compact ? styles.fullscreenCountdown : styles.countdownWrap}>
       <span
         role="status"
         className={`${styles.statusPill} ${hasElapsed ? styles.statusDone : styles.statusActive}`}
@@ -88,21 +90,25 @@ export const ConditionCountdown = memo(function ConditionCountdown({
       >
         {formatCountdown(remainingSeconds)}
       </span>
-      <div
-        className={styles.progressTrack}
-        role="progressbar"
-        aria-label={`${windowNoun}计时进度`}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={progressPercent}
-      >
-        <div className={styles.progressBar} style={{ transform: `scaleX(${progressPercent / 100})` }} />
-      </div>
-      <p className={styles.panelHint} id="regulation-countdown-hint">
-        {hasElapsed
-          ? `${windowNoun}时长已达成，可结束${windowNoun}进入复测。`
-          : `未达最短时长：还剩 ${formatCountdown(remainingSeconds)}。计时结束后才能进入复测；确有特殊情况可跳过剩余时长（二次确认后记录标记）。`}
-      </p>
+      {!compact ? (
+        <>
+          <div
+            className={styles.progressTrack}
+            role="progressbar"
+            aria-label={`${windowNoun}计时进度`}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressPercent}
+          >
+            <div className={styles.progressBar} style={{ transform: `scaleX(${progressPercent / 100})` }} />
+          </div>
+          <p className={styles.panelHint} id="regulation-countdown-hint">
+            {hasElapsed
+              ? `${windowNoun}时长已达成，可结束${windowNoun}进入复测。`
+              : `未达最短时长：还剩 ${formatCountdown(remainingSeconds)}。计时结束后才能进入复测；确有特殊情况可跳过剩余时长（二次确认后记录标记）。`}
+          </p>
+        </>
+      ) : null}
     </div>
   );
 });

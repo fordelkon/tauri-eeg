@@ -9,6 +9,17 @@ const LIBRARY_ROOT_PATH_STORAGE_KEY = 'paradigm.libraryRootPath';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
+function toWindowsPath(path: string) {
+  return path.replace(/\//g, '\\');
+}
+
+/**
+ * The bundled project library is the first-choice source for both induction
+ * and effect-evaluation video regulation. Operators can still replace it by
+ * selecting and validating another root on the EEG acquisition page.
+ */
+export const defaultParadigmLibraryRootPath = `${toWindowsPath(__TAURI_EEG_PROJECT_ROOT__)}\\video_paradigm`;
+
 function resolveStorage(): StorageLike | null {
   try {
     return typeof window === 'undefined' ? null : window.localStorage;
@@ -18,12 +29,16 @@ function resolveStorage(): StorageLike | null {
   }
 }
 
-/** Last validated paradigm video root path, or '' when none was stored. */
+/**
+ * Last validated paradigm video root path, falling back to the bundled
+ * video_paradigm folder for a first launch or unavailable local storage.
+ */
 export function readStoredLibraryRootPath(): string {
   try {
-    return resolveStorage()?.getItem(LIBRARY_ROOT_PATH_STORAGE_KEY) ?? '';
+    return resolveStorage()?.getItem(LIBRARY_ROOT_PATH_STORAGE_KEY)?.trim()
+      || defaultParadigmLibraryRootPath;
   } catch {
-    return '';
+    return defaultParadigmLibraryRootPath;
   }
 }
 

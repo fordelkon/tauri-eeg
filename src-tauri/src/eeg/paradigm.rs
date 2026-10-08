@@ -308,6 +308,9 @@ pub struct ParadigmVideoLibrary {
     pub happy: Vec<ParadigmVideoEntry>,
     pub valid: bool,
     pub problems: Vec<String>,
+    /// Non-blocking content-readiness notices used for contractual library
+    /// checks. They do not prevent a short pipeline shakedown from running.
+    pub readiness_warnings: Vec<String>,
 }
 
 impl ParadigmVideoLibrary {

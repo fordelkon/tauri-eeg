@@ -70,6 +70,8 @@ export type ParadigmVideoLibrary = {
   happy: ParadigmVideoEntry[];
   valid: boolean;
   problems: string[];
+  /** Non-blocking S-04 content readiness notices. */
+  readinessWarnings: string[];
 };
 
 export type ParadigmTrialPlanItem = {
