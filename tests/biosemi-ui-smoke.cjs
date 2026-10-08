@@ -32,7 +32,7 @@ async function main() {
         if (command === 'get_storage_location') return { root: 'C:\\smoke' };
         if (command === 'load_paradigm_video_library') {
           if (!JSON.stringify(args).includes('smoke')) throw new Error('Fixture library is unavailable until selected.');
-          return { rootPath: 'C:\\smoke\\videos', anxiety: [], depression: [], fear: [], calm: [], happy: [] };
+          return { rootPath: 'C:\\smoke\\videos', anxiety: [], depression: [], fear: [], calm: [], valid: true, problems: [], readinessWarnings: [] };
         }
         return {};
       },
@@ -118,8 +118,23 @@ async function main() {
     await page.getByRole('button', { name: '进入逐试次范式', exact: true }).click();
     await page.getByRole('heading', { name: '逐试次范式', exact: true }).waitFor();
     assert.equal(await page.getByRole('switch', { name: '正式 · 发送 Trigger', exact: true }).getAttribute('aria-checked'), 'false');
+
+    await page.goto(`${origin}/effect-evaluation`, { waitUntil: 'domcontentloaded' });
+    await page.getByRole('heading', { name: '情绪调控效果评价', exact: true }).waitFor();
+    const begin = page.getByRole('button', { name: '确认配置，开始诱发', exact: true });
+    assert.equal(await begin.isDisabled(), true);
+    await page.getByLabel('被试 ID', { exact: true }).fill('architecture-subject');
+    await begin.click();
+    await page.getByText('该情绪类别的诱发素材池为空，无法播放诱发素材。请先在实验设置页补充对应类别的素材，本步骤为流程硬前置，不提供跳过。', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: '开始播放诱发视频', exact: true }).count(), 0);
+    await page.getByRole('button', { name: '重置流程', exact: true }).click();
+    await page.getByRole('button', { name: '停止并重置', exact: true }).click();
+    await begin.waitFor();
+    assert.equal(await page.getByLabel('被试 ID', { exact: true }).inputValue(), '');
+    const startedRuns = await page.evaluate(() => window.__BIOSEMI_CALLS__.filter(call => call.command === 'experiment_start').length);
+    assert.equal(startedRuns, 0, 'An empty induction pool must never start an experiment');
     assert.deepEqual(errors, []);
-    console.log('Passed: five steps, small/wide layout, rehearsal without hardware, formal prerequisites, stable loading, correct experiment destinations and formal mode display. Simulated IPC; no hardware pulses.');
+    console.log('Passed: five steps, small/wide layout, formal prerequisites, stable loading, experiment destinations, effect setup, empty-pool gate and reset. Simulated IPC; no hardware pulses.');
   } finally { await browser.close(); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

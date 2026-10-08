@@ -4,20 +4,6 @@ import { describe, expect, test } from 'vitest';
 
 const readText = (url: URL) => readFileSync(url, 'utf8');
 
-/**
- * Wiring contracts for the effect-evaluation loop (R2): routing, home
- * navigation, subject passthrough into persistence, and the missing-record
- * guard. Source-contract style matches MusicRegulation.behavior.test.ts so
- * these stay runnable in the plain-node vitest environment.
- *
- * The timeline/stage redesign split the page into: EffectEvaluation.tsx
- * (banner, timeline mount, stage shell, exports), EffectTimeline.tsx (the
- * horizontal six-station timeline + done band), EffectReviewPopover.tsx (the
- * read-only done-node overlay), EffectStepPanels.tsx (the per-step stage
- * bodies) and EffectResultCards.tsx (result / comparison cards). Contracts
- * below read the file the covered markup actually lives in.
- */
-
 const pageUrl = new URL('./EffectEvaluation.tsx', import.meta.url);
 const timelineUrl = new URL('./EffectTimeline.tsx', import.meta.url);
 const disclosureUrl = new URL('./EffectProgressDisclosure.tsx', import.meta.url);
@@ -31,8 +17,6 @@ describe('EffectEvaluation wiring contract', () => {
 
     expect(appSource).toContain("import('./pages/home/EffectEvaluation')");
     expect(appSource).toContain('path="/effect-evaluation"');
-    // The wizard orchestrates its own baseline/post phases, so it must sit
-    // before the ScaleGateRoute block rather than inside it.
     const evaluationIndex = appSource.indexOf('path="/effect-evaluation"');
     const gateIndex = appSource.indexOf('<Route element={<ScaleGateRoute />}>');
     expect(evaluationIndex).toBeGreaterThan(-1);
@@ -58,31 +42,15 @@ describe('EffectEvaluation wiring contract', () => {
   test('measures nodes 2/4 with the shared STAI-S + PANAS battery (doc scale-instruments §1/§3.3)', () => {
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
     const panelsSource = readText(panelsUrl);
-
-    // The same battery core for both phases and every method: the instrument
-    // is imported from the battery module, not looked up per regulation method.
     expect(hookSource).toContain("from '../../mentalScale/instruments/battery'");
     expect(hookSource).toContain('STAI_PANAS_BATTERY_SCALE_ID');
-    // The auxiliary scales ride the battery record instead of their own rows
-    // (doc §3.3): SAM prepends the baseline leg (node ②), GEMS-9 joins the
-    // post leg (node ④) for the music condition only.
     expect(hookSource).toContain("buildBatteryDefinition({ includeSam: true })");
-    // GEMS-9 only mounts for the music REGULATION arm: the natural-recovery
-    // leg never plays music, so the music-emotion questionnaire must not be
-    // administered there (scale-instruments doc §2.5 manipulation semantics).
     expect(hookSource).toContain(
       "includeGems: state.method === 'music' && state.condition === 'regulation'",
     );
     expect(hookSource).toContain('const BASELINE_SCALE_DEFINITION = buildBatteryDefinition');
-    // Raw answers travel in the doc §3.3 shape {stai, panas, timeframe: now}
-    // (sam/gems sub-objects added by the battery module when enabled) and the
-    // measured marker covers all three battery dimensions.
     expect(hookSource).toContain('buildBatteryRawAnswers(answers)');
     expect(hookSource).toContain('[...batteryDimensionKeys]');
-
-    // The panel feeds the per-phase battery definition into the instrument
-    // dialog and the answers straight into the phase save (no per-method
-    // scale branch).
     expect(panelsSource).toContain('definition={flow.scaleDefinitionFor(phase)}');
     expect(panelsSource).not.toContain('scaleForMethod');
   });
@@ -101,17 +69,13 @@ describe('subject passthrough contract', () => {
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
     expect(hookSource).toContain("import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject'");
-    expect(hookSource).toContain('writeStoredSubjectId(current.subjectId.trim())');
+    expect(hookSource).toContain('subjectSelected: writeStoredSubjectId');
   });
 
   test('blocks the summary on missing measurements instead of invoking the backend', () => {
-    // The result reports (summary + comparison) load through the focused
-    // reports hook; the guard lives there.
     const hookSource = readText(new URL('./useEffectResultReports.ts', import.meta.url));
     const guardIndex = hookSource.indexOf('describeMissingMeasurements(state)');
     const computeIndex = hookSource.indexOf('computeRegulationEffect(baselineRecordId');
-
-    // The guard must short-circuit before any backend call.
     expect(guardIndex).toBeGreaterThan(-1);
     expect(computeIndex).toBeGreaterThan(guardIndex);
     expect(hookSource).toContain('if (missingCopy)');
@@ -119,9 +83,6 @@ describe('subject passthrough contract', () => {
 
   test('persists gate submissions with an explicit subject binding option', () => {
     const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
-
-    // R2: records no longer hard-code subjectId null — explicit binding wins,
-    // otherwise the shared subject memory is consulted.
     expect(apiSource).toContain('readStoredSubjectId()');
     expect(apiSource).not.toContain('subjectId: null,');
   });
@@ -133,21 +94,13 @@ describe('strong duration constraint (R3 contract)', () => {
     const panelsSource = readText(panelsUrl);
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
-    // The page derives the exit mode from the one-shot expiry fact reported
-    // by the countdown leaf (no per-tick remaining value gates the exit)…
-    expect(pageSource).toContain('regulationFinishModeFromRemaining(');
-    expect(pageSource).toContain('isWindowElapsed ? 0 : remainingRegulationSeconds(state, Date.now())');
-    // …disables the primary exit while time remains…
+    expect(pageSource).toContain('flow.regulationFinishMode()');
     expect(panelsSource).toContain("disabled={state.interrupted || finishMode.mode !== 'finish'}");
-    // …and offers the escape hatch only through a second confirmation. R6
-    // swaps the noun by condition: 静息 for natural recovery, 调控 otherwise.
     expect(pageSource).toContain('title: `跳过剩余${windowNoun}时长？`');
     expect(pageSource).toContain("const windowNoun = isNaturalRecovery ? '静息' : '调控'");
     expect(pageSource).toContain('destructive: true');
-
-    // The confirmed skip records the marker before leaving step 3.
     expect(hookSource).toContain('skipRemainingRegulation');
-    expect(hookSource).toContain('leaveRegulationStep(true)');
+    expect(hookSource).toContain('skipRemainingRegulation: execution.skipRemainingRegulation');
   });
 
   test('persists emotion, duration, and the post-leg skip marker with phase records', () => {
@@ -161,8 +114,6 @@ describe('strong duration constraint (R3 contract)', () => {
 
 describe('report export & history review (R3 contract)', () => {
   test('exports single/batch reports through the save dialog and backend command', () => {
-    // The dialog choreography lives in the export hook; the page mounts its
-    // buttons, so the contract reads both.
     const pageSource = readText(pageUrl)
       + readText(new URL('./useEffectReportExports.ts', import.meta.url));
 
@@ -184,8 +135,6 @@ describe('report export & history review (R3 contract)', () => {
 
     expect(pageSource).toContain('<EffectHistoryPanel');
     expect(pageSource).toContain('历史记录');
-
-    // The panel reads history through the shared API layer.
     expect(panelSource).toContain("'../../mentalScale/scaleRecordsApi'");
   });
 });
@@ -196,12 +145,8 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
     const statusSource = readText(new URL('../../mentalScale/mentalScaleStatus.ts', import.meta.url));
     const pageSource = readText(pageUrl);
     const cardsSource = readText(cardsUrl);
-
-    // Both save paths derive the marker from the actually answered questions.
     expect(apiSource).toContain('measuredDimensionKeys(scale, answers)');
     expect(statusSource).toContain('export function measuredDimensionKeys');
-    // The result page states the honest comparison-basis count and flags
-    // legacy pairs computed over every stored key.
     expect(cardsSource).toContain('实际纳入对比的维度数');
     expect(pageSource).toContain('describeMeasuredBasis(flow.summary)');
   });
@@ -213,13 +158,9 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
       const source = readText(new URL(page, import.meta.url));
 
       expect(source).toContain('useEffectRegulationContext(');
-      // The banner is the shared RegulationSessionBanner, styled by each
-      // page's own .effectSessionBanner class.
       expect(source).toContain('RegulationSessionBanner');
       expect(source).toContain('effectSessionBanner');
     }
-
-    // The shared banner carries the elapsed copy once for both pages.
     const bannerSource = readText(new URL('./regulationSessionBanner.tsx', import.meta.url));
     expect(bannerSource).toContain('effectSessionBanner');
     expect(bannerSource).toContain('效果评价调控时长已达成');
@@ -235,24 +176,16 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
 describe('six-step flow & condition split (R6 contract)', () => {
   test('the setup step selects the run condition and the induction step gates on the pool', () => {
     const panelsSource = readText(panelsUrl);
-
-    // The setup step offers both outline conditions with explanation copy.
     expect(panelsSource).toContain('EFFECT_CONDITION_OPTIONS');
     expect(panelsSource).toContain('实验条件');
     expect(panelsSource).toContain('condition: value');
     expect(panelsSource).toContain('基线条件（自然恢复）＝情绪诱发后不施加调控手段');
-
-    // The induction step renders the pure pool status (blocked copy is never
-    // silently skipped) and plays the picked entry through the same
-    // video_paradigm URL conversion the acquisition page uses. The pool
-    // loading + status derivation live in useEffectInductionPool.
     expect(readText(new URL('./useEffectInductionPool.ts', import.meta.url)))
       .toContain('describeInductionPoolStatus');
     expect(panelsSource).toContain('flow.inductionStatus');
     expect(panelsSource).toContain('status.copy');
     const inductionStageSource = readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url));
     expect(inductionStageSource).toContain('toPlayableInductionUrl(entry.absolutePath)');
-    // The induction completion advances only when the video actually ended.
     expect(inductionStageSource).toContain('onEnded={onFinished}');
   });
 
@@ -260,19 +193,11 @@ describe('six-step flow & condition split (R6 contract)', () => {
     const pageSource = readText(pageUrl);
     const panelsSource = readText(panelsUrl);
     const flowSource = readText(new URL('./effectEvaluationFlow.ts', import.meta.url));
-
-    // The page branches the condition step on the wizard condition…
     expect(pageSource).toContain("state.condition === 'natural_recovery'");
-    // …renders the in-page rest countdown (静息 copy, strong duration
-    // constraint, confirmed skip)…
     expect(panelsSource).toContain("'开始静息'");
     expect(panelsSource).toContain("'结束静息，进行复测'");
-    // …and keeps the regulation-page jump inside the regulation branch only.
     expect(panelsSource).toContain('flow.openRegulationPage');
     expect(panelsSource).toMatch(/isNaturalRecovery \? null : \(\s*<button/);
-
-    // The pure module keeps the regulation-page context null for
-    // natural-recovery windows so those pages never see a banner.
     expect(flowSource).toContain("state.condition !== 'regulation'");
   });
 
@@ -280,13 +205,8 @@ describe('six-step flow & condition split (R6 contract)', () => {
     const pageSource = readText(pageUrl);
     const cardsSource = readText(cardsUrl);
     const chartSource = readText(new URL('./effectResultChartOption.ts', import.meta.url));
-
-    // The hook fetches the backend cross-condition summary on the result step
-    // (through the focused reports hook)…
     const reportsSource = readText(new URL('./useEffectResultReports.ts', import.meta.url));
     expect(reportsSource).toContain('computeConditionEffect(state.subjectId.trim(), state.emotion)');
-    // …and the page renders the verdict, stats, chart, table, and the frozen
-    // formula note, plus guidance copy when a condition is still missing.
     expect(pageSource).toContain('conditionComparison');
     expect(pageSource).toContain('buildConditionComparisonVerdictCopy');
     expect(pageSource).toContain('buildConditionComparisonChartOption');
@@ -300,25 +220,15 @@ describe('six-step flow & condition split (R6 contract)', () => {
 
 describe('comparison export, leg trace & induction fallback (R7 contract)', () => {
   test('the comparison card renders both legs\' record trace and export buttons', () => {
-    // The comparison document choreography lives in the export hook; the
-    // page keeps the button wiring, so the contract reads both.
     const pageSource = readText(pageUrl)
       + readText(new URL('./useEffectReportExports.ts', import.meta.url));
     const cardsSource = readText(cardsUrl);
     const exportSource = readText(new URL('./effectReportExport.ts', import.meta.url));
     const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
-
-    // 大纲 6.3 步骤 5: the pairing is auditable on screen - both legs'
-    // post-record ids and timestamps come from the backend comparison.
     expect(cardsSource).toContain('renderComparisonLegTrace');
-    // The comparison card is a memoized component that receives the paired
-    // runs as a prop, so the legs are read off `conditionComparison` there.
     expect(cardsSource).toContain('conditionComparison.naturalRecoveryLeg');
     expect(cardsSource).toContain('conditionComparison.regulationLeg');
     expect(cardsSource).toContain('formatRunTimestamp');
-
-    // The export rides the existing save-dialog flow with its own payload
-    // builder and file-name family.
     expect(pageSource).toContain("runComparisonExport('json')");
     expect(pageSource).toContain("runComparisonExport('csv')");
     expect(pageSource).toContain('buildComparisonReportPayload');
@@ -328,9 +238,6 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
 
   test('the backend leg shape travels into the view types', () => {
     const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
-
-    // The camelCase mirror of the backend ConditionComparisonLeg keeps the
-    // record ids, timestamps, and run facts typed for the card.
     expect(apiSource).toContain('naturalRecoveryLeg: ConditionComparisonLegView');
     expect(apiSource).toContain('regulationLeg: ConditionComparisonLegView');
   });
@@ -338,27 +245,18 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
   test('a failed induction video offers a retry and a way back to the setup step', () => {
     const pageSource = readText(pageUrl);
     const panelsSource = readText(panelsUrl);
-
-    // R7, feedback-003 P2-3: only onEnded advances the flow, so a load
-    // failure needs its own branch - no silent dead end on step 1.
     expect(panelsSource).toContain("inductionVideoFailed && status.kind === 'ready'");
-    // The panel marks the failure through the page-owned callback (the
-    // setter itself stays on the page with the other player state).
     const inductionStageSource = readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url));
     expect(inductionStageSource).toContain('onError={onError}');
     expect(pageSource).toContain('setInductionVideoFailed(true)');
     expect(panelsSource).toContain('重试加载素材');
     expect(panelsSource).toContain('重置并返回设置步');
-    // The retry remounts a fresh element (the counter rides on the key).
     expect(inductionStageSource).toContain('`${entry.videoId}-${retryCount}`');
   });
 
   test('the history panel shows each run\'s condition with a legacy tag', () => {
     const panelSource = readText(new URL('./EffectHistoryPanel.tsx', import.meta.url));
     const viewSource = readText(new URL('./effectHistoryView.ts', import.meta.url));
-
-    // R7, feedback-003 P2-1: the row chip distinguishes natural-recovery /
-    // regulation / legacy runs.
     expect(panelSource).toContain('labelForHistoryCondition(entry.condition)');
     expect(viewSource).toContain('export function labelForHistoryCondition');
   });
@@ -386,10 +284,6 @@ describe('embedded regulation player (condition node contract)', () => {
   test('presents video regulation as a fullscreen stage while music stays embedded', () => {
     const panelsSource = readText(panelsUrl);
     const fullscreenSource = readText(new URL('./EffectFullscreenVideoRegulation.tsx', import.meta.url));
-
-    // Music remains inside the condition card. The participant-facing video
-    // branch mounts a portal stage instead, so the ordinary app chrome and
-    // media controls do not compete with the stimulus.
     expect(panelsSource).toContain("import EffectRegulationPlayer from './EffectRegulationPlayer'");
     expect(panelsSource).toContain("import { EffectFullscreenVideoRegulation } from './EffectFullscreenVideoRegulation'");
     expect(panelsSource).toContain('<EffectRegulationPlayer');
@@ -397,10 +291,6 @@ describe('embedded regulation player (condition node contract)', () => {
     expect(panelsSource).toContain("state.method === 'video' && !isNaturalRecovery");
     expect(panelsSource).toContain("!isNaturalRecovery && state.method === 'music'");
     expect(panelsSource).toContain('remainingSeconds={isWindowElapsed ? 0 : null}');
-
-    // The fullscreen component owns the same flow-derived timer and pauses
-    // video when the finish gate opens. The shared hook enters native Tauri
-    // fullscreen first and falls back to the document fullscreen API.
     expect(fullscreenSource).toContain('createPortal(');
     const fullscreenHookSource = readText(new URL('./useParticipantFullscreen.ts', import.meta.url));
     expect(fullscreenHookSource).toContain('const appWindow = getCurrentWindow();');
@@ -422,9 +312,6 @@ describe('embedded regulation player (condition node contract)', () => {
 
     expect(modelSource).toContain('export function shouldPauseAt(');
     expect(playerSource).toContain('remainingSeconds === 0 || interrupted');
-    // The music branch consumes the existing history command through the
-    // shared loader (same surface as the music page); no backend surface was
-    // added for the embedded player.
     expect(playerSource).toContain('useMusicHistory({');
     expect(musicHistorySource).toContain('listMusicHistory(userId, limit)');
     expect(playerSource).not.toContain('useEegSession');
@@ -435,8 +322,6 @@ describe('embedded regulation player (condition node contract)', () => {
 
 describe('paradigm finished-screen handoff contract', () => {
   test('links the finished screen to the effect-evaluation route', () => {
-    // The finished screen is its own presentation component under the
-    // paradigm folder; the handoff link lives there.
     const finishedSource = readText(
       new URL('../../paradigm/ParadigmFinishedScreen.tsx', import.meta.url),
     );
@@ -452,32 +337,19 @@ describe('timeline / stage / review layout contract', () => {
     const timelineSource = readText(timelineUrl);
     const reviewSource = readText(reviewUrl);
     const disclosureSource = readText(disclosureUrl);
-
-    // Round 7: the six-station timeline lives behind a collapsible pill
-    // instead of squatting above the stage; the done band compresses
-    // finished nodes into clickable chips inside the expanded panel.
     expect(pageSource).toContain('<EffectProgressDisclosure');
     expect(pageSource).not.toContain('<EffectTimeline');
     expect(pageSource).not.toContain('<EffectDoneBand');
     expect(disclosureSource).toContain('<EffectTimeline');
     expect(disclosureSource).toContain('<EffectDoneBand');
-    // The page-owned scale dialog state is handed down so the disclosure
-    // can force-collapse while the instrument owns the viewport.
     expect(pageSource).toContain('scaleDialogOpen={isScaleDialogOpen}');
     expect(pageSource).toContain('<EffectReviewPopover');
-    // The old vertical node cards are gone.
     expect(pageSource).not.toContain('EffectPipelineCard');
-
-    // Stations: done/current are clickable, pending disabled; the click
-    // handler routes current → stage scroll, done → review popover.
     expect(timelineSource).toContain('onStationClick');
     expect(timelineSource).toContain('aria-current');
     expect(timelineSource).toContain('stationDotCurrent');
     expect(pageSource).toContain('scrollIntoView');
     expect(pageSource).toContain('setReview({ step, anchorEl })');
-
-    // The review overlay is read-only: MUI Popover + record id chips + the
-    // skip marker, with no flow-mutating handler inside.
     expect(reviewSource).toContain('<Popover');
     expect(reviewSource).toContain('configChip');
     expect(reviewSource).toContain('已跳过剩余时长');
@@ -489,24 +361,16 @@ describe('timeline / stage / review layout contract', () => {
     const pageSource = readText(pageUrl);
     const panelsSource = readText(panelsUrl);
     const modelSource = readText(new URL('./effectPipeline.ts', import.meta.url));
-
-    // Stage shell: 步骤 X / 6 kicker + derived stage title/hint, single
-    // current node rendered.
     expect(pageSource).toContain('步骤 {state.step + 1} / {EFFECT_FLOW_STEP_COUNT}');
     expect(pageSource).toContain('currentNode.stageTitle');
     expect(pageSource).toContain('currentNode.stageHint');
     expect(modelSource).toContain("stageTitle: '设置本次实验'");
-    // Each stage body offers exactly one primary CTA (four panels: setup,
-    // induction, scale, condition — the condition panel has start + finish),
-    // styled as the page's biggest button.
     expect(panelsSource).toContain('确认配置，开始诱发');
     expect(readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url)))
       .toContain('开始播放诱发视频');
     expect(panelsSource).toContain('开始填写');
     expect(panelsSource).toContain("'开始调控'");
     expect(panelsSource).toContain('进入全屏准备');
-    // Secondary actions (skip / standalone page / reset) are quiet ghost
-    // controls, and the destructive reset lives in the stage footer row.
     expect(panelsSource).toContain('stageSecondaryRow');
     expect(panelsSource).toContain('secondaryActionDanger');
     expect(panelsSource).toContain('跳过剩余时长…');
@@ -519,23 +383,15 @@ describe('usability/operability fixes (audit contract)', () => {
   test('a resumed mid-run state announces itself instead of restoring silently', () => {
     const pageSource = readText(pageUrl);
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
-
-    // The hook flags mounts that restored a stored run…
     expect(hookSource).toContain('isResumedRun: storedInitialState !== null');
-    // …and the page surfaces it as a dismissible banner naming the restored
-    // step and subject, including the wall-clock fact for a live window.
     expect(pageSource).toContain('flow.isResumedRun && !isResumeNoticeDismissed');
     expect(pageSource).toContain('已恢复上次进行中的评价');
     expect(pageSource).toContain('条件计时按真实时间继续计算');
-    // A reset starts a fresh run, so the banner must retire with the old one.
     expect(pageSource).toContain('setIsResumeNoticeDismissed(true)');
   });
 
   test('step transitions move viewport and focus to the new stage content', () => {
     const pageSource = readText(pageUrl);
-
-    // The stage is a programmatic focus target; the step effect focuses it
-    // (screen readers) and scrolls it into view, skipping the initial mount.
     expect(pageSource).toContain('tabIndex={-1}');
     expect(pageSource).toContain('stage.focus({ preventScroll: true })');
     expect(pageSource).toContain('hasRenderedStepRef');
@@ -544,12 +400,9 @@ describe('usability/operability fixes (audit contract)', () => {
   test('the scale dialog stays open while the record saves (draft survives failure)', () => {
     const panelsSource = readText(panelsUrl);
     const dialogSource = readText(new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url));
-
-    // The panel no longer closes the dialog before the save resolves…
     expect(panelsSource).toContain('isSubmitting={flow.isSavingScale}');
     expect(panelsSource).toContain('submitError={flow.actionError}');
     expect(panelsSource).not.toContain('onCloseDialog();\n            void flow.completeScaleMeasurement');
-    // …and the dialog blocks close + shows the failure above the answers.
     expect(dialogSource).toContain('isSubmitting?: boolean');
     expect(dialogSource).toContain('submitError?: string | null');
     expect(dialogSource).toContain("isSubmitting ? '正在保存量表…' : '提交量表'");
@@ -558,9 +411,6 @@ describe('usability/operability fixes (audit contract)', () => {
 
   test('the hand-rolled scale overlay traps focus and closes guarded', () => {
     const dialogSource = readText(new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url));
-
-    // Focus in on open, focus back to the opener on unmount, Tab cycled
-    // inside, and Escape riding the same discard-confirm gate as the X.
     expect(dialogSource).toContain('openerElementRef');
     expect(dialogSource).toContain("event.key === 'Escape'");
     expect(dialogSource).toContain("event.key !== 'Tab'");
@@ -569,9 +419,6 @@ describe('usability/operability fixes (audit contract)', () => {
 
   test('scale anchor rows navigate (and select) with the keyboard', () => {
     const anchorSource = readText(new URL('../../mentalScale/scaleUi/ScaleAnchorGroup.tsx', import.meta.url));
-
-    // Arrow/Home/End sweep a row: additive to every consumer (scale dialogs
-    // and the paradigm SAM rows), click paths untouched.
     expect(anchorSource).toContain("case 'ArrowLeft':");
     expect(anchorSource).toContain("case 'ArrowRight':");
     expect(anchorSource).toContain("case 'Home':");
@@ -580,9 +427,6 @@ describe('usability/operability fixes (audit contract)', () => {
 
   test('history delete warns when the target feeds the in-flight run', () => {
     const panelSource = readText(new URL('./EffectHistoryPanel.tsx', import.meta.url));
-
-    // The active run's record ids live in sessionStorage; the confirm dialog
-    // must surface the match instead of deleting the run's data silently.
     expect(panelSource).toContain('readFlowStateFromStorage(window.sessionStorage)');
     expect(panelSource).toContain('isDeleteTargetOfActiveRun');
     expect(panelSource).toContain('删除后本次运行的改善率与跨条件对比将无法计算');

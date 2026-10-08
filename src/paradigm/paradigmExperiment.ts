@@ -7,10 +7,14 @@ export class ParadigmExperiment {
   private trialId: string | null = null;
   private records: TrialRecord[] = [];
   private events = new Map<string, Promise<void>>();
+  private stopped = false;
 
   constructor(readonly runId: string) {}
 
+  stop() { this.stopped = true; }
+
   async event(eventName: string, source = 'paradigm_phase') {
+    if (this.stopped) return;
     const key = `${this.trialId ?? this.runId}:${eventName}`;
     const phase = eventName === 'trial_start' || eventName === 'trial_end' ? 'trial'
       : eventName === 'sam_start' || eventName === 'sam_submit' ? 'sam'
@@ -35,6 +39,7 @@ export class ParadigmExperiment {
       presentationStartedAt: new Date().toISOString(), presentationEndedAt: null,
     };
     await saveTrial(this.runId, { trialId: this.trialId, ...this.snapshot, presentationStatus: 'started' });
+    if (this.stopped) return this.snapshot;
     await this.event('trial_start');
     await this.event('baseline_rest_start');
     return this.snapshot;
@@ -43,6 +48,7 @@ export class ParadigmExperiment {
   async end() {
     if (!this.snapshot) throw new Error('没有活动试次');
     await this.event('trial_end');
+    if (this.stopped) return this.snapshot;
     this.snapshot = { ...this.snapshot, presentationEndedAt: new Date().toISOString() };
     await this.event('sam_start');
     return this.snapshot;
@@ -55,7 +61,9 @@ export class ParadigmExperiment {
       operatorNotes: null, labelSource: selfReport ? 'self_report_confirmed' : 'induction_target',
     };
     await saveTrial(this.runId, { trialId: this.trialId, ...record, presentationStatus: selfReport ? 'completed' : 'skipped' });
+    if (this.stopped) return record;
     if (selfReport) await this.event('sam_submit');
+    if (this.stopped) return record;
     this.records.push(record);
     this.snapshot = null;
     return record;

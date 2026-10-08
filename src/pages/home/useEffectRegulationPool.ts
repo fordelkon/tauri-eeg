@@ -1,14 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
-import { loadParadigmVideoLibrary } from '../../paradigm/paradigmApi';
+import { useMemo } from 'react';
+import { useMaterialLibrary } from '../../paradigm/useMaterialLibrary';
 import { readStoredLibraryRootPath } from '../../paradigm/paradigmStorage';
-import type { ParadigmVideoEntry } from '../../paradigm/types';
 import { describeRegulationPoolStatus, type RegulationPoolStatus } from './effectRegulationPool';
 
-/**
- * Loads the shared Calm pool before the condition window can start. Induction
- * keeps its target-emotion pool, while video regulation always receives calm
- * material from the same validated video_paradigm root.
- */
 export function useEffectRegulationPool(
   enabled: boolean,
   step: number,
@@ -16,43 +10,11 @@ export function useEffectRegulationPool(
   isRegulationPoolLoading: boolean;
   regulationPoolStatus: RegulationPoolStatus;
 } {
-  const [pool, setPool] = useState<readonly ParadigmVideoEntry[] | null>(null);
-  const [isRegulationPoolLoading, setIsRegulationPoolLoading] = useState(false);
-
-  useEffect(() => {
-    if (!enabled || step !== 3) {
-      setPool(null);
-      setIsRegulationPoolLoading(false);
-      return undefined;
-    }
-
-    let cancelled = false;
-    setIsRegulationPoolLoading(true);
-
-    void loadParadigmVideoLibrary(readStoredLibraryRootPath())
-      .then((library) => {
-        if (!cancelled) {
-          setPool(library.valid ? library.calm : null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPool(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsRegulationPoolLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, step]);
-
+  const active = enabled && step === 3;
+  const library = useMaterialLibrary(active ? readStoredLibraryRootPath() : null);
+  const pool = active && library.kind === 'ready' ? library.library.calm : null;
   return {
-    isRegulationPoolLoading,
+    isRegulationPoolLoading: active && library.kind === 'loading',
     regulationPoolStatus: useMemo(() => describeRegulationPoolStatus(pool), [pool]),
   };
 }

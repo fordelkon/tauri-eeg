@@ -63,5 +63,22 @@ describe('independent trial recording', () => {
     expect(ipc.saveTrial.mock.lastCall?.[1]).not.toHaveProperty('selfReport');
     expect(run.summary()).toMatchObject({ totalTrials: 0, valenceMean: null, arousalMean: null });
   });
+
+  it('records a skipped trial with the established markers and rejection label', async () => {
+    const run = new ParadigmExperiment('skip-run');
+    await run.begin(plan);
+    await run.event('playback_error', 'video_error');
+    await run.event('trial_skip');
+    await run.event('trial_end');
+    await run.finalize(null, 'rejected', ['video_playback_failure']);
+    expect(ipc.emitEvent.mock.calls.map(([input]) => input.eventName)).toEqual([
+      'trial_start', 'baseline_rest_start', 'playback_error', 'trial_skip', 'trial_end',
+    ]);
+    expect(ipc.saveTrial.mock.lastCall?.[1]).toMatchObject({
+      presentationStatus: 'skipped', quality: 'rejected', selfReport: null,
+      artifactFlags: ['video_playback_failure'], labelSource: 'induction_target',
+    });
+    expect(run.summary().totalTrials).toBe(1);
+  });
 });
 

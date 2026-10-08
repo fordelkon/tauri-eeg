@@ -33,7 +33,7 @@ const STAGE_PHASES: readonly string[] = [
 /**
  * Presentation + OS lifecycle half of the paradigm runner. The trial command
  * chain (begin/mark/end/finalize, retries, summary load) lives in the
- * `useIndependentParadigmRun` hook and the block-gate math in the pure
+ * `paradigmExecution` controller and the block-gate math in the pure
  * `paradigmBlockQueue` module; this component renders the panel banner, the
  * fullscreen stage portals, and the finished screen, and owns the early-exit
  * confirmations.
@@ -49,7 +49,7 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
   const { confirm, confirmDialogElement } = useConfirmDialog();
   const {
     abortRun,
-    dispatch,
+    exitSession,
     handleCountdownComplete,
     handleSelfReportSubmit,
     handleSkipTrial,
@@ -141,14 +141,14 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
   const handleEarlyEnd = useCallback(async () => {
     if (!(await confirm({ title: '提前结束实验？', description: '记录中止事件，BDF 保存仍由 ActiView 控制。' }))) return;
     await abortRun();
-    dispatch({ type: 'end_session' });
+    exitSession();
     onExitToSetup();
-  }, [confirm, dispatch, abortRun, onExitToSetup]);
+  }, [confirm, exitSession, abortRun, onExitToSetup]);
 
   const handleReturnToSetup = useCallback(() => {
-    dispatch({ type: 'end_session' });
+    exitSession();
     onExitToSetup();
-  }, [dispatch, onExitToSetup]);
+  }, [exitSession, onExitToSetup]);
 
   // --- Render ------------------------------------------------------------
 
@@ -300,4 +300,3 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     </div>
   );
 }
-

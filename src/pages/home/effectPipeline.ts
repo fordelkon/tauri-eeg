@@ -16,7 +16,7 @@ import {
  *
  * Rendering-layer only: it reads the flow state and never mutates it, keeps
  * no React/Tauri/DOM access, and never decides gating itself — the state
- * machine in `effectEvaluationFlow` remains the single source of truth for
+ * execution module in `effectEvaluationExecution` is the source of truth for
  * which step is reachable. Free of React so the node derivation is
  * unit-testable in the node vitest environment.
  */

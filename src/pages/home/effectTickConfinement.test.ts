@@ -89,11 +89,10 @@ describe('effect-evaluation tick confinement contract', () => {
     const pageSource = readText(pageUrl);
     const panelsSource = readText(panelsUrl);
 
-    // The leaf reports expiry upward; the page flips the gate exactly once…
     expect(panelsSource).toContain('onElapsed={onWindowElapsed}');
-    expect(pageSource).toContain('setIsWindowElapsed(true); void flow.conditionElapsed();');
-    // …and a fresh run starts with its finish gate locked again.
-    expect(pageSource).toContain('setIsWindowElapsed(false);');
+    expect(pageSource).toContain('const handleWindowElapsed = flow.conditionElapsed');
+    expect(pageSource).toContain('const { isWindowElapsed } = flow');
+    expect(pageSource).not.toContain('setIsWindowElapsed');
     // The countdown leaf receives the flow state (it reads its own clock
     // from the stamped window start) rather than precomputed digits.
     expect(panelsSource).toContain('<ConditionCountdown');
