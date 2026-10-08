@@ -15,32 +15,11 @@ export function classifyAgentIntent(input: string): AgentIntent {
     return 'unknown';
   }
 
+  if (/(打开实验范式|进入实验范式|开始范式)/.test(normalized)) return 'open_paradigm';
+  if (/(打开实验设置|进入实验设置|trigger设置|触发设置)/i.test(normalized)) return 'open_experiment_settings';
+
   if (/(下一步|继续|开始实验|start|next)/i.test(normalized)) {
     return 'go_next_page';
-  }
-
-  if (/(启动设备|连接设备|开始设备|startdevice)/i.test(normalized)) {
-    return 'start_eeg_device';
-  }
-
-  if (/(停止设备|关闭设备|stopdevice)/i.test(normalized)) {
-    return 'stop_eeg_device';
-  }
-
-  if (/(开始基线采集|开始恢复采集|开始采集|开始记录|开始录制|startrecord)/i.test(normalized)) {
-    return 'start_eeg_device_and_record';
-  }
-
-  if (/(暂停采集|暂停记录|pauserecord)/i.test(normalized)) {
-    return 'pause_eeg_recording';
-  }
-
-  if (/(恢复采集|继续记录|resumerecord)/i.test(normalized)) {
-    return 'resume_eeg_recording';
-  }
-
-  if (/(结束并保存|停止并保存|保存数据|结束采集|停止记录|stoprecord)/i.test(normalized)) {
-    return 'stop_and_save_eeg_recording';
   }
 
   if (/(选择视频|匹配视频|selectvideo)/i.test(normalized)) {

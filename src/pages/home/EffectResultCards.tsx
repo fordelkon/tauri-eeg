@@ -116,7 +116,7 @@ export function PillGroup<T extends string>({
 
 type ResultCardProps = {
   chartOption: EffectChartOption | null;
-  eegSessionId: string | null;
+  runId: string | null;
   isLoadingSummary: boolean;
   isExporting: boolean;
   measuredBasisNote: string | null;
@@ -137,7 +137,7 @@ type ResultCardProps = {
  *  every prop must stay referentially stable between data changes. */
 export const ResultCard = memo(function ResultCard({
   chartOption,
-  eegSessionId,
+  runId,
   isLoadingSummary,
   isExporting,
   measuredBasisNote,
@@ -213,10 +213,10 @@ export const ResultCard = memo(function ResultCard({
             <p className={styles.noteCallout} role="note">{measuredBasisNote}</p>
           ) : null}
 
-          {eegSessionId ? (
+          {runId ? (
             <div className={styles.configSummary}>
-              <span className={styles.configChip} title={eegSessionId}>
-                关联 EEG 会话 {`${eegSessionId.slice(0, 8)}…`}
+              <span className={styles.configChip} title={runId}>
+                实验 Run {`${runId.slice(0, 8)}…`}
               </span>
             </div>
           ) : null}
@@ -319,9 +319,10 @@ export const ConditionComparisonCard = memo(function ConditionComparisonCard({
       className={`${styles.legTrace} ${
         tone === 'baseline' ? styles.legTraceBaseline : styles.legTraceRegulation
       }`}
-      title={`post 记录 ${leg.postRecordId}；基线记录 ${leg.baselineRecordId}；量表 ${leg.scaleId}`}
+      title={`post 记录 ${leg.postRecordId}；基线记录 ${leg.baselineRecordId}；量表 ${leg.scaleId}${leg.experimentRunId ? `；实验 ${leg.experimentRunId}` : ''}`}
     >
       {label} post {`${leg.postRecordId.slice(0, 8)}…`} · {formatRunTimestamp(leg.postCreatedAt)}
+      {leg.experimentRunId ? ` · Run ${leg.experimentRunId.slice(0, 8)}` : ' · 旧记录'}
     </span>
   );
 

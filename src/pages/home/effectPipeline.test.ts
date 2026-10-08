@@ -7,7 +7,7 @@ import {
 } from './effectEvaluationFlow';
 import {
   deriveEffectPipelineNodes,
-  describeEegAssociation,
+  describeEventLogStatus,
   isNodeActionable,
   verdictCopyForCondition,
 } from './effectPipeline';
@@ -171,13 +171,13 @@ describe('deriveEffectPipelineNodes', () => {
   });
 });
 
-describe('describeEegAssociation', () => {
+describe('describeEventLogStatus', () => {
   test('maps all four association states to operator-facing copy', () => {
-    expect(describeEegAssociation('not-started')).toBe('未关联 EEG 记录');
-    expect(describeEegAssociation('recording')).toBe('正在关联 EEG 记录');
-    expect(describeEegAssociation('saved')).toBe('EEG 记录已保存');
+    expect(describeEventLogStatus('not-started')).toBe('实验尚未开始');
+    expect(describeEventLogStatus('active')).toBe('实验事件记录中，BDF 由 ActiView 保存');
+    expect(describeEventLogStatus('saved')).toBe('实验日志已保存，BDF 请在实验设置中关联');
     // Documented trial-run badge copy (docs/paradigm-protocol.md, 无设备模式).
-    expect(describeEegAssociation('unavailable')).toBe('试运行 · 未记录 EEG');
+    expect(describeEventLogStatus('interrupted')).toBe('实验已中断，请重新开始');
   });
 });
 
@@ -236,30 +236,30 @@ describe('verdictCopyForCondition', () => {
 });
 
 describe('device-free end-to-end pipeline walk', () => {
-  test('eegAssociation unavailable never blocks: every step advances to the result node', () => {
+  test('eventLogStatus unavailable never blocks: every step advances to the result node', () => {
     // The exact state sequence the hook produces during a rehearsal run with
-    // no device attached: association flips to 'unavailable' at induction and
+    // no device attached: association flips to 'interrupted' at induction and
     // stays there, yet every node completes (docs/paradigm-protocol.md §3).
     const deviceFreeStates: EffectEvaluationFlowState[] = [
       stateAtStep(0, { subjectId: 'subj-rehearsal' }),
-      stateAtStep(1, { subjectId: 'subj-rehearsal', eegAssociation: 'unavailable' }),
-      stateAtStep(2, { subjectId: 'subj-rehearsal', eegAssociation: 'unavailable' }),
+      stateAtStep(1, { subjectId: 'subj-rehearsal', eventLogStatus: 'interrupted' }),
+      stateAtStep(2, { subjectId: 'subj-rehearsal', eventLogStatus: 'interrupted' }),
       stateAtStep(3, {
         subjectId: 'subj-rehearsal',
-        eegAssociation: 'unavailable',
+        eventLogStatus: 'interrupted',
         baselineRecordId: 'aaaabbbb-1000',
         regulationStartedAtMs: 1_000,
       }),
       stateAtStep(4, {
         subjectId: 'subj-rehearsal',
-        eegAssociation: 'unavailable',
+        eventLogStatus: 'interrupted',
         baselineRecordId: 'aaaabbbb-1000',
         regulationStartedAtMs: 1_000,
         regulationSkipped: true,
       }),
       stateAtStep(5, {
         subjectId: 'subj-rehearsal',
-        eegAssociation: 'unavailable',
+        eventLogStatus: 'interrupted',
         baselineRecordId: 'aaaabbbb-1000',
         regulationStartedAtMs: 1_000,
         regulationSkipped: true,
@@ -279,10 +279,10 @@ describe('device-free end-to-end pipeline walk', () => {
 
       // Before induction the association has not been attempted yet; from the
       // induction step on it degrades to the documented trial-run badge.
-      const expectedAssociationCopy = state.eegAssociation === 'unavailable'
-        ? '试运行 · 未记录 EEG'
-        : '未关联 EEG 记录';
-      expect(describeEegAssociation(state.eegAssociation)).toBe(expectedAssociationCopy);
+      const expectedAssociationCopy = state.eventLogStatus === 'interrupted'
+        ? '实验已中断，请重新开始'
+        : '实验尚未开始';
+      expect(describeEventLogStatus(state.eventLogStatus)).toBe(expectedAssociationCopy);
     });
 
     // Final board: five completed stations, the result station current.

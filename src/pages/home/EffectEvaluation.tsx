@@ -4,7 +4,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
-import { getParadigmSessionStatus } from '../../eeg/paradigm/paradigmSessionStatus';
+import { getParadigmSessionStatus } from '../../paradigm/paradigmSessionStatus';
 import { useConfirmDialog } from '../../ui/useConfirmDialog';
 import {
   buildConditionComparisonVerdictCopy, buildEffectVerdictCopy, describeMeasuredBasis,
@@ -12,13 +12,13 @@ import {
   formatCountdown, labelForCondition, regulationFinishModeFromRemaining,
   remainingRegulationSeconds, type EffectFlowStep,
 } from './effectEvaluationFlow';
-import { describeEegAssociation, verdictCopyForCondition } from './effectPipeline';
+import { describeEventLogStatus, verdictCopyForCondition } from './effectPipeline';
 import {
   buildConditionComparisonChartOption, buildEffectChartOption,
 } from './effectResultChartOption';
 import { ConditionComparisonCard, ResultCard } from './EffectResultCards';
 import {
-  ConditionStepPanel, EegUnavailableHint, InductionStepPanel, ScaleStepPanel, SetupStepPanel,
+  ConditionStepPanel, EventLogUnavailableHint, InductionStepPanel, ScaleStepPanel, SetupStepPanel,
 } from './EffectStepPanels';
 import EffectDeviceQuickStart from './EffectDeviceQuickStart';
 import EffectHistoryPanel from './EffectHistoryPanel';
@@ -33,7 +33,7 @@ import styles from './EffectEvaluation.module.css';
 
 /**
  * Effect-evaluation loop, built for 10-second onboarding. The page reads top
- * down as: (1) a compact experiment banner (run facts + EEG badge + device
+ * down as: (1) a compact experiment banner (run facts + event log badge + device
  * quick start, no forms), (2) a collapsible progress disclosure — one light
  * step pill by default, with the six-station timeline + done band blooming
  * behind it on demand and on step changes (round 7), and (3) ONE main-stage
@@ -106,7 +106,8 @@ export default function EffectEvaluation() {
     const remaining = remainingRegulationSeconds(state, Date.now());
     return remaining !== null && remaining <= 0;
   });
-  const handleWindowElapsed = useCallback(() => setIsWindowElapsed(true), []);
+  useEffect(() => { if (state.runId === null) { setIsWindowElapsed(false); setIsScaleDialogOpen(false); } }, [state.runId]);
+  const handleWindowElapsed = useCallback(() => { setIsWindowElapsed(true); void flow.conditionElapsed(); }, [flow.conditionElapsed]);
 
   const emotionLabel = EFFECT_EMOTION_OPTIONS.find((option) => option.value === state.emotion)?.label
     ?? state.emotion;
@@ -138,7 +139,7 @@ export default function EffectEvaluation() {
     stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [state.step]);
 
-  // Resetting discards the whole run (a linked EEG recording is stopped as
+  // Resetting discards the whole run (a active experiment is aborted as
   // part of it) — a destructive action on par with the skip flow, so it gets
   // the same explicit confirmation instead of firing on a misclick. At the
   // result step nothing is running anymore and the next task is a fresh run,
@@ -149,8 +150,8 @@ export default function EffectEvaluation() {
     const confirmed = await confirm({
       title: isResultStep ? '开始下一次评价' : '重置评价流程',
       description: isResultStep
-        ? '将清空向导的当前进度并开始一次全新的评价；已保存的量表记录与 EEG 会话不受影响，历史记录照常可查。'
-        : '重置将停止本次运行关联的 EEG 记录并丢弃当前进度；已保存的量表记录仍会保留在历史记录中。确定要重置吗？',
+        ? '将清空向导的当前进度并开始一次全新的评价；已保存的量表与实验事件不受影响，历史记录照常可查。'
+        : '重置将中止本次实验运行并丢弃当前进度；已保存的量表记录仍会保留在历史记录中。确定要重置吗？',
       confirmText: isResultStep ? '清空并开始下一次' : '停止并重置',
       destructive: true,
     });
@@ -250,24 +251,25 @@ export default function EffectEvaluation() {
     });
   };
 
-  /** Node 1 entry: starts the EEG association, then mounts the player. */
-  const handleBeginInduction = () => {
+  /** Node 1 entry: starts the experiment event log, then mounts the player. */
+  const handleBeginInduction = async () => {
     if (flow.inductionStatus.kind !== 'ready') {
       return;
     }
 
-    flow.beginInduction();
+    const allowed = await flow.beginInduction();
 
-    // A live paradigm session blocks the EEG association (the hook shows its
+    // A live paradigm session blocks the experiment event log (the hook shows its
     // own error banner); the video must not start behind that guard either.
-    if (!getParadigmSessionStatus().active) {
+    if (allowed && !getParadigmSessionStatus().active) {
       startInductionPlayback();
     }
   };
 
   const handleInductionVideoError = useCallback(() => {
     setInductionVideoFailed(true);
-  }, [setInductionVideoFailed]);
+    flow.playbackError();
+  }, [setInductionVideoFailed, flow.playbackError]);
 
   const handleRetrySummary = useCallback(() => void flow.loadSummary(), [flow.loadSummary]);
   const handleRetryComparison = useCallback(() => void flow.loadConditionComparison(), [flow.loadConditionComparison]);
@@ -298,7 +300,7 @@ export default function EffectEvaluation() {
 
   const closeReview = useCallback(() => setReview(null), []);
 
-  const eegUnavailableHint = <EegUnavailableHint />;
+  const eventLogUnavailableHint = <EventLogUnavailableHint />;
 
   /** Shared invocation for nodes 2/4 — the two phases differ only in `phase`. */
   const renderScalePanel = (phase: 'baseline' | 'post') => (
@@ -317,7 +319,7 @@ export default function EffectEvaluation() {
       case 1:
         return (
           <InductionStepPanel
-            flow={flow} eegUnavailableHint={eegUnavailableHint}
+            flow={flow} eventLogUnavailableHint={eventLogUnavailableHint}
             isInductionPlaying={isInductionPlaying} inductionVideoFailed={inductionVideoFailed}
             inductionRetryCount={inductionRetryCount} onBeginInduction={handleBeginInduction}
             onResetFlow={handleResetFlow} onRetryInductionVideo={retryInductionVideo}
@@ -333,7 +335,7 @@ export default function EffectEvaluation() {
             methodLabel={methodLabel} skippedCopy={skippedCopy}
             isWindowElapsed={isWindowElapsed} onWindowElapsed={handleWindowElapsed}
             onFinishRegulation={handleFinishRegulation} onSkipRemaining={handleSkipRemaining}
-            eegUnavailableHint={eegUnavailableHint}
+            eventLogUnavailableHint={eventLogUnavailableHint}
           />
         );
       case 4:
@@ -342,7 +344,7 @@ export default function EffectEvaluation() {
         return (
           <div className={styles.resultStep}>
             <ResultCard
-              chartOption={chartOption} eegSessionId={state.eegSessionId}
+              chartOption={chartOption} runId={state.runId}
               isLoadingSummary={flow.isLoadingSummary} isExporting={isExporting}
               measuredBasisNote={measuredBasisNote} postLabel={postLabel}
               skippedCopy={skippedCopy}
@@ -380,7 +382,7 @@ export default function EffectEvaluation() {
           </div>
         </div>
 
-        {/* Experiment banner: run facts + EEG association badge, so the
+        {/* Experiment banner: run facts + experiment event log badge, so the
             trial-run state is visible before any node is entered. No forms
             here — configuration happens in the stage's first node. The
             regulation-method chip only renders for the regulation condition:
@@ -395,16 +397,17 @@ export default function EffectEvaluation() {
           <span className={styles.configChip}>{labelForCondition(state.condition)}</span>
           <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
           <EffectDeviceQuickStart />
-          {state.eegAssociation !== 'not-started' ? (
+          <span className={styles.configChip}>{state.runMode === 'formal' ? '正式实验' : '排练，不发送硬件标记'}{state.runId ? ` · ${state.runId.slice(0, 8)}` : ''}</span>
+          {state.eventLogStatus !== 'not-started' ? (
             <span
               role="status"
-              className={`${styles.eegChip} ${
-                state.eegAssociation === 'saved'
-                  ? styles.eegSaved
-                  : state.eegAssociation === 'recording' ? styles.eegRecording : styles.eegUnavailable
-              }${state.eegAssociation === 'unavailable' ? ` ${styles.eegBadgeProminent}` : ''}`}
+              className={`${styles.eventLogChip} ${
+                state.eventLogStatus === 'saved'
+                  ? styles.eventLogSaved
+                  : state.eventLogStatus === 'active' ? styles.eventLogRecording : styles.eventLogUnavailable
+              }${state.eventLogStatus === 'interrupted' ? ` ${styles.eventLogBadgeProminent}` : ''}`}
             >
-              {describeEegAssociation(state.eegAssociation)}
+              {describeEventLogStatus(state.eventLogStatus)}
             </span>
           ) : null}
         </div>

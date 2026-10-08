@@ -1,0 +1,39 @@
+.page { width: min(100%, 1080px); margin: 0 auto; padding: 34px 28px 64px; color: var(--ink); box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; animation: pageEnter var(--dur-enter) var(--ease-out) backwards; }
+.pageHeader { padding: 10px 2px 8px; }
+.page h1 { margin: 5px 0 10px; font-size: clamp(28px, 3vw, 38px); letter-spacing: -0.03em; line-height: 1.08; font-weight: 650; }
+.page h2 { margin: 0; font-size: var(--text-2xl); font-weight: 650; letter-spacing: -0.01em; }
+.page p { line-height: 1.7; }
+.eyebrow { font-size: var(--text-xs); letter-spacing: .16em; opacity: .6; margin: 0; font-weight: 650; }
+.lede { color: rgba(44, 34, 24, .68); font-size: var(--text-base); margin: 0; max-width: 62ch; }
+.section { padding: 22px 24px 24px; border: 1px solid var(--line-soft); border-radius: var(--radius-card); margin: 0; background: rgba(255, 250, 243, .72); box-shadow: var(--shadow-card); }
+.sectionHeader { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 18px; }
+.sectionIndex { color: var(--calm-primary); font: 650 var(--text-xs)/1.8 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .08em; }
+.sectionLead { color: rgba(44, 34, 24, .58); font-size: var(--text-sm); margin: 5px 0 0; }
+.row { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
+.page label { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 180px; font-size: var(--text-base); }
+.page input, .page select { font: inherit; color: inherit; background: var(--surface-raised); border: 1px solid var(--line-strong); border-radius: var(--radius-control); padding: 11px 12px; box-sizing: border-box; width: 100%; }
+.page button { font: inherit; cursor: pointer; background: var(--calm-primary); color: white; border: 1px solid transparent; border-radius: var(--radius-control); min-height: 42px; padding: 9px 16px; font-weight: 650; transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.page button:hover:enabled { box-shadow: var(--shadow-control); }
+.page button:active:enabled { transform: scale(.98); box-shadow: var(--shadow-control-active); }
+.page button:hover:enabled { background: var(--calm-primary-hover); }
+.page button:focus-visible, .page input:focus-visible, .page select:focus-visible, .page a:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.page button:disabled { opacity: .45; cursor: default; }
+.page a { color: var(--ink); text-decoration: none; font-weight: 650; border-bottom: 1px solid rgba(44,34,24,.24); padding-bottom: 3px; }
+.page a:hover { color: var(--calm-primary-hover); border-color: currentColor; }
+.pageNav { padding: 10px 2px 16px; margin: 0; gap: 24px; }
+.nextStepButton { min-width: 220px; }
+.stepRail { display: flex; gap: 10px; align-items: center; color: rgba(44,34,24,.55); font-size: var(--text-sm); font-weight: 650; }
+.stepRail span { border-radius: 999px; padding: 7px 12px; border: 1px solid var(--line-soft); background: rgba(255,250,243,.72); }
+.stepRail .stepDone { color: var(--success); }
+.stepRail .stepCurrent { color: #fff; background: var(--calm-primary); border-color: var(--calm-primary); }
+.backButton { align-self: flex-start; background: transparent !important; color: var(--ink) !important; border-color: var(--line-strong) !important; box-shadow: none !important; }
+.check { flex-direction: row !important; align-items: center; }
+.check input { width: auto; }
+.muted { font-size: var(--text-sm); opacity: .65; }
+.error { color: var(--danger); }
+.notice { color: var(--success); }
+.history { padding: 16px 0; border-bottom: 1px solid var(--line); }
+.history summary { cursor: pointer; line-height: 1.8; overflow-wrap: anywhere; }
+@media (max-width: 640px) { .page { padding: 24px 16px 40px; } .row { align-items: stretch; } .row label { width: 100%; flex-basis: 100%; } }
+@keyframes pageEnter { from { opacity: 0; transform: translate3d(0, 12px, 0); } to { opacity: 1; transform: translate3d(0, 0, 0); } }
+@media (prefers-reduced-motion: reduce) { .page { animation: none; } .page button { transition: none; } }

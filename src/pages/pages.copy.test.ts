@@ -10,8 +10,7 @@ describe('page Chinese copy', () => {
       readText(new URL('./Home.tsx', import.meta.url)),
       readText(new URL('./NotFound.tsx', import.meta.url)),
       readText(new URL('./home/HomeOverview.tsx', import.meta.url)),
-      readText(new URL('./home/EegAcquisition.tsx', import.meta.url)),
-      readText(new URL('../eeg/EegControls.tsx', import.meta.url)),
+      readText(new URL('./home/ExperimentSettings.tsx', import.meta.url)),
       readText(new URL('./home/GameRegulation.tsx', import.meta.url)),
       readText(new URL('./home/MusicRegulation.tsx', import.meta.url)),
       // The music page's prompt builder / tag editor / history drawer /
@@ -36,11 +35,9 @@ describe('page Chinese copy', () => {
       '页面未找到',
       '当前 EEG 系统路由尚未实现。',
       '脑电情绪调节首页标志',
-      '采集监测',
-      '实时脑电',
+      '实验设置',
+      'Trigger 接口',
       '刷新',
-      '扫描',
-      '滚动',
       '设备',
       '记录',
       '游戏调控',
@@ -90,24 +87,22 @@ describe('page Chinese copy', () => {
   test('localizes the paradigm acquisition flow copy', () => {
     const sources = [
       readText(new URL('./Home.tsx', import.meta.url)),
-      readText(new URL('./home/EegAcquisition.tsx', import.meta.url)),
-      readText(new URL('../eeg/paradigm/ParadigmSetupPanel.tsx', import.meta.url)),
+      readText(new URL('./home/ExperimentSettings.tsx', import.meta.url)),
+      readText(new URL('../paradigm/ParadigmSetupPanel.tsx', import.meta.url)),
       // The setup panel's session-kind copy tables and the memoized 素材清单
       // live in their own modules; the copy contract reads them too.
-      readText(new URL('../eeg/paradigm/paradigmSessionKinds.ts', import.meta.url)),
-      readText(new URL('../eeg/paradigm/ParadigmLibraryList.tsx', import.meta.url)),
-      readText(new URL('../eeg/paradigm/ParadigmVideoPreview.tsx', import.meta.url)),
-      readText(new URL('../eeg/paradigm/ParadigmRunner.tsx', import.meta.url)),
+      readText(new URL('../paradigm/paradigmSessionKinds.ts', import.meta.url)),
+      readText(new URL('../paradigm/ParadigmLibraryList.tsx', import.meta.url)),
+      readText(new URL('../paradigm/ParadigmVideoPreview.tsx', import.meta.url)),
+      readText(new URL('../paradigm/ParadigmRunner.tsx', import.meta.url)),
       // The runner's finished screen (summary + exits) is its own component.
-      readText(new URL('../eeg/paradigm/ParadigmFinishedScreen.tsx', import.meta.url)),
-      readText(new URL('../eeg/paradigm/TrialStageRenderer.tsx', import.meta.url)),
-      readText(new URL('../eeg/paradigm/SamRatingDialog.tsx', import.meta.url)),
-      readText(new URL('../eeg/paradigm/types.ts', import.meta.url)),
+      readText(new URL('../paradigm/ParadigmFinishedScreen.tsx', import.meta.url)),
+      readText(new URL('../paradigm/TrialStageRenderer.tsx', import.meta.url)),
+      readText(new URL('../paradigm/SamRatingDialog.tsx', import.meta.url)),
+      readText(new URL('../paradigm/types.ts', import.meta.url)),
     ].join('\n');
 
     [
-      '自由采集',
-      '范式采集',
       '范式 Session 进行中',
       '请先结束当前范式 Session,再切换页面。',
       '实验信息',
@@ -123,8 +118,7 @@ describe('page Chinese copy', () => {
       '入选',
       '开始实验',
       '试运行',
-      '试运行模式:跳过设备检查,数据不写入。',
-      '试运行结束,未写入任何数据。',
+      '排练完成，实验日志与 SAM 已保存，未发送硬件 Trigger。',
       '阶段间休息',
       '开始下一阶段',
       '静息放松,减少眨眼与头动',
@@ -137,7 +131,6 @@ describe('page Chinese copy', () => {
       '提交自评',
       '正在保存试次',
       '正在准备下一个视频',
-      '重试保存试次',
       '提前结束 Session',
       '训练前统计',
       '返回设置',
@@ -145,15 +138,12 @@ describe('page Chinese copy', () => {
       '焦虑',
       '平静',
       '恐惧',
-      '快乐',
       '接纳',
       '不确定',
       '拒收',
-      '伪迹拒收',
     ].forEach((copy) => {
       expect(sources).toContain(copy);
     });
   });
 
 });
-

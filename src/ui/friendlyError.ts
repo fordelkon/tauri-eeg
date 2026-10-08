@@ -3,7 +3,7 @@
  * common validation mistakes get concrete Chinese copy, backend text that is
  * already localized passes through untouched, and everything else degrades to
  * a neutral generic prompt while the original goes to console.error so it
- * stays available for diagnosis. Modeled on src/eeg/eegErrorMessages.ts.
+ * stays available for diagnosis.
  */
 
 const GENERIC_ERROR_MESSAGE = '操作未能完成,请稍后重试。若持续失败,请重启应用。';

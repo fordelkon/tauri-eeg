@@ -20,7 +20,7 @@ const formatThinkingSeconds = (durationMs: number) => `${(durationMs / 1000).toF
 /** Phase ids are internal route slugs; the header shows the Chinese label. */
 const phaseLabels: Record<AgentPhase, string> = {
   intro: '流程引导',
-  baseline: '基线采集',
+  baseline: '实验范式',
   video_regulation: '视频调控',
   game_regulation: 'VR调控',
   music_regulation: '音乐调控',
@@ -31,11 +31,11 @@ const phaseLabels: Record<AgentPhase, string> = {
 const phaseGuideItems: Record<AgentPhase, readonly string[]> = {
   intro: [
     '点击上方推荐操作，或直接输入“开始实验”',
-    '助手会按 采集 → 调控 → 恢复 引导完整实验流程',
+    '助手可打开实验范式、准备素材和查看实验设置',
   ],
   baseline: [
-    '启动设备后可开始或暂停基线采集',
-    '采集数据由我协助停止并保存',
+    '先连接 Trigger，并在 ActiView 启动 BDF 保存',
+    '个人校准与独立诱发在实验范式页运行',
   ],
   video_regulation: [
     '让我播放一段放松视频',
@@ -50,8 +50,8 @@ const phaseGuideItems: Record<AgentPhase, readonly string[]> = {
     '可以指定乐器与风格，例如“生成钢琴舒缓音乐”',
   ],
   recovery: [
-    '临近流程尾声，可让我结束并保存数据',
-    '结束前会先停止并保存 EEG 记录',
+    '实验结束后，在 ActiView 手动停止 BDF 保存',
+    '可在实验设置页关联 BDF 并导出实验日志',
   ],
   finish: [
     '本次实验流程已完成',

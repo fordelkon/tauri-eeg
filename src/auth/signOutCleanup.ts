@@ -1,4 +1,5 @@
 import { resetScaleCompletion } from '../mentalScale/scaleCompletion';
+import { EXPERIMENT_PREFERENCES_KEY } from '../experiment/settings';
 import { clearFlowStateFromStorage } from '../pages/home/effectEvaluationFlow';
 import { clearStoredSubjectId, type SubjectIdStorage } from '../storage/currentSubject';
 
@@ -22,6 +23,7 @@ export function clearUserSessionState(
   subjectStorage?: SubjectIdStorage,
 ): void {
   clearFlowStateFromStorage(sessionStorage);
+  sessionStorage.removeItem(EXPERIMENT_PREFERENCES_KEY);
   clearStoredSubjectId(subjectStorage);
   resetScaleCompletion();
 }

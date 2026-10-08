@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
+import type { ParadigmVideoEntry } from '../../paradigm/types';
 import {
   buildConditionComparisonVerdictCopy,
   buildEffectVerdictCopy,
@@ -49,7 +49,7 @@ describe('effectEvaluationFlow stepper', () => {
     expect(state.baselineRecordId).toBeNull();
     expect(state.postRecordId).toBeNull();
     expect(state.regulationStartedAtMs).toBeNull();
-    expect(state.eegAssociation).toBe('not-started');
+    expect(state.eventLogStatus).toBe('not-started');
     expect(EFFECT_FLOW_STEPS).toHaveLength(EFFECT_FLOW_STEP_COUNT);
     expect(EFFECT_FLOW_STEPS[0]).toBe('选择被试');
     expect(EFFECT_FLOW_STEPS[EFFECT_FLOW_STEP_COUNT - 1]).toBe('结果评价');
@@ -163,7 +163,7 @@ describe('flow state persistence across the regulation-page jump', () => {
       durationMinutes: 10,
       baselineRecordId: 'rec-baseline',
       regulationStartedAtMs: 1_720_000_000_000,
-      eegAssociation: 'recording' as const,
+      eventLogStatus: 'active' as const,
     };
 
     expect(parseFlowState(serializeFlowState(state))).toEqual(state);
@@ -193,7 +193,7 @@ describe('flow state persistence across the regulation-page jump', () => {
     expect(mutate({ subjectId: 42 })).toBeNull();
     expect(mutate({ emotion: 'anger' })).toBeNull();
     expect(mutate({ method: 'game' })).toBeNull();
-    expect(mutate({ eegAssociation: 'paused' })).toBeNull();
+    expect(mutate({ eventLogStatus: 'paused' })).toBeNull();
     expect(mutate({ baselineRecordId: 7 })).toBeNull();
     expect(mutate({ postRecordId: true })).toBeNull();
     expect(mutate({ regulationStartedAtMs: 'soon' })).toBeNull();
@@ -593,5 +593,20 @@ describe('cross-condition comparison copy (R6 跨条件对比)', () => {
     expect(CONDITION_COMPARISON_FORMULA_NOTE).toContain('B_post');
     expect(CONDITION_COMPARISON_FORMULA_NOTE).toContain('T_post');
     expect(CONDITION_COMPARISON_FORMULA_NOTE).toContain('B-1');
+  });
+});
+
+
+describe('BioSemi effect run timing and persistence', () => {
+  it('uses elapsed monotonic time even when the wall clock changes', () => {
+    const state = { ...createEffectEvaluationFlowState(), regulationStartedAtMs: 100000, regulationStartedAtMonotonicMs: 1000 };
+    expect(remainingRegulationSeconds(state, 99000000, 31000)).toBe(270);
+    expect(remainingRegulationSeconds(state, 1, 301000)).toBe(0);
+  });
+  it('persists the external run identity independently of the legacy EEG session', () => {
+    const state = { ...createEffectEvaluationFlowState(), runId: 'run-external-1', runMode: 'formal' as const, subjectId: 's-1' };
+    const restored = parseFlowState(serializeFlowState(state));
+    expect(restored?.runId).toBe('run-external-1');
+    expect(restored?.runMode).toBe('formal');
   });
 });

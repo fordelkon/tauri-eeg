@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { loadParadigmVideoLibrary } from '../../eeg/paradigm/paradigmApi';
-import { readStoredLibraryRootPath } from '../../eeg/paradigm/paradigmStorage';
-import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
+import { loadParadigmVideoLibrary } from '../../paradigm/paradigmApi';
+import { readStoredLibraryRootPath } from '../../paradigm/paradigmStorage';
+import type { ParadigmVideoEntry } from '../../paradigm/types';
 import { describeRegulationPoolStatus, type RegulationPoolStatus } from './effectRegulationPool';
 
 /**

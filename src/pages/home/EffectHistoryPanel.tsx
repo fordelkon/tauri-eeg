@@ -44,18 +44,14 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
       <div className={styles.configSummary}>
         <span className={styles.configChip}>基线 {formatRunTimestamp(entry.baselineCreatedAt)}</span>
         <span className={styles.configChip}>复测 {formatRunTimestamp(entry.postCreatedAt)}</span>
+        {entry.experimentRunId ? <span className={styles.configChip} title={entry.experimentRunId}>实验 {entry.experimentRunId.slice(0, 8)}</span> : null}
         <span className={styles.configChip}>
           时长 {entry.durationMinutes === null ? '—' : `${entry.durationMinutes} 分钟`}
         </span>
         {entry.regulationSkipped ? (
           <span className={styles.configChip}>已跳过剩余时长</span>
         ) : null}
-        {/* R4/F2: the persisted neural-data link survives restarts. */}
-        {entry.eegSessionId ? (
-          <span className={styles.configChip} title={entry.eegSessionId}>
-            EEG 会话 {`${entry.eegSessionId.slice(0, 8)}…`}
-          </span>
-        ) : null}
+
         {/* R4/F1: flag pairs whose mean still covers unmarked stored keys. */}
         {!entry.measuredOnly ? (
           <span className={styles.configChip}>旧记录口径（未标注实测维度）</span>

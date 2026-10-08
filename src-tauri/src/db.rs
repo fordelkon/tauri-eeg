@@ -55,9 +55,8 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     .map_err(|_| "Failed to initialize database schema.".to_string())?;
 
     crate::music_history::init_music_history_schema(conn)?;
-    crate::eeg::storage::init_eeg_session_schema(conn)?;
-    crate::eeg::paradigm_db::init_eeg_trial_schema(conn)?;
     crate::scale_records::init_scale_records_schema(conn)?;
+    crate::experiment::init(conn)?;
 
     Ok(())
 }
@@ -102,31 +101,14 @@ mod tests {
     }
 
     #[test]
-    fn creates_eeg_sessions_table() {
+    fn creates_experiment_runs_table() {
         let conn = Connection::open_in_memory().expect("open in-memory sqlite");
 
         init_schema(&conn).expect("init schema");
 
         let count: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'eeg_sessions'",
-                [],
-                |row| row.get(0),
-            )
-            .expect("query sqlite schema");
-
-        assert_eq!(count, 1);
-    }
-
-    #[test]
-    fn creates_eeg_trials_table() {
-        let conn = Connection::open_in_memory().expect("open in-memory sqlite");
-
-        init_schema(&conn).expect("init schema");
-
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'eeg_trials'",
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'experiment_runs'",
                 [],
                 |row| row.get(0),
             )

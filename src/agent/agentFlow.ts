@@ -1,4 +1,4 @@
-﻿export type AgentPhase =
+export type AgentPhase =
   | 'intro'
   | 'baseline'
   | 'video_regulation'
@@ -9,7 +9,7 @@
 
 export type AgentRoute =
   | '/home'
-  | '/eeg-acquisition'
+  | '/experiment-settings'
   | '/video-regulation'
   | '/game-regulation'
   | '/music-regulation';
@@ -27,20 +27,20 @@ export const agentPhases = [
 export const agentPromptExamples = [
   '开始实验',
   '下一步',
-  '开始基线采集',
+  '打开实验范式',
   '播放放松视频',
   '生成舒缓音乐',
-  '结束并保存数据',
+  '打开实验设置',
   '跳过当前不可用环节',
 ] as const;
 
 const phaseRoutes = {
   intro: '/home',
-  baseline: '/eeg-acquisition',
+  baseline: '/experiment-settings',
   video_regulation: '/video-regulation',
   game_regulation: '/game-regulation',
   music_regulation: '/music-regulation',
-  recovery: '/eeg-acquisition',
+  recovery: '/experiment-settings',
   finish: '/home',
 } as const satisfies Record<AgentPhase, AgentRoute>;
 
@@ -56,11 +56,11 @@ const nextPhases = {
 
 const recommendedPrompts = {
   intro: '开始实验',
-  baseline: '开始基线采集',
+  baseline: '打开实验范式',
   video_regulation: '播放放松视频',
   game_regulation: '跳过当前不可用环节',
   music_regulation: '生成舒缓音乐',
-  recovery: '结束并保存数据',
+  recovery: '打开实验设置',
   finish: '实验已完成',
 } as const satisfies Record<AgentPhase, string>;
 
@@ -154,6 +154,9 @@ export function getAgentPhaseForRoute(pathname: string, previousPhase: AgentPhas
     return previousPhase === 'finish' || previousPhase === 'recovery' ? 'finish' : 'intro';
   }
 
+  if (pathname === '/experiment-settings') {
+    return previousPhase === 'music_regulation' || previousPhase === 'recovery' ? 'recovery' : 'baseline';
+  }
   if (pathname === '/eeg-acquisition') {
     return previousPhase === 'music_regulation' || previousPhase === 'recovery' ? 'recovery' : 'baseline';
   }

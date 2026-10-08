@@ -93,7 +93,7 @@ describe('subject passthrough contract', () => {
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
     expect(hookSource).toContain('await savePhaseInstrumentRecord({');
-    expect(hookSource).toContain('subjectId: state.subjectId.trim()');
+    expect(hookSource).toContain('subjectId: current.subjectId.trim()');
     expect(hookSource).toContain("phase === 'baseline'");
   });
 
@@ -101,7 +101,7 @@ describe('subject passthrough contract', () => {
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
     expect(hookSource).toContain("import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject'");
-    expect(hookSource).toContain('writeStoredSubjectId(state.subjectId.trim())');
+    expect(hookSource).toContain('writeStoredSubjectId(current.subjectId.trim())');
   });
 
   test('blocks the summary on missing measurements instead of invoking the backend', () => {
@@ -138,7 +138,7 @@ describe('strong duration constraint (R3 contract)', () => {
     expect(pageSource).toContain('regulationFinishModeFromRemaining(');
     expect(pageSource).toContain('isWindowElapsed ? 0 : remainingRegulationSeconds(state, Date.now())');
     // …disables the primary exit while time remains…
-    expect(panelsSource).toContain("disabled={finishMode.mode !== 'finish'}");
+    expect(panelsSource).toContain("disabled={state.interrupted || finishMode.mode !== 'finish'}");
     // …and offers the escape hatch only through a second confirmation. R6
     // swaps the noun by condition: 静息 for natural recovery, 调控 otherwise.
     expect(pageSource).toContain('title: `跳过剩余${windowNoun}时长？`');
@@ -147,15 +147,15 @@ describe('strong duration constraint (R3 contract)', () => {
 
     // The confirmed skip records the marker before leaving step 3.
     expect(hookSource).toContain('skipRemainingRegulation');
-    expect(hookSource).toContain('leaveRegulationStep({ regulationSkipped: true })');
+    expect(hookSource).toContain('leaveRegulationStep(true)');
   });
 
   test('persists emotion, duration, and the post-leg skip marker with phase records', () => {
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
-    expect(hookSource).toContain('emotion: state.emotion');
-    expect(hookSource).toContain('durationMinutes: state.durationMinutes');
-    expect(hookSource).toContain("phase === 'post' ? state.regulationSkipped : false");
+    expect(hookSource).toContain('emotion: current.emotion');
+    expect(hookSource).toContain('durationMinutes: current.durationMinutes');
+    expect(hookSource).toContain("phase === 'post' ? current.regulationSkipped : false");
   });
 });
 
@@ -206,50 +206,7 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
     expect(pageSource).toContain('describeMeasuredBasis(flow.summary)');
   });
 
-  test('F2: the post leg persists the eeg session id and both views show it', () => {
-    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
-    const cardsSource = readText(cardsUrl);
-    const panelSource = readText(new URL('./EffectHistoryPanel.tsx', import.meta.url));
 
-    // The association rides on the post record so it survives restarts.
-    expect(hookSource).toContain("eegSessionId: phase === 'post' ? state.eegSessionId : null");
-    expect(cardsSource).toContain('关联 EEG 会话');
-    expect(panelSource).toContain('EEG 会话');
-
-    // The save callback must re-read the session id captured after the
-    // recording stopped — without the dep, an in-place run (no jump to the
-    // regulation page) persists a stale null.
-    const saveIndex = hookSource.indexOf('const completeScaleMeasurement');
-    const depIndex = hookSource.indexOf('state.eegSessionId,', saveIndex);
-    expect(saveIndex).toBeGreaterThan(-1);
-    expect(depIndex).toBeGreaterThan(saveIndex);
-  });
-
-  test('F3: resetting the flow stops a live recording before clearing state', () => {
-    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
-
-    const resetIndex = hookSource.indexOf('const resetFlow');
-    const stopIndex = hookSource.indexOf('void stopRecord();', resetIndex);
-    const clearStateIndex = hookSource.indexOf('setState(createEffectEvaluationFlowState());');
-
-    expect(resetIndex).toBeGreaterThan(-1);
-    expect(stopIndex).toBeGreaterThan(resetIndex);
-    expect(clearStateIndex).toBeGreaterThan(stopIndex);
-    // An in-flight start from a discarded run must not leak into the fresh
-    // state (generation token checked inside the start callback).
-    expect(hookSource).toContain('flowGenerationRef.current !== generation');
-    expect(hookSource).toContain('flowGenerationRef.current += 1;');
-
-    // Unmounting off the designed regulation-path jump mid-recording stops
-    // the recording too (sidebar abandonment would otherwise leak an unowned
-    // one). R6: only the regulation condition's live window counts as the
-    // designed jump - a natural-recovery run never leaves the wizard page.
-    expect(hookSource).toContain(
-      'window.location.pathname === regulationPathForMethod(methodRef.current)',
-    );
-    expect(hookSource).toContain("flowStateRef.current.condition === 'regulation'");
-    expect(hookSource).toContain('isRegulationWindowOpen(flowStateRef.current)');
-  });
 
   test('F4: regulation pages consume the session context and the paradigm gate is mutual', () => {
     for (const page of ['./MusicRegulation.tsx', './VideoRegulation.tsx'] as const) {
@@ -268,7 +225,7 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
     expect(bannerSource).toContain('效果评价调控时长已达成');
 
     const paradigmSource = readText(
-      new URL('../../eeg/paradigm/ParadigmSetupPanel.tsx', import.meta.url),
+      new URL('../../paradigm/ParadigmSetupPanel.tsx', import.meta.url),
     );
     expect(paradigmSource).toContain('isRegulationWindowOpenInStorage(window.sessionStorage)');
     expect(paradigmSource).toContain('效果评价调控进行中');
@@ -438,7 +395,7 @@ describe('embedded regulation player (condition node contract)', () => {
     expect(panelsSource).toContain('<EffectRegulationPlayer');
     expect(panelsSource).toContain('<EffectFullscreenVideoRegulation');
     expect(panelsSource).toContain("state.method === 'video' && !isNaturalRecovery");
-    expect(panelsSource).toContain("!isNaturalRecovery && state.method !== 'video'");
+    expect(panelsSource).toContain("!isNaturalRecovery && state.method === 'music'");
     expect(panelsSource).toContain('remainingSeconds={isWindowElapsed ? 0 : null}');
 
     // The fullscreen component owns the same flow-derived timer and pauses
@@ -464,40 +421,24 @@ describe('embedded regulation player (condition node contract)', () => {
     const musicHistorySource = readText(new URL('./useMusicHistory.ts', import.meta.url));
 
     expect(modelSource).toContain('export function shouldPauseAt(');
-    expect(playerSource).toContain('shouldPauseAt(remainingSeconds)');
+    expect(playerSource).toContain('remainingSeconds === 0 || interrupted');
     // The music branch consumes the existing history command through the
     // shared loader (same surface as the music page); no backend surface was
     // added for the embedded player.
     expect(playerSource).toContain('useMusicHistory({');
     expect(musicHistorySource).toContain('listMusicHistory(userId, limit)');
-    expect(playerSource).toContain("navigate('/music-regulation')");
+    expect(playerSource).not.toContain('useEegSession');
   });
 });
 
-describe('context strip device quick-start contract', () => {
-  test('offers one-click start when not streaming and a retry entry on error', () => {
-    const pageSource = readText(pageUrl);
-    const quickStartSource = readText(new URL('./EffectDeviceQuickStart.tsx', import.meta.url));
 
-    // The context strip mounts the quick-start component…
-    expect(pageSource).toContain('<EffectDeviceQuickStart />');
-    // …which triggers the context's own actions only (no extra polling):
-    // streaming confirmation arrives through the eeg://status event mirror.
-    expect(quickStartSource).toContain('useEegSession()');
-    expect(quickStartSource).toContain("eeg.deviceStatus === 'streaming'");
-    expect(quickStartSource).toContain('一键启动设备');
-    expect(quickStartSource).toContain('void eeg.startDevice()');
-    expect(quickStartSource).toContain("eeg.deviceStatus === 'error'");
-    expect(quickStartSource).toContain('void eeg.retryLastFailedAction()');
-  });
-});
 
 describe('paradigm finished-screen handoff contract', () => {
   test('links the finished screen to the effect-evaluation route', () => {
     // The finished screen is its own presentation component under the
     // paradigm folder; the handoff link lives there.
     const finishedSource = readText(
-      new URL('../../eeg/paradigm/ParadigmFinishedScreen.tsx', import.meta.url),
+      new URL('../../paradigm/ParadigmFinishedScreen.tsx', import.meta.url),
     );
 
     expect(finishedSource).toContain("navigate('/effect-evaluation')");

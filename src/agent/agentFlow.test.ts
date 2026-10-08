@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   agentPromptExamples,
   getAgentPromptExamplesForPhase,
@@ -11,18 +11,19 @@ import {
 } from './agentFlow';
 
 describe('agentFlow', () => {
-  it('maps current routes to assistant phases without adding new EEG routes', () => {
+  it('maps current experiment and historical routes to assistant phases', () => {
     expect(getAgentPhaseForRoute('/home')).toBe('intro');
-    expect(getAgentPhaseForRoute('/eeg-acquisition')).toBe('baseline');
+    expect(getAgentPhaseForRoute('/experiment-settings')).toBe('baseline');
+    expect(getAgentPhaseForRoute('/experiment-settings', 'recovery')).toBe('recovery');
     expect(getAgentPhaseForRoute('/video-regulation')).toBe('video_regulation');
     expect(getAgentPhaseForRoute('/game-regulation')).toBe('game_regulation');
     expect(getAgentPhaseForRoute('/music-regulation')).toBe('music_regulation');
-    expect(getAgentPhaseForRoute('/eeg-acquisition', 'music_regulation')).toBe('recovery');
+    expect(getAgentPhaseForRoute('/experiment-settings', 'music_regulation')).toBe('recovery');
   });
 
-  it('maps baseline and recovery to the existing EEG route', () => {
-    expect(getRouteForAgentPhase('baseline')).toBe('/eeg-acquisition');
-    expect(getRouteForAgentPhase('recovery')).toBe('/eeg-acquisition');
+  it('routes baseline to the paradigm and recovery to external recording settings', () => {
+    expect(getRouteForAgentPhase('baseline')).toBe('/experiment-settings');
+    expect(getRouteForAgentPhase('recovery')).toBe('/experiment-settings');
   });
 
   it('keeps finish when recovery returns to the home route', () => {
@@ -41,8 +42,8 @@ describe('agentFlow', () => {
 
   it('exposes subject-friendly prompt examples and recommended prompts', () => {
     expect(agentPromptExamples).toContain('开始实验');
-    expect(agentPromptExamples).toContain('结束并保存数据');
-    expect(getRecommendedPrompt('baseline')).toBe('开始基线采集');
+    expect(agentPromptExamples).toContain('打开实验设置');
+    expect(getRecommendedPrompt('baseline')).toBe('打开实验范式');
     expect(getRecommendedPrompt('game_regulation')).toBe('跳过当前不可用环节');
   });
 

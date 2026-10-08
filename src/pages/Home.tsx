@@ -19,10 +19,8 @@ import { type CSSProperties, type ElementType, type MouseEvent, Suspense, lazy, 
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import ExperimentAgentPanel from '../agent/ExperimentAgentPanel';
 import { useAuth } from '../auth/AuthContext';
-// Narrow slice: the shell only gates navigation/sign-out on the recording
-// state; a full-context subscription would re-render the whole app shell on
-// every EEG display tweak (see EegRecordingControlContext).
-import { useEegRecordingControl } from '../eeg/EegSessionContext';
+import { getTriggerStatus } from '../experiment/api';
+import { isTauriAvailable } from '../ui/tauriEnvironment';
 // Lazy: MatterScene pulls in the matter-js vendor chunk and HomeIntroLogo the
 // lottie player; neither is needed until the menu opens or the intro plays.
 const MatterScene = lazy(() => import('../components/MatterScene'));
@@ -41,9 +39,7 @@ import { isScaleSatisfiedForPath, recordScaleCompletion, recordScaleSkip } from 
 import {
   getParadigmSessionStatus,
   useParadigmSessionStatus,
-} from '../eeg/paradigm/paradigmSessionStatus';
-import { isRegulationWindowOpenInStorage } from './home/effectEvaluationFlow';
-import { shouldBypassRecordingConfirm } from './home/navigationGuards';
+} from '../paradigm/paradigmSessionStatus';
 import { useConfirmDialog } from '../ui/useConfirmDialog';
 import StorageSettingsPanel from './StorageSettingsPanel';
 import styles from './Home.module.css';
@@ -56,7 +52,7 @@ type NavigationItem = {
 
 const navigationItems: NavigationItem[] = [
   { icon: HomeRoundedIcon, label: '首页', path: '/home' },
-  { icon: GraphicEqRoundedIcon, label: 'EEG采集', path: '/eeg-acquisition' },
+  { icon: GraphicEqRoundedIcon, label: '实验设置', path: '/experiment-settings' },
   { icon: VideocamRoundedIcon, label: '视频调控', path: '/video-regulation' },
   { icon: SportsEsportsRoundedIcon, label: 'VR调控', path: '/game-regulation' },
   { icon: MusicNoteRoundedIcon, label: '音乐调控', path: '/music-regulation' },
@@ -81,15 +77,8 @@ export default function Home() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, signOut } = useAuth();
-  const { recordStatus, stopRecord } = useEegRecordingControl();
   const paradigmStatus = useParadigmSessionStatus();
   const { confirm, confirmDialogElement } = useConfirmDialog();
-  // A free recording (or a paused one) also owns the EEG data path, so the
-  // same mis-tap guards as a paradigm session apply — with softer confirmations
-  // because the backend keeps recording independently of the page.
-  const freeRecordActive = (
-    recordStatus === 'recording' || recordStatus === 'paused'
-  );
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [pendingScale, setPendingScale] = useState<MentalScaleDefinition | null>(null);
@@ -100,7 +89,6 @@ export default function Home() {
       : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
   )) ?? navigationItems[0];
   const isWorkspaceRoute = location.pathname !== '/home';
-  const isEegWorkspaceRoute = location.pathname === '/eeg-acquisition';
   const activeIndex = navigationItems.findIndex((item) => item.path === activeItem.path);
   const nextItem = navigationItems[(activeIndex + 1) % navigationItems.length];
   const nextLabel = nextItem.label.toUpperCase();
@@ -129,25 +117,14 @@ export default function Home() {
       return;
     }
 
-    // A free recording survives page changes (it lives in the backend), but
-    // leaving mid-recording is rarely intentional — ask first. Exception:
-    // returning to the effect-evaluation wizard while its regulation window
-    // is live is the banner-instructed path and the recording belongs to that
-    // run, so it must not prompt (click-time storage read, like the paradigm
-    // store check above).
-    if (
-      freeRecordActive
-      && !shouldBypassRecordingConfirm(
-        path,
-        isRegulationWindowOpenInStorage(window.sessionStorage),
-      )
-    ) {
-      const leaveConfirmed = await confirm({
-        title: '正在记录 EEG 数据',
-        description: '确定要离开本页吗?记录将继续进行。',
-      });
-
-      if (!leaveConfirmed) {
+    if (isTauriAvailable()) {
+      try {
+        if ((await getTriggerStatus()).activeRunId) {
+          await confirm({ title: '实验进行中', description: '请先完成或中止当前实验，再切换页面。', confirmText: '知道了', hideCancel: true });
+          return;
+        }
+      } catch {
+        await confirm({ title: '无法确认实验状态', description: '请重试，避免中断正在进行的刺激。', confirmText: '知道了', hideCancel: true });
         return;
       }
     }
@@ -164,7 +141,7 @@ export default function Home() {
     }
 
     navigate(path);
-  }, [confirm, freeRecordActive, location.pathname, navigate]);
+  }, [confirm, location.pathname, navigate]);
 
   const handleNavClick = (item: NavigationItem) => {
     requestNavigation(item.path);
@@ -196,21 +173,16 @@ export default function Home() {
   };
 
   const handleSignOut = async () => {
-    // Stop and save the running recording before tearing down the session;
-    // the paradigm case is hard-blocked by the disabled button instead.
-    if (freeRecordActive) {
-      const signOutConfirmed = await confirm({
-        title: '正在记录 EEG 数据',
-        description: '退出登录前将停止并保存本次记录。确定继续吗?',
-        confirmText: '停止并退出',
-        destructive: true,
-      });
-
-      if (!signOutConfirmed) {
+    if (isTauriAvailable()) {
+      try {
+        if ((await getTriggerStatus()).activeRunId) {
+          await confirm({ title: '实验进行中', description: '请先完成或中止当前实验，再退出登录。', confirmText: '知道了', hideCancel: true });
+          return;
+        }
+      } catch {
+        await confirm({ title: '无法确认实验状态', description: '请重试后再退出登录。', confirmText: '知道了', hideCancel: true });
         return;
       }
-
-      await stopRecord();
     }
 
     signOut();
@@ -379,7 +351,7 @@ export default function Home() {
               aria-label="存储路径设置"
               aria-expanded={isStorageOpen}
               size="small"
-              disabled={paradigmStatus.active || freeRecordActive}
+              disabled={paradigmStatus.active}
               onClick={() => setIsStorageOpen((isOpen) => !isOpen)}
             >
               <FolderRoundedIcon fontSize="small" />
@@ -420,19 +392,22 @@ export default function Home() {
 
       <div className={styles.shell}>
         <section
-          className={`${styles.content} ${styles.isVisible} ${isWorkspaceRoute ? styles.isWorkspace : ''} ${isEegWorkspaceRoute ? styles.isEegWorkspace : ''} box-border flex flex-col`}
+          id="workspace-content"
+          className={`${styles.content} ${styles.isVisible} ${isWorkspaceRoute ? styles.isWorkspace : ''} box-border flex flex-col`}
         >
           <Outlet />
 
-          <button
-            type="button"
-            className={styles.nextPageButton}
-            aria-label={`前往${nextItem.label}`}
-            onClick={handleNextClick}
-          >
-            <span>{nextLabel}</span>
-            <NorthEastRoundedIcon className={styles.nextPageIcon} fontSize="small" aria-hidden="true" />
-          </button>
+          {location.pathname !== '/experiment-settings' ? (
+            <button
+              type="button"
+              className={styles.nextPageButton}
+              aria-label={`前往${nextItem.label}`}
+              onClick={handleNextClick}
+            >
+              <span>{nextLabel}</span>
+              <NorthEastRoundedIcon className={styles.nextPageIcon} fontSize="small" aria-hidden="true" />
+            </button>
+          ) : null}
         </section>
 
         <GlobalMentalScalePanel>

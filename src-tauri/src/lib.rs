@@ -1,7 +1,8 @@
 mod auth;
 mod config;
 mod db;
-mod eeg;
+mod paradigm;
+mod experiment;
 mod music_history;
 mod python_client;
 mod python_service;
@@ -11,12 +12,7 @@ mod video_library;
 
 use auth::UserProfile;
 use db::AppDb;
-use eeg::{
-    BeginEegTrialInput, EegRecordingSession, EegStatus, EegStreamConfig, EegStreamInfo,
-    EegStreamState, FinalizeEegTrialInput, MarkEegTrialInput, ParadigmQueueInput,
-    ParadigmSessionSummary, ParadigmSummaryInput, ParadigmTrialPlanItem, ParadigmVideoLibrary,
-    ParadigmVideoLibraryInput, StartEegRecordingInput, TrialRecord, TrialSnapshot,
-};
+use paradigm::{ ParadigmQueueInput, ParadigmTrialPlanItem, ParadigmVideoLibrary, ParadigmVideoLibraryInput };
 use music_history::MusicHistoryItem;
 use python_client::{
     AgentPlannerRequest, AgentPlannerResponse, GenerateRequest, HealthResponse, PythonClient,
@@ -100,106 +96,11 @@ async fn reset_user_password(
 }
 
 #[tauri::command]
-async fn start_eeg_stream(
-    app: tauri::AppHandle,
-    state: State<'_, EegStreamState>,
-    config: Option<EegStreamConfig>,
-    on_sample_block: tauri::ipc::Channel<tauri::ipc::InvokeResponseBody>,
-) -> Result<EegStreamInfo, String> {
-    eeg::start_stream(app, &state, config, on_sample_block)
-}
-
-#[tauri::command]
-async fn stop_eeg_stream(
-    app: tauri::AppHandle,
-    db: State<'_, AppDb>,
-    state: State<'_, EegStreamState>,
-) -> Result<(), String> {
-    let conn = db.conn.clone();
-    let state = state.inner().clone();
-
-    // Joins the accept/client threads and flushes recording files; must not
-    // block the async runtime. The DB lock is taken inside only after the
-    // flush completes, so it is held just for the fast INSERTs.
-    tauri::async_runtime::spawn_blocking(move || eeg::stop_stream(&app, &state, conn))
-        .await
-        .map_err(|_| "Failed to stop EEG stream.".to_string())?
-}
-
-#[tauri::command]
-async fn get_eeg_status(state: State<'_, EegStreamState>) -> Result<EegStatus, String> {
-    eeg::get_status(&state)
-}
-
-#[tauri::command]
-async fn start_eeg_recording(
-    app: tauri::AppHandle,
-    db: State<'_, AppDb>,
-    state: State<'_, EegStreamState>,
-    input: StartEegRecordingInput,
-) -> Result<EegRecordingSession, String> {
-    let conn = db.conn.clone();
-    let state = state.inner().clone();
-
-    tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        eeg::start_recording(&app, &conn, &state, input)
-    })
-    .await
-    .map_err(|_| "Failed to start EEG recording.".to_string())?
-}
-
-#[tauri::command]
-async fn stop_eeg_recording(
-    db: State<'_, AppDb>,
-    state: State<'_, EegStreamState>,
-) -> Result<EegRecordingSession, String> {
-    let conn = db.conn.clone();
-    let state = state.inner().clone();
-
-    // Joins the recording writer thread (flushing both binary files) BEFORE
-    // the DB lock is acquired, so the multi-megabyte flush never blocks other
-    // database users; only the fast INSERTs below hold the lock.
-    tauri::async_runtime::spawn_blocking(move || {
-        let finished = eeg::stop_recording(&state)?;
-
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        eeg::persist_recording(&conn, &state, finished)
-    })
-    .await
-    .map_err(|_| "Failed to stop EEG recording.".to_string())?
-}
-
-#[tauri::command]
-async fn list_eeg_sessions(
-    db: State<'_, AppDb>,
-    user_id: String,
-) -> Result<Vec<EegRecordingSession>, String> {
-    let conn = db.conn.clone();
-
-    tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        eeg::list_sessions(&conn, &user_id)
-    })
-    .await
-    .map_err(|_| "Failed to load EEG sessions.".to_string())?
-}
-
-#[tauri::command]
 async fn load_paradigm_video_library(
     input: ParadigmVideoLibraryInput,
 ) -> Result<ParadigmVideoLibrary, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        eeg::paradigm_video::load_paradigm_video_library(&input.root_path)
+        paradigm::video::load_paradigm_video_library(&input.root_path)
     })
     .await
     .map_err(|_| "Failed to load paradigm video library.".to_string())?
@@ -210,7 +111,7 @@ async fn build_paradigm_queue(
     input: ParadigmQueueInput,
 ) -> Result<Vec<ParadigmTrialPlanItem>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        eeg::paradigm_video::build_paradigm_queue_from_root(
+        paradigm::video::build_paradigm_queue_from_root(
             &input.root_path,
             &input.session_run_id,
             input.session_kind,
@@ -218,84 +119,6 @@ async fn build_paradigm_queue(
     })
     .await
     .map_err(|_| "Failed to build paradigm queue.".to_string())?
-}
-
-#[tauri::command]
-async fn begin_eeg_trial(
-    state: State<'_, EegStreamState>,
-    input: BeginEegTrialInput,
-) -> Result<TrialSnapshot, String> {
-    let state = state.inner().clone();
-
-    tauri::async_runtime::spawn_blocking(move || eeg::paradigm_controller::begin_eeg_trial(&state, input))
-        .await
-        .map_err(|_| "Failed to begin EEG trial.".to_string())?
-}
-
-#[tauri::command]
-async fn mark_eeg_trial(
-    state: State<'_, EegStreamState>,
-    input: MarkEegTrialInput,
-) -> Result<TrialSnapshot, String> {
-    let state = state.inner().clone();
-
-    tauri::async_runtime::spawn_blocking(move || eeg::paradigm_controller::mark_eeg_trial(&state, input))
-        .await
-        .map_err(|_| "Failed to mark EEG trial.".to_string())?
-}
-
-#[tauri::command]
-async fn end_eeg_trial(state: State<'_, EegStreamState>) -> Result<TrialSnapshot, String> {
-    let state = state.inner().clone();
-
-    tauri::async_runtime::spawn_blocking(move || eeg::paradigm_controller::end_eeg_trial(&state))
-        .await
-        .map_err(|_| "Failed to end EEG trial.".to_string())?
-}
-
-#[tauri::command]
-async fn finalize_eeg_trial(
-    state: State<'_, EegStreamState>,
-    input: FinalizeEegTrialInput,
-) -> Result<TrialRecord, String> {
-    let state = state.inner().clone();
-
-    tauri::async_runtime::spawn_blocking(move || {
-        eeg::paradigm_controller::finalize_eeg_trial(&state, input)
-    })
-    .await
-    .map_err(|_| "Failed to finalize EEG trial.".to_string())?
-}
-
-#[tauri::command]
-async fn get_active_paradigm_trial(
-    state: State<'_, EegStreamState>,
-) -> Result<Option<TrialSnapshot>, String> {
-    let state = state.inner().clone();
-
-    tauri::async_runtime::spawn_blocking(move || {
-        eeg::paradigm_controller::get_active_paradigm_trial(&state)
-    })
-    .await
-    .map_err(|_| "Failed to load active paradigm trial.".to_string())?
-}
-
-#[tauri::command]
-async fn get_paradigm_session_summary(
-    db: State<'_, AppDb>,
-    input: ParadigmSummaryInput,
-) -> Result<ParadigmSessionSummary, String> {
-    let conn = db.conn.clone();
-
-    tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        eeg::paradigm_db::get_paradigm_session_summary(&conn, &input.session_id)
-    })
-    .await
-    .map_err(|_| "Failed to load paradigm session summary.".to_string())?
 }
 
 #[derive(Debug, Deserialize)]
@@ -390,6 +213,7 @@ async fn compute_regulation_effect(
 
         let baseline = scale_records::get_scale_record(&conn, input.baseline_record_id.trim())?;
         let post = scale_records::get_scale_record(&conn, input.post_record_id.trim())?;
+        experiment::report::require_same_run(&conn, &baseline.id, &post.id)?;
         let summary = scale_records::compute_regulation_effect_summary(&baseline, &post)?;
         let meets_threshold = summary.meets_threshold();
 
@@ -428,6 +252,7 @@ async fn compute_condition_effect(
         // subject+created_at index.
         let records =
             scale_records::list_scale_records(&conn, Some(input.subject_id.trim()), None)?;
+        let records = experiment::report::eligible_records(&conn, records)?;
         // 大纲 6.2: 调控条件相对基线条件（自然恢复）的改善，按 subject+emotion
         // 取两条件各自最新完整 run 配对计算。
         scale_records::compute_condition_effect_comparison(
@@ -480,6 +305,7 @@ async fn list_effect_history(
             .map_err(|_| "Database is unavailable.".to_string())?;
 
         let records = scale_records::list_scale_records(&conn, None, None)?;
+        let records = experiment::report::eligible_records(&conn, records)?;
         Ok(scale_records::build_effect_history(&records))
     })
     .await
@@ -531,6 +357,7 @@ async fn export_effect_report(
                     .map_err(|_| "Database is unavailable.".to_string())?;
                 let baseline = scale_records::get_scale_record(&conn, &baseline_id)?;
                 let post = scale_records::get_scale_record(&conn, &post_id)?;
+                experiment::report::require_same_run(&conn, &baseline.id, &post.id)?;
                 let report = scale_records::build_single_effect_report(&baseline, &post)?;
 
                 if format == "csv" {
@@ -545,6 +372,7 @@ async fn export_effect_report(
                     .lock()
                     .map_err(|_| "Database is unavailable.".to_string())?;
                 let records = scale_records::list_scale_records(&conn, None, None)?;
+        let records = experiment::report::eligible_records(&conn, records)?;
                 let history = scale_records::build_effect_history(&records);
 
                 scale_records::build_batch_effect_report_csv(
@@ -571,6 +399,7 @@ async fn export_effect_report(
                 // whose subject differs from this required, non-blank target.
                 let records =
                     scale_records::list_scale_records(&conn, Some(subject_id.as_str()), None)?;
+        let records = experiment::report::eligible_records(&conn, records)?;
                 // 大纲 6.3 步骤 5: the exported document carries both legs'
                 // trace, the per-dimension inputs, the verdict, and the frozen
                 // formula statement so the calculation can be re-derived.
@@ -827,30 +656,34 @@ fn delete_music_file_in_storage_root(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_db = db::init_app_db().expect("failed to initialize app database");
+    let experiment_service = experiment::Service::new(app_db.conn.clone());
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(app_db)
-        .manage(EegStreamState::default())
+        .manage(experiment_service)
         .manage(PythonServiceManager::new())
         .invoke_handler(tauri::generate_handler![
             register_user,
             login_user,
             reset_user_password,
-            start_eeg_stream,
-            stop_eeg_stream,
-            get_eeg_status,
-            start_eeg_recording,
-            stop_eeg_recording,
-            list_eeg_sessions,
             load_paradigm_video_library,
             build_paradigm_queue,
-            begin_eeg_trial,
-            mark_eeg_trial,
-            end_eeg_trial,
-            finalize_eeg_trial,
-            get_active_paradigm_trial,
-            get_paradigm_session_summary,
+            experiment::trigger_list_ports,
+            experiment::trigger_connect,
+            experiment::trigger_disconnect,
+            experiment::trigger_status,
+            experiment::trigger_test,
+            experiment::experiment_start,
+            experiment::experiment_event,
+            experiment::experiment_finish,
+            experiment::experiment_abort,
+            experiment::experiment_list,
+            experiment::experiment_get,
+            experiment::experiment_associate_bdf,
+            experiment::experiment_save_trial,
+            experiment::experiment_link_scale,
+            experiment::experiment_export,
             save_scale_record,
             list_scale_records,
             delete_scale_record,

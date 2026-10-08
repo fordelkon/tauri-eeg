@@ -34,7 +34,7 @@ export const ConditionCountdown = memo(function ConditionCountdown({
   compact = false, state, windowNoun, onElapsed,
 }: ConditionCountdownProps) {
   const [remainingSeconds, setRemainingSeconds] = useState(
-    () => remainingRegulationSeconds(state, Date.now()) ?? 0,
+    () => remainingRegulationSeconds(state, Date.now(), performance.now()) ?? 0,
   );
   const hasElapsed = remainingSeconds === 0;
 
@@ -63,13 +63,13 @@ export const ConditionCountdown = memo(function ConditionCountdown({
     }
 
     const intervalId = window.setInterval(() => {
-      const next = remainingRegulationSeconds(state, Date.now()) ?? 0;
+      const next = remainingRegulationSeconds(state, Date.now(), performance.now()) ?? 0;
       // Identical integer seconds bail out of the state update (no render).
       setRemainingSeconds(next);
     }, 500);
 
     return () => window.clearInterval(intervalId);
-  }, [hasElapsed, state.durationMinutes, state.regulationStartedAtMs]);
+  }, [hasElapsed, state.durationMinutes, state.regulationStartedAtMs, state.regulationStartedAtMonotonicMs]);
 
   const totalSeconds = state.durationMinutes * 60;
   const progressPercent = totalSeconds > 0

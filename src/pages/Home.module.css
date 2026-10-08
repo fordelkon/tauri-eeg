@@ -612,7 +612,8 @@
   /* 104px clears the fixed nextPageButton (42px tall, up to 38px from the
      bottom edge) so end-of-scroll actions never slide beneath it. */
   padding-bottom: 104px;
-  padding-top: 64px;
+  padding-top: 92px;
+  scroll-padding-top: 92px;
 }
 
 .content.isEegWorkspace {

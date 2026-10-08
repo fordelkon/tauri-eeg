@@ -43,7 +43,7 @@
 | 调控素材 | 音乐：Stable Audio 预生成曲目；视频：调控素材库 | [文献] 音乐参数-情绪映射（tempo/响度→arousal，调式/音区→valence）：Gomez & Danuser (2007). *Biological Psychology*, 75(3):323–334；iso principle（先匹配后引导）：Heiderscheit & Madson (2015) 综述 |
 | 跨条件对比 | 同被试同情绪、每条件最近一次完整 run，`(B_post − T_post)/B_post` | [适配] 被试内条件对比（Li J. 2025 随机交叉设计同思路） |
 
-### 2.4 闭环调控反馈（ParadigmSessionKind::RegulationFeedback，试运行）
+### 2.4 旧闭环调控反馈设计，已退出当前实现
 
 | 参数 | 值 | 依据 |
 |---|---|---|
@@ -51,16 +51,16 @@
 | 间歇式反馈 | 每 trial 末 2 s，重评期间无反馈 | [文献] Hellrung et al. (2018). *NeuroImage*, 166:195–203（N=54，间歇式优于持续式）；Li X. et al. 2024 同设计 |
 | 反馈形式 | 双横条：观看时接近度（灰）vs 调控后接近度（彩）+ Δ 徽章 | [文献] Li X. et al. 2024 的 dual-bar 设计；目标接近度 + 基线归一化源自 DecNef：Shibata et al. (2011). *Science*, 334:1413–1415 |
 | 反馈分数 | R = p(目标\|调控段) − p(目标\|观看段)，学习指数 L1 = 均值 | [文献] Li X. et al. 2024 的学习指标定义 |
-| 反馈值来源 | 无设备：模拟解码器（试运行）；有设备：EEG 服务（eeg-service, DE+SVM） | [适配] DE 特征+个体化 SVM：Zheng & Lu (2015). *IEEE TAC*（SEED 基准）；在线闭环同配置：Ehrlich 2019、Li X. 2024 |
+| 反馈值来源 | 旧模拟解码器与旧 EEG 服务已删除；当前仅发送 BioSemi trigger 并离线分析 BDF | 该表仅保留原研究设计背景，不描述现有功能 |
 | 对照（规划中） | yoked/回放假反馈 vs 真反馈 | [文献] Ros et al. (2020) CRED-NF 报告规范；《Rethinking control conditions in clinical neurofeedback trials》(2026) 推荐 yoked/replay 优先 |
 
 ## 3. 无设备模式（试运行）
 
-大流程与闭环范式必须**在不连接任何 EEG 设备时端到端可运行**，用于流程排练与前端开发：
+效果评价与逐试次范式在排练模式下不连接触发盒、不发送硬件事件，但保存实验日志与量表：
 
-- 效果评价管线：EEG 关联显示「试运行·未记录 EEG」徽章，量表/条件/结果照常推进；`eeg_session_id` 为空的 post 记录仍可入库（该列为可空列）。
-- 闭环调控范式：强制试运行模式，反馈值来自本地模拟解码器（`regulationFeedbackSim.ts`，统计口径与真实解码一致）。
-- 模拟解码器的类别基线/漂移参数是**演示用工程参数**，不代表真实解码精度预期（真实在线二分类文献预期 58–70%，见 Ehrlich 2019 与 Li X. 2024）。
+- 效果评价保留诱发、前测、条件执行、后测和结果。
+- 逐试次入口只提供个人校准与独立誘发，保留静息、提示、视频、SAM 和质量标注。
+- 正式模式要求连接 BioSemi Trigger Interface，并由操作者确认 ActiView 已开始保存 BDF。排练不进入正式条件比较。
 
 ## 4. 已知局限（写论文前需处理）
 

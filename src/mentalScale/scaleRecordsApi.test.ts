@@ -217,11 +217,9 @@ describe('phase instrument records (battery pre/post legs)', () => {
   it('defaults the run-context fields and forwards the eeg session id (R4/F2)', async () => {
     await savePhaseInstrumentRecord({
       ...batteryInput,
-      eegSessionId: 'eeg-run-42',
     });
 
     const input = lastSaveInput();
-    expect(input.eegSessionId).toBe('eeg-run-42');
     expect(input.emotion).toBeNull();
     expect(input.condition).toBeNull();
     expect(input.durationMinutes).toBeNull();
@@ -230,10 +228,8 @@ describe('phase instrument records (battery pre/post legs)', () => {
     await savePhaseInstrumentRecord({
       ...batteryInput,
       phase: 'baseline',
-      eegSessionId: null,
     });
 
-    expect(lastSaveInput().eegSessionId).toBeNull();
   });
 
   it('forwards the wizard run context (emotion, condition, duration, skip)', async () => {

@@ -2,7 +2,7 @@ import {
   EFFECT_FLOW_STEPS,
   EFFECT_FLOW_STEP_COUNT,
   type EffectCondition,
-  type EffectEegAssociation,
+  type EffectEventLogStatus,
   type EffectEvaluationFlowState,
   type EffectFlowStep,
   type EffectVerdictCopy,
@@ -45,7 +45,7 @@ export type EffectPipelineNode = {
 export type EffectPipelineOptions = {
   /**
    * Whether the result-step summary data (the hook's `summary`) has been
-   * computed. EEG association and loading state never change node status;
+   * computed. experiment event log and loading state never change node status;
    * this input only feeds the result node's (defensive) done summary.
    */
   hasResultSummary?: boolean;
@@ -226,18 +226,18 @@ export function isNodeActionable(node: EffectPipelineNode): boolean {
   return node.status === 'current';
 }
 
-/** Operator-facing copy for the EEG association badge/hint. The
+/** Operator-facing copy for the experiment event log badge/hint. The
  * `unavailable` wording is the documented trial-run badge copy
  * (docs/paradigm-protocol.md section 3, 无设备模式). */
-const EEG_ASSOCIATION_COPY: Record<EffectEegAssociation, string> = {
-  'not-started': '未关联 EEG 记录',
-  recording: '正在关联 EEG 记录',
-  saved: 'EEG 记录已保存',
-  unavailable: '试运行 · 未记录 EEG',
+const EVENT_LOG_STATUS_COPY: Record<EffectEventLogStatus, string> = {
+  'not-started': '实验尚未开始',
+  active: '实验事件记录中，BDF 由 ActiView 保存',
+  saved: '实验日志已保存，BDF 请在实验设置中关联',
+  interrupted: '实验已中断，请重新开始',
 };
 
-export function describeEegAssociation(association: EffectEegAssociation): string {
-  return EEG_ASSOCIATION_COPY[association];
+export function describeEventLogStatus(association: EffectEventLogStatus): string {
+  return EVENT_LOG_STATUS_COPY[association];
 }
 
 /* ------------------------------------------------------------------ */

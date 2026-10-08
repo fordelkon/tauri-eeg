@@ -42,7 +42,6 @@ export type ScaleRecordInput = {
    */
   measuredDimensions?: string[];
   /** EEG recording session linked to this run leg (the wizard's post leg). */
-  eegSessionId?: string | null;
 };
 
 /** camelCase mirror of the backend ScaleRecord. */
@@ -61,7 +60,6 @@ export type ScaleRecordView = {
   durationMinutes: number | null;
   regulationSkipped: boolean;
   measuredDimensions: string[] | null;
-  eegSessionId: string | null;
 };
 
 export type RegulationDimensionImprovementView = {
@@ -93,6 +91,8 @@ export type ConditionDimensionComparisonView = {
 
 /** One condition's run feeding the comparison (camelCase mirror of the backend ConditionComparisonLeg). */
 export type ConditionComparisonLegView = {
+  /** Absent in older cached reports; null for legacy records. */
+  experimentRunId?: string | null;
   /** Wizard condition of the leg's run; never null in a comparison pair
    * (legacy NULL runs are rejected on the backend, 大纲 6.2 诱发后口径). */
   condition: string;
@@ -104,7 +104,6 @@ export type ConditionComparisonLegView = {
   scaleId: string;
   durationMinutes: number | null;
   regulationSkipped: boolean;
-  eegSessionId: string | null;
   /** False when this leg's in-run mean covered unmarked legacy records. */
   measuredOnly: boolean;
 };
@@ -211,7 +210,6 @@ export type PhaseInstrumentRecordInput = {
   condition?: string | null;
   durationMinutes?: number | null;
   regulationSkipped?: boolean;
-  eegSessionId?: string | null;
 };
 
 /**
@@ -239,7 +237,6 @@ export function savePhaseInstrumentRecord(
     durationMinutes: input.durationMinutes ?? null,
     regulationSkipped: input.regulationSkipped ?? false,
     measuredDimensions: input.measuredDimensions,
-    eegSessionId: input.eegSessionId ?? null,
   });
 }
 
@@ -278,6 +275,7 @@ export function computeConditionEffect(
 
 /** One completed evaluation run in the history review (list_effect_history). */
 export type EffectHistoryEntryView = {
+  experimentRunId?: string | null;
   subjectId: string;
   baselineRecordId: string;
   postRecordId: string;
@@ -290,7 +288,6 @@ export type EffectHistoryEntryView = {
   durationMinutes: number | null;
   regulationSkipped: boolean;
   /** EEG recording session of the run (post leg first, baseline fallback). */
-  eegSessionId: string | null;
   /** False when the mean was computed over unmarked legacy records. */
   measuredOnly: boolean;
   meanImprovementRate: number | null;

@@ -8,7 +8,7 @@ import type { EffectEvaluationFlowState } from './effectEvaluationFlow';
  * condition, durationMinutes, regulationStartedAtMs, regulationSkipped, and
  * the two record ids — keep this list in sync with
  * `deriveEffectPipelineNodes`) or when the result summary's existence flips.
- * Unrelated dispatches (e.g. the EEG badge flip) keep the same node objects,
+ * Unrelated dispatches (e.g. the event log badge flip) keep the same node objects,
  * letting the memoized timeline/done band bail out.
  */
 export function useEffectPipelineNodes(

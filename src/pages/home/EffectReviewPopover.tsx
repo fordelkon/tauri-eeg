@@ -10,7 +10,7 @@ import styles from './EffectEvaluation.module.css';
 /**
  * Read-only review overlay for a completed node: anchored to the timeline
  * station / done-band chip that opened it, it surfaces only data the flow
- * state already holds — record ids, the EEG session id, the skip marker,
+ * state already holds — record ids, the experiment run id, the skip marker,
  * and the run configuration. Nothing here mutates the flow; closing the
  * popover just dismisses it.
  *
@@ -94,9 +94,9 @@ export function EffectReviewPopover({
                 <span className={styles.configChip}>{methodLabel}</span>
               ) : null}
               <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
-              {state.eegSessionId ? (
-                <span className={styles.configChip} title={state.eegSessionId}>
-                  EEG 会话 {`${state.eegSessionId.slice(0, 8)}…`}
+              {state.runId ? (
+                <span className={styles.configChip} title={state.runId}>
+                  实验 Run {`${state.runId.slice(0, 8)}…`}
                 </span>
               ) : null}
               {state.regulationSkipped ? (

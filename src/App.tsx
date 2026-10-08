@@ -4,14 +4,6 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
 import styles from './App.module.css';
 
-// EegProvider pulls in the whole EEG session/API layer, and ScaleGateRoute
-// pulls in the mental-scale flow. Both are only consumed inside the lazy Home
-// tree (every useEegSession call site renders under /home/*), so loading them
-// lazily keeps them out of the entry chunk and lets /login boot without any
-// EEG or mental-scale code.
-const EegProvider = lazy(() =>
-  import('./eeg/EegSessionContext').then((module) => ({ default: module.EegProvider })),
-);
 const ScaleGateRoute = lazy(() => import('./mentalScale/ScaleGateRoute'));
 
 const Login = lazy(() => import('./pages/Login'));
@@ -20,7 +12,7 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 // MUI ThemeProvider + themed CssBaseline: loading it lazily keeps the entry
 // chunk MUI-free, so the boot shell paints before any vendor-mui code parses.
 const AppShell = lazy(() => import('./AppShell'));
-const EegAcquisition = lazy(() => import('./pages/home/EegAcquisition'));
+const ExperimentSettings = lazy(() => import('./pages/home/ExperimentSettings'));
 const EffectEvaluation = lazy(() => import('./pages/home/EffectEvaluation'));
 const GameRegulation = lazy(() => import('./pages/home/GameRegulation'));
 const HomeOverview = lazy(() => import('./pages/home/HomeOverview'));
@@ -60,14 +52,12 @@ function AppRoutes() {
           <Route
             element={(
               <Suspense fallback={routeFallback}>
-                <EegProvider>
-                  <Home />
-                </EegProvider>
+                <Home />
               </Suspense>
             )}
           >
             <Route path="/home" element={<HomeOverview />} />
-            <Route path="/eeg-acquisition" element={<EegAcquisition />} />
+            <Route path="/experiment-settings" element={<ExperimentSettings />} />
             {/* The evaluation flow orchestrates its own scale phases, so it
                 sits outside the standalone regulation-page gate. */}
             <Route path="/effect-evaluation" element={<EffectEvaluation />} />

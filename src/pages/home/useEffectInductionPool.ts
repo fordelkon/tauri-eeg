@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { loadParadigmVideoLibrary } from '../../eeg/paradigm/paradigmApi';
-import { readStoredLibraryRootPath } from '../../eeg/paradigm/paradigmStorage';
-import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
+import { loadParadigmVideoLibrary } from '../../paradigm/paradigmApi';
+import { readStoredLibraryRootPath } from '../../paradigm/paradigmStorage';
+import type { ParadigmVideoEntry } from '../../paradigm/types';
 import {
   describeInductionPoolStatus,
   paradigmPoolKeyForEmotion,
@@ -27,7 +27,7 @@ export function useEffectInductionPool(
   const [isInductionPoolLoading, setIsInductionPoolLoading] = useState(false);
 
   // Load the pool when the induction step becomes visible (R6): the
-  // video_paradigm library root stored by the EEG acquisition page feeds the
+  // video_paradigm library root stored by the experiment settings page feeds the
   // emotion's entries.
   useEffect(() => {
     if (step !== 1) {

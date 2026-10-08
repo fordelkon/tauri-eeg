@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
-import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
+import type { ParadigmVideoEntry } from '../../paradigm/types';
 import type { EffectEvaluationFlowState, RegulationFinishMode } from './effectEvaluationFlow';
 import { ConditionCountdown } from './EffectConditionCountdown';
 import { selectDefaultVideoIndex, shouldPauseAt } from './effectRegulationPlayerModel';
@@ -14,6 +14,10 @@ type EffectFullscreenVideoRegulationProps = {
   assets: readonly ParadigmVideoEntry[];
   finishMode: RegulationFinishMode;
   onFinish: () => void;
+  interrupted: boolean;
+  onReset: () => void;
+  onPlaying: (mediaId: string, details?: unknown) => void;
+  onError: () => void;
   onSkip: () => void;
   onWindowElapsed: () => void;
   onStartPlayback: () => void;
@@ -42,6 +46,10 @@ export function EffectFullscreenVideoRegulation({
   assets,
   finishMode,
   onFinish,
+  interrupted,
+  onReset,
+  onPlaying,
+  onError,
   onSkip,
   onStartPlayback,
   onWindowElapsed,
@@ -50,6 +58,7 @@ export function EffectFullscreenVideoRegulation({
   windowNoun,
 }: EffectFullscreenVideoRegulationProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const onsetRef = useRef(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [isMediaReady, setIsMediaReady] = useState(false);
   const activeAsset = assets[selectDefaultVideoIndex(assets)] ?? null;
@@ -59,16 +68,16 @@ export function EffectFullscreenVideoRegulation({
   usePauseMediaOnChange(videoRef, activeAsset?.videoId);
 
   useEffect(() => {
-    if (shouldPause) {
+    if (shouldPause || interrupted) {
       videoRef.current?.pause();
     }
-  }, [shouldPause]);
+  }, [shouldPause, interrupted]);
 
   useEffect(() => {
-    if (isPlaying) {
-      void videoRef.current?.play().catch(() => setLoadFailed(true));
+    if (isPlaying && !interrupted) {
+      void videoRef.current?.play().catch(() => { setLoadFailed(true); onError(); });
     }
-  }, [isPlaying, activeAsset?.videoId]);
+  }, [isPlaying, activeAsset?.videoId, interrupted, onError]);
 
   const handleStartPlayback = () => {
     void enterFullscreen();
@@ -80,6 +89,7 @@ export function EffectFullscreenVideoRegulation({
       className={styles.fullscreenRegulationStage}
       aria-label="视频调控进行中"
     >
+      {interrupted ? <div className={styles.fullscreenStageNotice} role="alert"><strong>本次实验已中断</strong><span>请检查 Trigger 和素材，重新开始实验。外部 BDF 继续由 ActiView 管理。</span><button type="button" className={styles.fullscreenStagePrimaryAction} onClick={onReset}>重置本次实验</button></div> : null}
       <header className={styles.fullscreenStageHeader}>
         <span>{isPlaying ? '视频调控进行中' : '准备播放调控视频'}</span>
         <span aria-label={`被试 ${state.subjectId}`}>被试 {state.subjectId}</span>
@@ -97,7 +107,8 @@ export function EffectFullscreenVideoRegulation({
             playsInline
             preload="auto"
             onCanPlay={() => setIsMediaReady(true)}
-            onError={() => setLoadFailed(true)}
+            onPlaying={() => { if (!onsetRef.current && !interrupted) { onsetRef.current = true; onPlaying(activeAsset.videoId, { path: activeAsset.absolutePath, fileName: activeAsset.fileName }); } }}
+            onError={() => { setLoadFailed(true); onError(); }}
           />
         ) : null}
 
@@ -110,7 +121,8 @@ export function EffectFullscreenVideoRegulation({
             playsInline
             preload="auto"
             onCanPlay={() => setIsMediaReady(true)}
-            onError={() => setLoadFailed(true)}
+            onPlaying={() => { if (!onsetRef.current && !interrupted) { onsetRef.current = true; onPlaying(activeAsset.videoId, { path: activeAsset.absolutePath, fileName: activeAsset.fileName }); } }}
+            onError={() => { setLoadFailed(true); onError(); }}
           />
         ) : null}
 
@@ -122,7 +134,7 @@ export function EffectFullscreenVideoRegulation({
             <button
               type="button"
               className={styles.fullscreenStagePrimaryAction}
-              disabled={!isMediaReady}
+              disabled={!isMediaReady || interrupted}
               onClick={handleStartPlayback}
             >
               开始播放调控视频

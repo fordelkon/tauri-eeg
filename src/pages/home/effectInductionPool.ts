@@ -1,4 +1,4 @@
-import type { ParadigmVideoEntry } from '../../eeg/paradigm/types';
+import type { ParadigmVideoEntry } from '../../paradigm/types';
 
 /**
  * Emotion-induction pool status for the effect-evaluation wizard's induction
@@ -42,14 +42,14 @@ export function describeInductionPoolStatus(
   if (pool == null) {
     return {
       kind: 'blocked',
-      copy: '尚未加载有效的范式视频素材库（video_paradigm），无法播放诱发素材。请先在 EEG 采集页选择并校验素材库，再回到本页开始诱发。',
+      copy: '尚未加载有效的范式视频素材库（video_paradigm），无法播放诱发素材。请先在实验设置页选择并校验素材库，再回到本页开始诱发。',
     };
   }
 
   if (pool.length === 0) {
     return {
       kind: 'blocked',
-      copy: '该情绪类别的诱发素材池为空，无法播放诱发素材。请先在 EEG 采集页补充对应类别的素材，本步骤为流程硬前置，不提供跳过。',
+      copy: '该情绪类别的诱发素材池为空，无法播放诱发素材。请先在实验设置页补充对应类别的素材，本步骤为流程硬前置，不提供跳过。',
     };
   }
 

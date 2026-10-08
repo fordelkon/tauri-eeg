@@ -5,7 +5,8 @@ Desktop EEG and regulation workspace built with Tauri 2, React, TypeScript, Rust
 ## Features
 
 - Local multi-user login backed by SQLite.
-- EEG acquisition workspace with realtime waveform display, channel controls, and animated page entry.
+- BioSemi USB Trigger Interface settings and independent experiment/event logs. ActiView saves BDF externally.
+- Personal calibration and held-out emotion induction with stimulus presentation and SAM ratings.
 - Video, game, and music regulation pages.
 - Emotion regulation effect evaluation loop (`/effect-evaluation`): baseline/post scale pairing, improvement-rate verdicts, history review, and CSV/JSON report export.
 - Music page with a compact player, layered prompt builder, generated WAV history, progress display, and file deletion.
@@ -16,10 +17,12 @@ Desktop EEG and regulation workspace built with Tauri 2, React, TypeScript, Rust
 The `/effect-evaluation` page closes the emotion-regulation evaluation loop for a subject:
 
 1. Pick a subject id, target emotion (焦虑 / 抑郁 / 恐惧), regulation method (music or video), and duration.
-2. Fill the baseline mental scale (`phase=baseline`) — reuses the shared scale dialog.
-3. Run the regulation on the music/video page while the wizard counts down; the window is a hard floor (leaving early requires a double-confirmed skip that is recorded with the run). An EEG recording is linked automatically when the device is available.
-4. Fill the same scale again (`phase=post`).
-5. The backend pairs both records and computes per-dimension improvement `(baseline - post) / baseline`. All four dimensions (anxiety, worry, mood, energy) are scored so higher means worse, so this single formula applies to every dimension without inversion. The mean improvement rate at or above the 10% threshold (`DEFAULT_IMPROVEMENT_THRESHOLD` in `src-tauri/src/scale_records.rs`) marks the emotion as regulated effectively.
+2. Preload and present the emotion-induction video, then fill SAM and the baseline STAI-S/PANAS battery (`phase=baseline`).
+3. Execute natural recovery, music regulation, or video regulation in the wizard. Media playback starts the regulation timer and sends event codes. Track selection and loading do not count toward regulation time.
+4. Complete the post battery (`phase=post`), with GEMS-9 for music regulation.
+5. The backend pairs measurements from the same run and computes per-dimension improvement `(baseline - post) / baseline`. Formal condition comparisons exclude rehearsal and interrupted runs. The 10% threshold is a project setting, not a clinical efficacy criterion.
+
+See [BioSemi operation guide](docs/biosemi-operation.md) and [implementation specification](docs/biosemi-trigger-implementation.md). The original EEG Python service, realtime waveform implementation, and old recording APIs have been removed. No old EEG-record compatibility is provided.
 
 Every completed scale submission is persisted to the SQLite `scale_records` table (in addition to the in-memory status cache), so runs survive restarts. The history tab reviews all completed baseline/post runs, and the export buttons write one run's report (JSON or CSV) or an all-subjects batch summary (CSV) to a user-chosen path through the native save dialog. CSV fields are escaped by hand (RFC 4180, BOM included for Excel); no CSV dependency is used.
 

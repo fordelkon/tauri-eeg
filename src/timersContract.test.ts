@@ -23,9 +23,8 @@ const readText = (url: URL) => readFileSync(url, 'utf8');
  *    rAF (resize coalescing, scroll sync) must cancel its frame on unmount.
  *
  * 3. The 30 Hz EEG display snapshot must stay confined to the RealtimeMonitor
- *    leaf (via useRealtimeEeg): it may never enter EegSessionContext state or
- *    its context value, or every context consumer in the Home tree would
- *    re-render per frame.
+ *    experiment page state; the removed acquisition display has no place in
+ *    the current application tree.
  */
 
 const SRC_ROOT = new URL('../', import.meta.url);
@@ -68,23 +67,13 @@ const intervalAllowlist = [
     // 100 ms countdown probe; stored value only moves once per second
     // (coalesceCountdownTickMs) so the fullscreen stage re-renders at ~1 Hz,
     // and the interval lives only for phases with a fixed duration.
-    path: 'src/eeg/paradigm/TrialStageRenderer.tsx',
-  },
-  {
-    // 1 Hz 已录 header clock; RecordingClock leaf mounted only while a
-    // recording is active.
-    path: 'src/pages/home/EegAcquisition.tsx',
+    path: 'src/paradigm/TrialStageRenderer.tsx',
   },
   {
     // 500 ms condition-window poll; gated off before start/after expiry and
     // leaf-confined by effectTickConfinement.test.ts. Do not touch without
     // reading that contract first.
     path: 'src/pages/home/EffectConditionCountdown.tsx',
-  },
-  {
-    // 1 Hz device-start reconciliation poll; exists only while
-    // deviceStatus === 'starting' (the start-timeout window).
-    path: 'src/eeg/useEegDeviceCommands.ts',
   },
   {
     // 500 ms generation-elapsed counter; the panel is mounted only while a
@@ -126,18 +115,6 @@ describe('app-wide wall-clock interval contract', () => {
 });
 
 describe('rAF loop contract', () => {
-  test('the EEG render loop only runs while streaming and pauses when hidden', () => {
-    const source = readText(new URL('src/eeg/useRealtimeEeg.ts', SRC_ROOT));
-
-    // Loop lifecycle is derived from the streaming state (no always-on rAF
-    // burning wakeups while the device is idle)…
-    expect(source).toContain("eegSession.deviceStatus === 'streaming'");
-    // …paused on document.hidden and resumed on show…
-    expect(source).toContain('document.hidden');
-    expect(source).toContain('visibilitychange');
-    // …and the pending frame is cancelled in cleanup.
-    expect(source).toContain('cancelAnimationFrame');
-  });
 
   test('the matter background scene is throttled, visibility- and visibility-of-host-gated', () => {
     const source = readText(new URL('src/components/matterBackground.ts', SRC_ROOT));
@@ -153,7 +130,6 @@ describe('rAF loop contract', () => {
 
   test('one-shot rAF uses cancel their frames on unmount', () => {
     const oneShotRafFiles = [
-      'src/eeg/EegWaveformPanel.tsx',
       'src/agent/ExperimentAgentPanel.tsx',
       'src/mentalScale/GlobalMentalScalePanel.tsx',
       'src/pages/home/EffectResultChartView.tsx',
@@ -166,35 +142,5 @@ describe('rAF loop contract', () => {
         'cancelAnimationFrame',
       );
     }
-  });
-});
-
-describe('30Hz EEG snapshot confinement contract', () => {
-  test('the display snapshot state lives only in useRealtimeEeg', () => {
-    const contextSource = readText(new URL('src/eeg/EegSessionContext.tsx', SRC_ROOT));
-    const hookSource = readText(new URL('src/eeg/useRealtimeEeg.ts', SRC_ROOT));
-
-    // The single owner of the 30 Hz snapshot state…
-    expect(hookSource).toContain('setSnapshot');
-    // …and it must never leak into the shared session context: its value is
-    // memoized on reducer fields + settings + stable callbacks only, so the
-    // ~15 Hz setSnapshot re-renders cannot reach any other context consumer.
-    expect(contextSource).not.toContain('setSnapshot');
-    expect(contextSource).not.toContain('useState<EegDisplaySnapshot');
-    expect(contextSource).not.toContain('snapshot,');
-  });
-
-  test('the 30Hz subtree stays leaf-isolated in EegAcquisition', () => {
-    const source = readText(new URL('src/pages/home/EegAcquisition.tsx', SRC_ROOT));
-
-    // RealtimeMonitor owns useRealtimeEeg and is memoized, so per-frame
-    // re-renders stop at the monitor grid + footer; the controls strip, the
-    // paradigm panel and the page header never see them.
-    expect(source).toContain('memo(function RealtimeMonitor');
-    expect(source).toContain('const eeg = useRealtimeEeg();');
-    // The page root consumes the session context, not the snapshot hook.
-    expect(source).toContain('useEegSession()');
-    // The channel checkboxes are memoized against the per-frame re-renders.
-    expect(source).toContain('EegChannelList');
   });
 });

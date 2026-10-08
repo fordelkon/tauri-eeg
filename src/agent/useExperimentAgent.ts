@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { useEegSession } from '../eeg/EegSessionContext';
 import { getMentalScaleStatusSnapshot } from '../mentalScale/mentalScaleStatus';
 import { generateMusic } from '../music/musicGenerationApi';
 import {
@@ -19,8 +18,6 @@ import {
   type AgentPersonalizedAnswer,
   type AgentTimelineEntry,
 } from './agentContext';
-import { executeAgentEegAction } from './agentEegActions';
-import { toAgentEegGuardView } from './agentEegGuards';
 import { classifyAgentIntent } from './agentIntent';
 import { buildAgentMusicPreview } from './agentMusic';
 import { requestAgentPlannerRecommendation, type AgentPlannerActionMap } from './agentPlannerRequest';
@@ -57,14 +54,8 @@ const plannerActionMap = {
 
 const localFirstActionIds = new Set<AgentActionId>([
   'go_next_page',
-  'start_eeg_device',
-  'stop_eeg_device',
-  'start_eeg_recording',
-  'pause_eeg_recording',
-  'resume_eeg_recording',
-  'stop_and_save_eeg_recording',
-  'start_eeg_device_and_record',
-  'stop_save_eeg_and_go_next',
+  'open_paradigm',
+  'open_experiment_settings',
   'skip_game',
   'finish_experiment',
   'cancel',
@@ -75,31 +66,6 @@ function isLocalFirstAction(actionId: AgentActionId | 'unknown'): actionId is Ag
 }
 
 export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentOptions) {
-  // The session context is destructured into the specific fields executeAction
-  // reads instead of being carried around as a whole object: the context value
-  // changes identity on every display-settings tweak (channel toggles,
-  // amplitude, time window) and session transition, and keying the
-  // executeAction → queueOrExecute → submitPrompt chain on that whole value
-  // re-created submitPrompt — rebinding the agent:submit-prompt and
-  // agent:record-action window listeners — on each of those changes. The
-  // narrowed deps keep the chain stable unless one of the fields below
-  // actually changes.
-  const {
-    canPauseRecord,
-    canResumeRecord,
-    canStartDevice,
-    canStartRecord,
-    canStopDevice,
-    canStopRecord,
-    deviceStatus,
-    pauseRecord,
-    recordStatus,
-    resumeRecord,
-    startDevice,
-    startRecord,
-    stopDevice,
-    stopRecord,
-  } = useEegSession();
   const { currentUser } = useAuth();
   const [phase, setPhase] = useState<AgentPhase>(() => getAgentPhaseForRoute(pathname));
   const [message, setMessage] = useState('可以输入“开始实验”或点击推荐操作。');
@@ -167,18 +133,6 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   }, [thinkingBuffer]);
 
   const executeAction = useCallback(async (actionId: AgentActionId, params: AgentActionParams = {}) => {
-    // Guard view assembled at execution time from the captured primitives —
-    // the same committed values the whole session object used to carry here.
-    const eegGuardView = toAgentEegGuardView({
-      canPauseRecord,
-      canResumeRecord,
-      canStartDevice,
-      canStartRecord,
-      canStopDevice,
-      canStopRecord,
-      deviceStatus,
-      recordStatus,
-    });
     const validation = getAgentActionValidation(actionId, phase);
     if (!validation.ok) {
       setMessage(validation.reason);
@@ -188,38 +142,20 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
     pushTimeline('action', actionId);
 
     switch (actionId) {
+      case 'open_paradigm':
+        navigateTo('/experiment-settings');
+        setMessage('已打开实验范式，请在页面确认材料与运行模式后开始。');
+        return;
+      case 'open_experiment_settings':
+        navigateTo('/experiment-settings');
+        setMessage('已打开实验设置，采集与 BDF 保存请在 ActiView 操作。');
+        return;
       case 'go_next_page': {
         const nextPhase = getNextAgentPhase(phase);
         navigateTo(getRouteForAgentPhase(nextPhase));
         setMessage(`已进入：${getRecommendedPrompt(nextPhase)}`);
         return;
       }
-      // The EEG device/record command choreography lives in agentEegActions;
-      // each command re-validates its own guard at execution time.
-      case 'start_eeg_device':
-      case 'stop_eeg_device':
-      case 'start_eeg_recording':
-      case 'pause_eeg_recording':
-      case 'resume_eeg_recording':
-      case 'stop_and_save_eeg_recording':
-      case 'start_eeg_device_and_record':
-      case 'stop_save_eeg_and_go_next':
-        await executeAgentEegAction(actionId, {
-          eegGuardView,
-          phase,
-          canStartDevice,
-          canStopRecord,
-          deviceStatus,
-          startDevice,
-          stopDevice,
-          startRecord,
-          pauseRecord,
-          resumeRecord,
-          stopRecord,
-          setMessage,
-          navigateTo,
-        });
-        return;
       case 'select_video': {
         const match = findAgentVideoMatch('放松视频');
         setMessage(match.message);
@@ -296,24 +232,10 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
         setMessage('无法执行该操作。');
     }
   }, [
-    canPauseRecord,
-    canResumeRecord,
-    canStartDevice,
-    canStartRecord,
-    canStopDevice,
-    canStopRecord,
     currentUser,
-    deviceStatus,
     navigateTo,
-    pauseRecord,
     phase,
     pushTimeline,
-    recordStatus,
-    resumeRecord,
-    startDevice,
-    startRecord,
-    stopDevice,
-    stopRecord,
   ]);
 
   const queueOrExecute = useCallback(async (actionId: AgentActionId, forceConfirmation = false, params: AgentActionParams = {}) => {

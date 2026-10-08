@@ -142,7 +142,6 @@ export default function Login() {
     const warmRoutes = () => {
       void import('./Home').catch(() => undefined);
       void import('./home/HomeOverview').catch(() => undefined);
-      void import('../eeg/EegSessionContext').catch(() => undefined);
     };
     const idleApi = window as Window & {
       cancelIdleCallback?: (handle: number) => void;

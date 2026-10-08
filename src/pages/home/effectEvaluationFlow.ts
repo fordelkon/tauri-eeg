@@ -100,20 +100,20 @@ export const MIN_REGULATION_MINUTES = 1;
 export const MAX_REGULATION_MINUTES = 30;
 
 /**
- * EEG association status for the regulation leg. The recording is only
+ * experiment event log status for the regulation leg. The recording is only
  * started when the device can record at that moment; anything else degrades
  * to `unavailable` without blocking the loop.
  */
-export type EffectEegAssociation = 'not-started' | 'recording' | 'saved' | 'unavailable';
+export type EffectEventLogStatus = 'not-started' | 'active' | 'saved' | 'interrupted';
 
-const EEG_ASSOCIATION_VALUES: EffectEegAssociation[] = [
+const EVENT_LOG_STATUS_VALUES: EffectEventLogStatus[] = [
   'not-started',
-  'recording',
+  'active',
   'saved',
-  'unavailable',
+  'interrupted',
 ];
 
-const FLOW_STATE_VERSION = 3;
+const FLOW_STATE_VERSION = 4;
 
 export type EffectEvaluationFlowState = {
   version: typeof FLOW_STATE_VERSION;
@@ -134,8 +134,11 @@ export type EffectEvaluationFlowState = {
   regulationStartedAtMs: number | null;
   /** True when the operator explicitly skipped part of the window. */
   regulationSkipped: boolean;
-  eegSessionId: string | null;
-  eegAssociation: EffectEegAssociation;
+  runId: string | null;
+  runMode: 'formal' | 'rehearsal';
+  interrupted: boolean;
+  regulationStartedAtMonotonicMs: number | null;
+  eventLogStatus: EffectEventLogStatus;
 };
 
 export function createEffectEvaluationFlowState(): EffectEvaluationFlowState {
@@ -151,8 +154,11 @@ export function createEffectEvaluationFlowState(): EffectEvaluationFlowState {
     postRecordId: null,
     regulationStartedAtMs: null,
     regulationSkipped: false,
-    eegSessionId: null,
-    eegAssociation: 'not-started',
+    runId: null,
+    runMode: 'rehearsal',
+    interrupted: false,
+    regulationStartedAtMonotonicMs: null,
+    eventLogStatus: 'not-started',
   };
 }
 
@@ -177,12 +183,15 @@ export function regulationDurationMs(state: EffectEvaluationFlowState): number {
 export function remainingRegulationSeconds(
   state: EffectEvaluationFlowState,
   nowMs: number,
+  monotonicNowMs?: number,
 ): number | null {
   if (state.regulationStartedAtMs === null) {
     return null;
   }
 
-  const elapsedMs = Math.max(0, nowMs - state.regulationStartedAtMs);
+  const elapsedMs = Math.max(0, monotonicNowMs !== undefined && state.regulationStartedAtMonotonicMs !== null
+    ? monotonicNowMs - state.regulationStartedAtMonotonicMs
+    : nowMs - state.regulationStartedAtMs);
   return Math.max(0, Math.ceil((regulationDurationMs(state) - elapsedMs) / 1000));
 }
 
@@ -422,13 +431,13 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
   }
   const regulationSkipped: boolean = candidate.regulationSkipped;
 
-  const eegSessionId = optionalString(candidate.eegSessionId);
-  if (eegSessionId === undefined) {
-    return null;
-  }
+  const runId = optionalString(candidate.runId);
+  if (runId === undefined || !['formal', 'rehearsal'].includes(String(candidate.runMode)) || typeof candidate.interrupted !== 'boolean') return null;
+  const monotonic = candidate.regulationStartedAtMonotonicMs;
+  if (monotonic !== null && (typeof monotonic !== 'number' || !Number.isFinite(monotonic))) return null;
 
-  const eegAssociation = EEG_ASSOCIATION_VALUES.find((value) => value === candidate.eegAssociation);
-  if (!eegAssociation) {
+  const eventLogStatus = EVENT_LOG_STATUS_VALUES.find((value) => value === candidate.eventLogStatus);
+  if (!eventLogStatus) {
     return null;
   }
 
@@ -444,8 +453,11 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
     postRecordId,
     regulationStartedAtMs,
     regulationSkipped,
-    eegSessionId,
-    eegAssociation,
+    runId,
+    runMode: candidate.runMode === 'formal' ? 'formal' : 'rehearsal',
+    interrupted: candidate.interrupted,
+    regulationStartedAtMonotonicMs: monotonic,
+    eventLogStatus,
   };
 }
 
@@ -464,4 +476,3 @@ function clampDurationMinutes(value: unknown): number {
 
   return Math.min(MAX_REGULATION_MINUTES, Math.max(MIN_REGULATION_MINUTES, Math.round(value)));
 }
-

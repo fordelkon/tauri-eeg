@@ -143,9 +143,6 @@ pub fn storage_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .map_err(|_| "Failed to resolve app data directory.".to_string())
 }
 
-pub fn eeg_recordings_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    storage_root(app)
-}
 
 pub fn music_user_dir(app: &tauri::AppHandle, username: &str) -> Result<PathBuf, String> {
     let roots = user_storage_roots(&storage_root(app)?, username)?;

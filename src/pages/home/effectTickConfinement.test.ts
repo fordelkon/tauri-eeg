@@ -25,7 +25,7 @@ const readText = (url: URL) => readFileSync(url, 'utf8');
  *   At 0: the leaf reports `onElapsed` exactly once → the page flips
  *   `isWindowElapsed` (one dispatch-driven render, unlocking the finish gate
  *   and the player's to-zero pause) and the leaf stops polling. The hook
- *   re-renders its consumers only on real dispatches (e.g. EEG badge flips).
+ *   re-renders its consumers only on real dispatches (e.g. event log badge flips).
  */
 
 const pageUrl = new URL('./EffectEvaluation.tsx', import.meta.url);
@@ -91,7 +91,7 @@ describe('effect-evaluation tick confinement contract', () => {
 
     // The leaf reports expiry upward; the page flips the gate exactly once…
     expect(panelsSource).toContain('onElapsed={onWindowElapsed}');
-    expect(pageSource).toContain('useCallback(() => setIsWindowElapsed(true), [])');
+    expect(pageSource).toContain('setIsWindowElapsed(true); void flow.conditionElapsed();');
     // …and a fresh run starts with its finish gate locked again.
     expect(pageSource).toContain('setIsWindowElapsed(false);');
     // The countdown leaf receives the flow state (it reads its own clock

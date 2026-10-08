@@ -23,7 +23,7 @@ import styles from './EffectEvaluation.module.css';
  * and the page re-renders only on real flow-state changes. Both components
  * are memoized and their props (node array derived from the specific state
  * fields the pipeline reads + stable callbacks) keep their identity across
- * unrelated dispatches (e.g. the EEG badge flip), so those bail out too.
+ * unrelated dispatches (e.g. the event log badge flip), so those bail out too.
  */
 
 /** Signature shared by the station and band click handlers. */

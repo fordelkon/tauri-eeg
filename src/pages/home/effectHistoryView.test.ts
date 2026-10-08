@@ -28,7 +28,6 @@ function entry(overrides: Partial<EffectHistoryEntryView> = {}): EffectHistoryEn
     condition: null,
     durationMinutes: 5,
     regulationSkipped: false,
-    eegSessionId: null,
     measuredOnly: true,
     meanImprovementRate: 0.4,
     meetsThreshold: true,

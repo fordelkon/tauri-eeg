@@ -45,7 +45,7 @@ describe('readStoredLibraryRootPath / writeStoredLibraryRootPath', () => {
   it('uses an independent storage key from the paradigm library', () => {
     const source = readFileSync(new URL('./videoLibraryStorage.ts', import.meta.url), 'utf8');
     const paradigmSource = readFileSync(
-      new URL('../eeg/paradigm/paradigmStorage.ts', import.meta.url),
+      new URL('../paradigm/paradigmStorage.ts', import.meta.url),
       'utf8',
     );
 

@@ -147,8 +147,7 @@ describe('ExperimentAgentPanel layout contract', () => {
     const localFirstBlock = hookTs.match(/const localFirstActionIds = new Set<AgentActionId>\(\[[\s\S]*?\]\);/)?.[0] ?? '';
 
     expect(hookTs).toContain('localFirstActionIds');
-    expect(localFirstBlock).toContain("'start_eeg_device_and_record'");
-    expect(localFirstBlock).toContain("'stop_save_eeg_and_go_next'");
+    expect(localFirstBlock).toContain("'open_experiment_settings'");
     expect(localFirstBlock).not.toContain("'play_video'");
     expect(localFirstBlock).not.toContain("'select_video'");
     expect(localFirstBlock).not.toContain("'generate_music'");
