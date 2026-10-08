@@ -68,16 +68,21 @@
 }
 
 .libraryButton {
+  align-items: center;
   background: #fffaf3;
   border: 1px solid var(--line-cool-strong);
-  border-radius: 8px;
+  border-radius: var(--button-radius);
   color: #172026;
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
-  min-height: 32px;
-  padding: 0 12px;
+  gap: var(--button-gap);
+  justify-content: center;
+  line-height: 1.25;
+  min-height: var(--button-height);
+  padding: 0 var(--button-padding-inline);
   transition:
     background-color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
@@ -98,6 +103,7 @@
 
 .libraryButton:active:not(:disabled) {
   transform: scale(0.98);
+  transition-duration: 80ms;
 }
 
 .libraryButton:disabled {
@@ -109,7 +115,7 @@
 .libraryButton.isBusy {
   align-items: center;
   display: inline-flex;
-  gap: 8px;
+  gap: var(--button-gap);
   justify-content: center;
 }
 
@@ -574,28 +580,48 @@
 
 .startButton,
 .resetButton {
+  align-items: center;
   background: var(--calm-primary);
   border: 1px solid var(--calm-primary);
-  border-radius: 8px;
+  border-radius: var(--button-radius);
   color: #fffaf3;
   cursor: pointer;
+  display: inline-flex;
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
-  min-height: 36px;
-  padding: 0 14px;
+  gap: var(--button-gap);
+  justify-content: center;
+  line-height: 1.25;
+  min-height: var(--button-height-lg);
+  padding: 0 var(--button-padding-inline);
   transition:
     background-color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
   white-space: nowrap;
 }
 
-.startButton:hover, .resetButton:hover {
+.resetButton {
+  background: #ffffff;
+  border-color: var(--line-cool-strong);
+  color: #172026;
+  min-height: var(--button-height);
+}
+
+.resetButton {
+  justify-self: start;
+  width: fit-content;
+}
+
+.startButton:hover:not(:disabled) {
   background: var(--calm-primary-hover);
 }
 
+.resetButton:hover:not(:disabled) {
+  background: rgba(23, 32, 38, 0.05);
+}
+
 .startButton:focus-visible, .resetButton:focus-visible {
-  background: var(--calm-primary-hover);
   /* Sage ring family (the calm dialect's control ring) on keyboard focus. */
   box-shadow: var(--ring);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
@@ -604,6 +630,7 @@
 
 .startButton:active:not(:disabled), .resetButton:active:not(:disabled) {
   transform: scale(0.98);
+  transition-duration: 80ms;
 }
 
 .startButton:disabled, .resetButton:disabled {

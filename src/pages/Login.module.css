@@ -268,6 +268,10 @@
 }
 
 .textField :global(.MuiIconButton-root) {
+  border-radius: var(--button-radius-sm);
+  height: var(--button-icon-size);
+  width: var(--button-icon-size);
+  padding: 0;
   color: #a29d9a;
   transition:
     background-color var(--dur-fast) var(--ease-out),
@@ -333,9 +337,21 @@
   margin: -4px 0 0;
 }
 
+.submitButton.submitButton {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--button-gap);
+  height: var(--button-height-lg);
+  min-height: var(--button-height-lg);
+  justify-content: center;
+  line-height: 1.25;
+  padding: 0 var(--button-padding-inline);
+  white-space: nowrap;
+}
+
 .submitButton {
   background: linear-gradient(180deg, #ff9b8d 0%, #f36d5a 100%);
-  border-radius: 8px;
+  border-radius: var(--button-radius);
   /* Primary tier: resting shadow + inset top light so it sits above the
      tertiary text buttons even before hover. */
   box-shadow:
@@ -390,6 +406,10 @@
 }
 
 .modeSwitchButton {
+  min-height: var(--button-height-sm);
+  border-radius: var(--button-radius-sm);
+  line-height: 1.25;
+  white-space: nowrap;
   color: #f16f5d;
   font-size: var(--text-sm);
   font-weight: 500;
@@ -416,6 +436,10 @@
 
 /* Tertiary tier: quieter than the mode switch, same hit area. */
 .forgotPassword {
+  min-height: var(--button-height-sm);
+  border-radius: var(--button-radius-sm);
+  line-height: 1.25;
+  white-space: nowrap;
   color: rgba(241, 111, 93, 0.82);
   font-size: var(--text-sm);
   font-weight: 500;

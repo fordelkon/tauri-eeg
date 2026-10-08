@@ -58,6 +58,17 @@
   /* Micro-control optical exception: compact <=32px controls (checkboxes,
      chips, mini buttons) read bulbous at the 8px step. */
   --radius-control-sm: 6px;
+  /* Action buttons: compact tools, ordinary actions, and major progression. */
+  --button-height: 2.5rem;
+  --button-height-sm: 2rem;
+  --button-height-lg: 2.75rem;
+  --button-icon-size: 2.25rem;
+  --button-icon-glyph: 1.125rem;
+  --button-radius: 10px;
+  --button-radius-sm: 8px;
+  --button-padding-inline: 1rem;
+  --button-padding-inline-sm: 0.75rem;
+  --button-gap: 0.5rem;
   --radius-card: 14px;
   --radius-surface: 18px;
   --radius-overlay: 22px;
@@ -77,8 +88,8 @@
 
   /* Control shadows (round-9): the contained-button lift is one recipe,
      tokenized so pages stop re-typing the rgba. */
-  --shadow-control: 0 3px 12px rgba(var(--calm-primary-rgb), 0.3);
-  --shadow-control-active: 0 2px 6px rgba(var(--calm-primary-rgb), 0.24);
+  --shadow-control: 0 1px 2px rgba(44, 34, 24, 0.08), 0 3px 8px rgba(var(--calm-primary-rgb), 0.12);
+  --shadow-control-active: 0 1px 2px rgba(44, 34, 24, 0.06);
 
   /* Elevation (two-layer recipes from EffectEvaluation) */
   --shadow-card: 0 1px 2px rgba(28, 22, 14, 0.06), 0 12px 32px rgba(28, 22, 14, 0.1);
@@ -98,6 +109,7 @@
 
   /* Motion */
   --dur-fast: 150ms;
+  --dur-press: 80ms;
   --dur-med: 220ms;
   /* Route/workspace entrance: at the top edge of the UI budget — the page
      must feel ready, not staged. */

@@ -165,9 +165,21 @@
   text-wrap: pretty;
 }
 
+.backButton.backButton {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--button-gap);
+  height: var(--button-height);
+  min-height: var(--button-height);
+  justify-content: center;
+  line-height: 1.25;
+  padding: 0 var(--button-padding-inline);
+  white-space: nowrap;
+}
+
 .backButton {
   background: linear-gradient(180deg, #ff9b8d 0%, #f36d5a 100%);
-  border-radius: 999px;
+  border-radius: var(--button-radius);
   box-shadow: none;
   color: #ffffff;
   font-size: var(--text-base);

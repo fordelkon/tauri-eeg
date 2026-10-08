@@ -169,7 +169,7 @@
   box-sizing: border-box;
   color: inherit;
   font: inherit;
-  min-height: 38px;
+  min-height: var(--button-height);
   padding: 8px 12px;
   transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
   width: 100%;
@@ -184,28 +184,36 @@
 /* Button tiers                                                      */
 /* ---------------------------------------------------------------- */
 
-/* Base = primary tier: flat terracotta (the acquisition page's action hue),
-   38px control floor, 8px radius. */
+/* Shared button geometry keeps controls aligned throughout preparation. */
 .workspace button {
+  align-items: center;
   background: var(--calm-primary);
   border: 1px solid transparent;
-  border-radius: var(--radius-control);
+  border-radius: var(--button-radius);
+  box-sizing: border-box;
   color: #fff;
   cursor: pointer;
-  font: inherit;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: var(--text-base);
   font-weight: 600;
-  min-height: 38px;
-  padding: 7px 16px;
+  gap: var(--button-gap);
+  justify-content: center;
+  line-height: 1.2;
+  min-height: var(--button-height);
+  padding: 0 calc(var(--button-padding-inline) + 8px);
+  position: relative;
+  white-space: nowrap;
   transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
 
 .workspace button:hover:enabled {
   background: var(--calm-primary-hover);
-  box-shadow: var(--shadow-control);
+  box-shadow: none;
 }
 
 .workspace button:active:enabled {
-  box-shadow: var(--shadow-control-active);
+  box-shadow: none;
   transform: scale(0.98);
 }
 
@@ -239,12 +247,11 @@
   opacity: var(--disabled-opacity);
 }
 
-/* Busy marker for the in-flight action: 14px spinner prepended, button copy
-   unchanged (same recipe as EffectEvaluation .isBusy). */
+/* The base padding keeps marker space in both idle and busy states. */
 .isBusy {
   align-items: center;
   display: inline-flex;
-  gap: 8px;
+  gap: var(--button-gap);
   justify-content: center;
 }
 
@@ -254,10 +261,11 @@
   border-radius: 999px;
   border-top-color: transparent;
   content: "";
-  display: block;
-  flex: 0 0 auto;
-  height: 14px;
-  width: 14px;
+  box-sizing: border-box;
+  height: 12px;
+  inset-inline-start: 7px;
+  position: absolute;
+  width: 12px;
 }
 
 @keyframes busySpin {
@@ -346,7 +354,8 @@
 }
 
 .nextStepButton {
-  min-width: 220px;
+  min-height: var(--button-height-lg);
+  min-width: 180px;
 }
 
 .backButton {

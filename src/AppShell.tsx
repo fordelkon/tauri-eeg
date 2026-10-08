@@ -47,15 +47,25 @@ const theme = createTheme({
     text: { primary: '#2c2218' },
   },
   typography: {
-    fontFamily: 'Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
   },
   shape: {
     borderRadius: 8,
   },
   components: {
     MuiButton: {
+      defaultProps: { disableElevation: true },
       styleOverrides: {
         root: {
+          minHeight: 'var(--button-height)',
+          borderRadius: 'var(--button-radius)',
+          padding: '0 var(--button-padding-inline)',
+          fontSize: 'var(--text-base)',
+          fontWeight: 600,
+          lineHeight: 1.2,
+          letterSpacing: '0.005em',
+          flexShrink: 0,
+          gap: 'var(--button-gap)',
           textTransform: 'none',
           // Button labels never wrap to two lines: rows wrap the whole
           // control instead (the dialect's nowrap rule for buttons/pills).
@@ -65,9 +75,10 @@ const theme = createTheme({
           // transform is listed so the pressed recipe below animates.
           transition:
             'background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out)',
-          '&:active': {
+          '&:active:not(.Mui-disabled)': {
             // The dialect's pressed recipe, inherited by every MUI button.
             transform: 'scale(0.98)',
+            transitionDuration: 'var(--dur-press)',
           },
           '&:focus-visible': {
             boxShadow: '0 0 0 3px rgba(196, 103, 87, 0.16)',
@@ -75,6 +86,19 @@ const theme = createTheme({
             outlineOffset: 1,
           },
         },
+        sizeSmall: {
+          minHeight: 'var(--button-height-sm)',
+          padding: '0 var(--button-padding-inline-sm)',
+          fontSize: 'var(--text-sm)',
+          borderRadius: 'var(--button-radius-sm)',
+        },
+        sizeLarge: {
+          minHeight: 'var(--button-height-lg)',
+          padding: '0 1.25rem',
+          fontSize: 'var(--text-base)',
+        },
+        startIcon: { margin: 0, '& > *:nth-of-type(1)': { fontSize: 'var(--button-icon-glyph)' } },
+        endIcon: { margin: 0, '& > *:nth-of-type(1)': { fontSize: 'var(--button-icon-glyph)' } },
         contained: {
           // Longhand on purpose: the `background` shorthand would reset
           // background-image and erase the coral gradient art on the Login /
@@ -113,6 +137,21 @@ const theme = createTheme({
         // No `text` override: text-variant buttons carry color semantics
         // (color="error" destructive actions) through --variant-textColor,
         // which now resolves to the sage primary for the default color.
+      },
+    },
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          width: 'var(--button-icon-size)',
+          height: 'var(--button-icon-size)',
+          borderRadius: 'var(--button-radius)',
+          padding: 0,
+          '& .MuiSvgIcon-root': { fontSize: 'var(--button-icon-glyph)' },
+          '&:active:not(.Mui-disabled)': { transform: 'scale(0.96)', transitionDuration: 'var(--dur-press)' },
+          '&:focus-visible': { outline: '2px solid var(--calm-primary)', outlineOffset: 3 },
+        },
+        sizeSmall: { width: 'var(--button-height-sm)', height: 'var(--button-height-sm)' },
+        sizeLarge: { width: 'var(--button-height-lg)', height: 'var(--button-height-lg)' },
       },
     },
     MuiAlert: {

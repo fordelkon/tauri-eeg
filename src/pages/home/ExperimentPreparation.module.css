@@ -5,19 +5,20 @@
 .rehearsalMode { background: rgba(23,32,38,.07); color: var(--ink-cool); }
 .layout { display: grid; grid-template-columns: 180px minmax(0,1fr); gap: 24px; align-items: start; }
 .steps { display: grid; gap: 5px; padding-top: 8px; }
-.workspace .stepButton { display: flex; justify-content: start; gap: 12px; padding: 12px 10px; background: transparent; color: rgba(23,32,38,.65); border-radius: 6px; text-align: left; box-shadow: none; }
+.workspace .stepButton { display: flex; justify-content: start; gap: 12px; min-height: var(--button-height); padding: 12px 10px; background: transparent; color: rgba(23,32,38,.65); border-radius: var(--button-radius); text-align: left; white-space: normal; box-shadow: none; }
 .workspace .stepButton:hover:enabled { background: rgba(23,32,38,.05); box-shadow: none; }
 .workspace .currentStep { background: rgba(var(--calm-primary-rgb),.1); color: var(--calm-primary); }
 .stepNumber { font-variant-numeric: tabular-nums; font-size: var(--text-xs); opacity: .7; }
 .railNote { padding: 12px 10px; font-size: var(--text-xs); line-height: 1.8; color: rgba(23,32,38,.56); }
 .content { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) 250px; gap: 20px; align-items: start; }
 .stepPanel { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.workspace .stepPanel > button { align-self: flex-start; }
 .panelHeader { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line-cool-soft); }
 .software { color: rgba(23,32,38,.64); font-size: var(--text-xs); line-height: 1.6; white-space: nowrap; }
 .workspace .compactNext { display: none; }
 .introduction { margin: 0; line-height: 1.8; font-size: var(--text-base); color: var(--ink-cool); }
 .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.workspace .choice { display: flex; flex-direction: column; align-items: start; gap: 8px; padding: 16px; background: transparent; color: var(--ink-cool); border: 1px solid var(--line-cool-strong); text-align: left; line-height: 1.7; }
+.workspace .choice { display: flex; flex-direction: column; align-items: start; justify-content: start; gap: 8px; padding: 16px; background: transparent; color: var(--ink-cool); border: 1px solid var(--line-cool-strong); text-align: left; white-space: normal; line-height: 1.7; }
 .workspace .choice:hover:enabled { background: rgba(23,32,38,.035); box-shadow: none; }
 .workspace .choice[aria-pressed="true"] { border-color: var(--calm-primary); background: rgba(var(--calm-primary-rgb),.06); }
 .choice strong { font-size: var(--text-lg); }
@@ -32,7 +33,8 @@
 .review dd { margin: 0; overflow-wrap: anywhere; }
 .blockers { padding: 12px; background: rgba(179,38,30,.05); color: var(--danger-ink); line-height: 1.8; font-size: var(--text-sm); }
 .blockers ul { margin: 4px 0 0; padding-left: 20px; }
-.actions { display: flex; justify-content: space-between; gap: 12px; padding-top: 18px; border-top: 1px solid var(--line-cool-soft); flex-wrap: wrap; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 20px; border-top: 1px solid var(--line-cool-soft); flex-wrap: wrap; }
+.workspace .actions > button:last-child { min-height: var(--button-height-lg); }
 .companion { padding: 20px 0 20px 18px; border-left: 1px solid var(--line-cool-strong); }
 .companion h3 { margin: 8px 0 16px; font-size: var(--text-lg); font-weight: 600; }
 .companion ol { padding-left: 18px; margin: 0; display: grid; gap: 16px; font-size: var(--text-sm); line-height: 1.8; color: rgba(23,32,38,.75); }
@@ -49,9 +51,9 @@
 @media (max-width: 1000px) {
   .layout { grid-template-columns: minmax(0,1fr); gap: 10px; }
   .steps { display: flex; gap: 4px; overflow-x: auto; padding: 0 0 6px; }
-  .workspace .stepButton { flex-shrink: 0; padding: 9px 10px; gap: 6px; font-size: var(--text-xs); }
+  .workspace .stepButton { flex-shrink: 0; padding: 9px 10px; gap: 6px; font-size: var(--text-sm); }
   .railNote { display: none; }
-  .workspace .compactNext { display: inline-flex; font-size: var(--text-xs); padding: 7px 10px; }
+  .workspace .compactNext { display: inline-flex; min-height: var(--button-height-sm); border-radius: var(--button-radius-sm); font-size: var(--text-sm); padding-block: 0; }
   .panelHeader > .software { display: none; }
   .panelHeader { flex-wrap: wrap; gap: 6px; }
 }

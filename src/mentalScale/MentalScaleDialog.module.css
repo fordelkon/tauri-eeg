@@ -72,15 +72,16 @@
 }
 
 .scaleCloseButton {
-  border-radius: var(--radius-control);
+  border-radius: var(--button-radius-sm);
   color: rgba(23, 32, 38, 0.72);
   flex: 0 0 auto;
-  height: 32px;
+  height: var(--button-icon-size);
+  padding: 0;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
-  width: 32px;
+  width: var(--button-icon-size);
 }
 
 .scaleCloseButton:hover {
@@ -175,16 +176,22 @@
 }
 
 .scaleSkipButton {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  gap: var(--button-gap);
+  min-height: var(--button-height);
   background: transparent;
   border: none;
-  border-radius: var(--radius-control);
+  border-radius: var(--button-radius);
   color: rgba(23, 32, 38, 0.72);
   cursor: pointer;
   flex: 0 0 auto;
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
-  padding: 8px 14px;
+  line-height: 1.25;
+  padding: 0 var(--button-padding-inline);
   white-space: nowrap;
   transition:
     background-color var(--dur-fast) var(--ease-out),
@@ -209,18 +216,23 @@
 }
 
 .scalePrimaryButton {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  gap: var(--button-gap);
   background: var(--calm-primary);
   border: 1px solid var(--calm-primary);
-  border-radius: var(--radius-control);
+  border-radius: var(--button-radius);
   color: #fff;
   cursor: pointer;
   flex: 0 0 auto;
   font: inherit;
-  font-size: var(--text-sm);
+  font-size: var(--text-base);
   font-weight: 600;
-  height: 40px;
+  line-height: 1.25;
+  height: var(--button-height);
   min-width: 112px;
-  padding: 0 18px;
+  padding: 0 var(--button-padding-inline);
   white-space: nowrap;
   transition:
     background-color var(--dur-fast) var(--ease-out),

@@ -50,16 +50,20 @@
 }
 
 .cancelButton {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
   background: rgba(44, 34, 24, 0.08);
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  border-radius: var(--button-radius-sm);
   color: #2c2218;
   cursor: pointer;
   font: inherit;
-  font-size: var(--text-2xs);
+  font-size: var(--text-sm);
   font-weight: 600;
-  min-height: 26px;
-  padding: 4px 10px;
+  line-height: 1.25;
+  min-height: var(--button-height-sm);
+  padding: 0 var(--button-padding-inline-sm);
   transition:
     background-color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
@@ -109,17 +113,21 @@
 
 .promptGrid button,
 .confirmationActions button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
   background: rgba(44, 34, 24, 0.08);
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  border-radius: var(--button-radius-sm);
   color: #2c2218;
   cursor: pointer;
   font: inherit;
-  font-size: var(--text-2xs);
+  font-size: var(--text-sm);
   font-weight: 600;
-  min-height: 30px;
+  line-height: 1.25;
+  min-height: var(--button-height-sm);
   overflow: hidden;
-  padding: 6px 8px;
+  padding: 0 var(--button-padding-inline-sm);
   text-align: left;
   text-overflow: ellipsis;
   transition:
@@ -315,7 +323,7 @@
   display: grid;
   flex: 0 0 auto;
   gap: 6px;
-  grid-template-columns: minmax(0, 1fr) 38px;
+  grid-template-columns: minmax(0, 1fr) var(--button-height);
   margin-top: auto;
 }
 
@@ -327,7 +335,7 @@
   color: #2c2218;
   font: inherit;
   font-size: var(--text-xs);
-  height: 38px;
+  height: var(--button-height);
   min-width: 0;
   padding: 0 10px;
 }
@@ -344,10 +352,13 @@
   align-items: center;
   background: var(--calm-primary);
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--button-radius);
   color: #f5f0eb;
   cursor: pointer;
   display: inline-flex;
+  height: var(--button-height);
+  width: var(--button-height);
+  padding: 0;
   justify-content: center;
   transition:
     background-color var(--dur-fast) var(--ease-out),
@@ -372,10 +383,13 @@
 }
 
 .promptGrid button:disabled,
+.confirmationActions button:disabled,
+.cancelButton:disabled,
 .form input:disabled,
 .form button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
+  transform: none;
 }
 
 @keyframes agentThinkingPulse {

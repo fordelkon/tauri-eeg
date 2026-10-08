@@ -1,0 +1,88 @@
+[
+  {
+    "label": "刷新端口",
+    "expectedHeight": 40,
+    "height": 40,
+    "width": 106,
+    "radius": "10px",
+    "fontSize": "14px",
+    "lineHeight": "16.8px"
+  },
+  {
+    "label": "连接触发盒",
+    "expectedHeight": 40,
+    "height": 40,
+    "width": 120,
+    "radius": "10px",
+    "fontSize": "14px",
+    "lineHeight": "16.8px"
+  },
+  {
+    "label": "发送测试 Trigger",
+    "expectedHeight": 40,
+    "height": 40,
+    "width": 154.765625,
+    "radius": "10px",
+    "fontSize": "14px",
+    "lineHeight": "16.8px"
+  },
+  {
+    "label": "下一步：准备素材",
+    "expectedHeight": 44,
+    "height": 44,
+    "width": 162,
+    "radius": "10px",
+    "fontSize": "14px",
+    "lineHeight": "16.8px"
+  },
+  {
+    "label": "继续：准备素材",
+    "expectedHeight": 32,
+    "height": 32,
+    "width": 141,
+    "radius": "8px",
+    "fontSize": "13px",
+    "lineHeight": "15.6px"
+  },
+  {
+    "label": "Trigger 与实验设置",
+    "expectedHeight": 32,
+    "height": 32,
+    "width": 134.91845703125,
+    "radius": "8px",
+    "fontSize": "13px",
+    "lineHeight": "15.6px"
+  },
+  {
+    "label": "选择视频库",
+    "expectedHeight": 40,
+    "height": 40,
+    "width": 103.70458984375,
+    "radius": "10px",
+    "fontSize": "14px",
+    "lineHeight": "17.5px"
+  },
+  {
+    "label": "重新选择",
+    "expectedHeight": 40,
+    "height": 40,
+    "width": 89.76789855957031,
+    "radius": "10px",
+    "fontSize": "14px",
+    "lineHeight": "17.5px"
+  },
+  {
+    "label": "生成 WAV",
+    "expectedHeight": 44,
+    "height": 44,
+    "width": 342.8392639160156,
+    "radius": "10px",
+    "fontSize": "14px",
+    "lineHeight": "17.5px"
+  },
+  {
+    "label": "登录",
+    "height": 44,
+    "expectedHeight": 44
+  }
+]

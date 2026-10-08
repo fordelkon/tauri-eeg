@@ -71,18 +71,18 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--button-radius-sm);
   color: #fffaf3;
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 auto;
-  height: 36px;
+  height: var(--button-icon-size);
   justify-content: center;
   padding: 0;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
-  width: 36px;
+  width: var(--button-icon-size);
 }
 
 /* Dark player chrome keeps the light-outline ring family (same as the music
@@ -98,7 +98,8 @@
 }
 
 .closeButton:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
+  transition-duration: 80ms;
 }
 
 .closeButton svg {

@@ -336,16 +336,19 @@
   align-items: center;
   background: transparent;
   border: 1px dashed var(--scale-line-strong);
-  border-radius: var(--radius-control);
+  border-radius: var(--button-radius-sm);
   color: var(--scale-ink-soft);
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 auto;
   font: inherit;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
-  gap: 5px;
-  padding: 8px 12px;
+  gap: var(--button-gap);
+  min-height: var(--button-height-sm);
+  line-height: 1.25;
+  justify-content: center;
+  padding: 0 var(--button-padding-inline-sm);
   transition:
     background-color var(--scale-motion),
     border-color var(--scale-motion),
@@ -376,16 +379,23 @@
 }
 
 .devClearButton {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  gap: var(--button-gap);
+  min-height: var(--button-height-sm);
+  white-space: nowrap;
   background: transparent;
   border: 1px solid var(--scale-line);
-  border-radius: var(--radius-control);
+  border-radius: var(--button-radius-sm);
   color: var(--scale-ink-soft);
   cursor: pointer;
   flex: 0 0 auto;
   font: inherit;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
-  padding: 8px 10px;
+  line-height: 1.25;
+  padding: 0 var(--button-padding-inline-sm);
   transition:
     background-color var(--scale-motion),
     color var(--scale-motion),

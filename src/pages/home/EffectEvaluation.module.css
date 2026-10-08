@@ -80,13 +80,15 @@
  * .workspace so other routes are untouched.
  */
 .workspace :global(.MuiButton-root) {
-  border-radius: var(--ee-radius-control);
+  border-radius: var(--button-radius);
+  font-size: var(--text-base);
+  line-height: 1.2;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   /* Button and pill labels never wrap to two lines. */
   white-space: nowrap;
-  min-height: 42px;
-  padding: 6px 18px;
+  min-height: var(--button-height);
+  padding: 0 calc(var(--button-padding-inline) + 8px);
   text-transform: none;
   transition:
     background-color var(--dur-fast) var(--ease-out),
@@ -94,6 +96,17 @@
     box-shadow var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
+}
+
+.workspace :global(.MuiButton-sizeSmall) {
+  min-height: var(--button-height-sm);
+  border-radius: var(--button-radius-sm);
+  font-size: var(--text-sm);
+  padding: 0 var(--button-padding-inline-sm);
+}
+
+.workspace :global(.MuiButton-sizeLarge) {
+  min-height: var(--button-height-lg);
 }
 
 .workspace :global(.MuiButton-root:active) {
@@ -112,7 +125,7 @@
    grows. */
 .workspace :global(.MuiButton-contained) {
   background: var(--ee-accent);
-  box-shadow: var(--shadow-control);
+  box-shadow: none;
   color: #fff;
 }
 
@@ -121,7 +134,7 @@
 }
 
 .workspace :global(.MuiButton-contained:active) {
-  box-shadow: var(--shadow-control-active);
+  box-shadow: none;
 }
 
 .workspace :global(.MuiButton-contained.Mui-disabled) {
@@ -410,8 +423,8 @@
   display: inline-flex;
   flex: 0 0 auto;
   justify-content: center;
-  min-height: 40px;
-  min-width: 40px;
+  min-height: var(--button-icon-size);
+  min-width: var(--button-icon-size);
   opacity: var(--disabled-opacity);
   transition:
     color var(--dur-fast) var(--ease-out),
@@ -677,13 +690,13 @@
   }
 }
 
-/* Busy state (opt-in via .isBusy on any button): a 14px inline spinner
-   prepended through ::before; the button keeps its exact busy copy. */
+/* Marker stays inside reserved padding without shifting the label. */
 .isBusy {
   align-items: center;
   display: inline-flex;
-  gap: 8px;
+  gap: var(--button-gap);
   justify-content: center;
+  position: relative;
 }
 
 .isBusy::before {
@@ -692,10 +705,11 @@
   border-radius: 999px;
   border-top-color: transparent;
   content: "";
-  display: block;
-  flex: 0 0 auto;
-  height: 14px;
-  width: 14px;
+  box-sizing: border-box;
+  height: 12px;
+  inset-inline-start: 7px;
+  position: absolute;
+  width: 12px;
 }
 
 @keyframes busySpin {
@@ -808,10 +822,12 @@
   border-radius: 999px;
   color: rgba(var(--ee-ink-rgb), 0.78);
   cursor: pointer;
-  font-size: var(--text-sm);
+  box-sizing: border-box;
+  line-height: 1.2;
+  font-size: var(--text-base);
   font-weight: 500;
-  min-height: 34px;
-  padding: 0 16px;
+  min-height: var(--button-height);
+  padding: 0 var(--button-padding-inline);
   /* Pill option labels never wrap. */
   white-space: nowrap;
   transition:
@@ -842,7 +858,7 @@
 .pillRadio.isSelected {
   background: var(--ee-accent);
   border-color: var(--ee-accent);
-  box-shadow: var(--shadow-control);
+  box-shadow: none;
   color: #fff;
 }
 
@@ -854,7 +870,7 @@
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   justify-content: flex-end;
 }
 
@@ -863,13 +879,15 @@
 .secondaryAction {
   background: transparent;
   border: 1px solid rgba(var(--ee-ink-rgb), 0.24);
-  border-radius: var(--ee-radius-control);
+  border-radius: var(--button-radius);
   color: rgba(var(--ee-ink-rgb), 0.78);
   cursor: pointer;
-  font-size: var(--text-sm);
+  box-sizing: border-box;
+  line-height: 1.2;
+  font-size: var(--text-base);
   font-weight: 600;
-  min-height: 38px;
-  padding: 0 16px;
+  min-height: var(--button-height);
+  padding: 0 var(--button-padding-inline);
   white-space: nowrap;
   transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
@@ -1077,13 +1095,16 @@
 .fullscreenStageSecondaryAction {
   background: rgba(0, 0, 0, 0.42);
   border: 1px solid rgba(245, 240, 235, 0.34);
-  border-radius: var(--radius-control);
+  border-radius: var(--button-radius);
   color: rgba(245, 240, 235, 0.84);
   cursor: pointer;
+  box-sizing: border-box;
   font: inherit;
-  font-size: var(--text-sm);
-  min-height: 38px;
-  padding: 0 14px;
+  line-height: 1.2;
+  font-size: var(--text-base);
+  font-weight: 600;
+  min-height: var(--button-height);
+  padding: 0 var(--button-padding-inline);
   transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
@@ -2511,13 +2532,15 @@ button.station:focus-visible {
 .secondaryActionDanger {
   background: transparent;
   border: 1px solid rgba(196, 138, 24, 0.45);
-  border-radius: var(--ee-radius-control);
+  border-radius: var(--button-radius);
   color: #96640e;
   cursor: pointer;
-  font-size: var(--text-sm);
+  box-sizing: border-box;
+  line-height: 1.2;
+  font-size: var(--text-base);
   font-weight: 600;
-  min-height: 38px;
-  padding: 0 16px;
+  min-height: var(--button-height);
+  padding: 0 var(--button-padding-inline);
   white-space: nowrap;
   transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
 }
@@ -2639,11 +2662,11 @@ button.station:focus-visible {
   }
 
   .pillRadio {
-    min-height: 40px;
+    min-height: var(--button-height);
   }
 
   .secondaryAction,
   .secondaryActionDanger {
-    min-height: 40px;
+    min-height: var(--button-height);
   }
 }

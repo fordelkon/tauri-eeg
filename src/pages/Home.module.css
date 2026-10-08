@@ -155,14 +155,15 @@
 
 .menuButton {
   background: transparent;
-  border-radius: 8px;
+  border-radius: var(--button-radius-sm);
   color: #2c2218;
-  height: 38px;
+  height: var(--button-icon-size);
+  padding: 0;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
-  width: 38px;
+  width: var(--button-icon-size);
 }
 
 .menuButton:hover {
@@ -178,13 +179,14 @@
   background: rgba(245, 240, 235, 0.94);
   backdrop-filter: blur(8px);
   border: 1px solid var(--line);
-  border-radius: var(--radius-control);
+  border-radius: var(--button-radius);
   /* Fixed floating control rides the shared card shadow recipe; hover
      steps up to the lift token. */
   box-shadow: var(--shadow-card);
   color: #2c2218;
   display: inline-flex;
-  height: 44px;
+  height: var(--button-height-lg);
+  padding: 0;
   left: 20px;
   position: fixed;
   top: 20px;
@@ -194,7 +196,7 @@
     opacity var(--dur-med) var(--ease-out),
     transform var(--dur-fast) var(--ease-out),
     visibility 0s;
-  width: 44px;
+  width: var(--button-height-lg);
   z-index: var(--z4);
 }
 
@@ -301,15 +303,16 @@
 }
 
 .signOutButton {
-  border-radius: 8px;
+  border-radius: var(--button-radius-sm);
   color: rgba(44, 34, 24, 0.72);
   flex: 0 0 auto;
-  height: 36px;
+  height: var(--button-icon-size);
+  padding: 0;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
-  width: 36px;
+  width: var(--button-icon-size);
 }
 
 .signOutButton:hover {
@@ -327,15 +330,16 @@
 }
 
 .storageButton {
-  border-radius: 8px;
+  border-radius: var(--button-radius-sm);
   color: rgba(44, 34, 24, 0.72);
   flex: 0 0 auto;
-  height: 36px;
+  height: var(--button-icon-size);
+  padding: 0;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     transform var(--dur-fast) var(--ease-out);
-  width: 36px;
+  width: var(--button-icon-size);
 }
 
 .storageButton:hover {
@@ -436,14 +440,20 @@
 }
 
 .storageActions button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  gap: var(--button-gap);
+  line-height: 1.25;
+  padding: 0 var(--button-padding-inline-sm);
   background: rgba(44, 34, 24, 0.08);
   border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  border-radius: var(--button-radius-sm);
   color: #2c2218;
   cursor: pointer;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 600;
-  height: 34px;
+  height: var(--button-height-sm);
   transition:
     background-color var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
@@ -633,28 +643,28 @@
      never carries the near-black ink fill (ink is text-only in the dialect). */
   background: var(--calm-primary);
   border: 1px solid var(--calm-primary);
-  border-radius: 8px;
+  border-radius: var(--button-radius);
   bottom: clamp(18px, 3.2vw, 38px);
   box-shadow: var(--shadow-control);
   color: #f5f0eb;
   display: inline-flex;
   font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
-  font-size: var(--text-xs);
+  font-size: var(--text-base);
   font-weight: 600;
-  gap: 10px;
-  height: 42px;
+  gap: var(--button-gap);
+  height: var(--button-height);
   justify-content: center;
-  letter-spacing: 0.05em;
-  line-height: 1;
+  letter-spacing: 0;
+  line-height: 1.25;
   min-width: 0;
-  padding: 0 16px;
+  padding: 0 var(--button-padding-inline);
   pointer-events: auto;
   /* fixed, not absolute: absolute resolves against this scroll container
      and drifts upward with content on long pages (result step), covering
      cards mid-scroll. */
   position: fixed;
   right: clamp(18px, 3.2vw, 38px);
-  text-transform: uppercase;
+  text-transform: none;
   transition:
     background-color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
@@ -897,11 +907,11 @@
 
   .nextPageButton {
     bottom: max(18px, env(safe-area-inset-bottom));
-    font-size: var(--text-2xs);
-    height: 40px;
+    font-size: var(--text-base);
+    height: var(--button-height);
     max-width: calc(100vw - 36px);
     overflow: hidden;
-    padding: 0 12px;
+    padding: 0 var(--button-padding-inline);
     right: 18px;
     text-overflow: ellipsis;
   }
