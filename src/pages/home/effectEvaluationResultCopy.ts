@@ -9,7 +9,7 @@ import type { EffectEvaluationFlowState } from './effectEvaluationFlow';
  */
 
 /** Chinese copy when the summary cannot be computed yet; null when ready. */
-export function describeMissingMeasurements(state: EffectEvaluationFlowState): string | null {
+export function describeMissingMeasurements(state: Pick<EffectEvaluationFlowState, 'baselineRecordId' | 'postRecordId'>): string | null {
   const missing: string[] = [];
 
   if (!state.baselineRecordId) {

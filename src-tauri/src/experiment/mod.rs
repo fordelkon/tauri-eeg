@@ -1,4 +1,6 @@
-use rusqlite::OptionalExtension;
+mod records;
+#[cfg(test)]
+mod records_tests;
 pub mod report;
 mod store;
 #[cfg(test)]
@@ -6,7 +8,6 @@ mod tests;
 mod types;
 mod validation;
 mod worker;
-use crate::db::AppDb;
 use serde_json::{json, Value};
 use tauri::State;
 use types::*;
@@ -100,65 +101,14 @@ pub async fn experiment_abort(
 }
 #[tauri::command]
 pub async fn experiment_list(
-    db: State<'_, AppDb>,
+    service: State<'_, Service>,
     user_id: Option<String>,
 ) -> Result<Vec<Run>, String> {
-    let conn = db.conn.lock().map_err(|_| "Database unavailable")?;
-    if let Some(id) = user_id {
-        store::all(
-            &conn,
-            "SELECT data FROM experiment_runs WHERE user_id=?1 ORDER BY rowid DESC",
-            Some(&id),
-        )
-    } else {
-        store::all(
-            &conn,
-            "SELECT data FROM experiment_runs ORDER BY rowid DESC",
-            None,
-        )
-    }
-}
-pub fn detail(conn: &rusqlite::Connection, id: &str) -> Result<Value, String> {
-    let run = store::run(conn, id)?;
-    let events: Vec<Event> = store::all(
-        conn,
-        "SELECT data FROM experiment_events WHERE run_id=?1 ORDER BY sequence",
-        Some(id),
-    )?;
-    let trials: Vec<Value> = store::all(
-        conn,
-        "SELECT data FROM experiment_trials WHERE run_id=?1 ORDER BY rowid",
-        Some(id),
-    )?;
-    let mut stmt = conn
-        .prepare("SELECT record_id,measurement_time FROM experiment_scales WHERE run_id=?1")
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([id], |r| {
-            Ok(json!({"recordId":r.get::<_,String>(0)?,"measurementTime":r.get::<_,String>(1)?}))
-        })
-        .map_err(|e| e.to_string())?;
-    let mut scales = rows
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-    for link in &mut scales {
-        let record_id = link["recordId"]
-            .as_str()
-            .ok_or("Scale record ID is missing.")?;
-        let mut record = crate::scale_records::get_scale_record(conn, record_id)?;
-        record.experiment_run_id = Some(id.to_string());
-        link["record"] = serde_json::to_value(record).map_err(|e| e.to_string())?;
-    }
-    Ok(
-        json!({"run":run,"events":events,"trials":trials,"scales":scales,"eventDefinitions":EVENT_CODES,"hardwareReceiptVerified":false}),
-    )
+    call(service, Box::new(move |w| w.list_runs(user_id))).await
 }
 #[tauri::command]
-pub async fn experiment_get(db: State<'_, AppDb>, run_id: String) -> Result<Value, String> {
-    detail(
-        &*db.conn.lock().map_err(|_| "Database unavailable")?,
-        &run_id,
-    )
+pub async fn experiment_get(service: State<'_, Service>, run_id: String) -> Result<Value, String> {
+    call(service, Box::new(move |w| w.record_detail(run_id))).await
 }
 #[tauri::command]
 pub async fn experiment_associate_bdf(
@@ -168,22 +118,7 @@ pub async fn experiment_associate_bdf(
 ) -> Result<Run, String> {
     call(
         service,
-        Box::new(move |w| {
-            if bdf_files
-                .iter()
-                .any(|p| p.trim().is_empty() || !p.to_lowercase().ends_with(".bdf"))
-            {
-                return Err("Provide BDF file names or absolute paths.".into());
-            }
-            let conn = w.db.lock().map_err(|_| "Database unavailable")?;
-            let mut run = store::run(&conn, &run_id)?;
-            if run.status == "running" {
-                return Err("Associate BDF files after the experiment.".into());
-            }
-            run.bdf_files = bdf_files;
-            store::save_run(&conn, &run)?;
-            worker::value(run)
-        }),
+        Box::new(move |w| w.associate_bdf(run_id, bdf_files)),
     )
     .await
 }
@@ -193,13 +128,7 @@ pub async fn experiment_save_trial(
     run_id: String,
     trial: Value,
 ) -> Result<Value, String> {
-    call(service,Box::new(move|w|{
-        let conn=w.db.lock().map_err(|_|"Database unavailable")?;let run=store::run(&conn,&run_id)?;
-        if !["running","interrupted"].contains(&run.status.as_str()){return Err("Trial run is closed.".into())}
-        let id=trial.get("trialId").and_then(Value::as_str).filter(|v|!v.trim().is_empty()).ok_or("Trial ID required.")?;
-        let changed=conn.execute("INSERT INTO experiment_trials VALUES (?1,?2,?3) ON CONFLICT(trial_id) DO UPDATE SET data=excluded.data WHERE experiment_trials.run_id=excluded.run_id",rusqlite::params![id,run_id,store::json(&trial)?]).map_err(|e|e.to_string())?;
-        if changed==0{return Err("Trial ID belongs to a different run.".into())}Ok(trial)
-    })).await
+    call(service, Box::new(move |w| w.save_trial(run_id, trial))).await
 }
 #[tauri::command]
 pub async fn experiment_link_scale(
@@ -210,53 +139,13 @@ pub async fn experiment_link_scale(
 ) -> Result<(), String> {
     call(
         service,
-        Box::new(move |w| {
-            if !["baseline", "post"].contains(&measurement_time.as_str()) {
-                return Err("Invalid measurement time.".into());
-            }
-            let conn = w.db.lock().map_err(|_| "Database unavailable")?;
-            let run = store::run(&conn, &run_id)?;
-            let record = crate::scale_records::get_scale_record(&conn, &record_id)?;
-            if run.input.kind != "effect_evaluation"
-                || !["running", "interrupted"].contains(&run.status.as_str())
-            {
-                return Err("Scale run is closed or does not support this measure.".into());
-            }
-            if record.subject_id.as_deref() != Some(run.input.subject_id.as_str())
-                || record.user_id != run.input.user_id
-                || record.phase != measurement_time
-                || record.emotion != run.input.emotion
-                || record.condition != run.input.condition
-            {
-                return Err("Scale metadata does not match the frozen experiment run.".into());
-            }
-            let existing: Option<(String, String)> = conn
-                .query_row(
-                    "SELECT run_id,measurement_time FROM experiment_scales WHERE record_id=?1",
-                    [&record_id],
-                    |row| Ok((row.get(0)?, row.get(1)?)),
-                )
-                .optional()
-                .map_err(|e| e.to_string())?;
-            if let Some(existing) = existing {
-                if existing == (run_id.clone(), measurement_time.clone()) {
-                    return Ok(Value::Null);
-                }
-                return Err("Scale is already linked to a different run or phase.".into());
-            }
-            conn.execute(
-                "INSERT INTO experiment_scales VALUES (?1,?2,?3)",
-                rusqlite::params![record_id, run_id, measurement_time],
-            )
-            .map_err(|e| e.to_string())?;
-            Ok(Value::Null)
-        }),
+        Box::new(move |w| w.link_scale(run_id, record_id, measurement_time)),
     )
     .await
 }
 #[tauri::command]
 pub async fn experiment_export(
-    db: State<'_, AppDb>,
+    service: State<'_, Service>,
     run_id: String,
     path: String,
 ) -> Result<Value, String> {
@@ -269,10 +158,7 @@ pub async fn experiment_export(
     {
         return Err("Export directory must be absolute without parent traversal.".into());
     }
-    let data = detail(
-        &*db.conn.lock().map_err(|_| "Database unavailable")?,
-        &run_id,
-    )?;
+    let data: Value = call(service, Box::new(move |w| w.record_detail(run_id))).await?;
     // A new directory avoids overwriting prior exports or raw BDF data.
     std::fs::create_dir(&dest).map_err(|e| e.to_string())?;
     std::fs::write(

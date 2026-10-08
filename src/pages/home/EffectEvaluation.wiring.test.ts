@@ -72,15 +72,6 @@ describe('subject passthrough contract', () => {
     expect(hookSource).toContain('subjectSelected: writeStoredSubjectId');
   });
 
-  test('blocks the summary on missing measurements instead of invoking the backend', () => {
-    const hookSource = readText(new URL('./useEffectResultReports.ts', import.meta.url));
-    const guardIndex = hookSource.indexOf('describeMissingMeasurements(state)');
-    const computeIndex = hookSource.indexOf('computeRegulationEffect(baselineRecordId');
-    expect(guardIndex).toBeGreaterThan(-1);
-    expect(computeIndex).toBeGreaterThan(guardIndex);
-    expect(hookSource).toContain('if (missingCopy)');
-  });
-
   test('persists gate submissions with an explicit subject binding option', () => {
     const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
     expect(apiSource).toContain('readStoredSubjectId()');
@@ -206,7 +197,7 @@ describe('six-step flow & condition split (R6 contract)', () => {
     const cardsSource = readText(cardsUrl);
     const chartSource = readText(new URL('./effectResultChartOption.ts', import.meta.url));
     const reportsSource = readText(new URL('./useEffectResultReports.ts', import.meta.url));
-    expect(reportsSource).toContain('computeConditionEffect(state.subjectId.trim(), state.emotion)');
+    expect(reportsSource).toContain('computeComparison: computeConditionEffect');
     expect(pageSource).toContain('conditionComparison');
     expect(pageSource).toContain('buildConditionComparisonVerdictCopy');
     expect(pageSource).toContain('buildConditionComparisonChartOption');

@@ -1,4 +1,4 @@
-use super::{store, types::*};
+use super::{records, store, types::*};
 use rusqlite::Connection;
 use serde_json::Value;
 use std::{
@@ -63,7 +63,7 @@ impl Service {
     }
 }
 pub struct Worker {
-    pub db: Db,
+    db: Db,
     port: Option<Box<dyn serialport::SerialPort>>,
     pub status: Status,
     active: Option<(Run, Instant)>,
@@ -74,6 +74,41 @@ pub fn value<T: serde::Serialize>(v: T) -> Result<Value, String> {
     serde_json::to_value(v).map_err(|e| e.to_string())
 }
 impl Worker {
+    pub fn list_runs(&self, user_id: Option<String>) -> Result<Value, String> {
+        let conn = self.db.lock().map_err(|_| "Database unavailable")?;
+        value(records::list(&conn, user_id.as_deref())?)
+    }
+    pub fn record_detail(&self, run_id: String) -> Result<Value, String> {
+        records::detail(
+            &*self.db.lock().map_err(|_| "Database unavailable")?,
+            &run_id,
+        )
+    }
+    pub fn associate_bdf(&self, run_id: String, bdf_files: Vec<String>) -> Result<Value, String> {
+        let conn = self.db.lock().map_err(|_| "Database unavailable")?;
+        value(records::associate_bdf(&conn, &run_id, bdf_files)?)
+    }
+    pub fn save_trial(&self, run_id: String, trial: Value) -> Result<Value, String> {
+        records::save_trial(
+            &*self.db.lock().map_err(|_| "Database unavailable")?,
+            &run_id,
+            trial,
+        )
+    }
+    pub fn link_scale(
+        &self,
+        run_id: String,
+        record_id: String,
+        measurement_time: String,
+    ) -> Result<Value, String> {
+        records::link_scale(
+            &*self.db.lock().map_err(|_| "Database unavailable")?,
+            &run_id,
+            &record_id,
+            &measurement_time,
+        )?;
+        Ok(Value::Null)
+    }
     #[cfg(test)]
     pub fn set_active_mode_for_test(&mut self) {
         self.active.as_mut().unwrap().0.input.mode = "formal".into();

@@ -26,6 +26,18 @@ Playback callbacks bind to a reset generation. A late callback from a retired pl
 
 `useMaterialLibrary.ts` connects the loader to React. The induction pool, Calm regulation pool, and paradigm setup use the same lifecycle implementation. Emotion selection and deterministic queue preview remain with their callers. There is no shared cache or additional production scanner adapter.
 
+## Effect reports
+
+`src/pages/home/effectResultReports.ts` owns summary and condition-comparison requests for one frozen measurement context. Each report has an idle, loading, ready, or failed state. Reset, disposal, and retries invalidate earlier requests, so late successes and failures cannot replace current results or end a newer request's loading state.
+
+`useEffectResultReports.ts` subscribes to the report module and maps its states to presentation values. It creates a new report context when the run, user, subject, emotion, or measurement IDs change, and starts loading only on the result step. Leaving that step disposes the context. Setup after cleanup starts fresh requests, including React's development lifecycle check.
+
+## Experiment records
+
+`src-tauri/src/experiment/records.rs` owns trial, scale, and BDF record validation and persistence, plus run lists and details. Trial IDs belong to one run. Scale links must match the run's frozen subject, operator, emotion, condition, and measurement phase; identical links are idempotent. Closed runs reject trial and scale writes. BDF association requires the run to have stopped.
+
+The Tauri adapter forwards record operations through the existing worker queue. The worker's database is private. Reads and export manifests use the same queue; file export happens after the manifest returns. Tests cross the same worker record interface with a real in-memory SQLite database.
+
 ## Verification
 
 Behavior tests cross the execution and loading interfaces with simulated external dependencies.
@@ -33,8 +45,10 @@ Behavior tests cross the execution and loading interfaces with simulated externa
 - `tests/effect/effectEvaluationExecution.test.ts` covers normal marker order, pending duplicate callbacks, duration permission, scale writes, interruption, recovery, and retired playback callbacks.
 - `tests/paradigm/paradigmExecution.test.ts` covers trial order and identities, SAM quality, blocks, stale callbacks, competing end/skip operations, pending-operation aborts, and completion failures.
 - `tests/paradigm/materialLibraryLoader.test.ts` covers directory replacement, stale results, invalid scans, failures, cancellation, and retained completed material.
+- `tests/effect/effectResultReports.test.ts` covers missing measurements, reset, out-of-order retries, independent report failures, disposal, and setup after cleanup.
+- `src-tauri/src/experiment/records_tests.rs` covers trial ownership, closed-run rejection, scale metadata and idempotence, BDF association, and record read contracts.
 - `tests/biosemi-ui-smoke.cjs` checks experiment preparation at small and wide sizes, mode prerequisites, destination selection, effect setup, the empty-pool gate, and reset in the actual browser UI.
 
 Run the test suite with `npm test` and the production build with `npm run build`. The browser smoke script requires Playwright and a running preview. Set `BIOSEMI_SMOKE_URL` to the preview origin, then run `node tests/biosemi-ui-smoke.cjs`.
 
-On 2026-10-09, all 64 test files and 447 tests passed. The production build and browser smoke checks also passed. Browser checks simulate IPC and never send hardware pulses. These checks do not verify physical stimulus timing or trigger receipt in BDF files.
+On 2026-10-09, all 65 frontend test files and 455 tests passed, along with 118 Rust library tests, the production build, and the browser smoke checks. Browser checks simulate IPC and never send hardware pulses. These checks do not verify physical stimulus timing or trigger receipt in BDF files.

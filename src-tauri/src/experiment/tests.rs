@@ -273,7 +273,7 @@ fn comparison_excludes_rehearsal_and_aborted_and_preserves_legacy() {
         super::report::eligible_records(&conn, vec![record.clone()]).unwrap()[0].experiment_run_id,
         Some(run.run_id)
     );
-    let manifest = super::detail(&conn, &formal.run_id).unwrap();
+    let manifest = super::records::detail(&conn, &formal.run_id).unwrap();
     assert_eq!(
         manifest["scales"][0]["record"]["dimensionScores"]["anxiety"],
         50.0

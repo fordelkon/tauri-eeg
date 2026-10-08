@@ -48,7 +48,7 @@ export function useEffectEvaluationFlow() {
   const playback = useMemo(() => execution.bindPlayback(), [execution, state.runId]);
   const { inductionStatus, isInductionPoolLoading } = useEffectInductionPool(state.emotion, state.step);
   const { isRegulationPoolLoading, regulationPoolStatus } = useEffectRegulationPool(state.condition === 'regulation' && state.method === 'video', state.step);
-  const resultReports = useEffectResultReports(state);
+  const resultReports = useEffectResultReports(state, currentUser?.id ?? null);
 
   useEffect(() => { writeFlowStateToStorage(window.sessionStorage, state); }, [state]);
   useEffect(() => {
