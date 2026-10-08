@@ -614,6 +614,13 @@
   padding-bottom: 104px;
   padding-top: 92px;
   scroll-padding-top: 92px;
+  /* safe center, not center: plain center on an overflowing flex column
+     distributes the overflow across BOTH edges, and the scroll container can
+     never reach the start edge — long pages (experiment settings, evaluation
+     wizard) lose their header behind the top with no way to scroll to it.
+     safe center keeps the centered look while the content fits and falls
+     back to start-flow the moment it would clip (Chromium 94+). */
+  justify-content: safe center;
 }
 
 .content.isEegWorkspace {

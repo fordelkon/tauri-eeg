@@ -23,6 +23,11 @@ self-contained and can be executed by any agent with zero conversation context.
 | 013 | Coalesce the matter-world ResizeObserver | LOW | DONE |
 | 014 | Radar chart honors prefers-reduced-motion | LOW | DONE |
 | 015 | Consolidate hand-typed curves onto tokens; press feedback at 150ms | LOW | DONE |
+| 016 | Experiment Settings: button tiers + busy spinner | HIGH | DONE |
+| 017 | Experiment Settings: calm status banners | HIGH | DONE |
+| 018 | Experiment Settings: surfaces/text onto calm tokens | MEDIUM | DONE |
+| 019 | Experiment Settings ↔ Paradigm stage swap easing | MEDIUM | DONE |
+| 020 | Experiment Settings logic tightening (dedupe/gate/error copy) | MEDIUM | DONE |
 
 ## Recommended execution order
 
@@ -45,6 +50,18 @@ self-contained and can be executed by any agent with zero conversation context.
 13. **012** — feedback bar scaleX.
 14. **013** — matter ResizeObserver coalescing.
 15. **014** — radar reduced-motion.
+
+### Round 10 — Experiment Settings pass (baseline a09c7bf)
+
+1. **016** — button tiers + busy spinner (highest leverage: every control on
+   the page reads at one weight today).
+2. **017** — status banners (rides the styles 016 left in place; independent
+   of 016's edits but lands cleanest after).
+3. **018** — surfaces/text tokens (CSS-only, safe any time).
+4. **019** — stage swap easing (additive; depends on the keyed-wrapper step
+   only).
+5. **020** — logic tightening (independent of the CSS plans; do last so the
+   TSX edits don't shift anchors for 016/017/019).
 
 ## Dependencies / conflict notes
 
