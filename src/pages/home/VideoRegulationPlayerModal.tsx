@@ -1,7 +1,7 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import type { Ref } from 'react';
-import type { VideoRegulationAsset } from '../../video/videoRegulationCatalog';
+import type { RegulationVideo } from '../../video/paradigmRegulationCatalog';
 import { toPlayableVideoUrl } from '../../video/videoRegulationCatalog';
 import playerStyles from './VideoRegulationPlayer.module.css';
 
@@ -12,7 +12,7 @@ import playerStyles from './VideoRegulationPlayer.module.css';
  */
 
 type VideoRegulationPlayerModalProps = {
-  activeVideo: VideoRegulationAsset;
+  activeVideo: RegulationVideo;
   videoRef: Ref<HTMLVideoElement>;
   onClose: () => void;
 };

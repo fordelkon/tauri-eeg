@@ -1,20 +1,14 @@
-import {
-  getAllVideoRegulationAssets,
-  type VideoRegulationAsset,
-} from '../video/videoRegulationCatalog';
+import type { RegulationVideo } from '../video/paradigmRegulationCatalog';
+import { getCurrentRegulationVideos } from '../video/regulationVideoResources';
 import { normalizeAgentInput } from './agentIntent';
 
 export type AgentVideoMatch =
-  | { status: 'matched'; video: VideoRegulationAsset; confidence: 'exact' | 'nearest'; message: string }
+  | { status: 'matched'; video: RegulationVideo; confidence: 'exact' | 'nearest'; message: string }
   | { status: 'unavailable'; message: string };
-
-const safeAliases: Record<string, string[]> = {
-  '9_seg016': ['暮色海岸', '海岸黄昏', '温柔海岸'],
-};
 
 export function findAgentVideoMatch(
   input: string,
-  catalog: readonly VideoRegulationAsset[] = getAllVideoRegulationAssets(),
+  catalog: readonly RegulationVideo[] = getCurrentRegulationVideos(),
 ): AgentVideoMatch {
   if (catalog.length === 0) {
     return {
@@ -24,10 +18,7 @@ export function findAgentVideoMatch(
   }
 
   const query = normalizeAgentInput(input).replace(/播放|视频|放松/g, '');
-  const aliasMatched = catalog.find((video) => (
-    safeAliases[video.id]?.some((alias) => query.length > 0 && alias.includes(query))
-  ));
-  const matched = aliasMatched ?? catalog.find((video) => {
+  const matched = catalog.find((video) => {
     const searchable = getSearchTerms(video).join('');
 
     return query.length > 0 && searchable.includes(query);
@@ -38,7 +29,7 @@ export function findAgentVideoMatch(
       status: 'matched',
       video: matched,
       confidence: 'exact',
-      message: `已找到视频：${displayVideoTitle(matched)}`,
+      message: `已找到视频：${matched.title}`,
     };
   }
 
@@ -47,11 +38,11 @@ export function findAgentVideoMatch(
     status: 'matched',
     video: nearest,
     confidence: 'nearest',
-    message: `没有找到精确匹配视频，已选择最接近素材：${displayVideoTitle(nearest)}`,
+    message: `没有找到精确匹配视频，已选择最接近素材：${nearest.title}`,
   };
 }
 
-function pickNearestVideo(query: string, catalog: readonly VideoRegulationAsset[]): VideoRegulationAsset {
+function pickNearestVideo(query: string, catalog: readonly RegulationVideo[]): RegulationVideo {
   if (!query) {
     return catalog[0];
   }
@@ -66,18 +57,10 @@ function pickNearestVideo(query: string, catalog: readonly VideoRegulationAsset[
   return scored[0].video;
 }
 
-function displayVideoTitle(video: VideoRegulationAsset): string {
-  return safeAliases[video.id]?.[0] ?? video.title;
-}
-
-function getSearchTerms(video: VideoRegulationAsset): string[] {
+function getSearchTerms(video: RegulationVideo): string[] {
   return [
     video.title,
-    video.summary,
-    video.segment.scene,
-    video.segment.atmosphere,
-    ...video.tags,
-    ...video.indexedTags,
-    ...(safeAliases[video.id] ?? []),
+    video.relativePath,
+    video.categoryLabel,
   ];
 }

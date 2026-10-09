@@ -252,7 +252,7 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(hookTs).toContain("new CustomEvent('agent:play-video'");
     expect(hookTs).toContain("detail: { videoId: getPlannerStringParam(params, 'videoId') }");
     expect(videoTsx).toContain("window.addEventListener('agent:play-video'");
-    expect(videoTsx).toContain('const video = getAllVideoRegulationAssets(libraryAssets).find');
+    expect(videoTsx).toContain('const video = videos.find');
     expect(videoTsx).toContain('setActiveVideo(video);');
   });
 });

@@ -5,7 +5,10 @@
  * degrades silently to "not stored".
  */
 
+import { readStoredLibraryRootPath as readParadigmRootPath } from '../paradigm/paradigmStorage';
+
 const LIBRARY_ROOT_PATH_STORAGE_KEY = 'video.libraryRootPath';
+const PARADIGM_ROOT_PATH_STORAGE_KEY = 'video.paradigmRootPath';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -32,5 +35,21 @@ export function writeStoredLibraryRootPath(value: string) {
     resolveStorage()?.setItem(LIBRARY_ROOT_PATH_STORAGE_KEY, value);
   } catch {
     // Persistence is best-effort and silent.
+  }
+}
+
+export function readStoredParadigmLibraryRootPath(): string {
+  try {
+    return resolveStorage()?.getItem(PARADIGM_ROOT_PATH_STORAGE_KEY)?.trim() || readParadigmRootPath();
+  } catch {
+    return readParadigmRootPath();
+  }
+}
+
+export function writeStoredParadigmLibraryRootPath(value: string) {
+  try {
+    resolveStorage()?.setItem(PARADIGM_ROOT_PATH_STORAGE_KEY, value);
+  } catch {
+    // Directory selection remains usable when local storage is unavailable.
   }
 }

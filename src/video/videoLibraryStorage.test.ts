@@ -4,7 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   readStoredLibraryRootPath,
   writeStoredLibraryRootPath,
+  readStoredParadigmLibraryRootPath,
+  writeStoredParadigmLibraryRootPath,
 } from './videoLibraryStorage';
+import { defaultParadigmLibraryRootPath } from '../paradigm/paradigmStorage';
 
 function stubLocalStorage(localStorage: unknown) {
   vi.stubGlobal('window', { localStorage });
@@ -23,6 +26,31 @@ function makeMapStorage() {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+describe('standalone paradigm video root memory', () => {
+  it('defaults to the project paradigm folder and follows prepared roots until a standalone choice is saved', () => {
+    const storage = makeMapStorage();
+    stubLocalStorage(storage);
+    expect(readStoredParadigmLibraryRootPath()).toBe(defaultParadigmLibraryRootPath);
+    storage.setItem('paradigm.libraryRootPath', 'D:\\prepared-videos');
+    expect(readStoredParadigmLibraryRootPath()).toBe('D:\\prepared-videos');
+    writeStoredParadigmLibraryRootPath('D:\\standalone-videos');
+    expect(readStoredParadigmLibraryRootPath()).toBe('D:\\standalone-videos');
+    expect(storage.getItem('paradigm.libraryRootPath')).toBe('D:\\prepared-videos');
+    writeStoredLibraryRootPath('D:\\legacy-indexed-library');
+    expect(readStoredParadigmLibraryRootPath()).toBe('D:\\standalone-videos');
+  });
+
+  it('falls back safely when storage is unavailable or selection memory is blank', () => {
+    const storage = makeMapStorage();
+    stubLocalStorage(storage);
+    writeStoredParadigmLibraryRootPath('  ');
+    expect(readStoredParadigmLibraryRootPath()).toBe(defaultParadigmLibraryRootPath);
+    vi.stubGlobal('window', undefined);
+    expect(readStoredParadigmLibraryRootPath()).toBe(defaultParadigmLibraryRootPath);
+    expect(() => writeStoredParadigmLibraryRootPath('D:\\videos')).not.toThrow();
+  });
 });
 
 describe('readStoredLibraryRootPath / writeStoredLibraryRootPath', () => {

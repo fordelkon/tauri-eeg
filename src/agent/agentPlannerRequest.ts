@@ -1,7 +1,7 @@
 import type { MutableRefObject } from 'react';
 import { getMentalScaleStatusSnapshot } from '../mentalScale/mentalScaleStatus';
 import { getCurrentMusicRegulationTags } from '../music/musicRegulationTags';
-import { getAllVideoRegulationAssets } from '../video/videoRegulationCatalog';
+import { getCurrentRegulationVideos } from '../video/regulationVideoResources';
 import type { AgentActionId } from './agentActions';
 import { getAgentAvailableResourcesForPhase } from './agentActions';
 import {
@@ -67,9 +67,9 @@ export async function requestAgentPlannerRecommendation(
   abortRef.current = abortController;
 
   try {
-    const videos = getAllVideoRegulationAssets().map((video) => ({
+    const videos = getCurrentRegulationVideos().map((video) => ({
       id: video.id,
-      tags: video.tags,
+      tags: [video.categoryLabel],
       title: video.title,
     }));
     const currentMusicTags = getCurrentMusicRegulationTags();
