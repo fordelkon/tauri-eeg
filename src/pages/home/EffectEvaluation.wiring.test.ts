@@ -26,14 +26,18 @@ describe('EffectEvaluation wiring contract', () => {
   test('adds the effect-evaluation entry to the home navigation', () => {
     const homeSource = readText(new URL('../Home.tsx', import.meta.url));
 
-    expect(homeSource).toContain("{ icon: InsightsRoundedIcon, label: '效果评价', path: '/effect-evaluation' }");
+    expect(homeSource).toContain(
+      "{ icon: InsightsRoundedIcon, label: '效果评价', path: '/effect-evaluation' }",
+    );
   });
 
   test('renders the battery dialog and confirm dialog on the page', () => {
     const pageSource = readText(pageUrl);
     const panelsSource = readText(panelsUrl);
 
-    expect(panelsSource).toContain("import InstrumentScaleDialog from '../../mentalScale/InstrumentScaleDialog'");
+    expect(panelsSource).toContain(
+      "import InstrumentScaleDialog from '../../mentalScale/InstrumentScaleDialog'",
+    );
     expect(pageSource).toContain("import { useConfirmDialog } from '../../ui/useConfirmDialog'");
     expect(panelsSource).toContain('<InstrumentScaleDialog');
     expect(pageSource).toContain('useConfirmDialog()');
@@ -44,7 +48,7 @@ describe('EffectEvaluation wiring contract', () => {
     const panelsSource = readText(panelsUrl);
     expect(hookSource).toContain("from '../../mentalScale/instruments/battery'");
     expect(hookSource).toContain('STAI_PANAS_BATTERY_SCALE_ID');
-    expect(hookSource).toContain("buildBatteryDefinition({ includeSam: true })");
+    expect(hookSource).toContain('buildBatteryDefinition({ includeSam: true })');
     expect(hookSource).toContain(
       "includeGems: state.method === 'music' && state.condition === 'regulation'",
     );
@@ -68,7 +72,9 @@ describe('subject passthrough contract', () => {
   test('shares the validated subject with the rest of the app on setup completion', () => {
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
-    expect(hookSource).toContain("import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject'");
+    expect(hookSource).toContain(
+      "import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject'",
+    );
     expect(hookSource).toContain('subjectSelected: writeStoredSubjectId');
   });
 
@@ -105,8 +111,8 @@ describe('strong duration constraint (R3 contract)', () => {
 
 describe('report export & history review (R3 contract)', () => {
   test('exports single/batch reports through the save dialog and backend command', () => {
-    const pageSource = readText(pageUrl)
-      + readText(new URL('./useEffectReportExports.ts', import.meta.url));
+    const pageSource =
+      readText(pageUrl) + readText(new URL('./useEffectReportExports.ts', import.meta.url));
 
     expect(pageSource).toContain("from '@tauri-apps/plugin-dialog'");
     expect(pageSource).toContain('buildSingleReportPayload');
@@ -133,7 +139,9 @@ describe('report export & history review (R3 contract)', () => {
 describe('measured dimensions & eeg persistence (R4 contract)', () => {
   test('F1: submissions mark measured dimensions and the mean basis is surfaced', () => {
     const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
-    const statusSource = readText(new URL('../../mentalScale/mentalScaleStatus.ts', import.meta.url));
+    const statusSource = readText(
+      new URL('../../mentalScale/mentalScaleStatus.ts', import.meta.url),
+    );
     const pageSource = readText(pageUrl);
     const cardsSource = readText(cardsUrl);
     expect(apiSource).toContain('measuredDimensionKeys(scale, answers)');
@@ -141,8 +149,6 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
     expect(cardsSource).toContain('实际纳入对比的维度数');
     expect(pageSource).toContain('describeMeasuredBasis(flow.summary)');
   });
-
-
 
   test('F4: regulation pages consume the session context and the paradigm gate is mutual', () => {
     for (const page of ['./MusicRegulation.tsx', './VideoRegulation.tsx'] as const) {
@@ -171,11 +177,14 @@ describe('six-step flow & condition split (R6 contract)', () => {
     expect(panelsSource).toContain('实验条件');
     expect(panelsSource).toContain('condition: value');
     expect(panelsSource).toContain('基线条件（自然恢复）＝情绪诱发后不施加调控手段');
-    expect(readText(new URL('./useEffectInductionPool.ts', import.meta.url)))
-      .toContain('describeInductionPoolStatus');
+    expect(readText(new URL('./useEffectInductionPool.ts', import.meta.url))).toContain(
+      'describeInductionPoolStatus',
+    );
     expect(panelsSource).toContain('flow.inductionStatus');
     expect(panelsSource).toContain('status.copy');
-    const inductionStageSource = readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url));
+    const inductionStageSource = readText(
+      new URL('./EffectFullscreenInduction.tsx', import.meta.url),
+    );
     expect(inductionStageSource).toContain('toPlayableInductionUrl(entry.absolutePath)');
     expect(inductionStageSource).toContain('onEnded={onFinished}');
   });
@@ -210,9 +219,9 @@ describe('six-step flow & condition split (R6 contract)', () => {
 });
 
 describe('comparison export, leg trace & induction fallback (R7 contract)', () => {
-  test('the comparison card renders both legs\' record trace and export buttons', () => {
-    const pageSource = readText(pageUrl)
-      + readText(new URL('./useEffectReportExports.ts', import.meta.url));
+  test("the comparison card renders both legs' record trace and export buttons", () => {
+    const pageSource =
+      readText(pageUrl) + readText(new URL('./useEffectReportExports.ts', import.meta.url));
     const cardsSource = readText(cardsUrl);
     const exportSource = readText(new URL('./effectReportExport.ts', import.meta.url));
     const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
@@ -237,7 +246,9 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
     const pageSource = readText(pageUrl);
     const panelsSource = readText(panelsUrl);
     expect(panelsSource).toContain("inductionVideoFailed && status.kind === 'ready'");
-    const inductionStageSource = readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url));
+    const inductionStageSource = readText(
+      new URL('./EffectFullscreenInduction.tsx', import.meta.url),
+    );
     expect(inductionStageSource).toContain('onError={onError}');
     expect(pageSource).toContain('setInductionVideoFailed(true)');
     expect(panelsSource).toContain('重试加载素材');
@@ -245,7 +256,7 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
     expect(inductionStageSource).toContain('`${entry.videoId}-${retryCount}`');
   });
 
-  test('the history panel shows each run\'s condition with a legacy tag', () => {
+  test("the history panel shows each run's condition with a legacy tag", () => {
     const panelSource = readText(new URL('./EffectHistoryPanel.tsx', import.meta.url));
     const viewSource = readText(new URL('./effectHistoryView.ts', import.meta.url));
     expect(panelSource).toContain('labelForHistoryCondition(entry.condition)');
@@ -256,11 +267,19 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
 describe('embedded regulation player (condition node contract)', () => {
   test('presents both video branches in a fullscreen stage with an explicit ready cue', () => {
     const panelsSource = readText(panelsUrl);
-    const inductionStageSource = readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url));
-    const regulationStageSource = readText(new URL('./EffectFullscreenVideoRegulation.tsx', import.meta.url));
-    const fullscreenHookSource = readText(new URL('./useParticipantFullscreen.ts', import.meta.url));
+    const inductionStageSource = readText(
+      new URL('./EffectFullscreenInduction.tsx', import.meta.url),
+    );
+    const regulationStageSource = readText(
+      new URL('./EffectFullscreenVideoRegulation.tsx', import.meta.url),
+    );
+    const fullscreenHookSource = readText(
+      new URL('./useParticipantFullscreen.ts', import.meta.url),
+    );
 
-    expect(panelsSource).toContain("import { EffectFullscreenInduction } from './EffectFullscreenInduction'");
+    expect(panelsSource).toContain(
+      "import { EffectFullscreenInduction } from './EffectFullscreenInduction'",
+    );
     expect(panelsSource).toContain('<EffectFullscreenInduction');
     expect(panelsSource).not.toContain('className={styles.inductionVideo}');
     expect(inductionStageSource).toContain('准备播放诱发视频');
@@ -274,21 +293,29 @@ describe('embedded regulation player (condition node contract)', () => {
 
   test('presents video regulation as a fullscreen stage while music stays embedded', () => {
     const panelsSource = readText(panelsUrl);
-    const fullscreenSource = readText(new URL('./EffectFullscreenVideoRegulation.tsx', import.meta.url));
+    const fullscreenSource = readText(
+      new URL('./EffectFullscreenVideoRegulation.tsx', import.meta.url),
+    );
     expect(panelsSource).toContain("import EffectRegulationPlayer from './EffectRegulationPlayer'");
-    expect(panelsSource).toContain("import { EffectFullscreenVideoRegulation } from './EffectFullscreenVideoRegulation'");
+    expect(panelsSource).toContain(
+      "import { EffectFullscreenVideoRegulation } from './EffectFullscreenVideoRegulation'",
+    );
     expect(panelsSource).toContain('<EffectRegulationPlayer');
     expect(panelsSource).toContain('<EffectFullscreenVideoRegulation');
     expect(panelsSource).toContain("state.method === 'video' && !isNaturalRecovery");
     expect(panelsSource).toContain("!isNaturalRecovery && state.method === 'music'");
     expect(panelsSource).toContain('remainingSeconds={isWindowElapsed ? 0 : null}');
     expect(fullscreenSource).toContain('createPortal(');
-    const fullscreenHookSource = readText(new URL('./useParticipantFullscreen.ts', import.meta.url));
+    const fullscreenHookSource = readText(
+      new URL('./useParticipantFullscreen.ts', import.meta.url),
+    );
     expect(fullscreenHookSource).toContain('const appWindow = getCurrentWindow();');
     expect(fullscreenHookSource).toContain('appWindow.setFullscreen(true)');
     expect(fullscreenHookSource).toContain('getCurrentWindow().setFullscreen(false)');
     expect(fullscreenSource).toContain('onElapsed={onWindowElapsed}');
-    expect(fullscreenSource).toContain('shouldPauseAt(isPlaying && finishMode.mode === \'finish\' ? 0 : null)');
+    expect(fullscreenSource).toContain(
+      "shouldPauseAt(isPlaying && finishMode.mode === 'finish' ? 0 : null)",
+    );
     expect(fullscreenSource).not.toMatch(/<video[\s\S]*\bcontrols\b/);
     expect(fullscreenSource).toContain('type { ParadigmVideoEntry }');
     expect(fullscreenSource).not.toContain('getAllVideoRegulationAssets');
@@ -308,8 +335,6 @@ describe('embedded regulation player (condition node contract)', () => {
     expect(playerSource).not.toContain('useEegSession');
   });
 });
-
-
 
 describe('paradigm finished-screen handoff contract', () => {
   test('links the finished screen to the effect-evaluation route', () => {
@@ -357,8 +382,9 @@ describe('timeline / stage / review layout contract', () => {
     expect(pageSource).toContain('currentNode.stageHint');
     expect(modelSource).toContain("stageTitle: '设置本次实验'");
     expect(panelsSource).toContain('确认配置，开始诱发');
-    expect(readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url)))
-      .toContain('开始播放诱发视频');
+    expect(readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url))).toContain(
+      '开始播放诱发视频',
+    );
     expect(panelsSource).toContain('开始填写');
     expect(panelsSource).toContain("'开始调控'");
     expect(panelsSource).toContain('进入全屏准备');
@@ -390,18 +416,24 @@ describe('usability/operability fixes (audit contract)', () => {
 
   test('the scale dialog stays open while the record saves (draft survives failure)', () => {
     const panelsSource = readText(panelsUrl);
-    const dialogSource = readText(new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url));
+    const dialogSource = readText(
+      new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url),
+    );
     expect(panelsSource).toContain('isSubmitting={flow.isSavingScale}');
     expect(panelsSource).toContain('submitError={flow.actionError}');
-    expect(panelsSource).not.toContain('onCloseDialog();\n            void flow.completeScaleMeasurement');
+    expect(panelsSource).not.toContain(
+      'onCloseDialog();\n            void flow.completeScaleMeasurement',
+    );
     expect(dialogSource).toContain('isSubmitting?: boolean');
     expect(dialogSource).toContain('submitError?: string | null');
     expect(dialogSource).toContain("isSubmitting ? '正在保存量表…' : '提交量表'");
-    expect(dialogSource).toContain("role=\"alert\"");
+    expect(dialogSource).toContain('role="alert"');
   });
 
   test('the hand-rolled scale overlay traps focus and closes guarded', () => {
-    const dialogSource = readText(new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url));
+    const dialogSource = readText(
+      new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url),
+    );
     expect(dialogSource).toContain('openerElementRef');
     expect(dialogSource).toContain("event.key === 'Escape'");
     expect(dialogSource).toContain("event.key !== 'Tab'");
@@ -409,7 +441,9 @@ describe('usability/operability fixes (audit contract)', () => {
   });
 
   test('scale anchor rows navigate (and select) with the keyboard', () => {
-    const anchorSource = readText(new URL('../../mentalScale/scaleUi/ScaleAnchorGroup.tsx', import.meta.url));
+    const anchorSource = readText(
+      new URL('../../mentalScale/scaleUi/ScaleAnchorGroup.tsx', import.meta.url),
+    );
     expect(anchorSource).toContain("case 'ArrowLeft':");
     expect(anchorSource).toContain("case 'ArrowRight':");
     expect(anchorSource).toContain("case 'Home':");

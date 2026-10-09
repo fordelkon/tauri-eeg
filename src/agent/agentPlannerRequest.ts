@@ -4,10 +4,7 @@ import { getCurrentMusicRegulationTags } from '../music/musicRegulationTags';
 import { getCurrentRegulationVideos } from '../video/regulationVideoResources';
 import type { AgentActionId } from './agentActions';
 import { getAgentAvailableResourcesForPhase } from './agentActions';
-import {
-  type AgentActionParams,
-  normalizeAgentActionParams,
-} from './agentActionParams';
+import { type AgentActionParams, normalizeAgentActionParams } from './agentActionParams';
 import type { AgentPersonalizedAnswer, AgentTimelineEntry } from './agentContext';
 import type { AgentPhase } from './agentFlow';
 import type { AgentPlannerResponse } from './agentPlannerApi';
@@ -35,7 +32,11 @@ export type AgentPlannerRequestContext = {
   plannerActionMap: AgentPlannerActionMap;
   onThinkingDelta: (delta: string) => void;
   flushThinking: () => void;
-  queueOrExecute: (actionId: AgentActionId, forceConfirmation: boolean, params: AgentActionParams) => Promise<void>;
+  queueOrExecute: (
+    actionId: AgentActionId,
+    forceConfirmation: boolean,
+    params: AgentActionParams,
+  ) => Promise<void>;
   pushTimeline: (type: AgentTimelineEntry['type'], text: string) => void;
   setMessage: (message: string) => void;
   setIsPlannerAvailable: (available: boolean) => void;
@@ -78,17 +79,18 @@ export async function requestAgentPlannerRecommendation(
         availableResources: getAgentAvailableResourcesForPhase(phase, videos),
         currentRoute: pathname,
         personalizedContext: {
-          answers: currentMusicTags.length > 0
-            ? [
-              ...personalizedAnswers,
-              {
-                answer: currentMusicTags.join(', '),
-                createdAt: Date.now(),
-                normalizedTags: currentMusicTags,
-                phase: 'music_regulation' as const,
-              },
-            ]
-            : personalizedAnswers,
+          answers:
+            currentMusicTags.length > 0
+              ? [
+                  ...personalizedAnswers,
+                  {
+                    answer: currentMusicTags.join(', '),
+                    createdAt: Date.now(),
+                    normalizedTags: currentMusicTags,
+                    phase: 'music_regulation' as const,
+                  },
+                ]
+              : personalizedAnswers,
           timeline: timelineRef.current,
         },
         phase,
@@ -113,7 +115,11 @@ export async function requestAgentPlannerRecommendation(
 
     setIsPlannerAvailable(true);
     setThinkingSteps(response.thinking ?? []);
-    if (response.action === 'generate_summary' || response.action === 'ask_personalized_question' || response.action === 'no_op') {
+    if (
+      response.action === 'generate_summary' ||
+      response.action === 'ask_personalized_question' ||
+      response.action === 'no_op'
+    ) {
       setMessage(response.reason);
       pushTimeline('planner', response.reason);
       return true;
@@ -126,7 +132,10 @@ export async function requestAgentPlannerRecommendation(
     }
 
     setMessage(response.reason);
-    if ((response.action === 'play_video' || response.action === 'recommend_video') && typeof response.params.videoId === 'string') {
+    if (
+      (response.action === 'play_video' || response.action === 'recommend_video') &&
+      typeof response.params.videoId === 'string'
+    ) {
       pushTimeline('planner', `recommend_video:${response.params.videoId}`);
     }
     if (response.action === 'recommend_music') {

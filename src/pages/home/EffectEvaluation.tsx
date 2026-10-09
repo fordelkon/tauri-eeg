@@ -7,18 +7,30 @@ import Tabs from '@mui/material/Tabs';
 import { getParadigmSessionStatus } from '../../paradigm/paradigmSessionStatus';
 import { useConfirmDialog } from '../../ui/useConfirmDialog';
 import {
-  buildConditionComparisonVerdictCopy, buildEffectVerdictCopy, describeMeasuredBasis,
-  describeRegulationSkipped, EFFECT_EMOTION_OPTIONS, EFFECT_FLOW_STEP_COUNT, EFFECT_METHOD_OPTIONS,
-  formatCountdown, labelForCondition,
-  remainingRegulationSeconds, type EffectFlowStep,
+  buildConditionComparisonVerdictCopy,
+  buildEffectVerdictCopy,
+  describeMeasuredBasis,
+  describeRegulationSkipped,
+  EFFECT_EMOTION_OPTIONS,
+  EFFECT_FLOW_STEP_COUNT,
+  EFFECT_METHOD_OPTIONS,
+  formatCountdown,
+  labelForCondition,
+  remainingRegulationSeconds,
+  type EffectFlowStep,
 } from './effectEvaluationFlow';
 import { describeEventLogStatus, verdictCopyForCondition } from './effectPipeline';
 import {
-  buildConditionComparisonChartOption, buildEffectChartOption,
+  buildConditionComparisonChartOption,
+  buildEffectChartOption,
 } from './effectResultChartOption';
 import { ConditionComparisonCard, ResultCard } from './EffectResultCards';
 import {
-  ConditionStepPanel, EventLogUnavailableHint, InductionStepPanel, ScaleStepPanel, SetupStepPanel,
+  ConditionStepPanel,
+  EventLogUnavailableHint,
+  InductionStepPanel,
+  ScaleStepPanel,
+  SetupStepPanel,
 } from './EffectStepPanels';
 import EffectDeviceQuickStart from './EffectDeviceQuickStart';
 import EffectHistoryPanel from './EffectHistoryPanel';
@@ -39,14 +51,23 @@ export default function EffectEvaluation() {
   const { confirm, confirmDialogElement } = useConfirmDialog();
   const [isScaleDialogOpen, setIsScaleDialogOpen] = useState(false);
   const {
-    inductionRetryCount, inductionVideoFailed, isInductionPlaying,
-    retryInductionVideo, setInductionVideoFailed, startInductionPlayback,
+    inductionRetryCount,
+    inductionVideoFailed,
+    isInductionPlaying,
+    retryInductionVideo,
+    setInductionVideoFailed,
+    startInductionPlayback,
   } = useInductionPlayback(state.step);
   const [activeTab, setActiveTab] = useState<PageTab>('wizard');
   const {
-    exportNotice, handleExportComparisonCsv, handleExportComparisonJson,
-    handleExportSingleCsv, handleExportSingleJson, isExporting,
-    runBatchExport, setExportNotice,
+    exportNotice,
+    handleExportComparisonCsv,
+    handleExportComparisonJson,
+    handleExportSingleCsv,
+    handleExportSingleJson,
+    isExporting,
+    runBatchExport,
+    setExportNotice,
   } = useEffectReportExports({
     subjectId: state.subjectId,
     emotion: state.emotion,
@@ -57,12 +78,14 @@ export default function EffectEvaluation() {
   const stageRef = useRef<HTMLElement | null>(null);
   const [isResumeNoticeDismissed, setIsResumeNoticeDismissed] = useState(false);
   const { isWindowElapsed } = flow;
-  useEffect(() => { if (state.runId === null) setIsScaleDialogOpen(false); }, [state.runId]);
+  useEffect(() => {
+    if (state.runId === null) setIsScaleDialogOpen(false);
+  }, [state.runId]);
   const handleWindowElapsed = flow.conditionElapsed;
-  const emotionLabel = EFFECT_EMOTION_OPTIONS.find((option) => option.value === state.emotion)?.label
-    ?? state.emotion;
-  const methodLabel = EFFECT_METHOD_OPTIONS.find((option) => option.value === state.method)?.label
-    ?? state.method;
+  const emotionLabel =
+    EFFECT_EMOTION_OPTIONS.find((option) => option.value === state.emotion)?.label ?? state.emotion;
+  const methodLabel =
+    EFFECT_METHOD_OPTIONS.find((option) => option.value === state.method)?.label ?? state.method;
   const isNaturalRecovery = state.condition === 'natural_recovery';
   const postLabel = isNaturalRecovery ? '静息后' : '调控后';
   const hasRenderedStepRef = useRef(false);
@@ -102,29 +125,35 @@ export default function EffectEvaluation() {
   const windowNoun = isNaturalRecovery ? '静息' : '调控';
   const isWindowRunning = state.step === 3 && state.regulationStartedAtMs !== null;
   const verdictCopy = useMemo(
-    () => (flow.summary
-      ? verdictCopyForCondition(buildEffectVerdictCopy(flow.summary), state.condition)
-      : null),
+    () =>
+      flow.summary
+        ? verdictCopyForCondition(buildEffectVerdictCopy(flow.summary), state.condition)
+        : null,
     [flow.summary, state.condition],
   );
   const measuredBasisNote = flow.summary ? describeMeasuredBasis(flow.summary) : null;
   const chartOption = useMemo(
-    () => (flow.summary && flow.summary.dimensions.length > 0
-      ? buildEffectChartOption(flow.summary, postLabel)
-      : null),
+    () =>
+      flow.summary && flow.summary.dimensions.length > 0
+        ? buildEffectChartOption(flow.summary, postLabel)
+        : null,
     [flow.summary, postLabel],
   );
   const comparisonVerdictCopy = useMemo(
-    () => (flow.conditionComparison ? buildConditionComparisonVerdictCopy(flow.conditionComparison) : null),
+    () =>
+      flow.conditionComparison
+        ? buildConditionComparisonVerdictCopy(flow.conditionComparison)
+        : null,
     [flow.conditionComparison],
   );
   const comparisonMeasuredBasisNote = flow.conditionComparison
     ? describeMeasuredBasis(flow.conditionComparison)
     : null;
   const comparisonChartOption = useMemo(
-    () => (flow.conditionComparison && flow.conditionComparison.dimensions.length > 0
-      ? buildConditionComparisonChartOption(flow.conditionComparison)
-      : null),
+    () =>
+      flow.conditionComparison && flow.conditionComparison.dimensions.length > 0
+        ? buildConditionComparisonChartOption(flow.conditionComparison)
+        : null,
     [flow.conditionComparison],
   );
 
@@ -172,22 +201,28 @@ export default function EffectEvaluation() {
   }, [setInductionVideoFailed, playbackError]);
 
   const handleRetrySummary = useCallback(() => void loadSummary(), [loadSummary]);
-  const handleRetryComparison = useCallback(() => void loadConditionComparison(), [loadConditionComparison]);
+  const handleRetryComparison = useCallback(
+    () => void loadConditionComparison(),
+    [loadConditionComparison],
+  );
   const { currentNode, doneNodes, pipelineNodes } = useEffectPipelineNodes(
     state,
     flow.summary !== null,
   );
 
-  const handleStationClick = useCallback<EffectStationClick>((step, anchorEl) => {
-    if (step === state.step) {
-      stageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
+  const handleStationClick = useCallback<EffectStationClick>(
+    (step, anchorEl) => {
+      if (step === state.step) {
+        stageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
 
-    if (step < state.step) {
-      setReview({ step, anchorEl });
-    }
-  }, [state.step]);
+      if (step < state.step) {
+        setReview({ step, anchorEl });
+      }
+    },
+    [state.step],
+  );
 
   const openReview = useCallback<EffectStationClick>((step, anchorEl) => {
     setReview({ step, anchorEl });
@@ -199,9 +234,12 @@ export default function EffectEvaluation() {
 
   const renderScalePanel = (phase: 'baseline' | 'post') => (
     <ScaleStepPanel
-      flow={flow} phase={phase} skippedCopy={skippedCopy}
+      flow={flow}
+      phase={phase}
+      skippedCopy={skippedCopy}
       isDialogOpen={isScaleDialogOpen}
-      onOpenDialog={() => setIsScaleDialogOpen(true)} onCloseDialog={() => setIsScaleDialogOpen(false)}
+      onOpenDialog={() => setIsScaleDialogOpen(true)}
+      onCloseDialog={() => setIsScaleDialogOpen(false)}
     />
   );
 
@@ -212,10 +250,14 @@ export default function EffectEvaluation() {
       case 1:
         return (
           <InductionStepPanel
-            flow={flow} eventLogUnavailableHint={eventLogUnavailableHint}
-            isInductionPlaying={isInductionPlaying} inductionVideoFailed={inductionVideoFailed}
-            inductionRetryCount={inductionRetryCount} onBeginInduction={handleBeginInduction}
-            onResetFlow={handleResetFlow} onRetryInductionVideo={retryInductionVideo}
+            flow={flow}
+            eventLogUnavailableHint={eventLogUnavailableHint}
+            isInductionPlaying={isInductionPlaying}
+            inductionVideoFailed={inductionVideoFailed}
+            inductionRetryCount={inductionRetryCount}
+            onBeginInduction={handleBeginInduction}
+            onResetFlow={handleResetFlow}
+            onRetryInductionVideo={retryInductionVideo}
             onVideoError={handleInductionVideoError}
           />
         );
@@ -224,10 +266,16 @@ export default function EffectEvaluation() {
       case 3:
         return (
           <ConditionStepPanel
-            flow={flow} finishMode={finishMode} windowNoun={windowNoun} isNaturalRecovery={isNaturalRecovery}
-            methodLabel={methodLabel} skippedCopy={skippedCopy}
-            isWindowElapsed={isWindowElapsed} onWindowElapsed={handleWindowElapsed}
-            onFinishRegulation={handleFinishRegulation} onSkipRemaining={handleSkipRemaining}
+            flow={flow}
+            finishMode={finishMode}
+            windowNoun={windowNoun}
+            isNaturalRecovery={isNaturalRecovery}
+            methodLabel={methodLabel}
+            skippedCopy={skippedCopy}
+            isWindowElapsed={isWindowElapsed}
+            onWindowElapsed={handleWindowElapsed}
+            onFinishRegulation={handleFinishRegulation}
+            onSkipRemaining={handleSkipRemaining}
             eventLogUnavailableHint={eventLogUnavailableHint}
           />
         );
@@ -237,21 +285,31 @@ export default function EffectEvaluation() {
         return (
           <div className={styles.resultStep}>
             <ResultCard
-              chartOption={chartOption} runId={state.runId}
-              isLoadingSummary={flow.isLoadingSummary} isExporting={isExporting}
-              measuredBasisNote={measuredBasisNote} postLabel={postLabel}
+              chartOption={chartOption}
+              runId={state.runId}
+              isLoadingSummary={flow.isLoadingSummary}
+              isExporting={isExporting}
+              measuredBasisNote={measuredBasisNote}
+              postLabel={postLabel}
               skippedCopy={skippedCopy}
-              onExportCsv={handleExportSingleCsv} onExportJson={handleExportSingleJson}
-              onRetry={handleRetrySummary} summary={flow.summary}
-              summaryError={flow.summaryError} verdictCopy={verdictCopy}
+              onExportCsv={handleExportSingleCsv}
+              onExportJson={handleExportSingleJson}
+              onRetry={handleRetrySummary}
+              summary={flow.summary}
+              summaryError={flow.summaryError}
+              verdictCopy={verdictCopy}
             />
             <ConditionComparisonCard
-              chartOption={comparisonChartOption} comparisonError={flow.conditionComparisonError}
+              chartOption={comparisonChartOption}
+              comparisonError={flow.conditionComparisonError}
               conditionComparison={flow.conditionComparison}
-              isLoadingComparison={flow.isLoadingConditionComparison} isExporting={isExporting}
+              isLoadingComparison={flow.isLoadingConditionComparison}
+              isExporting={isExporting}
               measuredBasisNote={comparisonMeasuredBasisNote}
-              onExportCsv={handleExportComparisonCsv} onExportJson={handleExportComparisonJson}
-              onRetry={handleRetryComparison} verdictCopy={comparisonVerdictCopy}
+              onExportCsv={handleExportComparisonCsv}
+              onExportJson={handleExportComparisonJson}
+              onRetry={handleRetryComparison}
+              verdictCopy={comparisonVerdictCopy}
             />
           </div>
         );
@@ -290,14 +348,19 @@ export default function EffectEvaluation() {
           <span className={styles.configChip}>{labelForCondition(state.condition)}</span>
           <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
           <EffectDeviceQuickStart />
-          <span className={styles.configChip}>{state.runMode === 'formal' ? '正式实验' : '排练，不发送硬件标记'}{state.runId ? ` · ${state.runId.slice(0, 8)}` : ''}</span>
+          <span className={styles.configChip}>
+            {state.runMode === 'formal' ? '正式实验' : '排练，不发送硬件标记'}
+            {state.runId ? ` · ${state.runId.slice(0, 8)}` : ''}
+          </span>
           {state.eventLogStatus !== 'not-started' ? (
             <span
               role="status"
               className={`${styles.eventLogChip} ${
                 state.eventLogStatus === 'saved'
                   ? styles.eventLogSaved
-                  : state.eventLogStatus === 'active' ? styles.eventLogRecording : styles.eventLogUnavailable
+                  : state.eventLogStatus === 'active'
+                    ? styles.eventLogRecording
+                    : styles.eventLogUnavailable
               }${state.eventLogStatus === 'interrupted' ? ` ${styles.eventLogBadgeProminent}` : ''}`}
             >
               {describeEventLogStatus(state.eventLogStatus)}
@@ -346,9 +409,12 @@ export default function EffectEvaluation() {
             the scale dialog opens (scaleDialogOpen). Station/chip clicks
             keep their review/scroll semantics inside the panel. */}
         <EffectProgressDisclosure
-          nodes={pipelineNodes} doneNodes={doneNodes}
-          onStationClick={handleStationClick} onChipClick={openReview}
-          scaleDialogOpen={isScaleDialogOpen} step={state.step}
+          nodes={pipelineNodes}
+          doneNodes={doneNodes}
+          onStationClick={handleStationClick}
+          onChipClick={openReview}
+          scaleDialogOpen={isScaleDialogOpen}
+          step={state.step}
         />
 
         {/* Main stage: exactly one task at a time. The kicker orients
@@ -397,8 +463,12 @@ export default function EffectEvaluation() {
       {activeTab === 'history' ? <EffectHistoryPanel /> : null}
 
       <EffectReviewPopover
-        review={review} state={state} emotionLabel={emotionLabel}
-        methodLabel={methodLabel} skippedCopy={skippedCopy} onClose={closeReview}
+        review={review}
+        state={state}
+        emotionLabel={emotionLabel}
+        methodLabel={methodLabel}
+        skippedCopy={skippedCopy}
+        onClose={closeReview}
       />
 
       {confirmDialogElement}

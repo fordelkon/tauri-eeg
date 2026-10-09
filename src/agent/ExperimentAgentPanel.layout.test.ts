@@ -39,8 +39,13 @@ describe('ExperimentAgentPanel layout contract', () => {
   test('limits scrolling to assistant activity and confirmation content', () => {
     const agentTsx = readText(new URL('./ExperimentAgentPanel.tsx', import.meta.url));
     const agentCss = readText(new URL('./ExperimentAgentPanel.module.css', import.meta.url));
-    const activityBlock = agentTsx.match(/<div className={styles\.activity}[^>]*>[\s\S]*?<\/div>\s*\r?\n\r?\n\s*<\/div>/)?.[0] ?? '';
-    const contentBlock = agentTsx.match(/<div className={styles\.content}>[\s\S]*?<div className={styles\.activity}[^>]*>/)?.[0] ?? '';
+    // Slice by marker positions instead of JSX-shape regexes so the contract
+    // survives formatting-only rewrites of the markup.
+    const contentStart = agentTsx.indexOf('<div className={styles.content}>');
+    const activityStart = agentTsx.indexOf('<div className={styles.activity}');
+    const formStart = agentTsx.indexOf('<form', activityStart);
+    const contentBlock = agentTsx.slice(contentStart, activityStart);
+    const activityBlock = agentTsx.slice(activityStart, formStart === -1 ? undefined : formStart);
 
     expect(agentCss).toMatch(/\.content\s*{[^}]*overflow:\s*hidden;/s);
     expect(agentCss).toMatch(/\.activity\s*{[^}]*flex:\s*1\s+1\s+auto;/s);

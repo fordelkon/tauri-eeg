@@ -6,10 +6,7 @@ import ParadigmVideoPreview from './ParadigmVideoPreview';
 import { buildParadigmQueue } from './paradigmApi';
 import { useParadigmVideoLibrary } from './useParadigmVideoLibrary';
 import { ParadigmLibraryList } from './ParadigmLibraryList';
-import {
-  readStoredSubjectId,
-  writeStoredSubjectId,
-} from '../storage/currentSubject';
+import { readStoredSubjectId, writeStoredSubjectId } from '../storage/currentSubject';
 import {
   PARADIGM_BLOCKS_BY_KIND,
   PARADIGM_EMOTION_DISPLAY_ORDER,
@@ -54,21 +51,25 @@ type Props = {
   startError: string | null;
 };
 
-export default function ParadigmSetupPanel({
-  onStartSession,
-  startPending,
-  startError,
-}: Props) {
+export default function ParadigmSetupPanel({ onStartSession, startPending, startError }: Props) {
   const [triggerConnected, setTriggerConnected] = useState(false);
   const preferences = readExperimentPreferences();
   useEffect(() => {
     let disposed = false;
-    const refresh = () => void getTriggerStatus().then((status) => {
-      if (!disposed) setTriggerConnected(status.connected);
-    }).catch(() => { if (!disposed) setTriggerConnected(false); });
+    const refresh = () =>
+      void getTriggerStatus()
+        .then((status) => {
+          if (!disposed) setTriggerConnected(status.connected);
+        })
+        .catch(() => {
+          if (!disposed) setTriggerConnected(false);
+        });
     refresh();
     window.addEventListener('focus', refresh);
-    return () => { disposed = true; window.removeEventListener('focus', refresh); };
+    return () => {
+      disposed = true;
+      window.removeEventListener('focus', refresh);
+    };
   }, []);
   const [sessionKind, setSessionKind] = useState<ParadigmSessionKind>('personal_calibration');
   const [subjectId, setSubjectId] = useState(readStoredSubjectId);
@@ -109,14 +110,18 @@ export default function ParadigmSetupPanel({
 
   const activeBlocks = PARADIGM_BLOCKS_BY_KIND[sessionKind];
   const scheduleText = activeBlocks.map((emotion) => paradigmEmotionLabels[emotion]).join(' → ');
-  const scheduleHint = activeBlocks.length === 1
+  const scheduleHint =
+    activeBlocks.length === 1
       ? `${scheduleText} · 点击开始后连续随机播放 ${PARADIGM_TRIALS_PER_CLASS} 个视频`
       : `${scheduleText} · 每类 ${PARADIGM_TRIALS_PER_CLASS} 个视频连续随机播放,阶段间休息`;
 
-  const updateSessionKind = useCallback((kind: ParadigmSessionKind) => {
-    setSessionKind(kind);
-    clearQueuePreview();
-  }, [clearQueuePreview]);
+  const updateSessionKind = useCallback(
+    (kind: ParadigmSessionKind) => {
+      setSessionKind(kind);
+      clearQueuePreview();
+    },
+    [clearQueuePreview],
+  );
 
   // WAI-ARIA radio pattern: ArrowLeft/ArrowRight move to (and select) the
   // neighbouring pill with wrap-around; focus follows the selection. The
@@ -130,9 +135,8 @@ export default function ParadigmSetupPanel({
       event.preventDefault();
       const offset = event.key === 'ArrowRight' ? 1 : -1;
       const currentIndex = sessionKinds.indexOf(sessionKind);
-      const nextKind = sessionKinds[
-        (currentIndex + offset + sessionKinds.length) % sessionKinds.length
-      ];
+      const nextKind =
+        sessionKinds[(currentIndex + offset + sessionKinds.length) % sessionKinds.length];
 
       updateSessionKind(nextKind);
       sessionKindGroupRef.current
@@ -146,33 +150,35 @@ export default function ParadigmSetupPanel({
   const subjectIdTrimmed = subjectId.trim();
   const sessionRunIdTrimmed = sessionRunId.trim();
   const libraryValid = library?.valid ?? false;
-  const canStartSession = (
-    (dryRun || devicesReady)
-    && libraryValid
-    && subjectIdTrimmed.length > 0
-    && sessionRunIdTrimmed.length > 0
-    && !startPending
-    && !startingSession
-  );
+  const canStartSession =
+    (dryRun || devicesReady) &&
+    libraryValid &&
+    subjectIdTrimmed.length > 0 &&
+    sessionRunIdTrimmed.length > 0 &&
+    !startPending &&
+    !startingSession;
 
   // One-line readiness reason, highest priority first (E-Prime startup style).
   const notReadyReason = dryRun
-      ? '排练模式：保存实验日志，不发送硬件 Trigger。'
-      : !devicesReady
-        ? '请到实验设置连接 Trigger，并确认 ActiView 已开始保存 BDF。'
-        : !libraryValid
-          ? '等待有效的视频根目录…'
-          : subjectIdTrimmed.length === 0
-            ? '请填写被试 ID'
-            : sessionRunIdTrimmed.length === 0
-              ? '请填写本次唯一的会话运行 ID'
-              : null;
+    ? '排练模式：保存实验日志，不发送硬件 Trigger。'
+    : !devicesReady
+      ? '请到实验设置连接 Trigger，并确认 ActiView 已开始保存 BDF。'
+      : !libraryValid
+        ? '等待有效的视频根目录…'
+        : subjectIdTrimmed.length === 0
+          ? '请填写被试 ID'
+          : sessionRunIdTrimmed.length === 0
+            ? '请填写本次唯一的会话运行 ID'
+            : null;
 
   // Stable handler handed to the memoized ParadigmLibraryList so the list
   // never re-renders because of a new preview-opening closure.
-  const handlePreviewSelect = useCallback((emotion: ParadigmEmotion, entry: ParadigmVideoEntry) => {
-    setPreviewVideo({ emotion, entry });
-  }, [setPreviewVideo]);
+  const handlePreviewSelect = useCallback(
+    (emotion: ParadigmEmotion, entry: ParadigmVideoEntry) => {
+      setPreviewVideo({ emotion, entry });
+    },
+    [setPreviewVideo],
+  );
 
   const updateSubjectId = useCallback((value: string) => {
     // React state stays immediate; only the localStorage write is debounced.
@@ -211,10 +217,13 @@ export default function ParadigmSetupPanel({
     setTouchedFields((current) => (current[field] ? current : { ...current, [field]: true }));
   }, []);
 
-  const updateSessionRunId = useCallback((value: string) => {
-    setSessionRunId(value);
-    clearQueuePreview();
-  }, [clearQueuePreview]);
+  const updateSessionRunId = useCallback(
+    (value: string) => {
+      setSessionRunId(value);
+      clearQueuePreview();
+    },
+    [clearQueuePreview],
+  );
 
   const startSession = useCallback(async () => {
     if (!library || !canStartSession) {
@@ -238,11 +247,12 @@ export default function ParadigmSetupPanel({
       // current preview was built from exactly these inputs, reuse it instead
       // of paying for a second backend directory scan on the start path.
       const previewInputs = queuePreviewInputsRef.current;
-      const canReusePreview = queuePreview !== null
-        && previewInputs !== null
-        && previewInputs.rootPath === library.rootPath
-        && previewInputs.sessionRunId === sessionRunIdTrimmed
-        && previewInputs.sessionKind === sessionKind;
+      const canReusePreview =
+        queuePreview !== null &&
+        previewInputs !== null &&
+        previewInputs.rootPath === library.rootPath &&
+        previewInputs.sessionRunId === sessionRunIdTrimmed &&
+        previewInputs.sessionKind === sessionKind;
       const queue = canReusePreview
         ? queuePreview
         : await buildParadigmQueue(library.rootPath, sessionRunIdTrimmed, sessionKind);
@@ -270,8 +280,6 @@ export default function ParadigmSetupPanel({
     setQueueError,
     subjectIdTrimmed,
   ]);
-
-
 
   return (
     <div className={styles.panel} aria-label="实验范式设置">
@@ -339,7 +347,9 @@ export default function ParadigmSetupPanel({
           })}
         </div>
 
-        <div className={styles.subSectionRow} aria-hidden="true">视频素材</div>
+        <div className={styles.subSectionRow} aria-hidden="true">
+          视频素材
+        </div>
 
         <div className={styles.actionRow}>
           <button
@@ -399,7 +409,9 @@ export default function ParadigmSetupPanel({
         {libraryError ? <div className={styles.warningBanner}>{libraryError}</div> : null}
         {queueError ? <div className={styles.warningBanner}>{queueError}</div> : null}
 
-        <div className={styles.subSectionRow} aria-hidden="true">就绪</div>
+        <div className={styles.subSectionRow} aria-hidden="true">
+          就绪
+        </div>
 
         <div className={styles.readinessRow}>
           <button
@@ -412,7 +424,9 @@ export default function ParadigmSetupPanel({
           >
             {dryRun ? '排练 · 不发送 Trigger' : '正式 · 发送 Trigger'}
           </button>
-          <span className={`${styles.deviceLight} ${styles.miniLight} ${triggerConnected ? styles.connectedLight : ''}`}>
+          <span
+            className={`${styles.deviceLight} ${styles.miniLight} ${triggerConnected ? styles.connectedLight : ''}`}
+          >
             <span
               className={`${styles.deviceLightDot} ${styles.miniLightDot} ${triggerConnected ? styles.connectedLightDot : ''}`}
               aria-hidden="true"
@@ -445,4 +459,3 @@ export default function ParadigmSetupPanel({
     </div>
   );
 }
-

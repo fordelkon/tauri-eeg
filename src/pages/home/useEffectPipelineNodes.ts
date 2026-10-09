@@ -37,7 +37,8 @@ export function useEffectPipelineNodes(
     ],
   );
   const doneNodes = useMemo(
-    () => pipelineNodes.filter((node) => node.status === 'done'), [pipelineNodes],
+    () => pipelineNodes.filter((node) => node.status === 'done'),
+    [pipelineNodes],
   );
   const currentNode = pipelineNodes[state.step];
 

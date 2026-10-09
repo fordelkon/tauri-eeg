@@ -31,7 +31,10 @@ type ConditionCountdownProps = {
  * interval is cleaned up on unmount and StrictMode double-mount safe.
  */
 export const ConditionCountdown = memo(function ConditionCountdown({
-  compact = false, state, windowNoun, onElapsed,
+  compact = false,
+  state,
+  windowNoun,
+  onElapsed,
 }: ConditionCountdownProps) {
   const [remainingSeconds, setRemainingSeconds] = useState(
     () => remainingRegulationSeconds(state, Date.now(), performance.now()) ?? 0,
@@ -72,12 +75,18 @@ export const ConditionCountdown = memo(function ConditionCountdown({
     // Field-scoped deps on purpose: the interval must not restart when
     // unrelated state fields change, only when the timing inputs move.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasElapsed, state.durationMinutes, state.regulationStartedAtMs, state.regulationStartedAtMonotonicMs]);
+  }, [
+    hasElapsed,
+    state.durationMinutes,
+    state.regulationStartedAtMs,
+    state.regulationStartedAtMonotonicMs,
+  ]);
 
   const totalSeconds = state.durationMinutes * 60;
-  const progressPercent = totalSeconds > 0
-    ? Math.min(100, Math.max(0, 100 - (remainingSeconds / totalSeconds) * 100))
-    : 100;
+  const progressPercent =
+    totalSeconds > 0
+      ? Math.min(100, Math.max(0, 100 - (remainingSeconds / totalSeconds) * 100))
+      : 100;
 
   return (
     <div className={compact ? styles.fullscreenCountdown : styles.countdownWrap}>
@@ -103,7 +112,10 @@ export const ConditionCountdown = memo(function ConditionCountdown({
             aria-valuemax={100}
             aria-valuenow={progressPercent}
           >
-            <div className={styles.progressBar} style={{ transform: `scaleX(${progressPercent / 100})` }} />
+            <div
+              className={styles.progressBar}
+              style={{ transform: `scaleX(${progressPercent / 100})` }}
+            />
           </div>
           <p className={styles.panelHint} id="regulation-countdown-hint">
             {hasElapsed

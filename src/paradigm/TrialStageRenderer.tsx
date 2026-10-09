@@ -14,11 +14,7 @@ import { PARADIGM_TRIALS_PER_CLASS } from './types';
 import type { ParadigmTrialPlanItem } from './types';
 import styles from './ParadigmSession.module.css';
 
-export type TrialStagePhase =
-  | 'baseline'
-  | 'hint'
-  | 'video'
-  | 'postRest';
+export type TrialStagePhase = 'baseline' | 'hint' | 'video' | 'postRest';
 
 /** A retry affordance rendered beside a stage notice's message. */
 export type TrialStageNoticeAction = {
@@ -165,9 +161,10 @@ export default function TrialStageRenderer({
   const remainingSeconds = Math.ceil(remainingMs / 1000);
   // The hint stage doubles as the "next video coming up" cue with the
   // within-block position, so the subject always knows what is coming.
-  const hintText = phase === 'hint' && typeof videoNumber === 'number'
-    ? `即将播放第 ${videoNumber} / ${PARADIGM_TRIALS_PER_CLASS} 个视频,请保持注视屏幕`
-    : copy.hint;
+  const hintText =
+    phase === 'hint' && typeof videoNumber === 'number'
+      ? `即将播放第 ${videoNumber} / ${PARADIGM_TRIALS_PER_CLASS} 个视频,请保持注视屏幕`
+      : copy.hint;
 
   return createPortal(
     <div className={styles.stageHost} aria-label={copy.title}>
@@ -178,7 +175,9 @@ export default function TrialStageRenderer({
         {phase === 'baseline' ? <span className={styles.fixationCross} aria-hidden="true" /> : null}
         <span className={styles.stageTitle}>{copy.title}</span>
         <span className={styles.stageHintText}>{hintText}</span>
-        <span className={styles.stageCountdown} aria-label="剩余秒数">{remainingSeconds}</span>
+        <span className={styles.stageCountdown} aria-label="剩余秒数">
+          {remainingSeconds}
+        </span>
       </div>
     </div>,
     document.body,
@@ -343,7 +342,8 @@ function VideoStage({
       />
       {durationSeconds !== null && isVideoDurationOutOfRange(durationSeconds) ? (
         <span className={styles.stageVideoBadge}>
-          视频时长超出 {VIDEO_MIN_SECONDS}-{VIDEO_MAX_SECONDS} 秒范围(实际 {Math.round(durationSeconds)} 秒)
+          视频时长超出 {VIDEO_MIN_SECONDS}-{VIDEO_MAX_SECONDS} 秒范围(实际{' '}
+          {Math.round(durationSeconds)} 秒)
         </span>
       ) : null}
       {loadFailed ? (
@@ -362,4 +362,3 @@ function VideoStage({
     </>
   );
 }
-

@@ -29,34 +29,16 @@ const phaseLabels: Record<AgentPhase, string> = {
 };
 
 const phaseGuideItems: Record<AgentPhase, readonly string[]> = {
-  intro: [
-    '点击上方推荐操作，或直接输入“开始实验”',
-    '助手可打开实验范式、准备素材和查看实验设置',
-  ],
-  baseline: [
-    '先连接 Trigger，并在 ActiView 启动 BDF 保存',
-    '个人校准与独立诱发在实验范式页运行',
-  ],
-  video_regulation: [
-    '让我播放一段放松视频',
-    '也可以指定场景，例如“播放森林放松视频”',
-  ],
-  game_regulation: [
-    '游戏调控暂未接入设备联动',
-    '可以让我跳过本环节，继续后续流程',
-  ],
+  intro: ['点击上方推荐操作，或直接输入“开始实验”', '助手可打开实验范式、准备素材和查看实验设置'],
+  baseline: ['先连接 Trigger，并在 ActiView 启动 BDF 保存', '个人校准与独立诱发在实验范式页运行'],
+  video_regulation: ['让我播放一段放松视频', '也可以指定场景，例如“播放森林放松视频”'],
+  game_regulation: ['游戏调控暂未接入设备联动', '可以让我跳过本环节，继续后续流程'],
   music_regulation: [
     '让我按当前状态生成一段调控音乐',
     '可以指定乐器与风格，例如“生成钢琴舒缓音乐”',
   ],
-  recovery: [
-    '实验结束后，在 ActiView 手动停止 BDF 保存',
-    '可在实验设置页关联 BDF 并导出实验日志',
-  ],
-  finish: [
-    '本次实验流程已完成',
-    '可前往各功能页查看生成的记录',
-  ],
+  recovery: ['实验结束后，在 ActiView 手动停止 BDF 保存', '可在实验设置页关联 BDF 并导出实验日志'],
+  finish: ['本次实验流程已完成', '可前往各功能页查看生成的记录'],
 };
 
 /**
@@ -139,15 +121,11 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
   const activityRef = useRef<HTMLDivElement | null>(null);
   // The live elapsed time is owned by the ThinkingTimer leaf below; the panel
   // itself no longer re-renders on its 250 ms tick.
-  const thinkingSummary = (
-    <ThinkingTimer isPlanning={isPlanning} durationMs={thinkingDurationMs} />
-  );
+  const thinkingSummary = <ThinkingTimer isPlanning={isPlanning} durationMs={thinkingDurationMs} />;
   const thinkingClassName = isPlanning
     ? `${styles.thinking} ${styles.thinkingActive}`
     : styles.thinking;
-  const visibleThinkingSteps = thinkingSteps.length > 0
-    ? thinkingSteps
-    : ['等待规划器响应。'];
+  const visibleThinkingSteps = thinkingSteps.length > 0 ? thinkingSteps : ['等待规划器响应。'];
 
   const submit = (value: string) => {
     const nextValue = value.trim();
@@ -179,73 +157,94 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
         </div>
         <div className={styles.headerActions}>
           {isPlanning ? (
-            <button type="button" className={styles.cancelButton} onClick={onCancel}>取消</button>
+            <button type="button" className={styles.cancelButton} onClick={onCancel}>
+              取消
+            </button>
           ) : null}
           <SmartToyRoundedIcon fontSize="small" aria-hidden="true" />
         </div>
       </div>
 
       <div className={styles.content}>
-      <div className={styles.promptGrid} aria-label="快捷指令示例">
-        {Array.from(new Set(quickPrompts)).slice(0, 4).map((example) => (
-          <button key={example} type="button" disabled={isPlanning} onClick={() => submit(example)}>
-            {example}
-          </button>
-        ))}
-      </div>
-
-      {(isPlanning || thinkingDurationMs !== null || thinkingSteps.length > 0) ? (
-        <details className={styles.thinkingPanel}>
-          <summary className={thinkingClassName} role="status" aria-live="polite">
-            <span aria-hidden="true" />
-            <strong>{thinkingSummary}</strong>
-          </summary>
-          <ol className={styles.thinkingBody} aria-label="规划器思考步骤">
-            {visibleThinkingSteps.map((step, index) => (
-              <li key={`${index}-${step}`}>{step}</li>
+        <div className={styles.promptGrid} aria-label="快捷指令示例">
+          {Array.from(new Set(quickPrompts))
+            .slice(0, 4)
+            .map((example) => (
+              <button
+                key={example}
+                type="button"
+                disabled={isPlanning}
+                onClick={() => submit(example)}
+              >
+                {example}
+              </button>
             ))}
-          </ol>
-        </details>
-      ) : null}
+        </div>
 
-      <div className={styles.activity} ref={activityRef}>
-      <p className={styles.message} aria-live="polite">{message}</p>
-
-      {/* Empty-state guidance: only while nothing has happened yet, so the
-          first timeline entry / thinking panel takes over the space. */}
-      {recentTimeline.length === 0 && !isPlanning && thinkingDurationMs === null && !pendingConfirmation ? (
-        <div className={styles.idleGuide} aria-label="助手使用指引">
-          {phaseGuideItems[phase].map((item) => (
-            <div key={item} className={styles.idleGuideItem}>
+        {isPlanning || thinkingDurationMs !== null || thinkingSteps.length > 0 ? (
+          <details className={styles.thinkingPanel}>
+            <summary className={thinkingClassName} role="status" aria-live="polite">
               <span aria-hidden="true" />
-              {item}
+              <strong>{thinkingSummary}</strong>
+            </summary>
+            <ol className={styles.thinkingBody} aria-label="规划器思考步骤">
+              {visibleThinkingSteps.map((step, index) => (
+                <li key={`${index}-${step}`}>{step}</li>
+              ))}
+            </ol>
+          </details>
+        ) : null}
+
+        <div className={styles.activity} ref={activityRef}>
+          <p className={styles.message} aria-live="polite">
+            {message}
+          </p>
+
+          {/* Empty-state guidance: only while nothing has happened yet, so the
+          first timeline entry / thinking panel takes over the space. */}
+          {recentTimeline.length === 0 &&
+          !isPlanning &&
+          thinkingDurationMs === null &&
+          !pendingConfirmation ? (
+            <div className={styles.idleGuide} aria-label="助手使用指引">
+              {phaseGuideItems[phase].map((item) => (
+                <div key={item} className={styles.idleGuideItem}>
+                  <span aria-hidden="true" />
+                  {item}
+                </div>
+              ))}
             </div>
-          ))}
+          ) : null}
+
+          {recentTimeline.length > 0 ? (
+            <ol className={styles.timeline} aria-label="最近助手记录">
+              {recentTimeline.map((entry) => (
+                <li key={`${entry.at}-${entry.type}`}>
+                  <span>{entry.type}</span>
+                  <strong>{entry.text}</strong>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+
+          {pendingConfirmation ? (
+            <div
+              className={styles.confirmation}
+              role="alertdialog"
+              aria-label={pendingConfirmation.label}
+            >
+              <strong>{pendingConfirmation.label}</strong>
+              <div className={styles.confirmationActions}>
+                <button type="button" onClick={onReject}>
+                  取消
+                </button>
+                <button type="button" onClick={onConfirm}>
+                  确认
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-
-      {recentTimeline.length > 0 ? (
-        <ol className={styles.timeline} aria-label="最近助手记录">
-          {recentTimeline.map((entry) => (
-            <li key={`${entry.at}-${entry.type}`}>
-              <span>{entry.type}</span>
-              <strong>{entry.text}</strong>
-            </li>
-          ))}
-        </ol>
-      ) : null}
-
-      {pendingConfirmation ? (
-        <div className={styles.confirmation} role="alertdialog" aria-label={pendingConfirmation.label}>
-          <strong>{pendingConfirmation.label}</strong>
-          <div className={styles.confirmationActions}>
-            <button type="button" onClick={onReject}>取消</button>
-            <button type="button" onClick={onConfirm}>确认</button>
-          </div>
-        </div>
-      ) : null}
-      </div>
-
       </div>
 
       <form
@@ -294,10 +293,7 @@ export default function ExperimentAgentPanel({ navigateTo }: ContainerProps) {
   // useCallback-stable, so destructuring keeps the identities without
   // depending on the per-render `agent` object itself.
   const { confirmPendingAction, submitPrompt } = agent;
-  const handleConfirm = useCallback(
-    () => void confirmPendingAction(),
-    [confirmPendingAction],
-  );
+  const handleConfirm = useCallback(() => void confirmPendingAction(), [confirmPendingAction]);
   const handleSubmitPrompt = useCallback(
     (value: string) => void submitPrompt(value),
     [submitPrompt],
@@ -312,7 +308,10 @@ export default function ExperimentAgentPanel({ navigateTo }: ContainerProps) {
     const previous = recentTimelineRef.current;
     const next = agent.recentTimeline;
 
-    if (previous.length === next.length && previous.every((entry, index) => entry === next[index])) {
+    if (
+      previous.length === next.length &&
+      previous.every((entry, index) => entry === next[index])
+    ) {
       return previous;
     }
 

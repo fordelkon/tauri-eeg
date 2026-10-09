@@ -37,7 +37,9 @@ export type AgentPlannerResponse = {
   requiresConfirmation: boolean;
 };
 
-export async function requestAgentPlan(request: AgentPlannerRequest): Promise<AgentPlannerResponse> {
+export async function requestAgentPlan(
+  request: AgentPlannerRequest,
+): Promise<AgentPlannerResponse> {
   return invoke<AgentPlannerResponse>('plan_agent_action', { request });
 }
 
@@ -99,15 +101,20 @@ function readStreamEvent(
     return null;
   }
   if (eventName === 'error') {
-    const message = isRecord(payload) && typeof payload.error === 'string' && payload.error
-      ? payload.error
-      : 'Agent planner stream failed.';
+    const message =
+      isRecord(payload) && typeof payload.error === 'string' && payload.error
+        ? payload.error
+        : 'Agent planner stream failed.';
     throw new Error(message);
   }
   if (eventName === 'response') {
     // Minimal shape guard before the cast: unknown actions and params are
     // narrowed downstream, but status/action must at least be strings.
-    if (isRecord(payload) && typeof payload.status === 'string' && typeof payload.action === 'string') {
+    if (
+      isRecord(payload) &&
+      typeof payload.status === 'string' &&
+      typeof payload.action === 'string'
+    ) {
       return payload as AgentPlannerResponse;
     }
     return null;

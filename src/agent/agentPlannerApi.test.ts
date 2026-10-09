@@ -33,11 +33,10 @@ function sseResponse(events: string[]) {
     ok: true,
     body: {
       getReader: () => ({
-        read: async (): Promise<{ done: boolean; value: Uint8Array | undefined }> => (
+        read: async (): Promise<{ done: boolean; value: Uint8Array | undefined }> =>
           index < events.length
             ? { done: false, value: encoder.encode(events[index++]) }
-            : { done: true, value: undefined }
-        ),
+            : { done: true, value: undefined },
         cancel: async (): Promise<void> => undefined,
       }),
     },
@@ -66,7 +65,8 @@ describe('requestAgentPlanStream base-URL cache', () => {
 
   it('resolves the planner base URL once and reuses it for subsequent requests', async () => {
     vi.mocked(invoke).mockResolvedValue('http://127.0.0.1:8722');
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce(sseResponse([responseEvent(plannerResponse)]))
       .mockResolvedValueOnce(sseResponse([responseEvent(plannerResponse)]));
     vi.stubGlobal('fetch', fetchMock);
@@ -86,7 +86,8 @@ describe('requestAgentPlanStream base-URL cache', () => {
     vi.mocked(invoke)
       .mockResolvedValueOnce('http://127.0.0.1:8722')
       .mockResolvedValueOnce('http://127.0.0.1:9901');
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
       .mockResolvedValueOnce(sseResponse([responseEvent(plannerResponse)]));
     vi.stubGlobal('fetch', fetchMock);
@@ -102,7 +103,8 @@ describe('requestAgentPlanStream base-URL cache', () => {
 
   it('keeps the cached base URL when a request is merely aborted', async () => {
     vi.mocked(invoke).mockResolvedValue('http://127.0.0.1:8722');
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockRejectedValueOnce(new DOMException('The operation was aborted.', 'AbortError'))
       .mockResolvedValueOnce(sseResponse([responseEvent(plannerResponse)]));
     vi.stubGlobal('fetch', fetchMock);

@@ -4,14 +4,24 @@ import { describeParadigmQueueProgress } from './paradigmBlockQueue';
 import { ParadigmExperiment } from './paradigmExperiment';
 import { toLibraryErrorMessage } from './paradigmSessionKinds';
 import {
-  initialParadigmSessionState, paradigmSessionReducer,
-  type ParadigmSessionAction, type ParadigmSessionState,
+  initialParadigmSessionState,
+  paradigmSessionReducer,
+  type ParadigmSessionAction,
+  type ParadigmSessionState,
 } from './paradigmSessionState';
 import { isVideoDurationOutOfRange } from './paradigmTimeline';
-import type { ParadigmSessionKind, ParadigmSessionSummary, ParadigmTrialPlanItem, SelfReport } from './types';
+import type {
+  ParadigmSessionKind,
+  ParadigmSessionSummary,
+  ParadigmTrialPlanItem,
+  SelfReport,
+} from './types';
 
 type Operation = 'idle' | 'begin' | 'end' | 'finalize' | 'skip' | 'complete';
-export type TrialCallbackToken = Pick<ParadigmSessionState, 'phase' | 'trialPhase' | 'currentTrialIndex'>;
+export type TrialCallbackToken = Pick<
+  ParadigmSessionState,
+  'phase' | 'trialPhase' | 'currentTrialIndex'
+>;
 export type ParadigmExecutionSnapshot = {
   state: ParadigmSessionState;
   operation: Operation;
@@ -32,18 +42,29 @@ export class ParadigmExecution {
   private pending: Promise<void> = Promise.resolve();
   private termination: Promise<void> | null = null;
   private snapshot: ParadigmExecutionSnapshot = {
-    state: initialParadigmSessionState, operation: 'idle', blockGate: -1,
-    summary: null, summaryError: null,
+    state: initialParadigmSessionState,
+    operation: 'idle',
+    blockGate: -1,
+    summary: null,
+    summaryError: null,
   };
 
-  constructor(private request: {
-    runId: string; queue: ParadigmTrialPlanItem[]; sessionKind: ParadigmSessionKind;
-  }) { this.experiment = new ParadigmExperiment(request.runId); }
+  constructor(
+    private request: {
+      runId: string;
+      queue: ParadigmTrialPlanItem[];
+      sessionKind: ParadigmSessionKind;
+    },
+  ) {
+    this.experiment = new ParadigmExperiment(request.runId);
+  }
 
   getSnapshot = () => this.snapshot;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
-    return () => { this.listeners.delete(listener); };
+    return () => {
+      this.listeners.delete(listener);
+    };
   };
 
   private publish(patch: Partial<ParadigmExecutionSnapshot>) {
@@ -60,7 +81,11 @@ export class ParadigmExecution {
     if (this.started) return;
     this.started = true;
     this.transition({ type: 'enter_setup' });
-    this.transition({ type: 'session_started', queue: this.request.queue, sessionKind: this.request.sessionKind });
+    this.transition({
+      type: 'session_started',
+      queue: this.request.queue,
+      sessionKind: this.request.sessionKind,
+    });
     this.transition({ type: 'session_id_resolved', sessionId: this.request.runId });
     this.reconcile();
   };
@@ -74,20 +99,27 @@ export class ParadigmExecution {
 
   private current(token: TrialCallbackToken) {
     const state = this.snapshot.state;
-    return !this.stopped && state.phase === 'running' && token.phase === state.phase
-      && token.currentTrialIndex === state.currentTrialIndex && token.trialPhase === state.trialPhase;
+    return (
+      !this.stopped &&
+      state.phase === 'running' &&
+      token.phase === state.phase &&
+      token.currentTrialIndex === state.currentTrialIndex &&
+      token.trialPhase === state.trialPhase
+    );
   }
 
   private execute(operation: Exclude<Operation, 'idle'>, task: () => Promise<void>) {
     if (this.stopped || this.snapshot.operation !== 'idle') return this.pending;
     this.publish({ operation });
-    this.pending = task().catch((error: unknown) => {
-      if (operation === 'complete') this.publish({ summaryError: toLibraryErrorMessage(error) });
-      this.fail(error);
-    }).finally(() => {
-      this.publish({ operation: 'idle' });
-      this.reconcile();
-    });
+    this.pending = task()
+      .catch((error: unknown) => {
+        if (operation === 'complete') this.publish({ summaryError: toLibraryErrorMessage(error) });
+        this.fail(error);
+      })
+      .finally(() => {
+        this.publish({ operation: 'idle' });
+        this.reconcile();
+      });
     return this.pending;
   }
 
@@ -104,8 +136,11 @@ export class ParadigmExecution {
     this.transition({ type: 'session_failed', message });
     const pending = this.pending;
     this.termination = pending.then(async () => {
-      try { await this.experiment.interrupt(reason); }
-      finally { await finishRun(this.request.runId, 'aborted', finishReason); }
+      try {
+        await this.experiment.interrupt(reason);
+      } finally {
+        await finishRun(this.request.runId, 'aborted', finishReason);
+      }
     });
     return this.termination;
   }
@@ -124,7 +159,11 @@ export class ParadigmExecution {
     }
     if (state.phase !== 'running') return;
     if (state.trialPhase === 'interTrial') {
-      const progress = describeParadigmQueueProgress(state.queue, state.currentTrialIndex, this.snapshot.blockGate);
+      const progress = describeParadigmQueueProgress(
+        state.queue,
+        state.currentTrialIndex,
+        this.snapshot.blockGate,
+      );
       const plan = state.queue[progress.nextTrialIndex];
       if (!plan || progress.awaitingBlockGate) return;
       void this.execute('begin', async () => {
@@ -138,9 +177,11 @@ export class ParadigmExecution {
       });
     } else if (state.trialPhase === 'qualityCheck' && state.selfReport) {
       const selfReport = state.selfReport;
-      const flags = this.videoDuration !== null && isVideoDurationOutOfRange(this.videoDuration)
-        ? ['video_duration_out_of_range'] : [];
-      const quality = flags.length ? 'artifact_rejected' : state.suggestedQuality ?? 'accepted';
+      const flags =
+        this.videoDuration !== null && isVideoDurationOutOfRange(this.videoDuration)
+          ? ['video_duration_out_of_range']
+          : [];
+      const quality = flags.length ? 'artifact_rejected' : (state.suggestedQuality ?? 'accepted');
       void this.execute('finalize', async () => {
         await this.experiment.finalize(selfReport, quality, flags);
         if (!this.stopped) this.transition({ type: 'trial_finalized' });
@@ -203,8 +244,15 @@ export class ParadigmExecution {
     if (!this.current(token) || this.snapshot.operation !== 'idle') return;
     const plan = this.snapshot.state.queue[token.currentTrialIndex];
     if (!plan) return;
-    this.transition({ type: 'self_report_submitted', selfReport,
-      suggestedQuality: evaluateParadigmAcceptance(plan.emotion, selfReport.valence, selfReport.arousal) });
+    this.transition({
+      type: 'self_report_submitted',
+      selfReport,
+      suggestedQuality: evaluateParadigmAcceptance(
+        plan.emotion,
+        selfReport.valence,
+        selfReport.arousal,
+      ),
+    });
     this.reconcile();
   }
 

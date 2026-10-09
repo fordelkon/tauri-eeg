@@ -124,8 +124,12 @@ describe('progress disclosure contract (round 7)', () => {
     // No new state sources: nodes/doneNodes come from the memoized pipeline
     // hook, handlers are the same station/chip callbacks, and the dialog
     // open flag is the page-owned one the scale panel already consumes.
-    expect(pageSource).toContain('nodes={pipelineNodes} doneNodes={doneNodes}');
-    expect(pageSource).toContain('onStationClick={handleStationClick} onChipClick={openReview}');
-    expect(pageSource).toContain('scaleDialogOpen={isScaleDialogOpen} step={state.step}');
+    // (Asserted per prop so formatting-only JSX rewraps stay green.)
+    expect(pageSource).toContain('nodes={pipelineNodes}');
+    expect(pageSource).toContain('doneNodes={doneNodes}');
+    expect(pageSource).toContain('onStationClick={handleStationClick}');
+    expect(pageSource).toContain('onChipClick={openReview}');
+    expect(pageSource).toContain('scaleDialogOpen={isScaleDialogOpen}');
+    expect(pageSource).toContain('step={state.step}');
   });
 });

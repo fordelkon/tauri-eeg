@@ -92,7 +92,9 @@ export function SetupStepPanel({ flow }: SetupStepPanelProps) {
 
   return (
     <section className={styles.stageBody} aria-label="选择被试与评价配置">
-      <p className={styles.noteCallout}>实验模式、COM 连接及 ActiView 外部保存确认请先在实验设置中完成。正式实验不会自动降级为排练。</p>
+      <p className={styles.noteCallout}>
+        实验模式、COM 连接及 ActiView 外部保存确认请先在实验设置中完成。正式实验不会自动降级为排练。
+      </p>
       <div className={styles.fieldGrid}>
         <label className={styles.fieldLabel}>
           <span className={styles.fieldLabelText}>被试 ID</span>
@@ -109,10 +111,14 @@ export function SetupStepPanel({ flow }: SetupStepPanelProps) {
           <select
             className={styles.selectInput}
             value={state.durationMinutes}
-            onChange={(event) => flow.updateDraft({ durationMinutes: Number(event.currentTarget.value) })}
+            onChange={(event) =>
+              flow.updateDraft({ durationMinutes: Number(event.currentTarget.value) })
+            }
           >
             {DURATION_MINUTE_OPTIONS.map((minutes) => (
-              <option key={minutes} value={minutes}>{minutes}</option>
+              <option key={minutes} value={minutes}>
+                {minutes}
+              </option>
             ))}
           </select>
         </label>
@@ -148,7 +154,11 @@ export function SetupStepPanel({ flow }: SetupStepPanelProps) {
         </p>
       </div>
 
-      {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
+      {flow.actionError ? (
+        <div className={styles.errorBanner} role="alert">
+          {flow.actionError}
+        </div>
+      ) : null}
 
       <div className={styles.stagePrimaryRow}>
         <Button
@@ -161,7 +171,9 @@ export function SetupStepPanel({ flow }: SetupStepPanelProps) {
         </Button>
         {/* The disabled CTA never guesses itself: say what is missing. */}
         {state.subjectId.trim().length === 0 ? (
-          <p className={styles.stageHint} role="note">填写被试 ID 后即可开始。</p>
+          <p className={styles.stageHint} role="note">
+            填写被试 ID 后即可开始。
+          </p>
         ) : null}
       </div>
     </section>
@@ -203,7 +215,11 @@ export function InductionStepPanel({
     <section className={styles.stageBody} aria-label="情绪诱发">
       {state.eventLogStatus === 'interrupted' ? eventLogUnavailableHint : null}
 
-      {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
+      {flow.actionError ? (
+        <div className={styles.errorBanner} role="alert">
+          {flow.actionError}
+        </div>
+      ) : null}
 
       {flow.isInductionPoolLoading ? (
         <p className={`${styles.panelHint} ${styles.loadingHint}`}>正在加载诱发素材库…</p>
@@ -233,7 +249,11 @@ export function InductionStepPanel({
             若素材库文件已缺失，请先到 实验设置页补齐素材库，或重置流程返回设置步。
           </Alert>
           <div className={styles.stageSecondaryRow}>
-            <button type="button" className={styles.secondaryAction} onClick={onRetryInductionVideo}>
+            <button
+              type="button"
+              className={styles.secondaryAction}
+              onClick={onRetryInductionVideo}
+            >
               重试加载素材
             </button>
             <button type="button" className={styles.secondaryAction} onClick={onResetFlow}>
@@ -289,7 +309,11 @@ export function ScaleStepPanel({
     <section className={styles.stageBody} aria-label={isBaseline ? '诱发后量表' : '条件后量表'}>
       {!isBaseline && skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
 
-      {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
+      {flow.actionError ? (
+        <div className={styles.errorBanner} role="alert">
+          {flow.actionError}
+        </div>
+      ) : null}
 
       <div className={styles.stagePrimaryRow}>
         <Button
@@ -375,12 +399,26 @@ export function ConditionStepPanel({
     <section className={styles.stageBody} aria-label="条件执行">
       {state.eventLogStatus === 'interrupted' ? eventLogUnavailableHint : null}
 
-      {flow.actionError ? <div className={styles.errorBanner} role="alert">{flow.actionError}</div> : null}
+      {flow.actionError ? (
+        <div className={styles.errorBanner} role="alert">
+          {flow.actionError}
+        </div>
+      ) : null}
 
-      {isMusic ? <EffectRegulationPlayer method="music" remainingSeconds={isWindowElapsed ? 0 : null} interrupted={state.interrupted} onPlaying={flow.beginRegulation} onError={flow.playbackError} /> : null}
+      {isMusic ? (
+        <EffectRegulationPlayer
+          method="music"
+          remainingSeconds={isWindowElapsed ? 0 : null}
+          interrupted={state.interrupted}
+          onPlaying={flow.beginRegulation}
+          onError={flow.playbackError}
+        />
+      ) : null}
       {isVideoPresentationActive ? (
         <EffectFullscreenVideoRegulation
-          assets={flow.regulationPoolStatus.kind === 'ready' ? flow.regulationPoolStatus.entries : []}
+          assets={
+            flow.regulationPoolStatus.kind === 'ready' ? flow.regulationPoolStatus.entries : []
+          }
           finishMode={finishMode}
           isPlaying={isVideoPlaybackRequested || isStarted}
           interrupted={state.interrupted}
@@ -418,7 +456,11 @@ export function ConditionStepPanel({
                   className={styles.primaryCta}
                   variant="contained"
                   disabled={state.interrupted || isMusic}
-                  onClick={requiresVideoPool ? () => setIsVideoRegulationPrepared(true) : () => flow.beginRegulation()}
+                  onClick={
+                    requiresVideoPool
+                      ? () => setIsVideoRegulationPrepared(true)
+                      : () => flow.beginRegulation()
+                  }
                 >
                   {requiresVideoPool ? '进入全屏准备' : isNaturalRecovery ? '开始静息' : '开始调控'}
                 </Button>
@@ -432,11 +474,7 @@ export function ConditionStepPanel({
         </>
       ) : (
         <>
-          <ConditionCountdown
-            state={state}
-            windowNoun={windowNoun}
-            onElapsed={onWindowElapsed}
-          />
+          <ConditionCountdown state={state} windowNoun={windowNoun} onElapsed={onWindowElapsed} />
 
           {/* Embedded regulation media: the stage hosts the player itself;
               it pauses when the window elapsed and unmounts (stopping
@@ -453,26 +491,48 @@ export function ConditionStepPanel({
 
           {/* Strong duration constraint: the primary exit unlocks only at
               zero; leaving early rides the double-confirmed skip below. */}
-          <div className={state.method === 'video' && !isNaturalRecovery ? styles.visuallyHidden : styles.stagePrimaryRow}>
+          <div
+            className={
+              state.method === 'video' && !isNaturalRecovery
+                ? styles.visuallyHidden
+                : styles.stagePrimaryRow
+            }
+          >
             <Button
               className={styles.primaryCta}
               variant="contained"
               disabled={state.interrupted || finishMode.mode !== 'finish'}
-              aria-describedby={finishMode.mode !== 'finish' ? 'regulation-countdown-hint' : undefined}
+              aria-describedby={
+                finishMode.mode !== 'finish' ? 'regulation-countdown-hint' : undefined
+              }
               onClick={onFinishRegulation}
             >
               {isNaturalRecovery ? '结束静息，进行复测' : '结束调控，进行复测'}
             </Button>
           </div>
 
-          <div className={state.method === 'video' && !isNaturalRecovery ? styles.visuallyHidden : styles.stageSecondaryRow}>
+          <div
+            className={
+              state.method === 'video' && !isNaturalRecovery
+                ? styles.visuallyHidden
+                : styles.stageSecondaryRow
+            }
+          >
             {isNaturalRecovery ? null : (
-              <button type="button" className={styles.secondaryAction} onClick={flow.openRegulationPage}>
+              <button
+                type="button"
+                className={styles.secondaryAction}
+                onClick={flow.openRegulationPage}
+              >
                 在独立页打开{methodLabel}
               </button>
             )}
             {finishMode.mode === 'requires-skip' ? (
-              <button type="button" className={styles.secondaryActionDanger} onClick={onSkipRemaining}>
+              <button
+                type="button"
+                className={styles.secondaryActionDanger}
+                onClick={onSkipRemaining}
+              >
                 跳过剩余时长…
               </button>
             ) : null}

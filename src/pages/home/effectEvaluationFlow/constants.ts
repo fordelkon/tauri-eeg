@@ -47,8 +47,7 @@ export function labelForCondition(condition: string | null): string {
     return '调控条件（legacy 旧流程）';
   }
 
-  return EFFECT_CONDITION_OPTIONS.find((option) => option.value === condition)?.label
-    ?? condition;
+  return EFFECT_CONDITION_OPTIONS.find((option) => option.value === condition)?.label ?? condition;
 }
 
 /** Wizard steps, in execution order. */

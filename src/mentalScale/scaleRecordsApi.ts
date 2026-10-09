@@ -1,7 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { PHQ4_TIMEFRAME } from './instruments/phq4';
 import type { MentalScaleAnswers, MentalScaleDefinition } from './mentalScaleGate';
-import { buildMentalScaleStatus, measuredDimensionKeys, type MentalScaleDimensionKey } from './mentalScaleStatus';
+import {
+  buildMentalScaleStatus,
+  measuredDimensionKeys,
+  type MentalScaleDimensionKey,
+} from './mentalScaleStatus';
 import { readStoredSubjectId } from '../storage/currentSubject';
 
 /**
@@ -179,9 +183,10 @@ export function persistMentalScaleSubmission(
     userId,
     // Explicit binding wins; otherwise fall back to the shared subject memory
     // (still null when no subject was ever configured).
-    subjectId: options.subjectId !== undefined
-      ? normalizeSubjectId(options.subjectId)
-      : normalizeSubjectId(readStoredSubjectId()),
+    subjectId:
+      options.subjectId !== undefined
+        ? normalizeSubjectId(options.subjectId)
+        : normalizeSubjectId(readStoredSubjectId()),
     scaleId: scale.scaleId,
     phase: options.phase ?? 'baseline',
     dimensionScores: buildScaleDimensionScores(scale, answers),
@@ -297,22 +302,22 @@ export type EffectHistoryEntryView = {
 /** camelCase mirror of the backend ExportEffectReportInput. */
 export type ExportEffectReportInput =
   | {
-    kind: 'single';
-    path: string;
-    format?: 'json' | 'csv';
-    baselineRecordId: string;
-    postRecordId: string;
-  }
+      kind: 'single';
+      path: string;
+      format?: 'json' | 'csv';
+      baselineRecordId: string;
+      postRecordId: string;
+    }
   | { kind: 'batch'; path: string }
   | {
-    /** R7, 大纲 6.3 步骤 5: cross-condition comparison export with both
-     * legs' trace, the per-dimension inputs, and the frozen formula note. */
-    kind: 'comparison';
-    path: string;
-    format?: 'json' | 'csv';
-    subjectId: string;
-    emotion: string;
-  };
+      /** R7, 大纲 6.3 步骤 5: cross-condition comparison export with both
+       * legs' trace, the per-dimension inputs, and the frozen formula note. */
+      kind: 'comparison';
+      path: string;
+      format?: 'json' | 'csv';
+      subjectId: string;
+      emotion: string;
+    };
 
 export type ExportEffectReportResultView = {
   path: string;
@@ -341,4 +346,3 @@ export function exportEffectReport(
 ): Promise<ExportEffectReportResultView> {
   return invoke<ExportEffectReportResultView>('export_effect_report', { input });
 }
-
