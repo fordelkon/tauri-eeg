@@ -44,7 +44,8 @@ pub fn init_app_db() -> Result<AppDb, String> {
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;
          PRAGMA synchronous = NORMAL;
-         PRAGMA busy_timeout = 1000;",
+         PRAGMA busy_timeout = 1000;
+         PRAGMA foreign_keys = ON;",
     )
     .map_err(|_| "Failed to configure database.".to_string())?;
 
