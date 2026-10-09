@@ -10,18 +10,19 @@ const statusLabels: Record<string, string> = { active: '进行中', running: '�
 const flowLabels: Record<string, string> = { effect_evaluation: '效果评价', personal_calibration: '个人校准', held_out_generation: '独立诱发' };
 export default function ExperimentRunHistory() {
   const { currentUser } = useAuth();
+  const userId = currentUser?.id ?? null;
   const [runs, setRuns] = useState<ExperimentRun[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
-  const refresh = async () => { setRuns(await listRuns(currentUser?.id)); };
+  const refresh = async () => { setRuns(await listRuns(userId ?? undefined)); };
   useEffect(() => {
-    if (!isTauriAvailable() || !currentUser) return;
+    if (!isTauriAvailable() || !userId) return;
     let mounted = true;
-    void listRuns(currentUser.id).then((items) => { if (mounted) setRuns(items); })
+    void listRuns(userId).then((items) => { if (mounted) setRuns(items); })
       .catch((failure: unknown) => { if (mounted) setError(describeFriendlyError(failure, '读取实验记录')); });
     return () => { mounted = false; };
-  }, [currentUser?.id]);
+  }, [userId]);
   const perform = async (action: () => Promise<void>) => {
     setBusy(true); setError(''); setNotice('');
     try { await action(); } catch (failure) { setError(describeFriendlyError(failure, '实验记录操作')); }

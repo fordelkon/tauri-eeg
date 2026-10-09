@@ -67,6 +67,10 @@ function parseSseEvent(rawEvent: string): { eventName: string; data: string } | 
   return { eventName, data: dataLines.join('\n') };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function readStreamEvent(
   rawEvent: string,
   options: AgentPlanStreamOptions,
@@ -77,19 +81,36 @@ function readStreamEvent(
   }
 
   const { data, eventName } = parsedEvent;
-  const payload = JSON.parse(data) as { delta?: string; error?: string } | AgentPlannerResponse;
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(data);
+  } catch {
+    // SSE tolerates dropped events: a malformed data line is skipped instead
+    // of killing a stream that may already have produced valid output.
+    return null;
+  }
+
   if (eventName === 'thinking_delta') {
-    const delta = 'delta' in payload && typeof payload.delta === 'string' ? payload.delta : '';
+    const delta = isRecord(payload) && typeof payload.delta === 'string' ? payload.delta : '';
     if (delta) {
       options.onThinkingDelta?.(delta);
     }
     return null;
   }
   if (eventName === 'error') {
-    throw new Error('error' in payload && payload.error ? payload.error : 'Agent planner stream failed.');
+    const message = isRecord(payload) && typeof payload.error === 'string' && payload.error
+      ? payload.error
+      : 'Agent planner stream failed.';
+    throw new Error(message);
   }
   if (eventName === 'response') {
-    return payload as AgentPlannerResponse;
+    // Minimal shape guard before the cast: unknown actions and params are
+    // narrowed downstream, but status/action must at least be strings.
+    if (isRecord(payload) && typeof payload.status === 'string' && typeof payload.action === 'string') {
+      return payload as AgentPlannerResponse;
+    }
+    return null;
   }
 
   return null;
@@ -144,35 +165,45 @@ export async function requestAgentPlanStream(
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
   let buffer = '';
+  let streamDone = false;
 
-  while (true) {
-    const { done, value } = await reader.read();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
 
-    if (options.signal?.aborted) {
-      void reader.cancel().catch(() => undefined);
-      throw new DOMException('Agent planner stream aborted.', 'AbortError');
+      if (options.signal?.aborted) {
+        throw new DOMException('Agent planner stream aborted.', 'AbortError');
+      }
+
+      buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() ?? '';
+
+      for (const rawEvent of events) {
+        const plannerResponse = readStreamEvent(rawEvent, options);
+        if (plannerResponse) {
+          return plannerResponse;
+        }
+      }
+
+      if (done) {
+        streamDone = true;
+        break;
+      }
     }
 
-    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
-    const events = buffer.split(/\r?\n\r?\n/);
-    buffer = events.pop() ?? '';
-
-    for (const rawEvent of events) {
-      const plannerResponse = readStreamEvent(rawEvent, options);
+    if (buffer.trim()) {
+      const plannerResponse = readStreamEvent(buffer, options);
       if (plannerResponse) {
         return plannerResponse;
       }
     }
-
-    if (done) {
-      break;
-    }
-  }
-
-  if (buffer.trim()) {
-    const plannerResponse = readStreamEvent(buffer, options);
-    if (plannerResponse) {
-      return plannerResponse;
+  } finally {
+    // Every exit short of a clean end-of-stream (early return, parse error,
+    // abort) must release the body lock; the connection otherwise stays open
+    // until GC.
+    if (!streamDone) {
+      void reader.cancel().catch(() => undefined);
     }
   }
 

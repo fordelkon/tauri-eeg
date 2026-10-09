@@ -267,6 +267,7 @@ export default function ParadigmSetupPanel({
     queuePreviewInputsRef,
     sessionKind,
     sessionRunIdTrimmed,
+    setQueueError,
     subjectIdTrimmed,
   ]);
 

@@ -69,6 +69,9 @@ export const ConditionCountdown = memo(function ConditionCountdown({
     }, 500);
 
     return () => window.clearInterval(intervalId);
+    // Field-scoped deps on purpose: the interval must not restart when
+    // unrelated state fields change, only when the timing inputs move.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasElapsed, state.durationMinutes, state.regulationStartedAtMs, state.regulationStartedAtMonotonicMs]);
 
   const totalSeconds = state.durationMinutes * 60;

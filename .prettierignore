@@ -1,0 +1,6 @@
+dist
+node_modules
+src-tauri
+music-service
+video_paradigm
+pnpm-lock.yaml

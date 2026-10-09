@@ -8,6 +8,10 @@ export function useEffectResultReports(state: EffectEvaluationFlowState, userId:
   const reports = useMemo(() => new EffectResultReports(
     { subjectId, emotion, baselineRecordId, postRecordId },
     { computeSummary: computeRegulationEffect, computeComparison: computeConditionEffect },
+    // runId and userId are intentional rebuild keys even though the
+    // constructor does not read them: a new experiment run (or signed-in
+    // user) must get a fresh reports instance, never a stale cache.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [runId, userId, subjectId, emotion, baselineRecordId, postRecordId]);
   const snapshot = useSyncExternalStore(reports.subscribe, reports.getSnapshot);
 

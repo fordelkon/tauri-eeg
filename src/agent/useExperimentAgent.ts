@@ -96,6 +96,9 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
 
   useEffect(() => {
     return () => {
+      // Deliberate ref read: the cleanup must abort whatever planner request
+      // is in flight at unmount, not the one current when the effect ran.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       plannerAbortRef.current?.abort();
       thinkingBuffer.dispose();
     };

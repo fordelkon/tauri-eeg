@@ -21,6 +21,9 @@ export function useEffectPipelineNodes(
 } {
   const pipelineNodes = useMemo(
     () => deriveEffectPipelineNodes(state, { hasResultSummary }),
+    // Field-scoped deps on purpose (rationale above): unrelated dispatches
+    // must keep the same node objects so the memoized bands bail out.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       state.step,
       state.subjectId,

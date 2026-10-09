@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState, type CSSProperties } from 'react';
 import { formatTime } from './musicRegulationOptions';
 import styles from './MusicRegulation.module.css';
 
@@ -64,7 +64,7 @@ export const PlaybackTimeline = memo(function PlaybackTimeline({
         max="100"
         value={progress}
         aria-label="播放位置"
-        style={{ '--progress': `${progress}%` } as import('react').CSSProperties}
+        style={{ '--progress': `${progress}%` } as CSSProperties}
         onChange={(event) => handleSeek(Number(event.currentTarget.value))}
       />
       <span>-{formatTime(remainingTime)}</span>

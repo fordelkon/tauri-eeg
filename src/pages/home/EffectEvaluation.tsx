@@ -163,13 +163,16 @@ export default function EffectEvaluation() {
     }
   };
 
+  // The flow hook's callbacks are useCallback-stable, so destructuring keeps
+  // the identities without depending on the per-render `flow` object itself.
+  const { playbackError, loadSummary, loadConditionComparison } = flow;
   const handleInductionVideoError = useCallback(() => {
     setInductionVideoFailed(true);
-    flow.playbackError();
-  }, [setInductionVideoFailed, flow.playbackError]);
+    playbackError();
+  }, [setInductionVideoFailed, playbackError]);
 
-  const handleRetrySummary = useCallback(() => void flow.loadSummary(), [flow.loadSummary]);
-  const handleRetryComparison = useCallback(() => void flow.loadConditionComparison(), [flow.loadConditionComparison]);
+  const handleRetrySummary = useCallback(() => void loadSummary(), [loadSummary]);
+  const handleRetryComparison = useCallback(() => void loadConditionComparison(), [loadConditionComparison]);
   const { currentNode, doneNodes, pipelineNodes } = useEffectPipelineNodes(
     state,
     flow.summary !== null,

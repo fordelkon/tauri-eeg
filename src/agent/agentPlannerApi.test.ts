@@ -38,6 +38,7 @@ function sseResponse(events: string[]) {
             ? { done: false, value: encoder.encode(events[index++]) }
             : { done: true, value: undefined }
         ),
+        cancel: async (): Promise<void> => undefined,
       }),
     },
   };

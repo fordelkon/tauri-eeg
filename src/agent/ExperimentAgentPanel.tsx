@@ -290,14 +290,17 @@ export default function ExperimentAgentPanel({ navigateTo }: ContainerProps) {
   }, [currentUser?.id]);
 
   // Stable handler identities so the memoized view is skipped by container
-  // re-renders that do not change panel content.
+  // re-renders that do not change panel content. The hook's callbacks are
+  // useCallback-stable, so destructuring keeps the identities without
+  // depending on the per-render `agent` object itself.
+  const { confirmPendingAction, submitPrompt } = agent;
   const handleConfirm = useCallback(
-    () => void agent.confirmPendingAction(),
-    [agent.confirmPendingAction],
+    () => void confirmPendingAction(),
+    [confirmPendingAction],
   );
   const handleSubmitPrompt = useCallback(
-    (value: string) => void agent.submitPrompt(value),
-    [agent.submitPrompt],
+    (value: string) => void submitPrompt(value),
+    [submitPrompt],
   );
 
   // useExperimentAgent mints a fresh timeline slice on every render without

@@ -137,8 +137,11 @@ export async function requestAgentPlannerRecommendation(
     const plannerParams = normalizeAgentActionParams(response.params);
     await queueOrExecute(actionId, response.requiresConfirmation, plannerParams);
     return true;
-  } catch (reason) {
-    if (abortRef.current?.signal.aborted) {
+  } catch {
+    // Superseded by a newer request (abortRef moved on) or explicitly aborted:
+    // both are intentional stops, not planner failures, so keep the assistant
+    // marked available.
+    if (abortController.signal.aborted || abortRef.current !== abortController) {
       return true;
     }
 

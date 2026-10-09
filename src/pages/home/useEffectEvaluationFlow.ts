@@ -45,6 +45,10 @@ export function useEffectEvaluationFlow() {
   ));
   const snapshot = useSyncExternalStore(execution.subscribe, execution.getSnapshot);
   const { state } = snapshot;
+  // state.runId is an intentional rebuild key: the playback binding must be
+  // re-created per experiment run even though the callback body reads nothing
+  // from it directly.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const playback = useMemo(() => execution.bindPlayback(), [execution, state.runId]);
   const { inductionStatus, isInductionPoolLoading } = useEffectInductionPool(state.emotion, state.step);
   const { isRegulationPoolLoading, regulationPoolStatus } = useEffectRegulationPool(state.condition === 'regulation' && state.method === 'video', state.step);
