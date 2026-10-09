@@ -241,25 +241,10 @@ export function InductionStepPanel({
             </button>
           </div>
         </>
-      ) : isInductionPlaying && status.kind === 'ready' ? (
-        <EffectFullscreenInduction
-          entry={status.entry}
-          isPlaying={isInductionPlaying}
-          onError={onVideoError}
-          onFinished={() => void flow.completeInduction()}
-          onPlaying={() => flow.inductionOnset(status.entry.videoId)}
-          startError={flow.actionError}
-          isStarting={flow.isStartingRun}
-          interrupted={state.interrupted}
-          onReset={() => void flow.resetFlow()}
-          onStartPlayback={onBeginInduction}
-          retryCount={inductionRetryCount}
-          subjectId={state.subjectId}
-        />
       ) : status.kind === 'ready' ? (
         <EffectFullscreenInduction
           entry={status.entry}
-          isPlaying={false}
+          isPlaying={isInductionPlaying}
           onError={onVideoError}
           onFinished={() => void flow.completeInduction()}
           onPlaying={() => flow.inductionOnset(status.entry.videoId)}
