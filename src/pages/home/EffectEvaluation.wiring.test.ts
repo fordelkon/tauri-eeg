@@ -183,7 +183,7 @@ describe('six-step flow & condition split (R6 contract)', () => {
   test('the natural-recovery condition runs its countdown inside the wizard page', () => {
     const pageSource = readText(pageUrl);
     const panelsSource = readText(panelsUrl);
-    const flowSource = readText(new URL('./effectEvaluationFlow.ts', import.meta.url));
+    const flowSource = readText(new URL('./effectEvaluationFlow/regulation.ts', import.meta.url));
     expect(pageSource).toContain("state.condition === 'natural_recovery'");
     expect(panelsSource).toContain("'开始静息'");
     expect(panelsSource).toContain("'结束静息，进行复测'");
