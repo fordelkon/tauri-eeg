@@ -2,12 +2,33 @@ use rusqlite::Connection;
 use std::{
     fs,
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
+#[derive(Clone)]
 pub struct AppDb {
     // Arc so async commands can clone the handle into spawn_blocking closures.
     pub conn: Arc<Mutex<Connection>>,
+}
+
+impl AppDb {
+    /// Locks the connection, mapping lock poison to the standard user-facing
+    /// message. Prefer `with_conn` for plain read/write work.
+    pub fn lock(&self) -> Result<MutexGuard<'_, Connection>, String> {
+        self.conn
+            .lock()
+            .map_err(|_| "Database is unavailable.".to_string())
+    }
+
+    /// Runs `f` with the connection under the lock — the standard read/write
+    /// path. Long-running work (Argon2, filesystem IO) must run *outside* this
+    /// scope; see the login/reset commands for the drop-then-hash pattern.
+    pub fn with_conn<T>(
+        &self,
+        f: impl FnOnce(&Connection) -> Result<T, String>,
+    ) -> Result<T, String> {
+        f(&*self.lock()?)
+    }
 }
 
 pub fn init_app_db() -> Result<AppDb, String> {

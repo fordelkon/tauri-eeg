@@ -37,10 +37,10 @@ pub fn safe_username_dir_segment(username: &str) -> Result<String, String> {
     for ch in username.trim().chars() {
         if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
             value.push(ch);
-        } else if ch.is_whitespace() || ch == '.' || ch == '/' || ch == '\\' {
-            if !value.ends_with('_') {
-                value.push('_');
-            }
+        } else if (ch.is_whitespace() || ch == '.' || ch == '/' || ch == '\\')
+            && !value.ends_with('_')
+        {
+            value.push('_');
         }
     }
 
@@ -142,7 +142,6 @@ pub fn storage_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .app_data_dir()
         .map_err(|_| "Failed to resolve app data directory.".to_string())
 }
-
 
 pub fn music_user_dir(app: &tauri::AppHandle, username: &str) -> Result<PathBuf, String> {
     let roots = user_storage_roots(&storage_root(app)?, username)?;

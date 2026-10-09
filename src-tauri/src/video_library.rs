@@ -10,8 +10,8 @@ use std::{
 const LIBRARY_CACHE_TTL: Duration = Duration::from_secs(30);
 
 // Directory scans are expensive; reuse the last result per folder briefly.
-static LIBRARY_CACHE: Mutex<Option<HashMap<PathBuf, (Instant, Arc<VideoLibrary>)>>> =
-    Mutex::new(None);
+type LibraryCache = Mutex<Option<HashMap<PathBuf, (Instant, Arc<VideoLibrary>)>>>;
+static LIBRARY_CACHE: LibraryCache = Mutex::new(None);
 
 /// Shared handle to a cached `VideoLibrary`. The frontend only consumes the
 /// serialized JSON, so handing out the `Arc` (serialized through its inner
@@ -124,7 +124,8 @@ fn scan_video_library(root: &Path) -> Result<VideoLibrary, String> {
     }
 
     let index_path = find_index_path(root)?;
-    let text = fs::read_to_string(&index_path).map_err(|_| "无法读取视频库 JSON 索引。".to_string())?;
+    let text =
+        fs::read_to_string(&index_path).map_err(|_| "无法读取视频库 JSON 索引。".to_string())?;
     let index: std::collections::BTreeMap<String, LibrarySource> =
         serde_json::from_str(&text).map_err(|_| "视频库 JSON 索引格式无效。".to_string())?;
 
@@ -157,7 +158,12 @@ fn collect_mp4_files(root: &Path) -> Result<HashSet<String>, String> {
     for entry in entries {
         let entry = entry.map_err(|_| "无法读取视频库文件夹。".to_string())?;
         let path = entry.path();
-        if path.extension().and_then(|value| value.to_str()).map(str::to_lowercase) == Some("mp4".to_string()) {
+        if path
+            .extension()
+            .and_then(|value| value.to_str())
+            .map(str::to_lowercase)
+            == Some("mp4".to_string())
+        {
             if let Some(name) = path.file_name().and_then(|value| value.to_str()) {
                 files.insert(name.to_lowercase());
             }
@@ -177,13 +183,21 @@ fn find_index_path(root: &Path) -> Result<PathBuf, String> {
         .map_err(|_| "无法读取视频库文件夹。".to_string())?
         .filter_map(Result::ok)
         .map(|entry| entry.path())
-        .filter(|path| path.extension().and_then(|value| value.to_str()).map(str::to_lowercase) == Some("json".to_string()))
+        .filter(|path| {
+            path.extension()
+                .and_then(|value| value.to_str())
+                .map(str::to_lowercase)
+                == Some("json".to_string())
+        })
         .collect();
 
     match json_files.as_slice() {
         [path] => Ok(path.clone()),
         [] => Err("视频库文件夹中缺少 JSON 索引文件。".to_string()),
-        _ => Err("视频库文件夹中存在多个 JSON，请保留 video_library_tags.json 或仅保留一个索引。".to_string()),
+        _ => Err(
+            "视频库文件夹中存在多个 JSON，请保留 video_library_tags.json 或仅保留一个索引。"
+                .to_string(),
+        ),
     }
 }
 
@@ -294,8 +308,7 @@ mod tests {
         write_valid_index(&root, "custom_seg000.mp4");
 
         let first = load_video_library(root.to_str().expect("utf8 path")).expect("load library");
-        let second =
-            load_video_library(root.to_str().expect("utf8 path")).expect("reload library");
+        let second = load_video_library(root.to_str().expect("utf8 path")).expect("reload library");
 
         // The second load must be served from the cache as a cheap Arc clone
         // instead of a deep copy of every asset.
@@ -310,7 +323,8 @@ mod tests {
         let root = temp_video_dir("no-mp4");
         write_valid_index(&root, "missing.mp4");
 
-        let error = load_video_library(root.to_str().expect("utf8 path")).expect_err("reject folder");
+        let error =
+            load_video_library(root.to_str().expect("utf8 path")).expect_err("reject folder");
 
         assert_eq!(error, "视频库文件夹中没有 mp4 文件。");
 
@@ -322,7 +336,8 @@ mod tests {
         let root = temp_video_dir("no-json");
         File::create(root.join("custom_seg000.mp4")).expect("create mp4");
 
-        let error = load_video_library(root.to_str().expect("utf8 path")).expect_err("reject folder");
+        let error =
+            load_video_library(root.to_str().expect("utf8 path")).expect_err("reject folder");
 
         assert_eq!(error, "视频库文件夹中缺少 JSON 索引文件。");
 
@@ -335,7 +350,8 @@ mod tests {
         File::create(root.join("other.mp4")).expect("create mp4");
         write_valid_index(&root, "missing.mp4");
 
-        let error = load_video_library(root.to_str().expect("utf8 path")).expect_err("reject folder");
+        let error =
+            load_video_library(root.to_str().expect("utf8 path")).expect_err("reject folder");
 
         assert_eq!(error, "JSON 索引引用的视频不存在：missing.mp4");
 

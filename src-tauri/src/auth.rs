@@ -6,6 +6,7 @@ use chrono::Utc;
 use rand_core::OsRng;
 use rusqlite::{params, Connection, Error as SqlError};
 use serde::Serialize;
+use std::sync::atomic::Ordering;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -81,10 +82,7 @@ pub fn load_stored_user(conn: &Connection, username: &str) -> Result<Option<Stor
 }
 
 // Runs Argon2; callers must not hold the db lock while calling this.
-pub fn verify_stored_user(
-    user: Option<StoredUser>,
-    password: &str,
-) -> Result<UserProfile, String> {
+pub fn verify_stored_user(user: Option<StoredUser>, password: &str) -> Result<UserProfile, String> {
     let Some(user) = user else {
         return Err("Account or password is incorrect.".to_string());
     };
@@ -99,6 +97,9 @@ pub fn verify_stored_user(
     Err("Account or password is incorrect.".to_string())
 }
 
+/// All-in-one reset used by tests; the live command runs the two phases
+/// separately so Argon2 hashing stays outside the db lock (see lib.rs).
+#[cfg(test)]
 pub fn reset_user_password_record(
     conn: &Connection,
     username: &str,
@@ -106,34 +107,97 @@ pub fn reset_user_password_record(
     new_password: &str,
     expected_reset_code: &str,
 ) -> Result<UserProfile, String> {
-    let username = normalize_username(username)?;
+    let user = prepare_password_reset(conn, username, reset_code, expected_reset_code)?;
     validate_password(new_password)?;
+    // Argon2 runs here, between the two lock scopes, so hashing never blocks
+    // other database users (see lib.rs for the split command flow).
+    let password_hash = hash_password(new_password)?;
+    apply_password_reset(conn, &user.id, &password_hash)
+}
+
+/// Phase 1 of a password reset, run under the db lock: validate, verify the
+/// admin reset code, and look up the account. The returned user id feeds
+/// `apply_password_reset` after Argon2 hashing outside the lock.
+pub fn prepare_password_reset(
+    conn: &Connection,
+    username: &str,
+    reset_code: &str,
+    expected_reset_code: &str,
+) -> Result<StoredUser, String> {
+    let username = normalize_username(username)?;
 
     if expected_reset_code.trim().is_empty() {
         return Err("Password reset is not configured.".to_string());
     }
 
-    if reset_code != expected_reset_code {
+    // Throttle guessing: the code check is otherwise a cheap string compare,
+    // so a compromised webview could brute-force the admin code over IPC.
+    if RESET_FAILURES.load(Ordering::Relaxed) >= MAX_RESET_ATTEMPTS {
+        return Err(
+            "Too many incorrect reset attempts. Restart the application to try again.".to_string(),
+        );
+    }
+
+    if !reset_code_matches(reset_code, expected_reset_code) {
+        RESET_FAILURES.fetch_add(1, Ordering::Relaxed);
         return Err("Reset code is incorrect.".to_string());
     }
+
+    RESET_FAILURES.store(0, Ordering::Relaxed);
 
     let Some(user) = find_user_by_username(conn, &username)? else {
         return Err("Account or password is incorrect.".to_string());
     };
 
+    Ok(user)
+}
+
+/// Phase 2 of a password reset, run under the db lock with the hash that was
+/// computed outside it.
+pub fn apply_password_reset(
+    conn: &Connection,
+    user_id: &str,
+    password_hash: &str,
+) -> Result<UserProfile, String> {
     let now = Utc::now().to_rfc3339();
-    let password_hash = hash_password(new_password)?;
 
     conn.execute(
         "UPDATE users SET password_hash = ?1, updated_at = ?2 WHERE id = ?3",
-        params![password_hash, now, user.id],
+        params![password_hash, now, user_id],
     )
     .map_err(|_| "Failed to reset password.".to_string())?;
 
+    let username: String = conn
+        .query_row(
+            "SELECT username FROM users WHERE id = ?1",
+            params![user_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| "Failed to reset password.".to_string())?;
+
     Ok(UserProfile {
-        id: user.id,
-        username: user.username,
+        id: user_id.to_string(),
+        username,
     })
+}
+
+/// Maximum wrong reset codes per process lifetime before the command locks
+/// the check until restart. Deliberately small: resets are rare, admin-led.
+const MAX_RESET_ATTEMPTS: u32 = 5;
+static RESET_FAILURES: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// Constant-time comparison so a wrong guess cannot be probed byte by byte
+/// through response timing.
+fn reset_code_matches(provided: &str, expected: &str) -> bool {
+    let provided = provided.trim().as_bytes();
+    let expected = expected.trim().as_bytes();
+
+    let mut diff = (provided.len() ^ expected.len()) as u8;
+    for (a, b) in provided.iter().zip(expected) {
+        diff |= a ^ b;
+    }
+
+    diff == 0
 }
 
 pub struct StoredUser {
@@ -158,6 +222,13 @@ fn validate_password(password: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Validates a new password and runs Argon2 — the "outside the lock" phase of
+/// the reset flow. Callers must not hold the db lock while calling this.
+pub fn prepare_password_hash(new_password: &str) -> Result<String, String> {
+    validate_password(new_password)?;
+    hash_password(new_password)
 }
 
 fn hash_password(password: &str) -> Result<String, String> {

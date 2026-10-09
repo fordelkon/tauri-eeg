@@ -119,7 +119,10 @@ impl SelfReportInput {
         if !(1..=9).contains(&self.valence) || !(1..=9).contains(&self.arousal) {
             return Err(MESSAGE.to_string());
         }
-        if self.dominance.is_some_and(|value| !(1..=9).contains(&value)) {
+        if self
+            .dominance
+            .is_some_and(|value| !(1..=9).contains(&value))
+        {
             return Err(MESSAGE.to_string());
         }
         Ok(())
@@ -183,7 +186,3 @@ pub struct ParadigmQueueInput {
     pub session_run_id: String,
     pub session_kind: ParadigmSessionKind,
 }
-
-
-
-

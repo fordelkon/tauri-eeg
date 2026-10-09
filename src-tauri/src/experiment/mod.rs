@@ -11,6 +11,11 @@ mod worker;
 use serde_json::{json, Value};
 use tauri::State;
 use types::*;
+
+/// A unit of serialized worker work: takes the worker state and produces a
+/// JSON reply delivered back to the awaiting command.
+pub type WorkerJob = Box<dyn FnOnce(&mut worker::Worker) -> Result<Value, String> + Send>;
+
 pub use worker::Service;
 pub fn init(conn: &rusqlite::Connection) -> Result<(), String> {
     store::init(conn)
@@ -18,7 +23,7 @@ pub fn init(conn: &rusqlite::Connection) -> Result<(), String> {
 
 async fn call<T: serde::de::DeserializeOwned + Send + 'static>(
     service: State<'_, Service>,
-    job: Box<dyn FnOnce(&mut worker::Worker) -> Result<Value, String> + Send>,
+    job: WorkerJob,
 ) -> Result<T, String> {
     // The worker serializes all commands; the caller yields the UI runtime while it waits.
     let service = service.inner().clone();
@@ -34,22 +39,24 @@ pub struct Port {
 }
 #[tauri::command]
 pub async fn trigger_list_ports() -> Result<Vec<Port>, String> {
-    serialport::available_ports()
-        .map_err(|e| e.to_string())
-        .map(|ports| {
-            ports
-                .into_iter()
-                .map(|p| Port {
-                    description: match p.port_type {
-                        serialport::SerialPortType::UsbPort(info) => info
-                            .product
-                            .unwrap_or_else(|| "USB serial interface".into()),
-                        _ => "Serial port".into(),
-                    },
-                    port_name: p.port_name,
-                })
-                .collect()
+    // Probing serial devices blocks; keep it off the async runtime threads.
+    let ports = tauri::async_runtime::spawn_blocking(serialport::available_ports)
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+
+    Ok(ports
+        .into_iter()
+        .map(|p| Port {
+            description: match p.port_type {
+                serialport::SerialPortType::UsbPort(info) => info
+                    .product
+                    .unwrap_or_else(|| "USB serial interface".into()),
+                _ => "Serial port".into(),
+            },
+            port_name: p.port_name,
         })
+        .collect())
 }
 #[tauri::command]
 pub async fn trigger_connect(
@@ -159,52 +166,61 @@ pub async fn experiment_export(
         return Err("Export directory must be absolute without parent traversal.".into());
     }
     let data: Value = call(service, Box::new(move |w| w.record_detail(run_id))).await?;
-    // A new directory avoids overwriting prior exports or raw BDF data.
-    std::fs::create_dir(&dest).map_err(|e| e.to_string())?;
-    std::fs::write(
-        dest.join("manifest.json"),
-        serde_json::to_vec_pretty(&data).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
-    let fields = [
-        "sequence",
-        "eventId",
-        "runId",
-        "trialId",
-        "phaseInstanceId",
-        "event",
-        "code",
-        "mediaId",
-        "softwareTimeMs",
-        "source",
-        "receivedAt",
-        "backendElapsedMs",
-        "writeStartedAt",
-        "writeFinishedAt",
-        "queueWaitMs",
-        "result",
-        "error",
-    ];
-    let mut tsv = format!("{}\n", fields.join("\t"));
-    for row in data["events"].as_array().ok_or("Invalid event data")? {
-        tsv.push_str(
-            &fields
-                .iter()
-                .map(|key| match &row[*key] {
-                    Value::Null => String::new(),
-                    Value::String(v) => v.replace(['\t', '\n', '\r'], " "),
-                    v => v.to_string(),
-                })
-                .collect::<Vec<_>>()
-                .join("\t"),
-        );
-        tsv.push('\n');
-    }
-    std::fs::write(dest.join("events.tsv"), tsv).map_err(|e| e.to_string())?;
-    std::fs::write(
-        dest.join("trials.json"),
-        serde_json::to_vec_pretty(&data["trials"]).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(json!({"path":dest.to_string_lossy()}))
+
+    // The export writes several files; keep the blocking IO off the async
+    // runtime threads.
+    let write_export = move || -> Result<Value, String> {
+        // A new directory avoids overwriting prior exports or raw BDF data.
+        std::fs::create_dir(&dest).map_err(|e| e.to_string())?;
+        std::fs::write(
+            dest.join("manifest.json"),
+            serde_json::to_vec_pretty(&data).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let fields = [
+            "sequence",
+            "eventId",
+            "runId",
+            "trialId",
+            "phaseInstanceId",
+            "event",
+            "code",
+            "mediaId",
+            "softwareTimeMs",
+            "source",
+            "receivedAt",
+            "backendElapsedMs",
+            "writeStartedAt",
+            "writeFinishedAt",
+            "queueWaitMs",
+            "result",
+            "error",
+        ];
+        let mut tsv = format!("{}\n", fields.join("\t"));
+        for row in data["events"].as_array().ok_or("Invalid event data")? {
+            tsv.push_str(
+                &fields
+                    .iter()
+                    .map(|key| match &row[*key] {
+                        Value::Null => String::new(),
+                        Value::String(v) => v.replace(['\t', '\n', '\r'], " "),
+                        v => v.to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\t"),
+            );
+            tsv.push('\n');
+        }
+        std::fs::write(dest.join("events.tsv"), tsv).map_err(|e| e.to_string())?;
+        std::fs::write(
+            dest.join("trials.json"),
+            serde_json::to_vec_pretty(&data["trials"]).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(json!({"path":dest.to_string_lossy()}))
+    };
+
+    tauri::async_runtime::spawn_blocking(write_export)
+        .await
+        .map_err(|e| e.to_string())?
 }

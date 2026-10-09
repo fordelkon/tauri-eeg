@@ -25,6 +25,7 @@ rand_core = { version = "0.6", features = ["std"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 tauri = { version = "2", features = ["protocol-asset"] }
 serde = { version = "1", features = ["derive"] }
+thiserror = "2"
 serde_json = "1"
 serialport = { version = "4.8", default-features = false }
 tokio = { version = "1", features = ["time"] }

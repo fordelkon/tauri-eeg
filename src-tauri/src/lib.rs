@@ -1,9 +1,11 @@
 mod auth;
 mod config;
 mod db;
-mod paradigm;
+mod effect_reports;
+mod error;
 mod experiment;
 mod music_history;
+mod paradigm;
 mod python_client;
 mod python_service;
 mod scale_records;
@@ -12,8 +14,12 @@ mod video_library;
 
 use auth::UserProfile;
 use db::AppDb;
-use paradigm::{ ParadigmQueueInput, ParadigmTrialPlanItem, ParadigmVideoLibrary, ParadigmVideoLibraryInput };
+use effect_reports::{ExportEffectReportInput, ExportEffectReportResult};
+use error::AppError;
 use music_history::MusicHistoryItem;
+use paradigm::{
+    ParadigmQueueInput, ParadigmTrialPlanItem, ParadigmVideoLibrary, ParadigmVideoLibraryInput,
+};
 use python_client::{
     AgentPlannerRequest, AgentPlannerResponse, GenerateRequest, HealthResponse, PythonClient,
 };
@@ -28,20 +34,17 @@ async fn register_user(
     state: State<'_, AppDb>,
     username: String,
     password: String,
-) -> Result<UserProfile, String> {
-    let conn = state.conn.clone();
+) -> Result<UserProfile, AppError> {
+    let db = state.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
         // Hash before acquiring the lock; Argon2 must not block other db users.
         let registration = auth::prepare_registration(&username, &password)?;
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        auth::insert_registration(&conn, registration)
+        db.with_conn(|conn| auth::insert_registration(conn, registration))
     })
     .await
     .map_err(|_| "Registration task failed.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
@@ -49,23 +52,17 @@ async fn login_user(
     state: State<'_, AppDb>,
     username: String,
     password: String,
-) -> Result<UserProfile, String> {
-    let conn = state.conn.clone();
+) -> Result<UserProfile, AppError> {
+    let db = state.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        // Drop the lock before the Argon2 verification below runs.
-        let stored_user = {
-            let conn = conn
-                .lock()
-                .map_err(|_| "Database is unavailable.".to_string())?;
-
-            auth::load_stored_user(&conn, &username)?
-        };
-
+        // Load under the lock, then drop it before the Argon2 verification.
+        let stored_user = db.with_conn(|conn| auth::load_stored_user(conn, &username))?;
         auth::verify_stored_user(stored_user, &password)
     })
     .await
     .map_err(|_| "Login task failed.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
@@ -74,42 +71,48 @@ async fn reset_user_password(
     username: String,
     reset_code: String,
     new_password: String,
-) -> Result<UserProfile, String> {
+) -> Result<UserProfile, AppError> {
     let expected_reset_code = config::admin_reset_code()?;
-    let conn = state.conn.clone();
+    let db = state.inner().clone();
+
+    let (user, password_hash) = tauri::async_runtime::spawn_blocking(move || {
+        // Verify the reset code and load the account under the lock, then
+        // drop the lock before Argon2 hashing runs.
+        let user = db.with_conn(|conn| {
+            auth::prepare_password_reset(conn, &username, &reset_code, &expected_reset_code)
+        })?;
+
+        auth::prepare_password_hash(&new_password).map(|password_hash| (user, password_hash))
+    })
+    .await
+    .map_err(|_| "Password reset task failed.".to_string())??;
+
+    let db = state.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        auth::reset_user_password_record(
-            &conn,
-            &username,
-            &reset_code,
-            &new_password,
-            &expected_reset_code,
-        )
+        db.with_conn(|conn| auth::apply_password_reset(conn, &user.id, &password_hash))
     })
     .await
     .map_err(|_| "Password reset task failed.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
 async fn load_paradigm_video_library(
     input: ParadigmVideoLibraryInput,
-) -> Result<ParadigmVideoLibrary, String> {
+) -> Result<ParadigmVideoLibrary, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
         paradigm::video::load_paradigm_video_library(&input.root_path)
     })
     .await
     .map_err(|_| "Failed to load paradigm video library.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
 async fn build_paradigm_queue(
     input: ParadigmQueueInput,
-) -> Result<Vec<ParadigmTrialPlanItem>, String> {
+) -> Result<Vec<ParadigmTrialPlanItem>, AppError> {
     tauri::async_runtime::spawn_blocking(move || {
         paradigm::video::build_paradigm_queue_from_root(
             &input.root_path,
@@ -119,6 +122,7 @@ async fn build_paradigm_queue(
     })
     .await
     .map_err(|_| "Failed to build paradigm queue.".to_string())?
+    .map_err(AppError)
 }
 
 #[derive(Debug, Deserialize)]
@@ -148,18 +152,15 @@ struct RegulationEffectResult {
 async fn save_scale_record(
     db: State<'_, AppDb>,
     input: SaveScaleRecordInput,
-) -> Result<ScaleRecord, String> {
-    let conn = db.conn.clone();
+) -> Result<ScaleRecord, AppError> {
+    let db = db.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        scale_records::save_scale_record(&conn, &input)
+        db.with_conn(|conn| scale_records::save_scale_record(conn, &input))
     })
     .await
     .map_err(|_| "Failed to save scale record.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
@@ -167,63 +168,58 @@ async fn list_scale_records(
     db: State<'_, AppDb>,
     subject_id: Option<String>,
     phase: Option<String>,
-) -> Result<Vec<ScaleRecord>, String> {
-    let conn = db.conn.clone();
+) -> Result<Vec<ScaleRecord>, AppError> {
+    let db = db.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        scale_records::list_scale_records(&conn, subject_id.as_deref(), phase.as_deref())
+        db.with_conn(|conn| {
+            scale_records::list_scale_records(conn, subject_id.as_deref(), phase.as_deref())
+        })
     })
     .await
     .map_err(|_| "Failed to load scale records.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
 async fn delete_scale_record(
     db: State<'_, AppDb>,
     input: DeleteScaleRecordInput,
-) -> Result<ScaleRecord, String> {
-    let conn = db.conn.clone();
+) -> Result<ScaleRecord, AppError> {
+    let db = db.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        scale_records::delete_scale_record(&conn, &input.id)
+        db.with_conn(|conn| scale_records::delete_scale_record(conn, &input.id))
     })
     .await
     .map_err(|_| "Failed to delete scale record.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
 async fn compute_regulation_effect(
     db: State<'_, AppDb>,
     input: ComputeRegulationEffectInput,
-) -> Result<RegulationEffectResult, String> {
-    let conn = db.conn.clone();
+) -> Result<RegulationEffectResult, AppError> {
+    let db = db.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
+        db.with_conn(|conn| {
+            let baseline = scale_records::get_scale_record(conn, input.baseline_record_id.trim())?;
+            let post = scale_records::get_scale_record(conn, input.post_record_id.trim())?;
+            experiment::report::require_same_run(conn, &baseline.id, &post.id)?;
+            let summary = scale_records::compute_regulation_effect_summary(&baseline, &post)?;
+            let meets_threshold = summary.meets_threshold();
 
-        let baseline = scale_records::get_scale_record(&conn, input.baseline_record_id.trim())?;
-        let post = scale_records::get_scale_record(&conn, input.post_record_id.trim())?;
-        experiment::report::require_same_run(&conn, &baseline.id, &post.id)?;
-        let summary = scale_records::compute_regulation_effect_summary(&baseline, &post)?;
-        let meets_threshold = summary.meets_threshold();
-
-        Ok(RegulationEffectResult {
-            summary,
-            meets_threshold,
+            Ok(RegulationEffectResult {
+                summary,
+                meets_threshold,
+            })
         })
     })
     .await
     .map_err(|_| "Failed to compute regulation effect.".to_string())?
+    .map_err(AppError)
 }
 
 #[derive(Debug, Deserialize)]
@@ -237,197 +233,74 @@ struct ComputeConditionEffectInput {
 async fn compute_condition_effect(
     db: State<'_, AppDb>,
     input: ComputeConditionEffectInput,
-) -> Result<scale_records::ConditionEffectComparison, String> {
-    let conn = db.conn.clone();
+) -> Result<scale_records::ConditionEffectComparison, AppError> {
+    let db = db.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        // Subject pushdown: compute_condition_effect_comparison rejects every
-        // entry whose subject differs from the target (NULL-subject rows group
-        // under ""), so unbound rows can never contribute and filtering them
-        // in SQL keeps the result identical while the planner uses the
-        // subject+created_at index.
-        let records =
-            scale_records::list_scale_records(&conn, Some(input.subject_id.trim()), None)?;
-        let records = experiment::report::eligible_records(&conn, records)?;
-        // 大纲 6.2: 调控条件相对基线条件（自然恢复）的改善，按 subject+emotion
-        // 取两条件各自最新完整 run 配对计算。
-        scale_records::compute_condition_effect_comparison(
-            &records,
-            input.subject_id.trim(),
-            input.emotion.trim(),
-        )
+        db.with_conn(|conn| {
+            // Subject pushdown: compute_condition_effect_comparison rejects
+            // every entry whose subject differs from the target (NULL-subject
+            // rows group under ""), so unbound rows can never contribute and
+            // filtering them in SQL keeps the result identical while the
+            // planner uses the subject+created_at index.
+            let records =
+                scale_records::list_scale_records(conn, Some(input.subject_id.trim()), None)?;
+            let records = experiment::report::eligible_records(conn, records)?;
+            // 大纲 6.2: 调控条件相对基线条件（自然恢复）的改善，按 subject+emotion
+            // 取两条件各自最新完整 run 配对计算。
+            scale_records::compute_condition_effect_comparison(
+                &records,
+                input.subject_id.trim(),
+                input.emotion.trim(),
+            )
+        })
     })
     .await
     .map_err(|_| "Failed to compute condition effect.".to_string())?
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ExportEffectReportInput {
-    /// `single` exports one baseline/post pair; `batch` writes every
-    /// subject's most recent evaluation as CSV; `comparison` writes the
-    /// cross-condition comparison of one subject+emotion (R7).
-    kind: String,
-    /// `json` or `csv`; single/comparison default to json, batch is always csv.
-    format: Option<String>,
-    /// Absolute destination chosen by the user through the save dialog.
-    path: String,
-    baseline_record_id: Option<String>,
-    post_record_id: Option<String>,
-    /// Subject binding of the comparison export (kind = `comparison`).
-    #[serde(default)]
-    subject_id: Option<String>,
-    /// Target emotion of the comparison export (kind = `comparison`).
-    #[serde(default)]
-    emotion: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ExportEffectReportResult {
-    path: String,
-    bytes: u64,
+    .map_err(AppError)
 }
 
 #[tauri::command]
 async fn list_effect_history(
     db: State<'_, AppDb>,
-) -> Result<Vec<scale_records::EffectHistoryEntry>, String> {
-    let conn = db.conn.clone();
+) -> Result<Vec<scale_records::EffectHistoryEntry>, AppError> {
+    let db = db.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        let records = scale_records::list_scale_records(&conn, None, None)?;
-        let records = experiment::report::eligible_records(&conn, records)?;
-        Ok(scale_records::build_effect_history(&records))
+        db.with_conn(|conn| {
+            let records = scale_records::list_scale_records(conn, None, None)?;
+            let records = experiment::report::eligible_records(conn, records)?;
+            Ok(scale_records::build_effect_history(&records))
+        })
     })
     .await
     .map_err(|_| "Failed to load effect history.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
 async fn export_effect_report(
     db: State<'_, AppDb>,
     input: ExportEffectReportInput,
-) -> Result<ExportEffectReportResult, String> {
-    let path = input.path.trim().to_string();
-    if path.is_empty() {
-        return Err("Export path is required.".to_string());
-    }
-
-    let kind = input.kind.trim().to_string();
-    // Batch is CSV-only; an explicit csv on single switches its format.
-    let format = if kind == "batch" {
-        "csv".to_string()
-    } else {
-        input
-            .format
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("json")
-            .to_string()
-    };
-
-    let conn = db.conn.clone();
+) -> Result<ExportEffectReportResult, AppError> {
+    let path = effect_reports::resolve_export_path(&input.path)?;
+    let db = db.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let content = match kind.as_str() {
-            "single" => {
-                let required_id = |label: &str, value: Option<&String>| -> Result<String, String> {
-                    value
-                        .map(String::as_str)
-                        .map(str::trim)
-                        .filter(|value| !value.is_empty())
-                        .map(str::to_string)
-                        .ok_or_else(|| format!("{label} record id is required."))
-                };
-                let baseline_id = required_id("Baseline", input.baseline_record_id.as_ref())?;
-                let post_id = required_id("Post", input.post_record_id.as_ref())?;
-
-                let conn = conn
-                    .lock()
-                    .map_err(|_| "Database is unavailable.".to_string())?;
-                let baseline = scale_records::get_scale_record(&conn, &baseline_id)?;
-                let post = scale_records::get_scale_record(&conn, &post_id)?;
-                experiment::report::require_same_run(&conn, &baseline.id, &post.id)?;
-                let report = scale_records::build_single_effect_report(&baseline, &post)?;
-
-                if format == "csv" {
-                    scale_records::build_single_effect_report_csv(&report)
-                } else {
-                    serde_json::to_string_pretty(&report)
-                        .map_err(|_| "Failed to serialize the report.".to_string())?
-                }
-            }
-            "batch" => {
-                let conn = conn
-                    .lock()
-                    .map_err(|_| "Database is unavailable.".to_string())?;
-                let records = scale_records::list_scale_records(&conn, None, None)?;
-        let records = experiment::report::eligible_records(&conn, records)?;
-                let history = scale_records::build_effect_history(&records);
-
-                scale_records::build_batch_effect_report_csv(
-                    &scale_records::latest_entry_per_subject_emotion_condition(&history),
-                )
-            }
-            "comparison" => {
-                let required_field = |label: &str, value: Option<&String>| -> Result<String, String> {
-                    value
-                        .map(String::as_str)
-                        .map(str::trim)
-                        .filter(|value| !value.is_empty())
-                        .map(str::to_string)
-                        .ok_or_else(|| format!("{label} is required."))
-                };
-                let subject_id = required_field("Subject id", input.subject_id.as_ref())?;
-                let emotion = required_field("Emotion", input.emotion.as_ref())?;
-
-                let conn = conn
-                    .lock()
-                    .map_err(|_| "Database is unavailable.".to_string())?;
-                // Subject pushdown (same safety argument as
-                // compute_condition_effect): the comparison rejects entries
-                // whose subject differs from this required, non-blank target.
-                let records =
-                    scale_records::list_scale_records(&conn, Some(subject_id.as_str()), None)?;
-        let records = experiment::report::eligible_records(&conn, records)?;
-                // 大纲 6.3 步骤 5: the exported document carries both legs'
-                // trace, the per-dimension inputs, the verdict, and the frozen
-                // formula statement so the calculation can be re-derived.
-                let comparison = scale_records::compute_condition_effect_comparison(
-                    &records,
-                    &subject_id,
-                    &emotion,
-                )?;
-                let report = scale_records::build_condition_comparison_report(&comparison);
-
-                if format == "csv" {
-                    scale_records::build_condition_comparison_report_csv(&report)
-                } else {
-                    serde_json::to_string_pretty(&report)
-                        .map_err(|_| "Failed to serialize the report.".to_string())?
-                }
-            }
-            other => return Err(format!("Unknown report kind '{other}'.")),
-        };
+        let content = db.with_conn(|conn| effect_reports::build_report_content(conn, input))?;
 
         let bytes = content.len() as u64;
         std::fs::write(&path, content)
             .map_err(|_| "Failed to write the report file.".to_string())?;
 
-        Ok(ExportEffectReportResult { path, bytes })
+        Ok(ExportEffectReportResult {
+            path: path.to_string_lossy().to_string(),
+            bytes,
+        })
     })
     .await
     .map_err(|_| "Failed to export the report.".to_string())?
+    .map_err(AppError)
 }
 
 #[derive(Debug, Deserialize)]
@@ -452,10 +325,10 @@ async fn generate_music(
     db: State<'_, AppDb>,
     service: State<'_, PythonServiceManager>,
     input: MusicGenerationInput,
-) -> Result<MusicHistoryItem, String> {
+) -> Result<MusicHistoryItem, AppError> {
     let prompt = input.prompt.trim().to_string();
     if prompt.is_empty() {
-        return Err("Prompt is required.".to_string());
+        return Err("Prompt is required.".to_string().into());
     }
 
     let duration = input.duration.clamp(5, 120);
@@ -463,11 +336,9 @@ async fn generate_music(
     let output_dir = {
         let username = input.username.clone();
 
-        tauri::async_runtime::spawn_blocking(move || {
-            storage_paths::music_user_dir(&app, &username)
-        })
-        .await
-        .map_err(|_| "Failed to resolve music output directory.".to_string())??
+        tauri::async_runtime::spawn_blocking(move || storage_paths::music_user_dir(&app, &username))
+            .await
+            .map_err(|_| "Failed to resolve music output directory.".to_string())??
     };
 
     service.ensure_running().await?;
@@ -486,7 +357,8 @@ async fn generate_music(
     if response.status != "completed" || response.progress < 100 {
         return Err(response
             .error
-            .unwrap_or_else(|| "Music generation failed.".to_string()));
+            .unwrap_or_else(|| "Music generation failed.".to_string())
+            .into());
     }
 
     let output_path = response
@@ -494,54 +366,55 @@ async fn generate_music(
         .ok_or_else(|| "Music generation did not return a WAV file.".to_string())?;
 
     let job_id = response.job_id;
-    let conn = db.conn.clone();
+    let db = db.inner().clone();
     let user_id = input.user_id.clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        music_history::save_music_history_item(
-            &conn,
-            &job_id,
-            &user_id,
-            &prompt,
-            &output_path,
-            Some(duration as f64),
-        )
+        db.with_conn(|conn| {
+            music_history::save_music_history_item(
+                conn,
+                &job_id,
+                &user_id,
+                &prompt,
+                &output_path,
+                Some(duration as f64),
+            )
+        })
     })
     .await
     .map_err(|_| "Failed to save music history.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
 async fn get_music_service_health(
     service: State<'_, PythonServiceManager>,
-) -> Result<HealthResponse, String> {
+) -> Result<HealthResponse, AppError> {
     service.ensure_running().await?;
 
     PythonClient::new(service.base_url().to_string())
         .health()
         .await
+        .map_err(AppError)
 }
 
 #[tauri::command]
 async fn plan_agent_action(
     service: State<'_, PythonServiceManager>,
     request: AgentPlannerRequest,
-) -> Result<AgentPlannerResponse, String> {
+) -> Result<AgentPlannerResponse, AppError> {
     service.ensure_agent_running().await?;
 
     PythonClient::new(service.base_url().to_string())
         .plan_agent(&request)
         .await
+        .map_err(AppError)
 }
 
 #[tauri::command]
 async fn get_agent_service_base_url(
     service: State<'_, PythonServiceManager>,
-) -> Result<String, String> {
+) -> Result<String, AppError> {
     service.ensure_agent_running().await?;
 
     Ok(service.base_url().to_string())
@@ -552,19 +425,16 @@ async fn list_music_history(
     db: State<'_, AppDb>,
     user_id: String,
     limit: Option<u32>,
-) -> Result<Vec<MusicHistoryItem>, String> {
-    let conn = db.conn.clone();
+) -> Result<Vec<MusicHistoryItem>, AppError> {
+    let db = db.inner().clone();
     let limit = limit.unwrap_or(50);
 
     tauri::async_runtime::spawn_blocking(move || {
-        let conn = conn
-            .lock()
-            .map_err(|_| "Database is unavailable.".to_string())?;
-
-        music_history::list_music_history_items(&conn, &user_id, limit)
+        db.with_conn(|conn| music_history::list_music_history_items(conn, &user_id, limit))
     })
     .await
     .map_err(|_| "Failed to load music history.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
@@ -572,18 +442,14 @@ async fn delete_music_history(
     app: tauri::AppHandle,
     db: State<'_, AppDb>,
     input: DeleteMusicHistoryInput,
-) -> Result<MusicHistoryItem, String> {
-    let conn = db.conn.clone();
+) -> Result<MusicHistoryItem, AppError> {
+    let db = db.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
         // Drop the lock before the file system work below.
-        let deleted = {
-            let conn = conn
-                .lock()
-                .map_err(|_| "Database is unavailable.".to_string())?;
-
-            music_history::delete_music_history_item(&conn, &input.user_id, &input.item_id)?
-        };
+        let deleted = db.with_conn(|conn| {
+            music_history::delete_music_history_item(conn, &input.user_id, &input.item_id)
+        })?;
 
         delete_music_file_in_storage_root(&storage_paths::music_root(&app)?, &deleted.file_path)?;
 
@@ -591,38 +457,46 @@ async fn delete_music_history(
     })
     .await
     .map_err(|_| "Failed to delete music history.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
-async fn get_storage_location(app: tauri::AppHandle) -> Result<storage_paths::StorageLocation, String> {
+async fn get_storage_location(
+    app: tauri::AppHandle,
+) -> Result<storage_paths::StorageLocation, AppError> {
     tauri::async_runtime::spawn_blocking(move || storage_paths::storage_location(&app))
         .await
         .map_err(|_| "Failed to load storage location.".to_string())?
+        .map_err(AppError)
 }
 
 #[tauri::command]
 async fn set_storage_root(
     app: tauri::AppHandle,
     custom_root: Option<String>,
-) -> Result<storage_paths::StorageLocation, String> {
+) -> Result<storage_paths::StorageLocation, AppError> {
     let settings = storage_paths::StorageSettings {
         custom_root: custom_root
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty()),
     };
 
-    tauri::async_runtime::spawn_blocking(move || storage_paths::save_storage_settings(&app, settings))
-        .await
-        .map_err(|_| "Failed to save storage settings.".to_string())?
+    tauri::async_runtime::spawn_blocking(move || {
+        storage_paths::save_storage_settings(&app, settings)
+    })
+    .await
+    .map_err(|_| "Failed to save storage settings.".to_string())?
+    .map_err(AppError)
 }
 
 #[tauri::command]
 async fn load_video_library(
     folder_path: String,
-) -> Result<video_library::SharedVideoLibrary, String> {
+) -> Result<video_library::SharedVideoLibrary, AppError> {
     tauri::async_runtime::spawn_blocking(move || video_library::load_video_library(&folder_path))
         .await
         .map_err(|_| "Failed to load video library.".to_string())?
+        .map_err(AppError)
 }
 
 fn delete_music_file_in_storage_root(

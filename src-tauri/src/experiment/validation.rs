@@ -38,17 +38,15 @@ pub fn validate(conn: &Connection, run: &Run, input: &EventInput) -> Result<(), 
     {
         return Err("Event is not allowed in this experiment kind.".into());
     }
-    if name.ends_with("video_start")
+    if (name.ends_with("video_start")
         || name == "music_regulation_start"
-        || name == "video_regulation_start"
-    {
-        if input
+        || name == "video_regulation_start")
+        && input
             .media_id
             .as_deref()
             .is_none_or(|id| id.trim().is_empty())
-        {
-            return Err("Media start requires a material ID.".into());
-        }
+    {
+        return Err("Media start requires a material ID.".into());
     }
     if run.input.kind == "effect_evaluation" {
         let expected = match name {

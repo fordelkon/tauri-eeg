@@ -91,7 +91,12 @@ impl PythonServiceManager {
             // Port 8000 answers /health but not the agent contract. Only
             // restart when we own the process; never kill a foreign service.
             if self.has_live_managed_child() {
-                self.stop_managed_process()?;
+                // terminate_child_tree blocks on taskkill + wait; keep it
+                // off the async runtime threads.
+                let manager = self.clone();
+                tauri::async_runtime::spawn_blocking(move || manager.stop_managed_process())
+                    .await
+                    .map_err(|_| "Failed to stop the previous music service.".to_string())??;
                 self.start_service()?;
                 return self.wait_for_agent_ready().await;
             }
@@ -291,7 +296,11 @@ impl PythonServiceManager {
     fn service_health_fresh(&self) -> bool {
         self.health_cache
             .lock()
-            .map(|cache| cache.service.is_some_and(|at| at.elapsed() < HEALTH_CACHE_TTL))
+            .map(|cache| {
+                cache
+                    .service
+                    .is_some_and(|at| at.elapsed() < HEALTH_CACHE_TTL)
+            })
             .unwrap_or(false)
     }
 
@@ -304,7 +313,11 @@ impl PythonServiceManager {
     fn agent_health_fresh(&self) -> bool {
         self.health_cache
             .lock()
-            .map(|cache| cache.agent.is_some_and(|at| at.elapsed() < HEALTH_CACHE_TTL))
+            .map(|cache| {
+                cache
+                    .agent
+                    .is_some_and(|at| at.elapsed() < HEALTH_CACHE_TTL)
+            })
             .unwrap_or(false)
     }
 
@@ -383,7 +396,10 @@ fn service_log_streams() -> (Stdio, Stdio) {
             .unwrap_or(Stdio::null())
     };
 
-    (open("python-service.out.log"), open("python-service.err.log"))
+    (
+        open("python-service.out.log"),
+        open("python-service.err.log"),
+    )
 }
 
 fn service_log_dir() -> PathBuf {
@@ -415,6 +431,23 @@ fn music_service_dir() -> Result<PathBuf, String> {
     Ok(service_dir)
 }
 
+// Dropping the last manager handle must not leak a running service child.
+// Kept above the test module so the lint gate (items_after_test_module) stays
+// clean.
+impl Drop for PythonServiceManager {
+    fn drop(&mut self) {
+        if Arc::strong_count(&self.process) != 1 {
+            return;
+        }
+
+        if let Ok(mut process_guard) = self.process.lock() {
+            if let Some(mut child) = process_guard.take() {
+                terminate_child_tree(&mut child);
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -438,7 +471,10 @@ mod tests {
     fn builds_agent_health_url_without_music_model_health_endpoint() {
         let manager = PythonServiceManager::new();
 
-        assert_eq!(manager.agent_health_url(), "http://127.0.0.1:8000/agent/health");
+        assert_eq!(
+            manager.agent_health_url(),
+            "http://127.0.0.1:8000/agent/health"
+        );
     }
 
     #[test]
@@ -465,19 +501,5 @@ mod tests {
         };
 
         assert!(!is_supported_agent_health(&health));
-    }
-}
-
-impl Drop for PythonServiceManager {
-    fn drop(&mut self) {
-        if Arc::strong_count(&self.process) != 1 {
-            return;
-        }
-
-        if let Ok(mut process_guard) = self.process.lock() {
-            if let Some(mut child) = process_guard.take() {
-                terminate_child_tree(&mut child);
-            }
-        }
     }
 }

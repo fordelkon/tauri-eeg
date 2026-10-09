@@ -41,7 +41,19 @@ impl Service {
                 received: None,
             };
             while let Ok((job, reply)) = rx.recv() {
-                let _ = reply.send(job(&mut worker));
+                // A panicking job must not unwind the worker thread: the
+                // serial port would stay open and every later command would
+                // fail until app restart. Catch, reply with an error, and
+                // keep serving.
+                let result =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| job(&mut worker)))
+                        .unwrap_or_else(|_| {
+                            Err(
+                                "Trigger command failed unexpectedly; the worker has recovered."
+                                    .to_string(),
+                            )
+                        });
+                let _ = reply.send(result);
             }
         });
         Self { tx }
@@ -201,7 +213,7 @@ impl Worker {
         }
         if input
             .duration_minutes
-            .is_some_and(|n| !n.is_finite() || n < 1.0 || n > 30.0)
+            .is_some_and(|n| !n.is_finite() || !(1.0..=30.0).contains(&n))
         {
             return Err("Duration must be 1–30 minutes.".into());
         }

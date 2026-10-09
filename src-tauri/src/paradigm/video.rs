@@ -7,8 +7,8 @@ use std::{
 };
 
 use super::domain::{
-    ParadigmEmotion, ParadigmSessionKind, ParadigmTrialPlanItem, ParadigmVideoEntry,
-    ParadigmVideoLibrary, blocks_for_session_kind, is_scheduled_emotion, PARADIGM_EMOTIONS,
+    blocks_for_session_kind, is_scheduled_emotion, ParadigmEmotion, ParadigmSessionKind,
+    ParadigmTrialPlanItem, ParadigmVideoEntry, ParadigmVideoLibrary, PARADIGM_EMOTIONS,
 };
 
 /// Minimum pool size per scheduled class. Outline S-04 ultimately requires 50
@@ -25,9 +25,10 @@ const PARADIGM_LIBRARY_CACHE_TTL: Duration = Duration::from_secs(30);
 // the queue build debounced per keystroke plus once more at session start, so
 // the last scan per root is reused briefly (same TTL pattern as
 // video_library.rs; a 30 s staleness window is acceptable for queue building).
-static PARADIGM_LIBRARY_CACHE: Mutex<
-    Option<HashMap<PathBuf, (Instant, Arc<ParadigmVideoLibrary>)>>,
-> = Mutex::new(None);
+/// Last library scan per root, reused briefly (same TTL pattern as
+/// video_library.rs; a 30 s staleness window is acceptable for queue building).
+type ParadigmLibraryCache = Mutex<Option<HashMap<PathBuf, (Instant, Arc<ParadigmVideoLibrary>)>>>;
+static PARADIGM_LIBRARY_CACHE: ParadigmLibraryCache = Mutex::new(None);
 
 pub fn load_paradigm_video_library(root_path: &str) -> Result<ParadigmVideoLibrary, String> {
     let trimmed = root_path.trim();
@@ -183,13 +184,12 @@ fn find_emotion_subdirectory(
     root: &Path,
     emotion: ParadigmEmotion,
 ) -> Result<Option<PathBuf>, String> {
-    let entries = fs::read_dir(root)
-        .map_err(|_| "Failed to read video root directory.".to_string())?;
+    let entries =
+        fs::read_dir(root).map_err(|_| "Failed to read video root directory.".to_string())?;
     let expected = emotion.display_name().to_lowercase();
 
     for entry in entries {
-        let entry = entry
-            .map_err(|_| "Failed to read video root directory.".to_string())?;
+        let entry = entry.map_err(|_| "Failed to read video root directory.".to_string())?;
         let path = entry.path();
         if !path.is_dir() {
             continue;
@@ -207,7 +207,7 @@ fn collect_mp4_entries(
     emotion: ParadigmEmotion,
 ) -> Result<Vec<ParadigmVideoEntry>, String> {
     let mut videos = Vec::new();
-    collect_mp4_entries_recursively(directory, directory, emotion, &mut videos)?;
+    collect_mp4_entries_recursively(directory, directory, emotion, &mut videos, 0)?;
     videos.sort_by(|left, right| left.file_name.cmp(&right.file_name));
     Ok(videos)
 }
@@ -216,11 +216,17 @@ fn collect_mp4_entries(
 /// `file_name` and `video_id` use slash-delimited paths relative to that
 /// emotion root, which preserves direct-file ids and prevents nested-name
 /// collisions from making trial or playback records ambiguous.
+/// Deepest directory nesting the scanner follows. Real emotion/class folders
+/// nest one or two levels; the cap only exists so a junction loop in a
+/// user-selected root cannot recurse until the stack overflows.
+const MAX_LIBRARY_SCAN_DEPTH: usize = 8;
+
 fn collect_mp4_entries_recursively(
     root: &Path,
     directory: &Path,
     emotion: ParadigmEmotion,
     videos: &mut Vec<ParadigmVideoEntry>,
+    depth: usize,
 ) -> Result<(), String> {
     let entries = fs::read_dir(directory).map_err(|_| {
         format!(
@@ -238,7 +244,23 @@ fn collect_mp4_entries_recursively(
         })?;
         let path = entry.path();
         if path.is_dir() {
-            collect_mp4_entries_recursively(root, &path, emotion, videos)?;
+            // Do not follow symlinks/junctions: a self-referencing link in a
+            // user-selected root would otherwise loop regardless of the cap.
+            let is_real_dir = path
+                .symlink_metadata()
+                .map(|meta| meta.is_dir())
+                .unwrap_or(false);
+            if !is_real_dir {
+                continue;
+            }
+            if depth >= MAX_LIBRARY_SCAN_DEPTH {
+                return Err(format!(
+                    "Video library nesting exceeds {} levels: {}.",
+                    MAX_LIBRARY_SCAN_DEPTH,
+                    path.display()
+                ));
+            }
+            collect_mp4_entries_recursively(root, &path, emotion, videos, depth + 1)?;
             continue;
         }
         let is_mp4 = path
