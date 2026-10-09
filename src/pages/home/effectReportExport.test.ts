@@ -29,11 +29,13 @@ describe('resolveExportFormat', () => {
 
 describe('buildSingleReportPayload (导出 payload 组装)', () => {
   it('assembles a trimmed camelCase single payload with the default format', () => {
-    expect(buildSingleReportPayload({
-      baselineRecordId: ' rec-b ',
-      postRecordId: ' rec-p ',
-      path: ' C:/reports/r.json ',
-    })).toEqual({
+    expect(
+      buildSingleReportPayload({
+        baselineRecordId: ' rec-b ',
+        postRecordId: ' rec-p ',
+        path: ' C:/reports/r.json ',
+      }),
+    ).toEqual({
       kind: 'single',
       path: 'C:/reports/r.json',
       format: 'json',
@@ -53,25 +55,31 @@ describe('buildSingleReportPayload (导出 payload 组装)', () => {
   });
 
   it('rejects blank record ids with the phase named', () => {
-    expect(() => buildSingleReportPayload({
-      baselineRecordId: null,
-      postRecordId: 'rec-p',
-      path: 'C:/r.json',
-    })).toThrow('基线');
+    expect(() =>
+      buildSingleReportPayload({
+        baselineRecordId: null,
+        postRecordId: 'rec-p',
+        path: 'C:/r.json',
+      }),
+    ).toThrow('基线');
 
-    expect(() => buildSingleReportPayload({
-      baselineRecordId: 'rec-b',
-      postRecordId: '   ',
-      path: 'C:/r.json',
-    })).toThrow('调控后');
+    expect(() =>
+      buildSingleReportPayload({
+        baselineRecordId: 'rec-b',
+        postRecordId: '   ',
+        path: 'C:/r.json',
+      }),
+    ).toThrow('调控后');
   });
 
   it('rejects an empty save path', () => {
-    expect(() => buildSingleReportPayload({
-      baselineRecordId: 'rec-b',
-      postRecordId: 'rec-p',
-      path: '',
-    })).toThrow('保存路径');
+    expect(() =>
+      buildSingleReportPayload({
+        baselineRecordId: 'rec-b',
+        postRecordId: 'rec-p',
+        path: '',
+      }),
+    ).toThrow('保存路径');
   });
 });
 
@@ -90,11 +98,13 @@ describe('buildBatchReportPayload', () => {
 // legs on the backend from the wizard's subject+emotion binding.
 describe('buildComparisonReportPayload (跨条件对比导出 payload)', () => {
   it('assembles a trimmed camelCase comparison payload with the default json format', () => {
-    expect(buildComparisonReportPayload({
-      subjectId: ' subj-001 ',
-      emotion: ' anxiety ',
-      path: ' C:/reports/effect-comparison.json ',
-    })).toEqual({
+    expect(
+      buildComparisonReportPayload({
+        subjectId: ' subj-001 ',
+        emotion: ' anxiety ',
+        path: ' C:/reports/effect-comparison.json ',
+      }),
+    ).toEqual({
       kind: 'comparison',
       path: 'C:/reports/effect-comparison.json',
       format: 'json',
@@ -114,23 +124,29 @@ describe('buildComparisonReportPayload (跨条件对比导出 payload)', () => {
   });
 
   it('rejects blank bindings with the field named', () => {
-    expect(() => buildComparisonReportPayload({
-      subjectId: null,
-      emotion: 'anxiety',
-      path: 'C:/r.json',
-    })).toThrow('被试 ID');
+    expect(() =>
+      buildComparisonReportPayload({
+        subjectId: null,
+        emotion: 'anxiety',
+        path: 'C:/r.json',
+      }),
+    ).toThrow('被试 ID');
 
-    expect(() => buildComparisonReportPayload({
-      subjectId: 'subj-001',
-      emotion: '   ',
-      path: 'C:/r.json',
-    })).toThrow('目标情绪');
+    expect(() =>
+      buildComparisonReportPayload({
+        subjectId: 'subj-001',
+        emotion: '   ',
+        path: 'C:/r.json',
+      }),
+    ).toThrow('目标情绪');
 
-    expect(() => buildComparisonReportPayload({
-      subjectId: 'subj-001',
-      emotion: 'anxiety',
-      path: '',
-    })).toThrow('保存路径');
+    expect(() =>
+      buildComparisonReportPayload({
+        subjectId: 'subj-001',
+        emotion: 'anxiety',
+        path: '',
+      }),
+    ).toThrow('保存路径');
   });
 });
 
@@ -138,47 +154,57 @@ describe('suggestReportFileName', () => {
   const noon = new Date(2026, 7, 26, 9, 5); // local components → 20260826-0905
 
   it('builds a dated single-report name per format', () => {
-    expect(suggestReportFileName({
-      kind: 'single',
-      format: 'json',
-      subjectId: 'subj-001',
-      now: noon,
-    })).toBe('effect-report-subj-001-20260826-0905.json');
+    expect(
+      suggestReportFileName({
+        kind: 'single',
+        format: 'json',
+        subjectId: 'subj-001',
+        now: noon,
+      }),
+    ).toBe('effect-report-subj-001-20260826-0905.json');
 
-    expect(suggestReportFileName({
-      kind: 'single',
-      format: 'csv',
-      subjectId: 'subj-001',
-      now: noon,
-    })).toBe('effect-report-subj-001-20260826-0905.csv');
+    expect(
+      suggestReportFileName({
+        kind: 'single',
+        format: 'csv',
+        subjectId: 'subj-001',
+        now: noon,
+      }),
+    ).toBe('effect-report-subj-001-20260826-0905.csv');
   });
 
   it('builds the all-subjects batch summary name as csv', () => {
-    expect(suggestReportFileName({ kind: 'batch', now: noon }))
-      .toBe('effect-summary-all-20260826-0905.csv');
+    expect(suggestReportFileName({ kind: 'batch', now: noon })).toBe(
+      'effect-summary-all-20260826-0905.csv',
+    );
   });
 
   // R7: comparison exports get their own name family so the two document
   // kinds never collide on disk.
   it('builds the cross-condition comparison name per format and subject', () => {
-    expect(suggestReportFileName({
-      kind: 'comparison',
-      format: 'json',
-      subjectId: 'subj-001',
-      now: noon,
-    })).toBe('effect-comparison-subj-001-20260826-0905.json');
+    expect(
+      suggestReportFileName({
+        kind: 'comparison',
+        format: 'json',
+        subjectId: 'subj-001',
+        now: noon,
+      }),
+    ).toBe('effect-comparison-subj-001-20260826-0905.json');
 
-    expect(suggestReportFileName({
-      kind: 'comparison',
-      format: 'csv',
-      subjectId: 'subj-001',
-      now: noon,
-    })).toBe('effect-comparison-subj-001-20260826-0905.csv');
+    expect(
+      suggestReportFileName({
+        kind: 'comparison',
+        format: 'csv',
+        subjectId: 'subj-001',
+        now: noon,
+      }),
+    ).toBe('effect-comparison-subj-001-20260826-0905.csv');
   });
 
   it('falls back to a generic subject fragment when none was configured', () => {
-    expect(suggestReportFileName({ kind: 'single', subjectId: '', now: noon }))
-      .toContain('effect-report-subject-');
+    expect(suggestReportFileName({ kind: 'single', subjectId: '', now: noon })).toContain(
+      'effect-report-subject-',
+    );
   });
 });
 

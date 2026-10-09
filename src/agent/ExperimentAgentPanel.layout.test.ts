@@ -7,11 +7,17 @@ const readText = (url: URL) => readFileSync(url, 'utf8');
 describe('ExperimentAgentPanel layout contract', () => {
   test('is embedded below the emotion radar without restoring the metric detail list', () => {
     const agentCss = readText(new URL('./ExperimentAgentPanel.module.css', import.meta.url));
-    const mentalScaleCss = readText(new URL('../mentalScale/GlobalMentalScalePanel.module.css', import.meta.url));
-    const mentalScaleTsx = readText(new URL('../mentalScale/GlobalMentalScalePanel.tsx', import.meta.url));
+    const mentalScaleCss = readText(
+      new URL('../mentalScale/GlobalMentalScalePanel.module.css', import.meta.url),
+    );
+    const mentalScaleTsx = readText(
+      new URL('../mentalScale/GlobalMentalScalePanel.tsx', import.meta.url),
+    );
     const homeCss = readText(new URL('../pages/Home.module.css', import.meta.url));
     const homeTsx = readText(new URL('../pages/Home.tsx', import.meta.url));
-    const shellBlock = homeTsx.match(/<div className={styles\.shell}>[\s\S]*?<\/div>\s*\r?\n\r?\n\s*\{pendingScale \?/);
+    const shellBlock = homeTsx.match(
+      /<div className={styles\.shell}>[\s\S]*?<\/div>\s*\r?\n\r?\n\s*\{pendingScale \?/,
+    );
 
     expect(agentCss).not.toMatch(/position:\s*fixed/);
     expect(agentCss).not.toMatch(/\.dragHandle\s*{/s);
@@ -29,11 +35,17 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(mentalScaleTsx).toContain('{children}');
     expect(mentalScaleCss).toMatch(/\.chartWrap\s*{[^}]*flex:\s*0\s+0\s+min\(32dvh,\s*260px\);/s);
     expect(mentalScaleCss).toMatch(/\.chartWrap\s*{[^}]*min-height:\s*180px;/s);
-    expect(homeCss).toMatch(/\.shell\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*3fr\)\s+minmax\(260px,\s*1fr\);/s);
-    expect(homeCss).toMatch(/\.shell::before\s*{[^}]*left:\s*calc\(75%\s*\+\s*var\(--status-divider-offset\)\);/s);
+    expect(homeCss).toMatch(
+      /\.shell\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*3fr\)\s+minmax\(260px,\s*1fr\);/s,
+    );
+    expect(homeCss).toMatch(
+      /\.shell::before\s*{[^}]*left:\s*calc\(75%\s*\+\s*var\(--status-divider-offset\)\);/s,
+    );
     expect(shellBlock?.[0] ?? '').toContain('<GlobalMentalScalePanel>');
     expect(shellBlock?.[0] ?? '').toContain('<ExperimentAgentPanel');
-    expect(readText(new URL('./ExperimentAgentPanel.tsx', import.meta.url))).toContain('className={styles.content}');
+    expect(readText(new URL('./ExperimentAgentPanel.tsx', import.meta.url))).toContain(
+      'className={styles.content}',
+    );
   });
 
   test('limits scrolling to assistant activity and confirmation content', () => {
@@ -79,7 +91,9 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(hookTs).toContain('isPlanning,');
     expect(homeTsx).not.toContain('useExperimentAgent(');
     expect(homeTsx).toContain('<ExperimentAgentPanel navigateTo={requestNavigation} />');
-    expect(agentTsx).toContain('const agent = useExperimentAgent({ pathname: location.pathname, navigateTo });');
+    expect(agentTsx).toContain(
+      'const agent = useExperimentAgent({ pathname: location.pathname, navigateTo });',
+    );
     expect(agentTsx).toContain('isPlanning={agent.isPlanning}');
     expect(agentTsx).toContain('isPlanning: boolean;');
     expect(agentTsx).toContain('isPlanning,');
@@ -95,13 +109,16 @@ describe('ExperimentAgentPanel layout contract', () => {
     const agentCss = readText(new URL('./ExperimentAgentPanel.module.css', import.meta.url));
     // The planner request (and with it the stream response handling) lives in
     // agentPlannerRequest.ts; the contract reads it alongside the hook.
-    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url))
-      + readText(new URL('./agentPlannerRequest.ts', import.meta.url));
+    const hookTs =
+      readText(new URL('./useExperimentAgent.ts', import.meta.url)) +
+      readText(new URL('./agentPlannerRequest.ts', import.meta.url));
     const apiTs = readText(new URL('./agentPlannerApi.ts', import.meta.url));
 
     expect(apiTs).toContain('thinking: string[];');
     expect(hookTs).toContain('const [thinkingSteps, setThinkingSteps] = useState<string[]>([])');
-    expect(hookTs).toContain('const [thinkingDurationMs, setThinkingDurationMs] = useState<number | null>(null)');
+    expect(hookTs).toContain(
+      'const [thinkingDurationMs, setThinkingDurationMs] = useState<number | null>(null)',
+    );
     expect(hookTs).toContain('const planningStartedAt = Date.now();');
     expect(hookTs).toContain('setThinkingDurationMs(Date.now() - planningStartedAt);');
     expect(hookTs).toContain('setThinkingSteps(response.thinking');
@@ -126,12 +143,13 @@ describe('ExperimentAgentPanel layout contract', () => {
 
   test('requests planner recommendations through a streaming response', () => {
     // The stream call itself lives in agentPlannerRequest.ts.
-    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url))
-      + readText(new URL('./agentPlannerRequest.ts', import.meta.url));
+    const hookTs =
+      readText(new URL('./useExperimentAgent.ts', import.meta.url)) +
+      readText(new URL('./agentPlannerRequest.ts', import.meta.url));
     const apiTs = readText(new URL('./agentPlannerApi.ts', import.meta.url));
 
     expect(apiTs).toContain('requestAgentPlanStream');
-    expect(apiTs).toContain("fetch(`${baseUrl}/agent/plan/stream`");
+    expect(apiTs).toContain('fetch(`${baseUrl}/agent/plan/stream`');
     expect(apiTs).toContain("if (eventName === 'thinking_delta')");
     expect(apiTs).toContain('onThinkingDelta');
     expect(hookTs).toContain('requestAgentPlanStream');
@@ -148,22 +166,29 @@ describe('ExperimentAgentPanel layout contract', () => {
 
   test('only executes workflow and EEG control prompts before asking the planner for recommendations', () => {
     const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
-    const submitPromptBlock = hookTs.match(/const submitPrompt = useCallback[\s\S]*?\n  const confirmPendingAction/);
-    const localFirstBlock = hookTs.match(/const localFirstActionIds = new Set<AgentActionId>\(\[[\s\S]*?\]\);/)?.[0] ?? '';
+    const submitPromptBlock = hookTs.match(
+      /const submitPrompt = useCallback[\s\S]*?\n  const confirmPendingAction/,
+    );
+    const localFirstBlock =
+      hookTs.match(/const localFirstActionIds = new Set<AgentActionId>\(\[[\s\S]*?\]\);/)?.[0] ??
+      '';
 
     expect(hookTs).toContain('localFirstActionIds');
     expect(localFirstBlock).toContain("'open_experiment_settings'");
     expect(localFirstBlock).not.toContain("'play_video'");
     expect(localFirstBlock).not.toContain("'select_video'");
     expect(localFirstBlock).not.toContain("'generate_music'");
-    expect(submitPromptBlock?.[0] ?? '').toContain("const localIntent = classifyAgentIntent(trimmed);");
+    expect(submitPromptBlock?.[0] ?? '').toContain(
+      'const localIntent = classifyAgentIntent(trimmed);',
+    );
     expect(submitPromptBlock?.[0] ?? '').toContain('isLocalFirstAction(localIntent)');
     expect(submitPromptBlock?.[0] ?? '').toContain('setIsPlannerAvailable(true);');
     expect(submitPromptBlock?.[0] ?? '').toContain('await queueOrExecute(localIntent);');
     expect(submitPromptBlock?.[0] ?? '').not.toContain('const intent = localIntent;');
     expect(submitPromptBlock?.[0] ?? '').not.toContain('await queueOrExecute(intent);');
-    expect((submitPromptBlock?.[0] ?? '').indexOf('isLocalFirstAction(localIntent)'))
-      .toBeLessThan((submitPromptBlock?.[0] ?? '').indexOf('requestPlannerRecommendation(trimmed)'));
+    expect((submitPromptBlock?.[0] ?? '').indexOf('isLocalFirstAction(localIntent)')).toBeLessThan(
+      (submitPromptBlock?.[0] ?? '').indexOf('requestPlannerRecommendation(trimmed)'),
+    );
   });
 
   test('bridges page data-agent-action clicks into the embedded assistant', () => {
@@ -181,18 +206,21 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(hookTs).toContain("pushTimeline('action', text);");
     expect(homeTsx).not.toContain("'agent:submit-prompt'");
     expect(homeTsx).toContain("actionId === 'play_video'");
-    expect(videoTsx).toContain("data-agent-payload={video.id}");
+    expect(videoTsx).toContain('data-agent-payload={video.id}');
   });
 
   test('preserves planner music parameters through confirmation into generation', () => {
     // The planner-response → queueOrExecute handoff lives in
     // agentPlannerRequest.ts; the hook keeps execution + confirmation.
-    const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url))
-      + readText(new URL('./agentPlannerRequest.ts', import.meta.url));
+    const hookTs =
+      readText(new URL('./useExperimentAgent.ts', import.meta.url)) +
+      readText(new URL('./agentPlannerRequest.ts', import.meta.url));
 
     expect(hookTs).toContain('params: AgentActionParams;');
     expect(hookTs).toContain('const plannerParams = normalizeAgentActionParams(response.params);');
-    expect(hookTs).toContain('await queueOrExecute(actionId, response.requiresConfirmation, plannerParams);');
+    expect(hookTs).toContain(
+      'await queueOrExecute(actionId, response.requiresConfirmation, plannerParams);',
+    );
     expect(hookTs).toContain('params,');
     expect(hookTs).toContain('const params = pendingConfirmation.params;');
     expect(hookTs).toContain('await executeAction(actionId, params);');
@@ -217,7 +245,8 @@ describe('ExperimentAgentPanel layout contract', () => {
 
   test('runs generate_music as fire-and-forget so the planner loop never blocks on generation', () => {
     const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
-    const musicActionBlock = hookTs.match(/void generateMusic\(\{[\s\S]*?\}\)\.catch\([\s\S]*?\}\);/)?.[0] ?? '';
+    const musicActionBlock =
+      hookTs.match(/void generateMusic\(\{[\s\S]*?\}\)\.catch\([\s\S]*?\}\);/)?.[0] ?? '';
 
     // The backend /generate call resolves only at completion (minutes later)
     // and results arrive independently via MUSIC_GENERATED_EVENT + history
@@ -240,11 +269,13 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(hookTs).toContain('getLocalRegulationPromptExamples(phase)');
     expect(hookTs).not.toContain('setVideoPromptSuggestions');
     expect(hookTs).not.toContain('setMusicPromptSuggestions');
-    expect(hookTs).not.toContain("suggest_video_prompts");
-    expect(hookTs).not.toContain("suggest_music_prompts");
+    expect(hookTs).not.toContain('suggest_video_prompts');
+    expect(hookTs).not.toContain('suggest_music_prompts');
     expect(hookTs).not.toContain('getVideoRegulationPromptExamples');
     expect(hookTs).toContain('nextStepPrompt');
-    expect(hookTs).toMatch(/\.\.\.generatedPrompts,[\s\S]*\.\.\.\(nextStepPrompt \? \[nextStepPrompt\] : \[\]\)/);
+    expect(hookTs).toMatch(
+      /\.\.\.generatedPrompts,[\s\S]*\.\.\.\(nextStepPrompt \? \[nextStepPrompt\] : \[\]\)/,
+    );
   });
 
   test('keeps backend video actions aligned with frontend playback', () => {

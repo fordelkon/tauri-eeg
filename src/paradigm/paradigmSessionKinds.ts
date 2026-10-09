@@ -21,10 +21,10 @@ export const sessionKinds: readonly ParadigmSessionKind[] = [
   'held_out_generation',
 ];
 
-export const libraryClassKeys: Record<ParadigmEmotion, keyof Pick<
-  ParadigmVideoLibrary,
-  'anxiety' | 'calm' | 'depression' | 'fear'
->> = {
+export const libraryClassKeys: Record<
+  ParadigmEmotion,
+  keyof Pick<ParadigmVideoLibrary, 'anxiety' | 'calm' | 'depression' | 'fear'>
+> = {
   anxiety: 'anxiety',
   calm: 'calm',
   depression: 'depression',
@@ -32,7 +32,11 @@ export const libraryClassKeys: Record<ParadigmEmotion, keyof Pick<
 };
 
 export function toLibraryErrorMessage(error: unknown) {
-  return typeof error === 'string' ? error : error instanceof Error ? error.message : 'Failed to load paradigm video library.';
+  return typeof error === 'string'
+    ? error
+    : error instanceof Error
+      ? error.message
+      : 'Failed to load paradigm video library.';
 }
 
 /** Default run id, local time: run-YYYYMMDD-HHmm (e.g. run-20260823-1945). */
@@ -49,4 +53,3 @@ export function defaultSessionRunId(now: Date) {
     pad(now.getMinutes()),
   ].join('');
 }
-

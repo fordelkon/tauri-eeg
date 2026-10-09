@@ -45,9 +45,8 @@ export function EffectReviewPopover({
   // the method chip only appears on regulation runs (a natural-recovery leg
   // has no regulation media to report).
   const isNaturalRecovery = state.condition === 'natural_recovery';
-  const stepTitle = step === 3
-    ? `条件执行（${isNaturalRecovery ? '静息' : '调控'}）`
-    : EFFECT_FLOW_STEPS[step];
+  const stepTitle =
+    step === 3 ? `条件执行（${isNaturalRecovery ? '静息' : '调控'}）` : EFFECT_FLOW_STEPS[step];
 
   return (
     <Popover
@@ -59,18 +58,14 @@ export function EffectReviewPopover({
       slotProps={{ paper: { className: styles.reviewPaper } }}
     >
       <div className={styles.reviewCard} aria-label="已完成节点回顾">
-        <div className={styles.reviewTitle}>
-          {stepTitle} · 已完成回顾
-        </div>
+        <div className={styles.reviewTitle}>{stepTitle} · 已完成回顾</div>
 
         <div className={styles.configSummary}>
           {step <= 1 ? (
             <>
               <span className={styles.configChip}>被试 {state.subjectId.trim() || '未填写'}</span>
               <span className={styles.configChip}>目标情绪 {emotionLabel}</span>
-              {!isNaturalRecovery ? (
-                <span className={styles.configChip}>{methodLabel}</span>
-              ) : null}
+              {!isNaturalRecovery ? <span className={styles.configChip}>{methodLabel}</span> : null}
               <span className={styles.configChip}>{labelForCondition(state.condition)}</span>
               <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
             </>
@@ -90,9 +85,7 @@ export function EffectReviewPopover({
               {/* What the window actually did — the fact the review exists
                   to answer: which condition ran (and on which media). */}
               <span className={styles.configChip}>{labelForCondition(state.condition)}</span>
-              {!isNaturalRecovery ? (
-                <span className={styles.configChip}>{methodLabel}</span>
-              ) : null}
+              {!isNaturalRecovery ? <span className={styles.configChip}>{methodLabel}</span> : null}
               <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
               {state.runId ? (
                 <span className={styles.configChip} title={state.runId}>
@@ -117,7 +110,9 @@ export function EffectReviewPopover({
         </div>
 
         {step === 3 && skippedCopy ? (
-          <p className={styles.noteCallout} role="note">{skippedCopy}</p>
+          <p className={styles.noteCallout} role="note">
+            {skippedCopy}
+          </p>
         ) : null}
 
         <p className={styles.reviewFootnote}>只读回顾 · 点击其他区域关闭</p>

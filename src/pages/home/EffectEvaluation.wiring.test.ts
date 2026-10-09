@@ -311,7 +311,9 @@ describe('embedded regulation player (condition node contract)', () => {
     );
     expect(fullscreenHookSource).toContain('const appWindow = getCurrentWindow();');
     expect(fullscreenHookSource).toContain('appWindow.setFullscreen(true)');
-    expect(fullscreenHookSource).toContain('getCurrentWindow().setFullscreen(false)');
+    // Chained member calls rewrap under Prettier, so assert the exit call
+    // with whitespace-tolerant matching instead of one exact line.
+    expect(fullscreenHookSource).toMatch(/getCurrentWindow\(\)\s*\.\s*setFullscreen\(false\)/);
     expect(fullscreenSource).toContain('onElapsed={onWindowElapsed}');
     expect(fullscreenSource).toContain(
       "shouldPauseAt(isPlaying && finishMode.mode === 'finish' ? 0 : null)",

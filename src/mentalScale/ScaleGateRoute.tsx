@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import {
-  getMentalScaleForPath,
-  type MentalScaleAnswers,
-} from './mentalScaleGate';
+import { getMentalScaleForPath, type MentalScaleAnswers } from './mentalScaleGate';
 import MentalScaleDialog from './MentalScaleDialog';
 import { buildMentalScaleStatus, updateMentalScaleStatus } from './mentalScaleStatus';
 import { persistMentalScaleSubmission } from './scaleRecordsApi';

@@ -3,7 +3,10 @@ import { useAuth } from '../auth/AuthContext';
 import { createRun } from '../experiment/api';
 import { consumeRecordingConfirmation, readExperimentPreferences } from '../experiment/settings';
 import ParadigmRunner from './ParadigmRunner';
-import ParadigmSetupPanel, { type ParadigmStartRequest, type StartedParadigmRequest } from './ParadigmSetupPanel';
+import ParadigmSetupPanel, {
+  type ParadigmStartRequest,
+  type StartedParadigmRequest,
+} from './ParadigmSetupPanel';
 import { toLibraryErrorMessage } from './paradigmSessionKinds';
 
 export default function ParadigmSessionPanel() {
@@ -20,19 +23,30 @@ export default function ParadigmSessionPanel() {
     try {
       const preferences = readExperimentPreferences();
       const started = await createRun({
-        userId: currentUser?.id ?? null, subjectId: request.subjectId,
-        flowKind: request.sessionKind, mode: request.dryRun ? 'rehearsal' : 'formal',
+        userId: currentUser?.id ?? null,
+        subjectId: request.subjectId,
+        flowKind: request.sessionKind,
+        mode: request.dryRun ? 'rehearsal' : 'formal',
         externalRecordingConfirmed: preferences.externalRecordingConfirmed,
         expectedRecordingName: preferences.expectedRecordingName,
         materials: { sessionRunId: request.sessionRunId, queue: request.queue },
       });
       if (!request.dryRun) consumeRecordingConfirmation();
       setRun({ ...request, runId: started.runId });
-    } catch (failure) { setError(toLibraryErrorMessage(failure)); }
-    finally { pendingRef.current = false; setPending(false); }
+    } catch (failure) {
+      setError(toLibraryErrorMessage(failure));
+    } finally {
+      pendingRef.current = false;
+      setPending(false);
+    }
   };
-  return run
-    ? <ParadigmRunner key={run.runId} request={run} onExitToSetup={() => setRun(null)} />
-    : <ParadigmSetupPanel onStartSession={(request) => void handleStartSession(request)} startPending={pending} startError={error} />;
+  return run ? (
+    <ParadigmRunner key={run.runId} request={run} onExitToSetup={() => setRun(null)} />
+  ) : (
+    <ParadigmSetupPanel
+      onStartSession={(request) => void handleStartSession(request)}
+      startPending={pending}
+      startError={error}
+    />
+  );
 }
-

@@ -58,9 +58,5 @@ function pickNearestVideo(query: string, catalog: readonly RegulationVideo[]): R
 }
 
 function getSearchTerms(video: RegulationVideo): string[] {
-  return [
-    video.title,
-    video.relativePath,
-    video.categoryLabel,
-  ];
+  return [video.title, video.relativePath, video.categoryLabel];
 }

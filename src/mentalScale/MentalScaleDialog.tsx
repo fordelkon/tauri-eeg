@@ -1,5 +1,13 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton } from '@mui/material';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+} from '@mui/material';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -23,7 +31,12 @@ type MentalScaleDialogProps = {
   scale: MentalScaleDefinition;
 };
 
-export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }: MentalScaleDialogProps) {
+export default function MentalScaleDialog({
+  onComplete,
+  onClose,
+  onSkip,
+  scale,
+}: MentalScaleDialogProps) {
   const [scaleAnswers, setScaleAnswers] = useState<MentalScaleAnswers>({});
   // Closing with answers already filled in asks for confirmation first; the
   // answers live here, so the guard belongs next to them.
@@ -40,9 +53,10 @@ export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }
     (total, value) => total + (value ?? 0),
     0,
   );
-  const screeningNote = scale.screening && isScaleReady && totalScore >= scale.screening.threshold
-    ? scale.screening.message
-    : null;
+  const screeningNote =
+    scale.screening && isScaleReady && totalScore >= scale.screening.threshold
+      ? scale.screening.message
+      : null;
 
   const handleAnswer = (questionId: string, value: MentalScaleAnswerValue) => {
     setScaleAnswers((answers) => ({
@@ -104,7 +118,11 @@ export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }
         <div className={sectionStyles.scaleBody}>
           <div className={sectionStyles.itemList}>
             {scale.questions.map((question, questionIndex) => (
-              <ScaleItemRow badge={String(questionIndex + 1)} prompt={question.prompt} key={question.id}>
+              <ScaleItemRow
+                badge={String(questionIndex + 1)}
+                prompt={question.prompt}
+                key={question.id}
+              >
                 <ScaleAnchorGroup
                   layout="discrete"
                   minValue={mentalScaleAnswerOptions[0].value}
@@ -123,15 +141,13 @@ export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }
             <span className={styles.scaleFooterHint}>
               {isScaleReady ? '已完成，可以进入调控页面。' : '完成全部题目后继续。'}
             </span>
-            {screeningNote ? <span className={styles.scaleScreeningNote}>{screeningNote}</span> : null}
+            {screeningNote ? (
+              <span className={styles.scaleScreeningNote}>{screeningNote}</span>
+            ) : null}
           </div>
           <div className={styles.scaleFooterActions}>
             {onSkip ? (
-              <button
-                type="button"
-                className={styles.scaleSkipButton}
-                onClick={onSkip}
-              >
+              <button type="button" className={styles.scaleSkipButton} onClick={onSkip}>
                 跳过本次
               </button>
             ) : null}
@@ -159,7 +175,9 @@ export default function MentalScaleDialog({ onComplete, onClose, onSkip, scale }
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsDiscardConfirmOpen(false)}>继续作答</Button>
-          <Button color="error" onClick={onClose}>放弃并关闭</Button>
+          <Button color="error" onClick={onClose}>
+            放弃并关闭
+          </Button>
         </DialogActions>
       </Dialog>
     </div>,

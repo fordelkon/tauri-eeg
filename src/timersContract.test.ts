@@ -41,8 +41,8 @@ function collectSourceFiles(dir: URL): URL[] {
     }
 
     if (
-      (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx'))
-      && !entry.name.includes('.test.')
+      (entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) &&
+      !entry.name.includes('.test.')
     ) {
       files.push(entryUrl);
     }
@@ -115,7 +115,6 @@ describe('app-wide wall-clock interval contract', () => {
 });
 
 describe('rAF loop contract', () => {
-
   test('the matter background scene is throttled, visibility- and visibility-of-host-gated', () => {
     const source = readText(new URL('src/components/matterBackground.ts', SRC_ROOT));
 

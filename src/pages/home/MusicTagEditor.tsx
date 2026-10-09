@@ -55,7 +55,10 @@ export function CompactTagSelector({
         </span>
         <span className={styles.tagTriggerText}>{label}</span>
         <span className={styles.tagCount}>{summary.countLabel}</span>
-        <span className={`${styles.tagChevron} ${isOpen ? styles.tagChevronOpen : ''}`} aria-hidden="true" />
+        <span
+          className={`${styles.tagChevron} ${isOpen ? styles.tagChevronOpen : ''}`}
+          aria-hidden="true"
+        />
       </button>
     </div>
   );
@@ -93,18 +96,27 @@ export function TagEditorSheet({
   );
 
   return (
-    <div className={`${styles.tagSheetOverlay} fixed inset-0 z-20 flex`} role="presentation" onMouseDown={(event) => {
-      if (event.target === event.currentTarget) {
-        onClose();
-      }
-    }}>
+    <div
+      className={`${styles.tagSheetOverlay} fixed inset-0 z-20 flex`}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <section className={styles.tagSheet} aria-label={`${title}标签`}>
         <div className={styles.tagSheetHeader}>
           <div>
             <span>{title}</span>
             <strong>{summary.label}</strong>
           </div>
-          <button className={styles.tagSheetClose} type="button" aria-label="关闭标签编辑器" onClick={onClose}>
+          <button
+            className={styles.tagSheetClose}
+            type="button"
+            aria-label="关闭标签编辑器"
+            onClick={onClose}
+          >
             <CloseRoundedIcon fontSize="small" />
           </button>
         </div>

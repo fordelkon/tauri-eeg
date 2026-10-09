@@ -24,14 +24,20 @@ export function useConfirmDialog(): {
   const [controller] = useState(createConfirmController);
   const [, setPending] = useState<ConfirmOptions | null>(null);
 
-  const confirm = useCallback((options: ConfirmOptions) => {
-    setPending(options);
-    return controller.request(options).finally(() => setPending(controller.options));
-  }, [controller]);
+  const confirm = useCallback(
+    (options: ConfirmOptions) => {
+      setPending(options);
+      return controller.request(options).finally(() => setPending(controller.options));
+    },
+    [controller],
+  );
 
-  const settle = useCallback((confirmed: boolean) => {
-    controller.settle(confirmed);
-  }, [controller]);
+  const settle = useCallback(
+    (confirmed: boolean) => {
+      controller.settle(confirmed);
+    },
+    [controller],
+  );
 
   const options = controller.options;
 

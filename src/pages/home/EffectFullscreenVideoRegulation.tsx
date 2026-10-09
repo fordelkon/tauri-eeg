@@ -31,9 +31,7 @@ function toPlayableParadigmVideoUrl(sourcePath: string) {
     return convertFileSrc(sourcePath);
   }
 
-  return /^[a-zA-Z]:\\/.test(sourcePath)
-    ? `file:///${sourcePath.replace(/\\/g, '/')}`
-    : sourcePath;
+  return /^[a-zA-Z]:\\/.test(sourcePath) ? `file:///${sourcePath.replace(/\\/g, '/')}` : sourcePath;
 }
 
 /**
@@ -75,7 +73,10 @@ export function EffectFullscreenVideoRegulation({
 
   useEffect(() => {
     if (isPlaying && !interrupted) {
-      void videoRef.current?.play().catch(() => { setLoadFailed(true); onError(); });
+      void videoRef.current?.play().catch(() => {
+        setLoadFailed(true);
+        onError();
+      });
     }
   }, [isPlaying, activeAsset?.videoId, interrupted, onError]);
 
@@ -85,11 +86,16 @@ export function EffectFullscreenVideoRegulation({
   };
 
   return createPortal(
-    <section
-      className={styles.fullscreenRegulationStage}
-      aria-label="视频调控进行中"
-    >
-      {interrupted ? <div className={styles.fullscreenStageNotice} role="alert"><strong>本次实验已中断</strong><span>请检查 Trigger 和素材，重新开始实验。外部 BDF 继续由 ActiView 管理。</span><button type="button" className={styles.fullscreenStagePrimaryAction} onClick={onReset}>重置本次实验</button></div> : null}
+    <section className={styles.fullscreenRegulationStage} aria-label="视频调控进行中">
+      {interrupted ? (
+        <div className={styles.fullscreenStageNotice} role="alert">
+          <strong>本次实验已中断</strong>
+          <span>请检查 Trigger 和素材，重新开始实验。外部 BDF 继续由 ActiView 管理。</span>
+          <button type="button" className={styles.fullscreenStagePrimaryAction} onClick={onReset}>
+            重置本次实验
+          </button>
+        </div>
+      ) : null}
       <header className={styles.fullscreenStageHeader}>
         <span>{isPlaying ? '视频调控进行中' : '准备播放调控视频'}</span>
         <span aria-label={`被试 ${state.subjectId}`}>被试 {state.subjectId}</span>
@@ -107,8 +113,19 @@ export function EffectFullscreenVideoRegulation({
             playsInline
             preload="auto"
             onCanPlay={() => setIsMediaReady(true)}
-            onPlaying={() => { if (!onsetRef.current && !interrupted) { onsetRef.current = true; onPlaying(activeAsset.videoId, { path: activeAsset.absolutePath, fileName: activeAsset.fileName }); } }}
-            onError={() => { setLoadFailed(true); onError(); }}
+            onPlaying={() => {
+              if (!onsetRef.current && !interrupted) {
+                onsetRef.current = true;
+                onPlaying(activeAsset.videoId, {
+                  path: activeAsset.absolutePath,
+                  fileName: activeAsset.fileName,
+                });
+              }
+            }}
+            onError={() => {
+              setLoadFailed(true);
+              onError();
+            }}
           />
         ) : null}
 
@@ -121,8 +138,19 @@ export function EffectFullscreenVideoRegulation({
             playsInline
             preload="auto"
             onCanPlay={() => setIsMediaReady(true)}
-            onPlaying={() => { if (!onsetRef.current && !interrupted) { onsetRef.current = true; onPlaying(activeAsset.videoId, { path: activeAsset.absolutePath, fileName: activeAsset.fileName }); } }}
-            onError={() => { setLoadFailed(true); onError(); }}
+            onPlaying={() => {
+              if (!onsetRef.current && !interrupted) {
+                onsetRef.current = true;
+                onPlaying(activeAsset.videoId, {
+                  path: activeAsset.absolutePath,
+                  fileName: activeAsset.fileName,
+                });
+              }
+            }}
+            onError={() => {
+              setLoadFailed(true);
+              onError();
+            }}
           />
         ) : null}
 
@@ -144,8 +172,8 @@ export function EffectFullscreenVideoRegulation({
 
         {!activeAsset || loadFailed ? (
           <div className={styles.fullscreenStageNotice} role="alert">
-          <strong>调控视频不可用</strong>
-          <span>请检查视频素材库。素材未准备完成前不会开始调控计时。</span>
+            <strong>调控视频不可用</strong>
+            <span>请检查视频素材库。素材未准备完成前不会开始调控计时。</span>
           </div>
         ) : null}
       </div>
@@ -163,16 +191,24 @@ export function EffectFullscreenVideoRegulation({
         )}
         {isPlaying ? (
           <div className={styles.fullscreenStageActions}>
-          {finishMode.mode === 'finish' ? (
-            <button type="button" className={styles.fullscreenStagePrimaryAction} onClick={onFinish}>
-              结束调控，进行复测
-            </button>
-          ) : null}
-          {finishMode.mode === 'requires-skip' ? (
-            <button type="button" className={styles.fullscreenStageSecondaryAction} onClick={onSkip}>
-              跳过剩余时长…
-            </button>
-          ) : null}
+            {finishMode.mode === 'finish' ? (
+              <button
+                type="button"
+                className={styles.fullscreenStagePrimaryAction}
+                onClick={onFinish}
+              >
+                结束调控，进行复测
+              </button>
+            ) : null}
+            {finishMode.mode === 'requires-skip' ? (
+              <button
+                type="button"
+                className={styles.fullscreenStageSecondaryAction}
+                onClick={onSkip}
+              >
+                跳过剩余时长…
+              </button>
+            ) : null}
           </div>
         ) : null}
       </footer>

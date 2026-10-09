@@ -9,13 +9,17 @@ import NorthEastRoundedIcon from '@mui/icons-material/NorthEastRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded';
 import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded';
+import { IconButton, List, ListItemButton, ListItemIcon } from '@mui/material';
 import {
-  IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-} from '@mui/material';
-import { type CSSProperties, type ElementType, type MouseEvent, Suspense, lazy, useCallback, useEffect, useState } from 'react';
+  type CSSProperties,
+  type ElementType,
+  type MouseEvent,
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import ExperimentAgentPanel from '../agent/ExperimentAgentPanel';
 import { useAuth } from '../auth/AuthContext';
@@ -35,7 +39,11 @@ import {
 } from '../mentalScale/mentalScaleGate';
 import { buildMentalScaleStatus, updateMentalScaleStatus } from '../mentalScale/mentalScaleStatus';
 import { persistMentalScaleSubmission } from '../mentalScale/scaleRecordsApi';
-import { isScaleSatisfiedForPath, recordScaleCompletion, recordScaleSkip } from '../mentalScale/scaleCompletion';
+import {
+  isScaleSatisfiedForPath,
+  recordScaleCompletion,
+  recordScaleSkip,
+} from '../mentalScale/scaleCompletion';
 import {
   getParadigmSessionStatus,
   useParadigmSessionStatus,
@@ -83,11 +91,12 @@ export default function Home() {
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [pendingScale, setPendingScale] = useState<MentalScaleDefinition | null>(null);
   const [showHomeIntro, setShowHomeIntro] = useState(false);
-  const activeItem = navigationItems.find((item) => (
-    item.path === '/home'
-      ? location.pathname === item.path
-      : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
-  )) ?? navigationItems[0];
+  const activeItem =
+    navigationItems.find((item) =>
+      item.path === '/home'
+        ? location.pathname === item.path
+        : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`),
+    ) ?? navigationItems[0];
   const isWorkspaceRoute = location.pathname !== '/home';
   const activeIndex = navigationItems.findIndex((item) => item.path === activeItem.path);
   const nextItem = navigationItems[(activeIndex + 1) % navigationItems.length];
@@ -99,49 +108,62 @@ export default function Home() {
     }
   }, [currentUser?.id]);
 
-  const requestNavigation = useCallback(async (path: string) => {
-    if (path === location.pathname) {
-      return;
-    }
-
-    // A live paradigm session owns the EEG recording; leaving the page would
-    // break the trial timeline. Read the module store directly: the check is
-    // click-time only and does not need a subscription.
-    if (getParadigmSessionStatus().active) {
-      await confirm({
-        title: '范式 Session 进行中',
-        description: '请先结束当前范式 Session,再切换页面。',
-        confirmText: '知道了',
-        hideCancel: true,
-      });
-      return;
-    }
-
-    if (isTauriAvailable()) {
-      try {
-        if ((await getTriggerStatus()).activeRunId) {
-          await confirm({ title: '实验进行中', description: '请先完成或中止当前实验，再切换页面。', confirmText: '知道了', hideCancel: true });
-          return;
-        }
-      } catch {
-        await confirm({ title: '无法确认实验状态', description: '请重试，避免中断正在进行的刺激。', confirmText: '知道了', hideCancel: true });
+  const requestNavigation = useCallback(
+    async (path: string) => {
+      if (path === location.pathname) {
         return;
       }
-    }
 
-    const scale = getMentalScaleForPath(path);
+      // A live paradigm session owns the EEG recording; leaving the page would
+      // break the trial timeline. Read the module store directly: the check is
+      // click-time only and does not need a subscription.
+      if (getParadigmSessionStatus().active) {
+        await confirm({
+          title: '范式 Session 进行中',
+          description: '请先结束当前范式 Session,再切换页面。',
+          confirmText: '知道了',
+          hideCancel: true,
+        });
+        return;
+      }
 
-    // The route-level ScaleGateRoute would also catch this, but prompting from
-    // here keeps the sidebar flow identical — and skips re-prompting while a
-    // recent completion is still inside its grace window.
-    if (scale && !isScaleSatisfiedForPath(scale.path)) {
-      setPendingScale(scale);
-      setIsSidebarOpen(false);
-      return;
-    }
+      if (isTauriAvailable()) {
+        try {
+          if ((await getTriggerStatus()).activeRunId) {
+            await confirm({
+              title: '实验进行中',
+              description: '请先完成或中止当前实验，再切换页面。',
+              confirmText: '知道了',
+              hideCancel: true,
+            });
+            return;
+          }
+        } catch {
+          await confirm({
+            title: '无法确认实验状态',
+            description: '请重试，避免中断正在进行的刺激。',
+            confirmText: '知道了',
+            hideCancel: true,
+          });
+          return;
+        }
+      }
 
-    navigate(path);
-  }, [confirm, location.pathname, navigate]);
+      const scale = getMentalScaleForPath(path);
+
+      // The route-level ScaleGateRoute would also catch this, but prompting from
+      // here keeps the sidebar flow identical — and skips re-prompting while a
+      // recent completion is still inside its grace window.
+      if (scale && !isScaleSatisfiedForPath(scale.path)) {
+        setPendingScale(scale);
+        setIsSidebarOpen(false);
+        return;
+      }
+
+      navigate(path);
+    },
+    [confirm, location.pathname, navigate],
+  );
 
   const handleNavClick = (item: NavigationItem) => {
     requestNavigation(item.path);
@@ -166,9 +188,11 @@ export default function Home() {
     // id as a prompt used to burn a planner round on a string the local
     // classifier cannot match and risk a second playback/generation.
     if (actionId === 'play_video' || actionId === 'generate_music') {
-      window.dispatchEvent(new CustomEvent('agent:record-action', {
-        detail: { actionId, payload },
-      }));
+      window.dispatchEvent(
+        new CustomEvent('agent:record-action', {
+          detail: { actionId, payload },
+        }),
+      );
     }
   };
 
@@ -176,11 +200,21 @@ export default function Home() {
     if (isTauriAvailable()) {
       try {
         if ((await getTriggerStatus()).activeRunId) {
-          await confirm({ title: '实验进行中', description: '请先完成或中止当前实验，再退出登录。', confirmText: '知道了', hideCancel: true });
+          await confirm({
+            title: '实验进行中',
+            description: '请先完成或中止当前实验，再退出登录。',
+            confirmText: '知道了',
+            hideCancel: true,
+          });
           return;
         }
       } catch {
-        await confirm({ title: '无法确认实验状态', description: '请重试后再退出登录。', confirmText: '知道了', hideCancel: true });
+        await confirm({
+          title: '无法确认实验状态',
+          description: '请重试后再退出登录。',
+          confirmText: '知道了',
+          hideCancel: true,
+        });
         return;
       }
     }
@@ -293,7 +327,10 @@ export default function Home() {
         onClick={() => setIsSidebarOpen(false)}
       />
 
-      <div className={`${styles.menuLayer} ${isSidebarOpen ? styles.isOpen : ''}`} aria-hidden={!isSidebarOpen}>
+      <div
+        className={`${styles.menuLayer} ${isSidebarOpen ? styles.isOpen : ''}`}
+        aria-hidden={!isSidebarOpen}
+      >
         <aside
           id="primary-navigation"
           className={`${styles.sidebar} box-border flex flex-col`}
@@ -405,7 +442,11 @@ export default function Home() {
               onClick={handleNextClick}
             >
               <span>{nextLabel}</span>
-              <NorthEastRoundedIcon className={styles.nextPageIcon} fontSize="small" aria-hidden="true" />
+              <NorthEastRoundedIcon
+                className={styles.nextPageIcon}
+                fontSize="small"
+                aria-hidden="true"
+              />
             </button>
           ) : null}
         </section>

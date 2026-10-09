@@ -16,10 +16,7 @@
  */
 
 // Re-exports: the emotion-induction pool verdict (R6).
-export {
-  describeInductionPoolStatus,
-  paradigmPoolKeyForEmotion,
-} from '../effectInductionPool';
+export { describeInductionPoolStatus, paradigmPoolKeyForEmotion } from '../effectInductionPool';
 export type { InductionPoolStatus } from '../effectInductionPool';
 
 // Re-exports: the result view-model copy (verdicts, basis notes, formulas).

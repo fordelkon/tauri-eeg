@@ -155,20 +155,21 @@ export default function NotFound() {
       { target: 'rightEyeLeft', point: handles.rightEye.left },
       { target: 'arch', point: handles.arch },
     ];
-    const nearest = draggableHandles.reduce((closest, handle) => (
-      distance(cursor, handle.point) < distance(cursor, closest.point) ? handle : closest
-    ));
-    const target = distance(cursor, nearest.point) < 38
-      ? nearest.target
-      : nextPointer.svgX < 140
-        ? 'leftOuter'
-        : nextPointer.svgX < 220
-          ? 'leftInner'
-          : nextPointer.svgX > 380
-            ? 'rightOuter'
-            : nextPointer.svgX > 300
-              ? 'rightInner'
-              : 'arch';
+    const nearest = draggableHandles.reduce((closest, handle) =>
+      distance(cursor, handle.point) < distance(cursor, closest.point) ? handle : closest,
+    );
+    const target =
+      distance(cursor, nearest.point) < 38
+        ? nearest.target
+        : nextPointer.svgX < 140
+          ? 'leftOuter'
+          : nextPointer.svgX < 220
+            ? 'leftInner'
+            : nextPointer.svgX > 380
+              ? 'rightOuter'
+              : nextPointer.svgX > 300
+                ? 'rightInner'
+                : 'arch';
 
     setPointer({ ...nextPointer, target });
     updateHandle({ ...nextPointer, target });
@@ -310,8 +311,13 @@ export default function NotFound() {
   ];
 
   return (
-    <main className={`${styles.page} box-border flex min-h-screen items-center justify-center overflow-hidden`}>
-      <section className={`${styles.panel} relative box-border flex w-[min(100%,980px)] flex-col items-center opacity-0`} aria-labelledby="not-found-title">
+    <main
+      className={`${styles.page} box-border flex min-h-screen items-center justify-center overflow-hidden`}
+    >
+      <section
+        className={`${styles.panel} relative box-border flex w-[min(100%,980px)] flex-col items-center opacity-0`}
+        aria-labelledby="not-found-title"
+      >
         <div
           className={`${styles.scene} relative z-1 ${pointer.active ? styles.isPulling : ''}`}
           onPointerDown={handlePointerDown}
@@ -323,10 +329,12 @@ export default function NotFound() {
               setPointer(defaultPointer);
             }
           }}
-          style={{
-            '--pointer-x': `${pointer.x}px`,
-            '--pointer-y': `${pointer.y}px`,
-          } as CSSProperties}
+          style={
+            {
+              '--pointer-x': `${pointer.x}px`,
+              '--pointer-y': `${pointer.y}px`,
+            } as CSSProperties
+          }
           aria-hidden="true"
         >
           <svg className="block h-full w-full overflow-visible" viewBox="0 0 520 280" role="img">
@@ -346,7 +354,12 @@ export default function NotFound() {
               <path className={styles.eye} d={leftEye} />
               <path className={styles.eye} d={rightEye} />
             </g>
-            <circle className={styles.pullPoint} cx={pointer.svgX} cy={pointer.svgY} r={pointer.active ? 7 : 0} />
+            <circle
+              className={styles.pullPoint}
+              cx={pointer.svgX}
+              cy={pointer.svgY}
+              r={pointer.active ? 7 : 0}
+            />
             {anchors.map((anchor, index) => (
               <circle
                 key={`anchor-${index}`}
@@ -359,12 +372,14 @@ export default function NotFound() {
           </svg>
         </div>
 
-        <div className={`${styles.content} relative z-1 flex flex-col items-center text-center opacity-0`}>
+        <div
+          className={`${styles.content} relative z-1 flex flex-col items-center text-center opacity-0`}
+        >
           <p className={styles.eyebrow}>404</p>
-          <h1 id="not-found-title" className={styles.title}>页面未找到</h1>
-          <p className={styles.description}>
-            当前 EEG 系统路由尚未实现。
-          </p>
+          <h1 id="not-found-title" className={styles.title}>
+            页面未找到
+          </h1>
+          <p className={styles.description}>当前 EEG 系统路由尚未实现。</p>
           <Button
             className={`${styles.backButton} h-48px px-24px text-white`}
             startIcon={<ArrowBackRoundedIcon />}

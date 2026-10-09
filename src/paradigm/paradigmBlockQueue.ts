@@ -59,24 +59,20 @@ export function describeParadigmQueueProgress(
 ): ParadigmQueueProgress {
   const blockStarts = toBlockStarts(queue);
   const blockCount = blockStarts.length;
-  const currentBlockNumber = blockStarts.filter(
-    (start) => start <= Math.max(currentTrialIndex, 0),
-  ).length || 1;
+  const currentBlockNumber =
+    blockStarts.filter((start) => start <= Math.max(currentTrialIndex, 0)).length || 1;
   const nextTrialIndex = currentTrialIndex + 1;
-  const pendingBlockStart = (
-    nextTrialIndex > 0
-    && nextTrialIndex < queue.length
-    && blockStarts.includes(nextTrialIndex)
-  )
-    ? nextTrialIndex
-    : null;
+  const pendingBlockStart =
+    nextTrialIndex > 0 && nextTrialIndex < queue.length && blockStarts.includes(nextTrialIndex)
+      ? nextTrialIndex
+      : null;
   const awaitingBlockGate = pendingBlockStart !== null && blockGate !== pendingBlockStart;
-  const completedBlockCount = pendingBlockStart !== null
-    ? blockStarts.filter((start) => start < pendingBlockStart).length
-    : 0;
-  const currentVideoNumber = currentTrialIndex >= 0
-    ? videoNumberFor(currentTrialIndex, blockStarts)
-    : 1;
+  const completedBlockCount =
+    pendingBlockStart !== null
+      ? blockStarts.filter((start) => start < pendingBlockStart).length
+      : 0;
+  const currentVideoNumber =
+    currentTrialIndex >= 0 ? videoNumberFor(currentTrialIndex, blockStarts) : 1;
   const upcomingVideoNumber = videoNumberFor(nextTrialIndex, blockStarts);
 
   return {

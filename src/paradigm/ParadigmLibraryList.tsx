@@ -1,14 +1,7 @@
 import { memo } from 'react';
-import {
-  PARADIGM_EMOTION_DISPLAY_ORDER,
-  paradigmEmotionLabels,
-} from './types';
+import { PARADIGM_EMOTION_DISPLAY_ORDER, paradigmEmotionLabels } from './types';
 import { libraryClassKeys } from './paradigmSessionKinds';
-import type {
-  ParadigmEmotion,
-  ParadigmVideoEntry,
-  ParadigmVideoLibrary,
-} from './types';
+import type { ParadigmEmotion, ParadigmVideoEntry, ParadigmVideoLibrary } from './types';
 import styles from './ParadigmSession.module.css';
 
 type ParadigmLibraryListProps = {
@@ -57,9 +50,7 @@ export const ParadigmLibraryList = memo(function ParadigmLibraryList({
                       onClick={() => onSelectPreview(emotion, entry)}
                     >
                       <span className={styles.videoListName}>{entry.fileName}</span>
-                      {isSelected ? (
-                        <span className={styles.selectedVideoBadge}>入选</span>
-                      ) : null}
+                      {isSelected ? <span className={styles.selectedVideoBadge}>入选</span> : null}
                     </button>
                   );
                 })

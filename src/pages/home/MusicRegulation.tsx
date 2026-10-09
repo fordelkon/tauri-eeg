@@ -84,7 +84,15 @@ export default function MusicRegulation() {
   const [details, setDetails] = useState('');
   const [generationNotice, setGenerationNotice] = useState<string | null>(null);
   const generatedPrompt = useMemo(
-    () => buildMusicPrompt(instruments, customInstrument, selectedStyles, customStyle, detailTemplates, details),
+    () =>
+      buildMusicPrompt(
+        instruments,
+        customInstrument,
+        selectedStyles,
+        customStyle,
+        detailTemplates,
+        details,
+      ),
     [customInstrument, customStyle, detailTemplates, details, instruments, selectedStyles],
   );
   const currentTagKeywords = useMemo(
@@ -98,23 +106,22 @@ export default function MusicRegulation() {
     ],
     [customInstrument, customStyle, detailTemplates, details, instruments, selectedStyles],
   );
-  const hasSelectedInstrument = instruments.some((selectedInstrument) => (
-    selectedInstrument === 'custom' ? customInstrument.trim().length > 0 : true
-  ));
-  const hasSelectedStyle = selectedStyles.some((selectedStyle) => (
-    selectedStyle === 'custom' ? customStyle.trim().length > 0 : true
-  ));
-  const hasPromptCore = hasSelectedInstrument
-    && hasSelectedStyle;
+  const hasSelectedInstrument = instruments.some((selectedInstrument) =>
+    selectedInstrument === 'custom' ? customInstrument.trim().length > 0 : true,
+  );
+  const hasSelectedStyle = selectedStyles.some((selectedStyle) =>
+    selectedStyle === 'custom' ? customStyle.trim().length > 0 : true,
+  );
+  const hasPromptCore = hasSelectedInstrument && hasSelectedStyle;
   const canGenerate = generatedPrompt.trim().length > 0 && hasPromptCore;
   const generationDeviceLabel = generationDevice ? generationDevice.toUpperCase() : '检测设备中';
   const coverStyle = activeAsset
-    ? {
-      '--cover-accent': activeAsset.cover.accent,
-      '--cover-angle': `${activeAsset.cover.angle}deg`,
-      '--cover-primary': activeAsset.cover.primary,
-      '--cover-secondary': activeAsset.cover.secondary,
-    } as CSSProperties
+    ? ({
+        '--cover-accent': activeAsset.cover.accent,
+        '--cover-angle': `${activeAsset.cover.angle}deg`,
+        '--cover-primary': activeAsset.cover.primary,
+        '--cover-secondary': activeAsset.cover.secondary,
+      } as CSSProperties)
     : undefined;
 
   useEffect(() => {
@@ -125,7 +132,12 @@ export default function MusicRegulation() {
         return;
       }
 
-      setGeneratedItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)].slice(0, MAX_GENERATED_ITEMS));
+      setGeneratedItems((items) =>
+        [item, ...items.filter((existing) => existing.id !== item.id)].slice(
+          0,
+          MAX_GENERATED_ITEMS,
+        ),
+      );
       setActiveIndex(0);
     };
 
@@ -143,7 +155,9 @@ export default function MusicRegulation() {
       }
 
       const detailTags = splitPlannerTags(detail.details);
-      const detailTemplateValues = new Set<string>(detailTemplateOptions.map((option) => option.value));
+      const detailTemplateValues = new Set<string>(
+        detailTemplateOptions.map((option) => option.value),
+      );
       const templateMatches = detailTags.filter((tag) => detailTemplateValues.has(tag));
       const customDetails = detailTags.filter((tag) => !detailTemplateValues.has(tag));
 
@@ -152,7 +166,12 @@ export default function MusicRegulation() {
       setDetailTemplates(templateMatches);
       setDetails(customDetails.join(', '));
 
-      if (typeof detail.duration === 'number' && generationDurationOptions.includes(detail.duration as typeof generationDurationOptions[number])) {
+      if (
+        typeof detail.duration === 'number' &&
+        generationDurationOptions.includes(
+          detail.duration as (typeof generationDurationOptions)[number],
+        )
+      ) {
         setGenerationDuration(detail.duration);
       }
     };
@@ -199,40 +218,41 @@ export default function MusicRegulation() {
   const handleTagSelectorOpenChange = (id: string) => {
     setOpenTagSelectorId((currentId) => getNextOpenTagSelector(currentId, id));
   };
-  const openTagEditor = openTagSelectorId === 'instrument'
-    ? {
-      colors: instrumentTagColors,
-      customPlaceholder: 'erhu, hang drum, duduk...',
-      customValue: customInstrument,
-      onCustomChange: setCustomInstrument,
-      onOnly: handleInstrumentOnly,
-      onToggle: handleInstrumentToggle,
-      options: instrumentOptions,
-      selectedValues: instruments,
-      title: '乐器',
-    }
-    : openTagSelectorId === 'style'
+  const openTagEditor =
+    openTagSelectorId === 'instrument'
       ? {
-        colors: styleTagColors,
-        customPlaceholder: 'post-rock, lo-fi jazz, cinematic...',
-        customValue: customStyle,
-        onCustomChange: setCustomStyle,
-        onOnly: handleStyleOnly,
-        onToggle: handleStyleToggle,
-        options: styleOptions,
-        selectedValues: selectedStyles,
-        title: '风格',
-      }
-      : openTagSelectorId === 'details'
-        ? {
-          colors: detailTagColors,
-          onOnly: handleDetailTemplateOnly,
-          onToggle: handleDetailTemplateToggle,
-          options: detailTemplateOptions,
-          selectedValues: detailTemplates,
-          title: '细节',
+          colors: instrumentTagColors,
+          customPlaceholder: 'erhu, hang drum, duduk...',
+          customValue: customInstrument,
+          onCustomChange: setCustomInstrument,
+          onOnly: handleInstrumentOnly,
+          onToggle: handleInstrumentToggle,
+          options: instrumentOptions,
+          selectedValues: instruments,
+          title: '乐器',
         }
-        : null;
+      : openTagSelectorId === 'style'
+        ? {
+            colors: styleTagColors,
+            customPlaceholder: 'post-rock, lo-fi jazz, cinematic...',
+            customValue: customStyle,
+            onCustomChange: setCustomStyle,
+            onOnly: handleStyleOnly,
+            onToggle: handleStyleToggle,
+            options: styleOptions,
+            selectedValues: selectedStyles,
+            title: '风格',
+          }
+        : openTagSelectorId === 'details'
+          ? {
+              colors: detailTagColors,
+              onOnly: handleDetailTemplateOnly,
+              onToggle: handleDetailTemplateToggle,
+              options: detailTemplateOptions,
+              selectedValues: detailTemplates,
+              title: '细节',
+            }
+          : null;
 
   // The service has no cancel endpoint, so this only gives up waiting: the
   // invoke keeps running and its track still arrives in history via
@@ -283,9 +303,16 @@ export default function MusicRegulation() {
         return;
       }
 
-      setGeneratedItems((items) => [item, ...items.filter((existing) => existing.id !== item.id)].slice(0, MAX_GENERATED_ITEMS));
+      setGeneratedItems((items) =>
+        [item, ...items.filter((existing) => existing.id !== item.id)].slice(
+          0,
+          MAX_GENERATED_ITEMS,
+        ),
+      );
       setActiveIndex(0);
-      setGenerationNotice(`生成完成,耗时 ${formatTime((Date.now() - generationStartedAt) / 1000)}。`);
+      setGenerationNotice(
+        `生成完成,耗时 ${formatTime((Date.now() - generationStartedAt) / 1000)}。`,
+      );
       window.setTimeout(() => {
         void playActiveAudio();
       }, 0);
@@ -342,14 +369,19 @@ export default function MusicRegulation() {
   };
 
   return (
-    <section className={`${styles.workspace} mx-auto flex w-full flex-col`} aria-label="音乐调控工作区">
+    <section
+      className={`${styles.workspace} mx-auto flex w-full flex-col`}
+      aria-label="音乐调控工作区"
+    >
       <header className={`${styles.header} flex items-start justify-between`}>
         <div>
           <div className={styles.eyebrow}>音乐调控播放器</div>
           <h1 className={styles.title}>WAV 音乐生成</h1>
         </div>
         <div className={`${styles.statusBar} flex flex-wrap items-center justify-end`}>
-          <span className={`${styles.statusPill} inline-flex items-center ${isPlaying ? styles.playing : styles.idle}`}>
+          <span
+            className={`${styles.statusPill} inline-flex items-center ${isPlaying ? styles.playing : styles.idle}`}
+          >
             <GraphicEqRoundedIcon fontSize="small" />
             {isGenerating ? '生成中' : isPlaying ? '播放中' : '就绪'}
           </span>
@@ -361,7 +393,9 @@ export default function MusicRegulation() {
 
       {error ? (
         isTauriAvailable() ? (
-          <div className={styles.errorBanner} role="alert">{error}</div>
+          <div className={styles.errorBanner} role="alert">
+            {error}
+          </div>
         ) : (
           // Browser preview: generation and history live behind Tauri commands,
           // so the failure is the environment — degrade to a calm notice.
@@ -370,7 +404,11 @@ export default function MusicRegulation() {
           </div>
         )
       ) : null}
-      {!error && generationNotice ? <div className={styles.successBanner} role="status">{generationNotice}</div> : null}
+      {!error && generationNotice ? (
+        <div className={styles.successBanner} role="status">
+          {generationNotice}
+        </div>
+      ) : null}
 
       <div className={`${styles.contentGrid} grid`}>
         <MusicPromptForm

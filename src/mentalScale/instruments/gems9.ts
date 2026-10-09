@@ -97,10 +97,10 @@ export function scoreGems9(answers: Record<string, number>): Gems9Score {
   for (const item of gems9Items) {
     const value = answers[item.id];
     if (
-      typeof value !== 'number'
-      || !Number.isInteger(value)
-      || value < GEMS9_MIN_VALUE
-      || value > GEMS9_MAX_VALUE
+      typeof value !== 'number' ||
+      !Number.isInteger(value) ||
+      value < GEMS9_MIN_VALUE ||
+      value > GEMS9_MAX_VALUE
     ) {
       throw new Error(`Invalid or missing GEMS-9 answer for ${item.id}.`);
     }

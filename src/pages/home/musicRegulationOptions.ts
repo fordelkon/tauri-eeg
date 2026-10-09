@@ -125,9 +125,39 @@ export const detailTemplateOptions = [
   },
 ] as const;
 
-export const instrumentTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f', '#d7a86e', '#9aa2a9'] as const;
-export const styleTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f', '#d7a86e'] as const;
-export const detailTagColors = ['#6adfbb', '#ef6f61', '#f8a62b', '#5d8fe8', '#a78bfa', '#e26ca5', '#4fb2c6', '#8cc35f'] as const;
+export const instrumentTagColors = [
+  '#6adfbb',
+  '#ef6f61',
+  '#f8a62b',
+  '#5d8fe8',
+  '#a78bfa',
+  '#e26ca5',
+  '#4fb2c6',
+  '#8cc35f',
+  '#d7a86e',
+  '#9aa2a9',
+] as const;
+export const styleTagColors = [
+  '#6adfbb',
+  '#ef6f61',
+  '#f8a62b',
+  '#5d8fe8',
+  '#a78bfa',
+  '#e26ca5',
+  '#4fb2c6',
+  '#8cc35f',
+  '#d7a86e',
+] as const;
+export const detailTagColors = [
+  '#6adfbb',
+  '#ef6f61',
+  '#f8a62b',
+  '#5d8fe8',
+  '#a78bfa',
+  '#e26ca5',
+  '#4fb2c6',
+  '#8cc35f',
+] as const;
 
 export const generationDurationOptions = [15, 30, 60, 120] as const;
 

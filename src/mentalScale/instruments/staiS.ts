@@ -16,12 +16,7 @@ export const STAI_S_SCALE_ID = 'stai_s_state_v1';
 export const STAI_S_STATE_INSTRUCTION = '此时此刻，以下描述与你当前感受的符合程度是？';
 
 /** Intensity anchors for answer values 1-4 (doc §2.2, verbatim). */
-export const STAI_S_ANCHOR_LABELS: readonly string[] = [
-  '完全没有',
-  '有些',
-  '中等程度',
-  '非常明显',
-];
+export const STAI_S_ANCHOR_LABELS: readonly string[] = ['完全没有', '有些', '中等程度', '非常明显'];
 
 export const STAI_S_MIN_VALUE = 1;
 export const STAI_S_MAX_VALUE = 4;
@@ -52,7 +47,12 @@ export const staiSItems: readonly StaiSItem[] = [
   { id: 'S4', textEn: 'I am regretful', textZh: '我感到懊悔', reversed: false },
   { id: 'S5', textEn: 'I feel at ease', textZh: '我感到轻松自在', reversed: true },
   { id: 'S6', textEn: 'I feel upset', textZh: '我感到心烦意乱', reversed: false },
-  { id: 'S7', textEn: 'I am presently worrying over possible misfortunes', textZh: '我正为将来可能的不幸而担忧', reversed: false },
+  {
+    id: 'S7',
+    textEn: 'I am presently worrying over possible misfortunes',
+    textZh: '我正为将来可能的不幸而担忧',
+    reversed: false,
+  },
   { id: 'S8', textEn: 'I feel rested', textZh: '我感到休息得很好', reversed: true },
   { id: 'S9', textEn: 'I feel anxious', textZh: '我感到焦虑', reversed: false },
   { id: 'S10', textEn: 'I feel comfortable', textZh: '我感到舒适', reversed: true },
@@ -78,17 +78,11 @@ export const STAI_S_REVERSED_ITEM_IDS: readonly string[] = staiSItems
  * items flip it (1→4 … 4→1). Throws on an out-of-range answer.
  */
 export function staiSItemScore(item: StaiSItem, value: number): number {
-  if (
-    !Number.isInteger(value)
-    || value < STAI_S_MIN_VALUE
-    || value > STAI_S_MAX_VALUE
-  ) {
+  if (!Number.isInteger(value) || value < STAI_S_MIN_VALUE || value > STAI_S_MAX_VALUE) {
     throw new Error(`Invalid STAI-S answer for ${item.id}: ${value}.`);
   }
 
-  return item.reversed
-    ? STAI_S_MIN_VALUE + STAI_S_MAX_VALUE - value
-    : value;
+  return item.reversed ? STAI_S_MIN_VALUE + STAI_S_MAX_VALUE - value : value;
 }
 
 export type StaiSScore = {

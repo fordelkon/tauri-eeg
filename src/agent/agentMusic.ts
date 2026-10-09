@@ -16,10 +16,10 @@ export type AgentMusicPreview = {
 };
 
 export type CustomDescriptionResult =
-  | { accepted: true; value: string }
-  | { accepted: false; reason: string };
+  { accepted: true; value: string } | { accepted: false; reason: string };
 
-const blockedDescriptionPattern = /人声|歌词|演唱|说话|尖锐|恐怖|暴力|惊吓|vocal|lyrics|speech|harsh|scary|violent/i;
+const blockedDescriptionPattern =
+  /人声|歌词|演唱|说话|尖锐|恐怖|暴力|惊吓|vocal|lyrics|speech|harsh|scary|violent/i;
 const negativePrompt = 'vocals, singing, speech, lyrics';
 const controlTags = new Set(['avoid_vocals', 'no vocals']);
 
@@ -45,9 +45,16 @@ export function buildAgentMusicPreview(input: AgentMusicInput): AgentMusicPrevie
   const custom = sanitizeMusicCustomDescription(input.customDescription ?? '');
   const plannerTags = personalizedTags
     .map((tag) => tag.trim())
-    .filter((tag) => tag.length > 0 && !controlTags.has(tag.toLowerCase()) && !blockedDescriptionPattern.test(tag));
+    .filter(
+      (tag) =>
+        tag.length > 0 &&
+        !controlTags.has(tag.toLowerCase()) &&
+        !blockedDescriptionPattern.test(tag),
+    );
   const parts = [
-    coreScores.anxiety >= 70 || coreScores.worry >= 70 ? 'ambient instrumental' : 'calm instrumental',
+    coreScores.anxiety >= 70 || coreScores.worry >= 70
+      ? 'ambient instrumental'
+      : 'calm instrumental',
     coreScores.energy <= 35 ? 'warm low energy texture' : 'stable slow rhythm',
     personalizedTags.includes('piano') ? 'piano' : '',
     personalizedTags.includes('soft') ? 'soft dynamics' : '',

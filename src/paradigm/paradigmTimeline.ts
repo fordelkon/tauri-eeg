@@ -31,12 +31,7 @@ export const REGULATION_DECODE_STEPS = 12;
 export const VIDEO_LOAD_WATCHDOG_MS = VIDEO_MAX_SECONDS * 1000 + 15_000;
 
 export type ParadigmTrialPhase =
-  | 'baseline'
-  | 'hint'
-  | 'video'
-  | 'postRest'
-  | 'selfReport'
-  | 'qualityCheck';
+  'baseline' | 'hint' | 'video' | 'postRest' | 'selfReport' | 'qualityCheck';
 
 /** Operator-facing order of the stages inside one induction trial. */
 export const PARADIGM_TRIAL_PHASE_SEQUENCE: readonly ParadigmTrialPhase[] = [
@@ -67,9 +62,7 @@ export const PARADIGM_TIMED_PHASES: readonly ParadigmTrialPhase[] = [
   'postRest',
 ];
 
-export function getNextTrialPhase(
-  phase: ParadigmTrialPhase,
-): ParadigmTrialPhase | null {
+export function getNextTrialPhase(phase: ParadigmTrialPhase): ParadigmTrialPhase | null {
   const index = PARADIGM_TRIAL_PHASE_SEQUENCE.indexOf(phase);
 
   return index >= 0 && index < PARADIGM_TRIAL_PHASE_SEQUENCE.length - 1
@@ -78,9 +71,7 @@ export function getNextTrialPhase(
 }
 
 /** Fixed wall-clock duration of the countdown-driven phases, null otherwise. */
-export function getTimedPhaseDurationMs(
-  phase: ParadigmTrialPhase,
-): number | null {
+export function getTimedPhaseDurationMs(phase: ParadigmTrialPhase): number | null {
   if (phase === 'baseline') {
     return BASELINE_REST_MS;
   }

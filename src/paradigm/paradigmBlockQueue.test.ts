@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import {
-  describeParadigmQueueProgress,
-  toBlockStarts,
-  videoNumberFor,
-} from './paradigmBlockQueue';
+import { describeParadigmQueueProgress, toBlockStarts, videoNumberFor } from './paradigmBlockQueue';
 import type { ParadigmTrialPlanItem } from './types';
 
-function plan(trialIndex: number, emotion: ParadigmTrialPlanItem['emotion']): ParadigmTrialPlanItem {
+function plan(
+  trialIndex: number,
+  emotion: ParadigmTrialPlanItem['emotion'],
+): ParadigmTrialPlanItem {
   return {
     emotion,
     trialIndex,
@@ -16,12 +15,7 @@ function plan(trialIndex: number, emotion: ParadigmTrialPlanItem['emotion']): Pa
 }
 
 // Two blocks: 2 anxious trials followed by 2 calm ones.
-const queue = [
-  plan(0, 'anxiety'),
-  plan(1, 'anxiety'),
-  plan(2, 'calm'),
-  plan(3, 'calm'),
-];
+const queue = [plan(0, 'anxiety'), plan(1, 'anxiety'), plan(2, 'calm'), plan(3, 'calm')];
 
 describe('paradigm block queue', () => {
   it('block starts mark the first trial of each emotion run', () => {

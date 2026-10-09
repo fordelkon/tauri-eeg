@@ -23,8 +23,7 @@ export function buildMusicPrompt(
     ...selectedDetails,
     details.trim(),
     noVocalsConstraint,
-  ]
-    .filter((part) => part.length > 0);
+  ].filter((part) => part.length > 0);
 
   return Array.from(new Set(parts)).join(', ');
 }

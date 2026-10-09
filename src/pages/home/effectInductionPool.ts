@@ -18,8 +18,7 @@ export function paradigmPoolKeyForEmotion(
 }
 
 export type InductionPoolStatus =
-  | { kind: 'ready'; entry: ParadigmVideoEntry }
-  | { kind: 'blocked'; copy: string };
+  { kind: 'ready'; entry: ParadigmVideoEntry } | { kind: 'blocked'; copy: string };
 
 /**
  * Whether the induction step may play, derived from the target emotion and

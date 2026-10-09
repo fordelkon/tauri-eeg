@@ -9,13 +9,13 @@
 
 export type LetterSprite = { canvas: HTMLCanvasElement; height: number; width: number };
 
-export const LETTER_FONT = (fontSize: number) => (
-  `560 ${fontSize}px "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif`
-);
+export const LETTER_FONT = (fontSize: number) =>
+  `560 ${fontSize}px "Comic Sans MS", "Trebuchet MS", "Segoe UI", Arial, sans-serif`;
 
-export const defaultTitleFontSize = (width: number) => (
-  width > 420 ? Math.min(42, Math.max(28, width * 0.045)) : Math.max(20, Math.min(25, width * 0.072))
-);
+export const defaultTitleFontSize = (width: number) =>
+  width > 420
+    ? Math.min(42, Math.max(28, width * 0.045))
+    : Math.max(20, Math.min(25, width * 0.072));
 
 const LETTER_SHADOW_BLUR = 1.5;
 // Shadow sigma is blur / 2 = 0.75px, so 6px of padding safely contains the glow.

@@ -36,7 +36,14 @@ describe('deriveEffectPipelineNodes', () => {
     ]);
     expect(nodes.map((node) => node.step)).toEqual([0, 1, 2, 3, 4, 5]);
     // One-word station labels feed the horizontal timeline.
-    expect(nodes.map((node) => node.shortLabel)).toEqual(['配置', '诱发', '量表', '静息', '复测', '结果']);
+    expect(nodes.map((node) => node.shortLabel)).toEqual([
+      '配置',
+      '诱发',
+      '量表',
+      '静息',
+      '复测',
+      '结果',
+    ]);
     // Current/pending nodes carry no done summary.
     expect(nodes.filter((node) => node.summary !== null)).toHaveLength(0);
     // Status lines exist for every station; pending ones read 未解锁.
@@ -49,11 +56,13 @@ describe('deriveEffectPipelineNodes', () => {
 
   test('advancing the flow marks earlier nodes done with state-derived summaries', () => {
     const baselineRecordId = 'baseline-record-0001';
-    const nodes = deriveEffectPipelineNodes(stateAtStep(3, {
-      subjectId: 'subj-001',
-      baselineRecordId,
-      regulationStartedAtMs: 1_000,
-    }));
+    const nodes = deriveEffectPipelineNodes(
+      stateAtStep(3, {
+        subjectId: 'subj-001',
+        baselineRecordId,
+        regulationStartedAtMs: 1_000,
+      }),
+    );
 
     expect(nodes[0]).toMatchObject({
       step: 0,
@@ -63,7 +72,12 @@ describe('deriveEffectPipelineNodes', () => {
     });
     // The induction filename is not recorded in the flow state, so the
     // summary stays generic instead of inventing one.
-    expect(nodes[1]).toMatchObject({ step: 1, status: 'done', summary: '已完成', statusText: '已完成' });
+    expect(nodes[1]).toMatchObject({
+      step: 1,
+      status: 'done',
+      summary: '已完成',
+      statusText: '已完成',
+    });
     expect(nodes[2]).toMatchObject({
       step: 2,
       status: 'done',
@@ -71,9 +85,24 @@ describe('deriveEffectPipelineNodes', () => {
       statusText: '已保存',
     });
     // The condition window is live: the station reads 计时中, not 进行中.
-    expect(nodes[3]).toMatchObject({ step: 3, status: 'current', summary: null, statusText: '计时中' });
-    expect(nodes[4]).toMatchObject({ step: 4, status: 'pending', summary: null, statusText: '未解锁' });
-    expect(nodes[5]).toMatchObject({ step: 5, status: 'pending', summary: null, statusText: '未解锁' });
+    expect(nodes[3]).toMatchObject({
+      step: 3,
+      status: 'current',
+      summary: null,
+      statusText: '计时中',
+    });
+    expect(nodes[4]).toMatchObject({
+      step: 4,
+      status: 'pending',
+      summary: null,
+      statusText: '未解锁',
+    });
+    expect(nodes[5]).toMatchObject({
+      step: 5,
+      status: 'pending',
+      summary: null,
+      statusText: '未解锁',
+    });
   });
 
   test('scale summaries reflect the baseline/postRecordId existence', () => {
@@ -82,10 +111,12 @@ describe('deriveEffectPipelineNodes', () => {
     expect(withoutRecord[2]).toMatchObject({ status: 'current', summary: null });
     expect(withoutRecord[1].summary).toBe('已完成');
 
-    const withPostRecord = deriveEffectPipelineNodes(stateAtStep(5, {
-      baselineRecordId: 'aaaabbbb-0000',
-      postRecordId: 'ccccdddd-0000',
-    }));
+    const withPostRecord = deriveEffectPipelineNodes(
+      stateAtStep(5, {
+        baselineRecordId: 'aaaabbbb-0000',
+        postRecordId: 'ccccdddd-0000',
+      }),
+    );
     expect(withPostRecord[2].summary).toBe('量表记录已保存（aaaabbbb…）');
     expect(withPostRecord[4].summary).toBe('量表记录已保存（ccccdddd…）');
   });
@@ -119,10 +150,12 @@ describe('deriveEffectPipelineNodes', () => {
     expect(natural[3].stageHint).toBe('接下来 5 分钟什么都不用做，让情绪自然回落');
 
     // The duration rides the configured minutes.
-    const longer = deriveEffectPipelineNodes(stateAtStep(3, {
-      condition: 'regulation',
-      durationMinutes: 10,
-    }));
+    const longer = deriveEffectPipelineNodes(
+      stateAtStep(3, {
+        condition: 'regulation',
+        durationMinutes: 10,
+      }),
+    );
     expect(longer[3].stageHint).toContain('10 分钟');
   });
 
@@ -230,7 +263,10 @@ describe('verdictCopyForCondition', () => {
     const below = buildEffectVerdictCopy({ meanImprovementRate: -0.05, meetsThreshold: false });
     expect(verdictCopyForCondition(below, 'natural_recovery')).toBe(below);
 
-    const unjudgeable = buildEffectVerdictCopy({ meanImprovementRate: null, meetsThreshold: false });
+    const unjudgeable = buildEffectVerdictCopy({
+      meanImprovementRate: null,
+      meetsThreshold: false,
+    });
     expect(verdictCopyForCondition(unjudgeable, 'natural_recovery')).toBe(unjudgeable);
   });
 });
@@ -279,9 +315,8 @@ describe('device-free end-to-end pipeline walk', () => {
 
       // Before induction the association has not been attempted yet; from the
       // induction step on it degrades to the documented trial-run badge.
-      const expectedAssociationCopy = state.eventLogStatus === 'interrupted'
-        ? '实验已中断，请重新开始'
-        : '实验尚未开始';
+      const expectedAssociationCopy =
+        state.eventLogStatus === 'interrupted' ? '实验已中断，请重新开始' : '实验尚未开始';
       expect(describeEventLogStatus(state.eventLogStatus)).toBe(expectedAssociationCopy);
     });
 

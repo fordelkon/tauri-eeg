@@ -21,7 +21,7 @@
     radial-gradient(circle at 18% 20%, rgba(251, 127, 110, 0.14), transparent 24%),
     radial-gradient(circle at 82% 78%, rgba(59, 39, 43, 0.08), transparent 28%);
   border-radius: inherit;
-  content: "";
+  content: '';
   inset: 0;
   pointer-events: none;
   position: absolute;
@@ -147,7 +147,7 @@
 
 .title {
   color: #141414;
-  font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+  font-family: Inter, 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
   font-size: clamp(28px, 4vw, 42px);
   /* Page's primary heading rides the 600 step like every other page title. */
   font-weight: 600;

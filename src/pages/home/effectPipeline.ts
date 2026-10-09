@@ -102,13 +102,13 @@ function stageCopyFor(
     case 3:
       return state.condition === 'natural_recovery'
         ? {
-          stageTitle: '静息恢复',
-          stageHint: `接下来 ${state.durationMinutes} 分钟什么都不用做，让情绪自然回落`,
-        }
+            stageTitle: '静息恢复',
+            stageHint: `接下来 ${state.durationMinutes} 分钟什么都不用做，让情绪自然回落`,
+          }
         : {
-          stageTitle: '执行调控（音乐/视频）',
-          stageHint: `接下来 ${state.durationMinutes} 分钟请跟随媒体放松，到点自动提醒`,
-        };
+            stageTitle: '执行调控（音乐/视频）',
+            stageHint: `接下来 ${state.durationMinutes} 分钟请跟随媒体放松，到点自动提醒`,
+          };
     case 4:
       return { stageTitle: '再次记录此刻状态', stageHint: SCALE_STAGE_HINT };
     case 5:

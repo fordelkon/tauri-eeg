@@ -49,14 +49,17 @@ describe('createBundledMusicAssets', () => {
   });
 
   it('creates generated wav assets with playable tauri file urls', () => {
-    const asset = createGeneratedMusicAsset({
-      id: 'job-1',
-      prompt: 'calm piano',
-      filePath: 'C:\\Users\\name\\AppData\\Local\\tauri-eeg\\music\\gen_job.wav',
-      createdAt: '2026-06-11T08:00:00Z',
-      durationSeconds: 30,
-      modelVersion: 'stable-audio-3-small-music',
-    }, (filePath) => `asset://${filePath}`);
+    const asset = createGeneratedMusicAsset(
+      {
+        id: 'job-1',
+        prompt: 'calm piano',
+        filePath: 'C:\\Users\\name\\AppData\\Local\\tauri-eeg\\music\\gen_job.wav',
+        createdAt: '2026-06-11T08:00:00Z',
+        durationSeconds: 30,
+        modelVersion: 'stable-audio-3-small-music',
+      },
+      (filePath) => `asset://${filePath}`,
+    );
 
     expect(asset).toMatchObject({
       id: 'job-1',

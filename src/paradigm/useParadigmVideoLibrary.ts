@@ -2,10 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { buildParadigmQueue } from './paradigmApi';
 import { useMaterialLibraryLoader } from './useMaterialLibrary';
-import {
-  readStoredLibraryRootPath,
-  writeStoredLibraryRootPath,
-} from './paradigmStorage';
+import { readStoredLibraryRootPath, writeStoredLibraryRootPath } from './paradigmStorage';
 import { toLibraryErrorMessage } from './paradigmSessionKinds';
 import type {
   ParadigmEmotion,
@@ -25,8 +22,8 @@ export function useParadigmVideoLibrary(options: {
 }) {
   const { sessionKind, sessionRunId } = options;
   const { loader, state: libraryState } = useMaterialLibraryLoader();
-  const library = libraryState.kind === 'ready' || libraryState.kind === 'invalid'
-    ? libraryState.library : null;
+  const library =
+    libraryState.kind === 'ready' || libraryState.kind === 'invalid' ? libraryState.library : null;
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [choosingLibrary, setChoosingLibrary] = useState(false);
   const loadingLibrary = choosingLibrary || libraryState.kind === 'loading';
@@ -46,13 +43,12 @@ export function useParadigmVideoLibrary(options: {
   useEffect(() => {
     const storedRootPath = readStoredLibraryRootPath();
     if (storedRootPath) {
-      void loader.load(storedRootPath)
-        .then((result) => {
-          if (result?.kind === 'invalid') {
-            writeStoredLibraryRootPath('');
-            void loader.load('');
-          }
-        });
+      void loader.load(storedRootPath).then((result) => {
+        if (result?.kind === 'invalid') {
+          writeStoredLibraryRootPath('');
+          void loader.load('');
+        }
+      });
     }
 
     return () => {

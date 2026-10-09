@@ -40,7 +40,12 @@ export function createTitleMotionField(options: {
 }): TitleMotionField {
   const { host, letters, pointerRef } = options;
 
-  const createLetterMotion = (char: string, baseX: number, baseY: number, fontSize: number): TitleMotion => ({
+  const createLetterMotion = (
+    char: string,
+    baseX: number,
+    baseY: number,
+    fontSize: number,
+  ): TitleMotion => ({
     baseX,
     baseY,
     char,
@@ -100,8 +105,10 @@ export function createTitleMotionField(options: {
       targetSquash = Math.min(targetSquash, 0.22);
       letter.velocityX = (letter.velocityX + (targetX - letter.x) * 0.14) * 0.72;
       letter.velocityY = (letter.velocityY + (targetY - letter.y) * 0.14) * 0.72;
-      letter.rotationVelocity = (letter.rotationVelocity + (targetRotation - letter.rotation) * 0.16) * 0.68;
-      letter.squashVelocity = (letter.squashVelocity + (targetSquash - letter.squash) * 0.18) * 0.68;
+      letter.rotationVelocity =
+        (letter.rotationVelocity + (targetRotation - letter.rotation) * 0.16) * 0.68;
+      letter.squashVelocity =
+        (letter.squashVelocity + (targetSquash - letter.squash) * 0.18) * 0.68;
       letter.x += letter.velocityX;
       letter.y += letter.velocityY;
       letter.rotation += letter.rotationVelocity;

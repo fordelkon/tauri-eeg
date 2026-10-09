@@ -72,8 +72,12 @@ describe('effectEvaluationFlow stepper', () => {
   });
 
   it('computes the regulation window from the configured minutes', () => {
-    expect(regulationDurationMs({ ...createEffectEvaluationFlowState(), durationMinutes: 5 })).toBe(300_000);
-    expect(regulationDurationMs({ ...createEffectEvaluationFlowState(), durationMinutes: 1 })).toBe(60_000);
+    expect(regulationDurationMs({ ...createEffectEvaluationFlowState(), durationMinutes: 5 })).toBe(
+      300_000,
+    );
+    expect(regulationDurationMs({ ...createEffectEvaluationFlowState(), durationMinutes: 1 })).toBe(
+      60_000,
+    );
   });
 });
 
@@ -144,8 +148,9 @@ describe('strong duration constraint (R3)', () => {
       regulationSkipped: true,
     };
     expect(parseFlowState(serializeFlowState(skipped))?.regulationSkipped).toBe(true);
-    expect(parseFlowState(serializeFlowState(createEffectEvaluationFlowState()))?.regulationSkipped)
-      .toBe(false);
+    expect(
+      parseFlowState(serializeFlowState(createEffectEvaluationFlowState()))?.regulationSkipped,
+    ).toBe(false);
 
     const valid = JSON.parse(serializeFlowState(createEffectEvaluationFlowState()));
     expect(parseFlowState(JSON.stringify({ ...valid, regulationSkipped: 'yes' }))).toBeNull();
@@ -175,15 +180,16 @@ describe('flow state persistence across the regulation-page jump', () => {
     expect(parseFlowState('not-json{')).toBeNull();
     expect(parseFlowState(JSON.stringify('string-root'))).toBeNull();
 
-    const valid = JSON.parse(serializeFlowState({
-      ...createEffectEvaluationFlowState(),
-      subjectId: 'subj-042',
-      baselineRecordId: 'rec-baseline',
-    }));
-
-    const mutate = (patch: Record<string, unknown>) => parseFlowState(
-      JSON.stringify({ ...valid, ...patch }),
+    const valid = JSON.parse(
+      serializeFlowState({
+        ...createEffectEvaluationFlowState(),
+        subjectId: 'subj-042',
+        baselineRecordId: 'rec-baseline',
+      }),
     );
+
+    const mutate = (patch: Record<string, unknown>) =>
+      parseFlowState(JSON.stringify({ ...valid, ...patch }));
 
     // Any field outside its domain restarts the flow cleanly.
     expect(mutate({ version: 99 })).toBeNull();
@@ -201,18 +207,22 @@ describe('flow state persistence across the regulation-page jump', () => {
   });
 
   it('clamps an out-of-range stored duration back into the configurable band', () => {
-    const restored = parseFlowState(JSON.stringify({
-      ...createEffectEvaluationFlowState(),
-      subjectId: 'subj-042',
-      durationMinutes: 999,
-    }));
+    const restored = parseFlowState(
+      JSON.stringify({
+        ...createEffectEvaluationFlowState(),
+        subjectId: 'subj-042',
+        durationMinutes: 999,
+      }),
+    );
     expect(restored?.durationMinutes).toBe(30);
 
-    const restoredLow = parseFlowState(JSON.stringify({
-      ...createEffectEvaluationFlowState(),
-      subjectId: 'subj-042',
-      durationMinutes: 0.4,
-    }));
+    const restoredLow = parseFlowState(
+      JSON.stringify({
+        ...createEffectEvaluationFlowState(),
+        subjectId: 'subj-042',
+        durationMinutes: 0.4,
+      }),
+    );
     expect(restoredLow?.durationMinutes).toBe(1);
   });
 });
@@ -345,9 +355,13 @@ describe('regulation window detection (R4/F4)', () => {
   });
 
   it('treats corrupt storage as a closed window instead of throwing', () => {
-    expect(isRegulationWindowOpenInStorage(fakeStorage({
-      'effectEvaluation.flowState.v1': '{broken',
-    }))).toBe(false);
+    expect(
+      isRegulationWindowOpenInStorage(
+        fakeStorage({
+          'effectEvaluation.flowState.v1': '{broken',
+        }),
+      ),
+    ).toBe(false);
   });
 });
 
@@ -367,20 +381,24 @@ describe('regulation page context (R4/F4 调控页消费会话上下文)', () =>
 
   it('stays null for closed windows or a mismatched page method', () => {
     // The video page must stay untouched while a music run is live.
-    expect(regulationPageContextFor(
-      { ...runningWindowState(START), condition: 'regulation' as const },
-      'video',
-      START,
-    )).toBeNull();
+    expect(
+      regulationPageContextFor(
+        { ...runningWindowState(START), condition: 'regulation' as const },
+        'video',
+        START,
+      ),
+    ).toBeNull();
     // No live window: unrelated visits to the music page see nothing.
     expect(regulationPageContextFor(createEffectEvaluationFlowState(), 'music', START)).toBeNull();
     // Window finished long ago is still "open" until the wizard advances —
     // remaining clamps to 0 so the page keeps its playback stopped.
-    expect(regulationPageContextFor(
-      { ...runningWindowState(START), condition: 'regulation' as const },
-      'music',
-      START + FIVE_MINUTES_MS * 2,
-    )).toEqual({ emotionLabel: '焦虑', remainingSeconds: 0 });
+    expect(
+      regulationPageContextFor(
+        { ...runningWindowState(START), condition: 'regulation' as const },
+        'music',
+        START + FIVE_MINUTES_MS * 2,
+      ),
+    ).toEqual({ emotionLabel: '焦虑', remainingSeconds: 0 });
   });
 
   it('stays null for a live natural-recovery window (R6: that run never jumps)', () => {
@@ -457,8 +475,9 @@ describe('wizard condition selection (R6 实验条件)', () => {
   it('round-trips the condition and rejects stored values outside the two options', () => {
     const regulation = { ...createEffectEvaluationFlowState(), condition: 'regulation' as const };
     expect(parseFlowState(serializeFlowState(regulation))?.condition).toBe('regulation');
-    expect(parseFlowState(serializeFlowState(createEffectEvaluationFlowState()))?.condition)
-      .toBe('natural_recovery');
+    expect(parseFlowState(serializeFlowState(createEffectEvaluationFlowState()))?.condition).toBe(
+      'natural_recovery',
+    );
 
     const valid = JSON.parse(serializeFlowState(createEffectEvaluationFlowState()));
     expect(parseFlowState(JSON.stringify({ ...valid, condition: 'sleep' }))).toBeNull();
@@ -506,9 +525,24 @@ describe('emotion induction pool gating (R6 素材池硬前置)', () => {
   // is why this never surfaced in CI.
   it('survives the fractional Math.random default without crashing (R8 hotfix)', () => {
     const fearPool: ParadigmVideoEntry[] = [
-      { videoId: 'fear-1', fileName: 'fear_01.mp4', absolutePath: 'C:' + String.fromCharCode(92) + '\clips' + String.fromCharCode(92) + 'fear_01.mp4' },
-      { videoId: 'fear-2', fileName: 'fear_02.mp4', absolutePath: 'C:' + String.fromCharCode(92) + '\clips' + String.fromCharCode(92) + 'fear_02.mp4' },
-      { videoId: 'fear-3', fileName: 'fear_03.mp4', absolutePath: 'C:' + String.fromCharCode(92) + '\clips' + String.fromCharCode(92) + 'fear_03.mp4' },
+      {
+        videoId: 'fear-1',
+        fileName: 'fear_01.mp4',
+        absolutePath:
+          'C:' + String.fromCharCode(92) + '\clips' + String.fromCharCode(92) + 'fear_01.mp4',
+      },
+      {
+        videoId: 'fear-2',
+        fileName: 'fear_02.mp4',
+        absolutePath:
+          'C:' + String.fromCharCode(92) + '\clips' + String.fromCharCode(92) + 'fear_02.mp4',
+      },
+      {
+        videoId: 'fear-3',
+        fileName: 'fear_03.mp4',
+        absolutePath:
+          'C:' + String.fromCharCode(92) + '\clips' + String.fromCharCode(92) + 'fear_03.mp4',
+      },
     ];
 
     // No injected picker: exercises the real Math.random default.
@@ -527,7 +561,6 @@ describe('emotion induction pool gating (R6 素材池硬前置)', () => {
       expect(fractional.entry).toEqual(fearPool[Math.floor(0.73 * fearPool.length)]);
     }
   });
-
 
   it('blocks when the pool is undefined at runtime, not just null (R8 hotfix)', () => {
     const stale = describeInductionPoolStatus('fear', undefined as unknown as null, () => 0);
@@ -567,13 +600,19 @@ describe('emotion induction pool gating (R6 素材池硬前置)', () => {
 
 describe('cross-condition comparison copy (R6 跨条件对比)', () => {
   it('reports an undecidable verdict when no dimension is comparable', () => {
-    const copy = buildConditionComparisonVerdictCopy({ meanImprovementRate: null, meetsThreshold: false });
+    const copy = buildConditionComparisonVerdictCopy({
+      meanImprovementRate: null,
+      meetsThreshold: false,
+    });
     expect(copy.severity).toBe('warning');
     expect(copy.title).toBe('无法判定跨条件改善');
   });
 
   it('announces success when the regulation condition beats the threshold', () => {
-    const copy = buildConditionComparisonVerdictCopy({ meanImprovementRate: 0.32, meetsThreshold: true });
+    const copy = buildConditionComparisonVerdictCopy({
+      meanImprovementRate: 0.32,
+      meetsThreshold: true,
+    });
     expect(copy.severity).toBe('success');
     expect(copy.title).toBe('调控条件优于基线条件（达标）');
     expect(copy.detail).toContain('+32%');
@@ -582,7 +621,10 @@ describe('cross-condition comparison copy (R6 跨条件对比)', () => {
   });
 
   it('warns below the threshold and explains negative rates', () => {
-    const copy = buildConditionComparisonVerdictCopy({ meanImprovementRate: -0.05, meetsThreshold: false });
+    const copy = buildConditionComparisonVerdictCopy({
+      meanImprovementRate: -0.05,
+      meetsThreshold: false,
+    });
     expect(copy.severity).toBe('warning');
     expect(copy.title).toBe('调控条件未优于基线条件');
     expect(copy.detail).toContain('-5%');
@@ -596,15 +638,23 @@ describe('cross-condition comparison copy (R6 跨条件对比)', () => {
   });
 });
 
-
 describe('BioSemi effect run timing and persistence', () => {
   it('uses elapsed monotonic time even when the wall clock changes', () => {
-    const state = { ...createEffectEvaluationFlowState(), regulationStartedAtMs: 100000, regulationStartedAtMonotonicMs: 1000 };
+    const state = {
+      ...createEffectEvaluationFlowState(),
+      regulationStartedAtMs: 100000,
+      regulationStartedAtMonotonicMs: 1000,
+    };
     expect(remainingRegulationSeconds(state, 99000000, 31000)).toBe(270);
     expect(remainingRegulationSeconds(state, 1, 301000)).toBe(0);
   });
   it('persists the external run identity independently of the legacy EEG session', () => {
-    const state = { ...createEffectEvaluationFlowState(), runId: 'run-external-1', runMode: 'formal' as const, subjectId: 's-1' };
+    const state = {
+      ...createEffectEvaluationFlowState(),
+      runId: 'run-external-1',
+      runMode: 'formal' as const,
+      subjectId: 's-1',
+    };
     const restored = parseFlowState(serializeFlowState(state));
     expect(restored?.runId).toBe('run-external-1');
     expect(restored?.runMode).toBe('formal');

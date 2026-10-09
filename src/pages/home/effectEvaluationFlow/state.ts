@@ -115,10 +115,10 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
 
   const step = candidate.step;
   if (
-    typeof step !== 'number'
-    || !Number.isInteger(step)
-    || step < 0
-    || step >= EFFECT_FLOW_STEP_COUNT
+    typeof step !== 'number' ||
+    !Number.isInteger(step) ||
+    step < 0 ||
+    step >= EFFECT_FLOW_STEP_COUNT
   ) {
     return null;
   }
@@ -128,7 +128,9 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
     return null;
   }
 
-  const emotion = EFFECT_EMOTION_OPTIONS.find((option) => option.value === candidate.emotion)?.value;
+  const emotion = EFFECT_EMOTION_OPTIONS.find(
+    (option) => option.value === candidate.emotion,
+  )?.value;
   if (!emotion) {
     return null;
   }
@@ -160,9 +162,9 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
   let regulationStartedAtMs: number | null = null;
   if (candidate.regulationStartedAtMs !== null) {
     if (
-      typeof candidate.regulationStartedAtMs !== 'number'
-      || !Number.isFinite(candidate.regulationStartedAtMs)
-      || candidate.regulationStartedAtMs <= 0
+      typeof candidate.regulationStartedAtMs !== 'number' ||
+      !Number.isFinite(candidate.regulationStartedAtMs) ||
+      candidate.regulationStartedAtMs <= 0
     ) {
       return null;
     }
@@ -176,11 +178,19 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
   const regulationSkipped: boolean = candidate.regulationSkipped;
 
   const runId = optionalString(candidate.runId);
-  if (runId === undefined || !['formal', 'rehearsal'].includes(String(candidate.runMode)) || typeof candidate.interrupted !== 'boolean') return null;
+  if (
+    runId === undefined ||
+    !['formal', 'rehearsal'].includes(String(candidate.runMode)) ||
+    typeof candidate.interrupted !== 'boolean'
+  )
+    return null;
   const monotonic = candidate.regulationStartedAtMonotonicMs;
-  if (monotonic !== null && (typeof monotonic !== 'number' || !Number.isFinite(monotonic))) return null;
+  if (monotonic !== null && (typeof monotonic !== 'number' || !Number.isFinite(monotonic)))
+    return null;
 
-  const eventLogStatus = EVENT_LOG_STATUS_VALUES.find((value) => value === candidate.eventLogStatus);
+  const eventLogStatus = EVENT_LOG_STATUS_VALUES.find(
+    (value) => value === candidate.eventLogStatus,
+  );
   if (!eventLogStatus) {
     return null;
   }

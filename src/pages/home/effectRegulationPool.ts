@@ -2,8 +2,7 @@ import type { ParadigmVideoEntry } from '../../paradigm/types';
 
 /** Calm material is reserved for the video-regulation leg of the evaluation. */
 export type RegulationPoolStatus =
-  | { kind: 'ready'; entries: readonly ParadigmVideoEntry[] }
-  | { kind: 'blocked'; copy: string };
+  { kind: 'ready'; entries: readonly ParadigmVideoEntry[] } | { kind: 'blocked'; copy: string };
 
 /**
  * The effect-evaluation flow may only begin a video regulation window after

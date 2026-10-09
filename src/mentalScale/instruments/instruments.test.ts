@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  PHQ4_ANCHOR_LABELS,
-  PHQ4_SCALE_ID,
-  PHQ4_TIMEFRAME,
-  phq4Items,
-  scorePhq4,
-} from './phq4';
+import { PHQ4_ANCHOR_LABELS, PHQ4_SCALE_ID, PHQ4_TIMEFRAME, phq4Items, scorePhq4 } from './phq4';
 import {
   PANAS_NA_ITEM_IDS,
   PANAS_PA_ITEM_IDS,
@@ -70,9 +64,7 @@ const PANAS_IDS = panas20Items.map((item) => item.id);
  * total range ends because the 10 reverse-keyed items cancel them out.
  */
 function scoredStaiAnswers(value: number): Record<string, number> {
-  return Object.fromEntries(
-    staiSItems.map((item) => [item.id, item.reversed ? 5 - value : value]),
-  );
+  return Object.fromEntries(staiSItems.map((item) => [item.id, item.reversed ? 5 - value : value]));
 }
 
 describe('STAI-S scoring (doc §2.2)', () => {
@@ -95,7 +87,16 @@ describe('STAI-S scoring (doc §2.2)', () => {
   it('scores the reverse-keyed items 1→4 … 4→1 and forward items verbatim', () => {
     // Doc §2.2 reverse keys, verbatim.
     expect(STAI_S_REVERSED_ITEM_IDS).toEqual([
-      'S1', 'S2', 'S5', 'S8', 'S10', 'S11', 'S15', 'S16', 'S19', 'S20',
+      'S1',
+      'S2',
+      'S5',
+      'S8',
+      'S10',
+      'S11',
+      'S15',
+      'S16',
+      'S19',
+      'S20',
     ]);
 
     const calm = staiSItems.find((item) => item.id === 'S1')!;
@@ -110,7 +111,18 @@ describe('STAI-S scoring (doc §2.2)', () => {
     // Deterministic mixed pattern: value = (index % 4) + 1, i.e. 1..4 cycling.
     // The expected values reuse the DOC reverse key (not the module's flags),
     // so a wrong item flag cannot pass both sides.
-    const docReverseIds = new Set(['S1', 'S2', 'S5', 'S8', 'S10', 'S11', 'S15', 'S16', 'S19', 'S20']);
+    const docReverseIds = new Set([
+      'S1',
+      'S2',
+      'S5',
+      'S8',
+      'S10',
+      'S11',
+      'S15',
+      'S16',
+      'S19',
+      'S20',
+    ]);
     const answers: Record<string, number> = {};
     let expectedTotal = 0;
     staiSItems.forEach((item, index) => {
@@ -135,10 +147,28 @@ describe('STAI-S scoring (doc §2.2)', () => {
 describe('state-PANAS scoring (doc §2.3)', () => {
   it('splits 10 PA and 10 NA items per the doc table', () => {
     expect(PANAS_PA_ITEM_IDS).toEqual([
-      'P1', 'P3', 'P5', 'P9', 'P10', 'P12', 'P14', 'P16', 'P17', 'P19',
+      'P1',
+      'P3',
+      'P5',
+      'P9',
+      'P10',
+      'P12',
+      'P14',
+      'P16',
+      'P17',
+      'P19',
     ]);
     expect(PANAS_NA_ITEM_IDS).toEqual([
-      'P2', 'P4', 'P6', 'P7', 'P8', 'P11', 'P13', 'P15', 'P18', 'P20',
+      'P2',
+      'P4',
+      'P6',
+      'P7',
+      'P8',
+      'P11',
+      'P13',
+      'P15',
+      'P18',
+      'P20',
     ]);
     expect(PANAS_PA_ITEM_IDS.length + PANAS_NA_ITEM_IDS.length).toBe(20);
   });
@@ -152,8 +182,26 @@ describe('state-PANAS scoring (doc §2.3)', () => {
     // Hand-checked fixed answer set: PA sums to 23 (mean 2.3), NA sums to 30
     // (mean 3.0).
     const answers: Record<string, number> = {
-      P1: 1, P3: 2, P5: 3, P9: 4, P10: 1, P12: 2, P14: 3, P16: 4, P17: 1, P19: 2,
-      P2: 5, P4: 4, P6: 3, P7: 2, P8: 1, P11: 5, P13: 4, P15: 3, P18: 2, P20: 1,
+      P1: 1,
+      P3: 2,
+      P5: 3,
+      P9: 4,
+      P10: 1,
+      P12: 2,
+      P14: 3,
+      P16: 4,
+      P17: 1,
+      P19: 2,
+      P2: 5,
+      P4: 4,
+      P6: 3,
+      P7: 2,
+      P8: 1,
+      P11: 5,
+      P13: 4,
+      P15: 3,
+      P18: 2,
+      P20: 1,
     };
 
     const score = scorePanas20(answers);
@@ -186,16 +234,21 @@ describe('battery dimensions (doc §3.1/§3.2)', () => {
 
   it('keeps the lower=better polarity: energy inverts PA with the 1↔5 boundary', () => {
     // PA all 5 (most energetic) → energy score 1; PA all 1 → energy score 5.
-    expect(computeBatteryDimensions(uniformAnswers(STAI_IDS, 1), uniformAnswers(PANAS_IDS, 5)).energy).toBe(1);
-    expect(computeBatteryDimensions(uniformAnswers(STAI_IDS, 1), uniformAnswers(PANAS_IDS, 1)).energy).toBe(5);
+    expect(
+      computeBatteryDimensions(uniformAnswers(STAI_IDS, 1), uniformAnswers(PANAS_IDS, 5)).energy,
+    ).toBe(1);
+    expect(
+      computeBatteryDimensions(uniformAnswers(STAI_IDS, 1), uniformAnswers(PANAS_IDS, 1)).energy,
+    ).toBe(5);
 
     // A worse state reads higher on every engine dimension: max anxiety, max
     // NA, min PA (least positive affect → highest inverted energy score);
     // improvement then means a lower post score, matching the backend
     // (baseline − post)/baseline formula.
-    const panasAnswers = (paValue: number, naValue: number) => Object.fromEntries(
-      panas20Items.map((item) => [item.id, item.subscale === 'PA' ? paValue : naValue]),
-    );
+    const panasAnswers = (paValue: number, naValue: number) =>
+      Object.fromEntries(
+        panas20Items.map((item) => [item.id, item.subscale === 'PA' ? paValue : naValue]),
+      );
     const worse = computeBatteryDimensions(scoredStaiAnswers(4), panasAnswers(1, 5));
     const better = computeBatteryDimensions(scoredStaiAnswers(1), panasAnswers(5, 1));
     expect(worse.anxiety).toBeGreaterThan(better.anxiety);
@@ -309,10 +362,14 @@ describe('SAM manipulation check (doc §2.4)', () => {
 
   it('carries the bipolar anchors 1=unpleasant/calm/controlled ↔ 9=pleasant/excited/dominant', () => {
     expect(samDimensions.map((dimension) => dimension.lowLabel)).toEqual([
-      '非常不愉快', '完全平静', '完全受控',
+      '非常不愉快',
+      '完全平静',
+      '完全受控',
     ]);
     expect(samDimensions.map((dimension) => dimension.highLabel)).toEqual([
-      '非常愉快', '完全激动', '完全主导',
+      '非常愉快',
+      '完全激动',
+      '完全主导',
     ]);
     expect(SAM_MIN_VALUE).toBe(1);
     expect(SAM_MAX_VALUE).toBe(9);
@@ -320,13 +377,19 @@ describe('SAM manipulation check (doc §2.4)', () => {
 
   it('passes boundary and middle 1-9 answers through verbatim (descriptive, no polarity flip)', () => {
     expect(scoreSam({ valence: 1, arousal: 1, dominance: 1 })).toEqual({
-      valence: 1, arousal: 1, dominance: 1,
+      valence: 1,
+      arousal: 1,
+      dominance: 1,
     });
     expect(scoreSam({ valence: 9, arousal: 9, dominance: 9 })).toEqual({
-      valence: 9, arousal: 9, dominance: 9,
+      valence: 9,
+      arousal: 9,
+      dominance: 9,
     });
     expect(scoreSam({ valence: 5, arousal: 3, dominance: 7 })).toEqual({
-      valence: 5, arousal: 3, dominance: 7,
+      valence: 5,
+      arousal: 3,
+      dominance: 7,
     });
   });
 
@@ -343,11 +406,26 @@ describe('GEMS-9 music-specific scale (doc §2.5)', () => {
   it('uses the frozen scale id and the nine doc dimensions in order', () => {
     expect(GEMS9_SCALE_ID).toBe('gems9_music_v1');
     expect(gems9Items.map((item) => item.textZh)).toEqual([
-      '惊叹', '超越', '怀旧', '温柔', '宁静', '欢快', '力量', '紧张', '悲伤',
+      '惊叹',
+      '超越',
+      '怀旧',
+      '温柔',
+      '宁静',
+      '欢快',
+      '力量',
+      '紧张',
+      '悲伤',
     ]);
     expect(gems9Items.map((item) => item.textEn)).toEqual([
-      'Wonder', 'Transcendence', 'Nostalgia', 'Tenderness', 'Peacefulness',
-      'Joyful activation', 'Power', 'Tension', 'Sadness',
+      'Wonder',
+      'Transcendence',
+      'Nostalgia',
+      'Tenderness',
+      'Peacefulness',
+      'Joyful activation',
+      'Power',
+      'Tension',
+      'Sadness',
     ]);
   });
 
@@ -361,9 +439,7 @@ describe('GEMS-9 music-specific scale (doc §2.5)', () => {
 
   it('scores the nine-dimension mean table from single-item answers', () => {
     // One item per dimension: value = (index % 5) + 1, i.e. 1..5 cycling.
-    const answers = Object.fromEntries(
-      gems9Items.map((item, index) => [item.id, (index % 5) + 1]),
-    );
+    const answers = Object.fromEntries(gems9Items.map((item, index) => [item.id, (index % 5) + 1]));
 
     const score = scoreGems9(answers);
     expect(Object.keys(score)).toHaveLength(9);
@@ -398,7 +474,10 @@ describe('battery optional sections (doc §3.3 sam/gems sub-objects)', () => {
     expect('gems' in raw).toBe(false);
 
     // The frozen export still points at the same default definition.
-    expect(staiPanasBatteryDefinition.sections.map((section) => section.key)).toEqual(['stai', 'panas']);
+    expect(staiPanasBatteryDefinition.sections.map((section) => section.key)).toEqual([
+      'stai',
+      'panas',
+    ]);
   });
 
   it('prepends the SAM section for the baseline leg and stores raw_answers.sam', () => {
@@ -408,7 +487,11 @@ describe('battery optional sections (doc §3.3 sam/gems sub-objects)', () => {
     const [sam, stai, panas] = definition.sections;
     expect(sam.title).toBe('情绪画面感受·操纵检验');
     expect(sam.layout).toBe('bipolar');
-    expect(sam.questions.map((question) => question.id)).toEqual(['valence', 'arousal', 'dominance']);
+    expect(sam.questions.map((question) => question.id)).toEqual([
+      'valence',
+      'arousal',
+      'dominance',
+    ]);
     expect(sam.questions[0].lowLabel).toBe('非常不愉快');
     expect(sam.questions[0].highLabel).toBe('非常愉快');
     // STAI/PANAS stay content-frozen; only their 第X部分 display number shifts.
@@ -435,7 +518,9 @@ describe('battery optional sections (doc §3.3 sam/gems sub-objects)', () => {
     const [stai, panas, gems] = definition.sections;
     expect(gems.title).toBe('音乐情绪感受·仅音乐调控');
     expect(gems.questions).toHaveLength(9);
-    expect(gems.questions.map((question) => question.id)).toEqual(gems9Items.map((item) => item.id));
+    expect(gems.questions.map((question) => question.id)).toEqual(
+      gems9Items.map((item) => item.id),
+    );
     expect([...gems.anchorLabels]).toEqual([...GEMS9_ANCHOR_LABELS]);
     expect(gems.minValue).toBe(1);
     // The default part numbering is untouched when only GEMS is appended.
@@ -455,25 +540,37 @@ describe('battery optional sections (doc §3.3 sam/gems sub-objects)', () => {
 
   it('combines both optional sections into a four-section definition', () => {
     const definition = buildBatteryDefinition({ includeSam: true, includeGems: true });
-    expect(definition.sections.map((section) => section.key)).toEqual(['sam', 'stai', 'panas', 'gems']);
+    expect(definition.sections.map((section) => section.key)).toEqual([
+      'sam',
+      'stai',
+      'panas',
+      'gems',
+    ]);
     expect(definition.title).toBe('情绪状态量表（SAM + STAI-S + PANAS + GEMS-9）');
 
-    const questionCount = definition.sections.reduce((sum, section) => sum + section.questions.length, 0);
+    const questionCount = definition.sections.reduce(
+      (sum, section) => sum + section.questions.length,
+      0,
+    );
     expect(questionCount).toBe(52);
   });
 
   it('validates the optional answers at payload build time as a save-time safety net', () => {
-    expect(() => buildBatteryRawAnswers({
-      stai: { S1: 1 },
-      panas: { P1: 1 },
-      sam: { valence: 5 },
-    })).toThrow(/arousal/);
+    expect(() =>
+      buildBatteryRawAnswers({
+        stai: { S1: 1 },
+        panas: { P1: 1 },
+        sam: { valence: 5 },
+      }),
+    ).toThrow(/arousal/);
 
-    expect(() => buildBatteryRawAnswers({
-      stai: { S1: 1 },
-      panas: { P1: 1 },
-      gems: { wonder: 9 },
-    })).toThrow(/wonder/);
+    expect(() =>
+      buildBatteryRawAnswers({
+        stai: { S1: 1 },
+        panas: { P1: 1 },
+        gems: { wonder: 9 },
+      }),
+    ).toThrow(/wonder/);
   });
 
   it('completeness still spans optional sections question by question', () => {

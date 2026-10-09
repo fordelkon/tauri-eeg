@@ -22,7 +22,9 @@ describe('MusicRegulation generated item refresh contract', () => {
 
     expect(source).toContain('const [instruments, setInstruments] = useState<string[]>([])');
     expect(source).toContain('const [selectedStyles, setSelectedStyles] = useState<string[]>([])');
-    expect(source).toContain('const [detailTemplates, setDetailTemplates] = useState<string[]>([])');
+    expect(source).toContain(
+      'const [detailTemplates, setDetailTemplates] = useState<string[]>([])',
+    );
     expect(source).toContain("const [details, setDetails] = useState('')");
     expect(source).not.toContain("useState<string[]>(['piano'])");
     expect(source).not.toContain("useState<string[]>(['ambient instrumental'])");
@@ -36,7 +38,9 @@ describe('MusicRegulation generated item refresh contract', () => {
     expect(source).toContain("window.addEventListener('agent:music-prompt'");
     expect(source).toContain("window.removeEventListener('agent:music-prompt'");
     expect(source).toContain('applyAgentMusicPrompt');
-    expect(source).toContain('setSelectedStyles(selectTagValues(styleOptions, [detail.style], setCustomStyle))');
+    expect(source).toContain(
+      'setSelectedStyles(selectTagValues(styleOptions, [detail.style], setCustomStyle))',
+    );
     expect(source).toContain('setDetailTemplates(templateMatches)');
     expect(source).toContain('setDetails(customDetails.join');
     expect(source).toContain('setGenerationDuration(detail.duration)');

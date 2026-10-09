@@ -21,7 +21,9 @@ export function createMaterialLibraryLoader(
     getSnapshot: () => state,
     subscribe(listener: () => void) {
       listeners.add(listener);
-      return () => { listeners.delete(listener); };
+      return () => {
+        listeners.delete(listener);
+      };
     },
     cancel() {
       generation += 1;

@@ -16,8 +16,14 @@ describe('experiment preparation readiness', () => {
   });
 
   it('allows rehearsal without a trigger box or ActiView recording', () => {
-    expect(getPreparationReadiness({ ...prepared, mode: 'rehearsal', connected: false, externalRecordingConfirmed: false }))
-      .toEqual({ canEnter: true, blockers: [] });
+    expect(
+      getPreparationReadiness({
+        ...prepared,
+        mode: 'rehearsal',
+        connected: false,
+        externalRecordingConfirmed: false,
+      }),
+    ).toEqual({ canEnter: true, blockers: [] });
   });
 
   it('prevents formal entry when BDF saving has not been confirmed', () => {
@@ -28,14 +34,18 @@ describe('experiment preparation readiness', () => {
   });
 
   it('prevents a second experiment while a run is active', () => {
-    expect(getPreparationReadiness({ ...prepared, mode: 'rehearsal', activeRunId: 'run-1' })).toEqual({
+    expect(
+      getPreparationReadiness({ ...prepared, mode: 'rehearsal', activeRunId: 'run-1' }),
+    ).toEqual({
       canEnter: false,
       blockers: ['当前实验尚未结束，请先完成或中止当前实验。'],
     });
   });
 
   it('requires validated materials even for rehearsal', () => {
-    expect(getPreparationReadiness({ ...prepared, mode: 'rehearsal', libraryValidated: false })).toEqual({
+    expect(
+      getPreparationReadiness({ ...prepared, mode: 'rehearsal', libraryValidated: false }),
+    ).toEqual({
       canEnter: false,
       blockers: ['请先选择素材库并完成验证。'],
     });
@@ -49,14 +59,20 @@ describe('experiment preparation readiness', () => {
   });
 
   it('shows all missing formal preparation actions together', () => {
-    expect(getPreparationReadiness({ ...prepared, connected: false, libraryValidated: false, externalRecordingConfirmed: false }))
-      .toEqual({
-        canEnter: false,
-        blockers: [
-          '请先选择素材库并完成验证。',
-          '请先连接触发盒。',
-          '请先在 ActiView 开始保存 BDF，并确认保存秒数正在增加。',
-        ],
-      });
+    expect(
+      getPreparationReadiness({
+        ...prepared,
+        connected: false,
+        libraryValidated: false,
+        externalRecordingConfirmed: false,
+      }),
+    ).toEqual({
+      canEnter: false,
+      blockers: [
+        '请先选择素材库并完成验证。',
+        '请先连接触发盒。',
+        '请先在 ActiView 开始保存 BDF，并确认保存秒数正在增加。',
+      ],
+    });
   });
 });

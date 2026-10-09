@@ -1,5 +1,9 @@
 import type { EffectHistoryEntryView } from '../../mentalScale/scaleRecordsApi';
-import { EFFECT_EMOTION_OPTIONS, formatImprovementRate, labelForCondition } from './effectEvaluationFlow';
+import {
+  EFFECT_EMOTION_OPTIONS,
+  formatImprovementRate,
+  labelForCondition,
+} from './effectEvaluationFlow';
 
 /**
  * Pure view-model for the history review tab: subject grouping, filtering,
@@ -19,10 +23,7 @@ const UNBOUND_SUBJECT_KEY = '';
 
 // RFC3339 stamps share one offset (the backend writes UTC), so lexicographic
 // order equals chronological order.
-function compareRuns(
-  a: EffectHistoryEntryView,
-  b: EffectHistoryEntryView,
-): number {
+function compareRuns(a: EffectHistoryEntryView, b: EffectHistoryEntryView): number {
   if (a.postCreatedAt > b.postCreatedAt) {
     return -1;
   }
@@ -131,6 +132,7 @@ export function formatRunTimestamp(iso: string): string {
   }
 
   const pad = (value: number) => String(value).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${
-    pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`;
 }

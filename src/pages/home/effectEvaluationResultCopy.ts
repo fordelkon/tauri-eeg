@@ -1,4 +1,7 @@
-import type { ConditionEffectComparisonView, RegulationEffectSummaryView } from '../../mentalScale/scaleRecordsApi';
+import type {
+  ConditionEffectComparisonView,
+  RegulationEffectSummaryView,
+} from '../../mentalScale/scaleRecordsApi';
 import type { EffectEvaluationFlowState } from './effectEvaluationFlow';
 
 /**
@@ -9,7 +12,9 @@ import type { EffectEvaluationFlowState } from './effectEvaluationFlow';
  */
 
 /** Chinese copy when the summary cannot be computed yet; null when ready. */
-export function describeMissingMeasurements(state: Pick<EffectEvaluationFlowState, 'baselineRecordId' | 'postRecordId'>): string | null {
+export function describeMissingMeasurements(
+  state: Pick<EffectEvaluationFlowState, 'baselineRecordId' | 'postRecordId'>,
+): string | null {
   const missing: string[] = [];
 
   if (!state.baselineRecordId) {

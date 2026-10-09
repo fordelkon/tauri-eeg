@@ -40,7 +40,9 @@ export function writeStoredLibraryRootPath(value: string) {
 
 export function readStoredParadigmLibraryRootPath(): string {
   try {
-    return resolveStorage()?.getItem(PARADIGM_ROOT_PATH_STORAGE_KEY)?.trim() || readParadigmRootPath();
+    return (
+      resolveStorage()?.getItem(PARADIGM_ROOT_PATH_STORAGE_KEY)?.trim() || readParadigmRootPath()
+    );
   } catch {
     return readParadigmRootPath();
   }

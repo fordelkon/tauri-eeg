@@ -1,9 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  mentalScaleDefinitions,
-  type MentalScaleAnswers,
-} from './mentalScaleGate';
+import { mentalScaleDefinitions, type MentalScaleAnswers } from './mentalScaleGate';
 import {
   defaultMentalScaleStatus,
   getMentalScaleStatusSnapshot,
@@ -53,7 +50,7 @@ describe('scaleRecordsApi', () => {
       scaleId: PHQ4_SCALE_ID,
       phase: 'baseline',
       dimensionScores: { anxiety: 75, worry: 50, mood: 25, energy: 0 },
-      rawAnswers: { 'phq4_1': 2, timeframe: 'past_2_weeks' },
+      rawAnswers: { phq4_1: 2, timeframe: 'past_2_weeks' },
     });
 
     expect(invoke).toHaveBeenCalledWith('save_scale_record', {
@@ -63,7 +60,7 @@ describe('scaleRecordsApi', () => {
         scaleId: PHQ4_SCALE_ID,
         phase: 'baseline',
         dimensionScores: { anxiety: 75, worry: 50, mood: 25, energy: 0 },
-        rawAnswers: { 'phq4_1': 2, timeframe: 'past_2_weeks' },
+        rawAnswers: { phq4_1: 2, timeframe: 'past_2_weeks' },
       },
     });
   });
@@ -120,9 +117,7 @@ describe('scaleRecordsApi', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.mocked(invoke).mockRejectedValueOnce(new Error('db unavailable'));
 
-    expect(() =>
-      persistMentalScaleSubmission(videoScale, { phq4_1: 2 }, 'user-1'),
-    ).not.toThrow();
+    expect(() => persistMentalScaleSubmission(videoScale, { phq4_1: 2 }, 'user-1')).not.toThrow();
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -229,7 +224,6 @@ describe('phase instrument records (battery pre/post legs)', () => {
       ...batteryInput,
       phase: 'baseline',
     });
-
   });
 
   it('forwards the wizard run context (emotion, condition, duration, skip)', async () => {
@@ -268,9 +262,7 @@ describe('phase instrument records (battery pre/post legs)', () => {
   it('invokes compute_regulation_effect with the camelCase record ids', async () => {
     const summary: RegulationEffectSummaryView = {
       subjectId: 'subj-009',
-      dimensions: [
-        { dimension: 'anxiety', baseline: 80, post: 48, improvementRate: 0.4 },
-      ],
+      dimensions: [{ dimension: 'anxiety', baseline: 80, post: 48, improvementRate: 0.4 }],
       meanImprovementRate: 0.4,
       meetsThreshold: true,
       measuredOnly: true,

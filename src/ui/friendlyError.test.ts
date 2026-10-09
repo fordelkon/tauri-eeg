@@ -12,9 +12,13 @@ describe('describeFriendlyError', () => {
     const errorSpy = spyOnConsoleError();
 
     try {
-      expect(describeFriendlyError('Failed to reach music generation service.')).toBe(GENERIC_MESSAGE);
+      expect(describeFriendlyError('Failed to reach music generation service.')).toBe(
+        GENERIC_MESSAGE,
+      );
       expect(errorSpy).toHaveBeenCalledOnce();
-      expect(errorSpy.mock.calls[0]?.join(' ')).toContain('Failed to reach music generation service.');
+      expect(errorSpy.mock.calls[0]?.join(' ')).toContain(
+        'Failed to reach music generation service.',
+      );
     } finally {
       errorSpy.mockRestore();
     }
@@ -35,7 +39,9 @@ describe('describeFriendlyError', () => {
     const errorSpy = spyOnConsoleError();
 
     try {
-      expect(describeFriendlyError('Prompt is required.', '生成 WAV')).toBe('生成 WAV失败,请稍后重试。');
+      expect(describeFriendlyError('Prompt is required.', '生成 WAV')).toBe(
+        '生成 WAV失败,请稍后重试。',
+      );
       expect(errorSpy.mock.calls[0]?.[0]).toBe('[ui] 生成 WAV失败:');
     } finally {
       errorSpy.mockRestore();

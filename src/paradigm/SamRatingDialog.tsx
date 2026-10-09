@@ -88,11 +88,7 @@ function RatingRow({
   );
 }
 
-export default function SamRatingDialog({
-  videoNumber,
-  videosInBlock,
-  onSubmit,
-}: Props) {
+export default function SamRatingDialog({ videoNumber, videosInBlock, onSubmit }: Props) {
   const [valence, setValence] = useState<number | null>(null);
   const [arousal, setArousal] = useState<number | null>(null);
   const [dominance, setDominance] = useState<number | null>(null);
@@ -113,9 +109,7 @@ export default function SamRatingDialog({
     }
 
     // Raw 1-9 scores are forwarded untouched; the backend stores them as-is.
-    onSubmit(dominance === null
-      ? { valence, arousal }
-      : { valence, arousal, dominance });
+    onSubmit(dominance === null ? { valence, arousal } : { valence, arousal, dominance });
   };
 
   const selectForRow = (rowKey: RatingRowKey) => {
@@ -127,9 +121,7 @@ export default function SamRatingDialog({
   };
 
   const focusRow = (rowKey: RatingRowKey) => {
-    optionContainersRef.current.get(rowKey)
-      ?.querySelector<HTMLButtonElement>('button')
-      ?.focus();
+    optionContainersRef.current.get(rowKey)?.querySelector<HTMLButtonElement>('button')?.focus();
   };
 
   // Digit flow: after a row answers, jump to the next visible row; past the
@@ -148,8 +140,8 @@ export default function SamRatingDialog({
     }
   };
 
-  const handleRowKeyDown = (rowKey: RatingRowKey) =>
-    (event: KeyboardEvent<HTMLFieldSetElement>) => {
+  const handleRowKeyDown =
+    (rowKey: RatingRowKey) => (event: KeyboardEvent<HTMLFieldSetElement>) => {
       if (/^[1-9]$/.test(event.key)) {
         event.preventDefault();
         selectForRow(rowKey)(Number(event.key));
@@ -165,14 +157,13 @@ export default function SamRatingDialog({
       }
     };
 
-  const registerOptionsContainer = (rowKey: RatingRowKey) =>
-    (node: HTMLDivElement | null) => {
-      if (node) {
-        optionContainersRef.current.set(rowKey, node);
-      } else {
-        optionContainersRef.current.delete(rowKey);
-      }
-    };
+  const registerOptionsContainer = (rowKey: RatingRowKey) => (node: HTMLDivElement | null) => {
+    if (node) {
+      optionContainersRef.current.set(rowKey, node);
+    } else {
+      optionContainersRef.current.delete(rowKey);
+    }
+  };
 
   // Dev-only auto-fill: visible rows only (a hidden dominance row must not
   // receive data), riding the same per-row setters as manual clicks.
@@ -205,9 +196,7 @@ export default function SamRatingDialog({
       return;
     }
 
-    const focusable = Array.from(
-      dialog.querySelectorAll<HTMLElement>('button:not(:disabled)'),
-    );
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not(:disabled)'));
     if (focusable.length === 0) {
       return;
     }
@@ -215,8 +204,12 @@ export default function SamRatingDialog({
     event.preventDefault();
     const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
     const nextIndex = event.shiftKey
-      ? (activeIndex <= 0 ? focusable.length - 1 : activeIndex - 1)
-      : (activeIndex === -1 || activeIndex === focusable.length - 1 ? 0 : activeIndex + 1);
+      ? activeIndex <= 0
+        ? focusable.length - 1
+        : activeIndex - 1
+      : activeIndex === -1 || activeIndex === focusable.length - 1
+        ? 0
+        : activeIndex + 1;
     focusable[nextIndex].focus();
   };
 
@@ -224,7 +217,10 @@ export default function SamRatingDialog({
   // ancestor stacking context or turned panel-relative by a retained
   // animation transform.
   return createPortal(
-    <div className={`${styles.dialogOverlay} fixed inset-0 flex items-center justify-center p-22px`} role="presentation">
+    <div
+      className={`${styles.dialogOverlay} fixed inset-0 flex items-center justify-center p-22px`}
+      role="presentation"
+    >
       <section
         className={styles.dialog}
         role="dialog"
@@ -312,4 +308,3 @@ export default function SamRatingDialog({
     document.body,
   );
 }
-

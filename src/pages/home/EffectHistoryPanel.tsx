@@ -42,15 +42,19 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
   return (
     <div className={styles.historyDetail}>
       <div className={styles.configSummary}>
-        <span className={styles.configChip}>基线 {formatRunTimestamp(entry.baselineCreatedAt)}</span>
+        <span className={styles.configChip}>
+          基线 {formatRunTimestamp(entry.baselineCreatedAt)}
+        </span>
         <span className={styles.configChip}>复测 {formatRunTimestamp(entry.postCreatedAt)}</span>
-        {entry.experimentRunId ? <span className={styles.configChip} title={entry.experimentRunId}>实验 {entry.experimentRunId.slice(0, 8)}</span> : null}
+        {entry.experimentRunId ? (
+          <span className={styles.configChip} title={entry.experimentRunId}>
+            实验 {entry.experimentRunId.slice(0, 8)}
+          </span>
+        ) : null}
         <span className={styles.configChip}>
           时长 {entry.durationMinutes === null ? '—' : `${entry.durationMinutes} 分钟`}
         </span>
-        {entry.regulationSkipped ? (
-          <span className={styles.configChip}>已跳过剩余时长</span>
-        ) : null}
+        {entry.regulationSkipped ? <span className={styles.configChip}>已跳过剩余时长</span> : null}
 
         {/* R4/F1: flag pairs whose mean still covers unmarked stored keys. */}
         {!entry.measuredOnly ? (
@@ -75,9 +79,12 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
                   <td>{labelForDimension(dimension.dimension)}</td>
                   <td>{Math.round(dimension.baseline)}</td>
                   <td>{Math.round(dimension.post)}</td>
-                  <td className={dimension.improvementRate >= 0
-                    ? `${styles.rateCell} ${styles.isPositive}`
-                    : `${styles.rateCell} ${styles.isNegative}`}
+                  <td
+                    className={
+                      dimension.improvementRate >= 0
+                        ? `${styles.rateCell} ${styles.isPositive}`
+                        : `${styles.rateCell} ${styles.isNegative}`
+                    }
                   >
                     {formatMeanImprovementRate(dimension.improvementRate)}
                   </td>
@@ -119,34 +126,28 @@ const HistoryRow = memo(function HistoryRow({
   return (
     <div className={styles.historyRowWrap}>
       <div className={styles.historyRowLine}>
-      <button
-        type="button"
-        className={styles.historyRow}
-        aria-expanded={isExpanded}
-        aria-controls={`history-detail-${entry.postRecordId}`}
-        onClick={() => onToggle(entry.postRecordId)}
-      >
-        <span
-          className={`${styles.expandIcon} ${isExpanded ? styles.expandIconOpen : ''}`}
-          aria-hidden="true"
-        />
-        <span className={styles.historyRowTime}>
-          {formatRunTimestamp(entry.postCreatedAt)}
-        </span>
-        <span className={styles.configChip}>情绪 {labelForEmotion(entry.emotion)}</span>
-        {/* R7, feedback-003 P2-1: the condition chip makes
+        <button
+          type="button"
+          className={styles.historyRow}
+          aria-expanded={isExpanded}
+          aria-controls={`history-detail-${entry.postRecordId}`}
+          onClick={() => onToggle(entry.postRecordId)}
+        >
+          <span
+            className={`${styles.expandIcon} ${isExpanded ? styles.expandIconOpen : ''}`}
+            aria-hidden="true"
+          />
+          <span className={styles.historyRowTime}>{formatRunTimestamp(entry.postCreatedAt)}</span>
+          <span className={styles.configChip}>情绪 {labelForEmotion(entry.emotion)}</span>
+          {/* R7, feedback-003 P2-1: the condition chip makes
             natural-recovery / regulation / legacy runs distinguishable at a
             glance while checking that both conditions were completed. */}
-        <span className={styles.configChip}>
-          {labelForHistoryCondition(entry.condition)}
-        </span>
-        <span className={styles.historyRowRate}>
-          改善率 {formatMeanImprovementRate(entry.meanImprovementRate)}
-        </span>
-        <span className={`${styles.outcomeChip} ${OUTCOME_CLASS[outcome]}`}>
-          {outcome}
-        </span>
-      </button>
+          <span className={styles.configChip}>{labelForHistoryCondition(entry.condition)}</span>
+          <span className={styles.historyRowRate}>
+            改善率 {formatMeanImprovementRate(entry.meanImprovementRate)}
+          </span>
+          <span className={`${styles.outcomeChip} ${OUTCOME_CLASS[outcome]}`}>{outcome}</span>
+        </button>
 
         <IconButton
           type="button"
@@ -219,12 +220,15 @@ export default function EffectHistoryPanel() {
     }, SUBJECT_QUERY_DEBOUNCE_MS);
   }, []);
 
-  useEffect(() => () => {
-    if (subjectQueryTimerRef.current !== null) {
-      window.clearTimeout(subjectQueryTimerRef.current);
-      subjectQueryTimerRef.current = null;
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (subjectQueryTimerRef.current !== null) {
+        window.clearTimeout(subjectQueryTimerRef.current);
+        subjectQueryTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   const filteredEntries = useMemo(
     () => filterHistoryEntries(entries ?? [], subjectQuery),
@@ -252,16 +256,19 @@ export default function EffectHistoryPanel() {
 
     return readFlowStateFromStorage(window.sessionStorage);
   }, [pendingDelete]);
-  const isDeleteTargetOfActiveRun = pendingDelete !== null && activeRun !== null
-    && (pendingDelete.baselineRecordId === activeRun.baselineRecordId
-      || pendingDelete.postRecordId === activeRun.postRecordId);
+  const isDeleteTargetOfActiveRun =
+    pendingDelete !== null &&
+    activeRun !== null &&
+    (pendingDelete.baselineRecordId === activeRun.baselineRecordId ||
+      pendingDelete.postRecordId === activeRun.postRecordId);
 
   // prefers-reduced-motion users get an instant expand (no height animation).
-  const collapseTimeout: 'auto' | 0 = typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    ? 0
-    : 'auto';
+  const collapseTimeout: 'auto' | 0 =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? 0
+      : 'auto';
 
   // A history entry is derived from its baseline+post record pair, so
   // deleting a run removes BOTH legs; the pair disappears as one run.
@@ -330,7 +337,9 @@ export default function EffectHistoryPanel() {
       ) : null}
 
       {entries === null ? (
-        <p className={`${styles.panelHint} ${styles.loadingHint}`}>{isLoading ? '正在加载历史评价…' : ''}</p>
+        <p className={`${styles.panelHint} ${styles.loadingHint}`}>
+          {isLoading ? '正在加载历史评价…' : ''}
+        </p>
       ) : filteredEntries.length === 0 ? (
         <div className={styles.emptyState}>
           {entries.length === 0

@@ -12,7 +12,9 @@ import { isRegulationWindowOpen, readFlowStateFromStorage, type FlowStorage } fr
  * consumed by the music/video pages while a window is live.
  */
 export function regulationPathForMethod(method: EffectRegulationMethod): MentalScalePath {
-  return EFFECT_METHOD_OPTIONS.find((option) => option.value === method)?.path ?? '/music-regulation';
+  return (
+    EFFECT_METHOD_OPTIONS.find((option) => option.value === method)?.path ?? '/music-regulation'
+  );
 }
 
 export function regulationDurationMs(state: EffectEvaluationFlowState): number {
@@ -29,9 +31,12 @@ export function remainingRegulationSeconds(
     return null;
   }
 
-  const elapsedMs = Math.max(0, monotonicNowMs !== undefined && state.regulationStartedAtMonotonicMs !== null
-    ? monotonicNowMs - state.regulationStartedAtMonotonicMs
-    : nowMs - state.regulationStartedAtMs);
+  const elapsedMs = Math.max(
+    0,
+    monotonicNowMs !== undefined && state.regulationStartedAtMonotonicMs !== null
+      ? monotonicNowMs - state.regulationStartedAtMonotonicMs
+      : nowMs - state.regulationStartedAtMs,
+  );
   return Math.max(0, Math.ceil((regulationDurationMs(state) - elapsedMs) / 1000));
 }
 
@@ -56,9 +61,7 @@ export function regulationFinishModeFromRemaining(
     return { mode: 'not-started' };
   }
 
-  return remainingSeconds === 0
-    ? { mode: 'finish' }
-    : { mode: 'requires-skip', remainingSeconds };
+  return remainingSeconds === 0 ? { mode: 'finish' } : { mode: 'requires-skip', remainingSeconds };
 }
 
 /** Warning copy shown after a confirmed skip; null while unskipped. */
@@ -72,9 +75,7 @@ export function describeRegulationSkipped(state: EffectEvaluationFlowState): str
 
 /** mm:ss countdown text; negative or non-finite input clamps to 00:00. */
 export function formatCountdown(totalSeconds: number): string {
-  const seconds = Number.isFinite(totalSeconds) && totalSeconds > 0
-    ? Math.floor(totalSeconds)
-    : 0;
+  const seconds = Number.isFinite(totalSeconds) && totalSeconds > 0 ? Math.floor(totalSeconds) : 0;
   const minutes = Math.floor(seconds / 60);
 
   return `${String(minutes).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -102,16 +103,17 @@ export function regulationPageContextFor(
   nowMs: number,
 ): RegulationPageContext | null {
   if (
-    !isRegulationWindowOpen(state)
-    || state.condition !== 'regulation'
-    || state.method !== method
+    !isRegulationWindowOpen(state) ||
+    state.condition !== 'regulation' ||
+    state.method !== method
   ) {
     return null;
   }
 
   return {
-    emotionLabel: EFFECT_EMOTION_OPTIONS.find((option) => option.value === state.emotion)?.label
-      ?? state.emotion,
+    emotionLabel:
+      EFFECT_EMOTION_OPTIONS.find((option) => option.value === state.emotion)?.label ??
+      state.emotion,
     remainingSeconds: remainingRegulationSeconds(state, nowMs) ?? 0,
   };
 }
@@ -124,4 +126,3 @@ export function readRegulationPageContext(
   const state = readFlowStateFromStorage(storage);
   return state === null ? null : regulationPageContextFor(state, method, nowMs);
 }
-

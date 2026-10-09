@@ -411,7 +411,9 @@ export function getVideoSelectionOptions(
   return Array.from(new Set(values)).map((value) => ({ label: value, value }));
 }
 
-export function getNextVideoSelectionStep(selections: VideoRegulationSelections): VideoSelectionStep | null {
+export function getNextVideoSelectionStep(
+  selections: VideoRegulationSelections,
+): VideoSelectionStep | null {
   return videoSelectionSteps.find((step) => selections[step].trim().length === 0) ?? null;
 }
 
@@ -422,7 +424,10 @@ export function selectFirstMatchedVideo(
   return getVideoRegulationCatalog(selections, libraryAssets)[0] ?? null;
 }
 
-export function toPlayableVideoUrl(sourcePath: string, convertFileSrc?: (sourcePath: string) => string) {
+export function toPlayableVideoUrl(
+  sourcePath: string,
+  convertFileSrc?: (sourcePath: string) => string,
+) {
   if (convertFileSrc) {
     return convertFileSrc(sourcePath);
   }

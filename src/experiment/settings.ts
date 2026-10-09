@@ -16,12 +16,19 @@ export function parseExperimentPreferences(raw: string | null): ExperimentPrefer
   if (!raw) return { ...defaults };
   try {
     const value: unknown = JSON.parse(raw);
-    if (typeof value !== 'object' || value === null || !('mode' in value)
-      || !('expectedRecordingName' in value)) return { ...defaults };
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      !('mode' in value) ||
+      !('expectedRecordingName' in value)
+    )
+      return { ...defaults };
     return {
       mode: value.mode === 'formal' ? 'formal' : 'rehearsal',
-      expectedRecordingName: typeof value.expectedRecordingName === 'string' ? value.expectedRecordingName : '',
-      externalRecordingConfirmed: 'externalRecordingConfirmed' in value && value.externalRecordingConfirmed === true,
+      expectedRecordingName:
+        typeof value.expectedRecordingName === 'string' ? value.expectedRecordingName : '',
+      externalRecordingConfirmed:
+        'externalRecordingConfirmed' in value && value.externalRecordingConfirmed === true,
     };
   } catch {
     return { ...defaults };

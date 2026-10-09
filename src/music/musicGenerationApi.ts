@@ -23,7 +23,9 @@ export async function generateMusic(input: GenerateMusicInput): Promise<Generate
   const item = await invoke<GeneratedMusicHistoryItem>('generate_music', { input });
 
   if (typeof dispatchEvent === 'function' && typeof CustomEvent === 'function') {
-    dispatchEvent(new CustomEvent<GeneratedMusicHistoryItem>(MUSIC_GENERATED_EVENT, { detail: item }));
+    dispatchEvent(
+      new CustomEvent<GeneratedMusicHistoryItem>(MUSIC_GENERATED_EVENT, { detail: item }),
+    );
   }
 
   return item;

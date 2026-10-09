@@ -501,7 +501,7 @@
 .tagCheck::after {
   border-bottom: 2px solid #fff;
   border-right: 2px solid #fff;
-  content: "";
+  content: '';
   display: none;
   height: 9px;
   transform: rotate(45deg) translateY(-1px);
@@ -682,7 +682,7 @@
   border: 2px solid currentColor;
   border-radius: 999px;
   border-top-color: transparent;
-  content: "";
+  content: '';
   display: block;
   flex: 0 0 auto;
   height: 14px;
@@ -770,7 +770,11 @@
   --cover-secondary: #f8c572;
   align-items: center;
   background:
-    radial-gradient(circle at 14% 20%, color-mix(in srgb, var(--cover-primary) 46%, transparent), transparent 32%),
+    radial-gradient(
+      circle at 14% 20%,
+      color-mix(in srgb, var(--cover-primary) 46%, transparent),
+      transparent 32%
+    ),
     linear-gradient(105deg, color-mix(in srgb, var(--cover-primary) 62%, #252220) 0%, #151514 100%);
   border: 1px solid rgba(245, 240, 235, 0.14);
   /* Dark media stage card: large-surface step; the warm diffuse drop is the
@@ -807,8 +811,12 @@
 }
 
 .coverArt {
-  background:
-    linear-gradient(var(--cover-angle), var(--cover-primary) 0%, var(--cover-secondary) 56%, var(--cover-accent) 100%);
+  background: linear-gradient(
+    var(--cover-angle),
+    var(--cover-primary) 0%,
+    var(--cover-secondary) 56%,
+    var(--cover-accent) 100%
+  );
   /* Cover art rides the media-thumbnail step (8px), concentric inside the
      18px player card. */
   border-radius: var(--radius-control);
@@ -827,7 +835,7 @@
   background:
     radial-gradient(circle at 22% 26%, rgba(255, 255, 255, 0.5), transparent 13%),
     radial-gradient(circle at 58% 72%, rgba(0, 0, 0, 0.34), transparent 38%);
-  content: "";
+  content: '';
   inset: 0;
   position: absolute;
 }
@@ -923,7 +931,11 @@
 .timeline {
   --progress: 0%;
   appearance: none;
-  background: linear-gradient(90deg, var(--surface-2, #fffaf3) 0 var(--progress), rgba(247, 244, 239, 0.2) var(--progress) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2, #fffaf3) 0 var(--progress),
+    rgba(247, 244, 239, 0.2) var(--progress) 100%
+  );
   border-radius: 999px;
   cursor: pointer;
   height: 5px;

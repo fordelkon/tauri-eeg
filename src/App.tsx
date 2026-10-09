@@ -50,11 +50,11 @@ function AppRoutes() {
         <Route path="/login" element={<LoginRoute />} />
         <Route element={<ProtectedRoute />}>
           <Route
-            element={(
+            element={
               <Suspense fallback={routeFallback}>
                 <Home />
               </Suspense>
-            )}
+            }
           >
             <Route path="/home" element={<HomeOverview />} />
             <Route path="/experiment-settings" element={<ExperimentSettings />} />

@@ -124,7 +124,7 @@
   border: 2px solid currentColor;
   border-radius: 999px;
   border-top-color: transparent;
-  content: "";
+  content: '';
   display: block;
   flex: 0 0 auto;
   height: 14px;
@@ -304,7 +304,7 @@
   border-bottom: 5px solid transparent;
   border-left: 6px solid rgba(23, 32, 38, 0.54);
   border-top: 5px solid transparent;
-  content: "";
+  content: '';
   flex: none;
   height: 0;
   transition: transform var(--dur-fast) var(--ease-out);
@@ -497,9 +497,11 @@
   position: relative;
   aspect-ratio: 1;
   background:
-    linear-gradient(145deg,
+    linear-gradient(
+      145deg,
       color-mix(in srgb, var(--thumb-accent, #48a868) 78%, transparent),
-      color-mix(in srgb, var(--thumb-accent, #4d7fc8) 38%, #172026)),
+      color-mix(in srgb, var(--thumb-accent, #4d7fc8) 38%, #172026)
+    ),
     #172026;
   border-radius: 8px;
   color: #fffaf3;
@@ -621,19 +623,22 @@
   background: rgba(23, 32, 38, 0.05);
 }
 
-.startButton:focus-visible, .resetButton:focus-visible {
+.startButton:focus-visible,
+.resetButton:focus-visible {
   /* Sage ring family (the calm dialect's control ring) on keyboard focus. */
   box-shadow: var(--ring);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 1px;
 }
 
-.startButton:active:not(:disabled), .resetButton:active:not(:disabled) {
+.startButton:active:not(:disabled),
+.resetButton:active:not(:disabled) {
   transform: scale(0.98);
   transition-duration: 80ms;
 }
 
-.startButton:disabled, .resetButton:disabled {
+.startButton:disabled,
+.resetButton:disabled {
   cursor: not-allowed;
   opacity: var(--disabled-opacity, 0.45);
 }

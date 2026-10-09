@@ -145,5 +145,4 @@ describe('page Chinese copy', () => {
       expect(sources).toContain(copy);
     });
   });
-
 });

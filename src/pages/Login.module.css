@@ -62,7 +62,7 @@
     radial-gradient(circle at 94% 4%, rgba(255, 255, 255, 0.18), transparent 24%),
     linear-gradient(145deg, #ff8f7d 0%, #fb7f6e 48%, #f46b59 100%);
   border-radius: inherit;
-  content: "";
+  content: '';
   inset: 0;
   pointer-events: none;
   position: absolute;
@@ -71,11 +71,21 @@
 
 .leftPanel::after {
   background-image:
-    radial-gradient(circle at 5% 84%, transparent 0 31%, rgba(255, 255, 255, 0.3) 31.5%, transparent 32.3%),
-    radial-gradient(circle at 94% 2%, transparent 0 20%, rgba(255, 255, 255, 0.34) 20.6%, transparent 21.4%);
+    radial-gradient(
+      circle at 5% 84%,
+      transparent 0 31%,
+      rgba(255, 255, 255, 0.3) 31.5%,
+      transparent 32.3%
+    ),
+    radial-gradient(
+      circle at 94% 2%,
+      transparent 0 20%,
+      rgba(255, 255, 255, 0.34) 20.6%,
+      transparent 21.4%
+    );
   background-size: 100% 100%;
   border-radius: inherit;
-  content: "";
+  content: '';
   inset: 0;
   opacity: 0.9;
   pointer-events: none;
@@ -113,8 +123,10 @@
 .brandMark {
   background:
     linear-gradient(#fb7a68, #fb7a68) center / 2px 24px no-repeat,
-    linear-gradient(45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px no-repeat,
-    linear-gradient(-45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px no-repeat;
+    linear-gradient(45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px
+      no-repeat,
+    linear-gradient(-45deg, transparent 45%, #fb7a68 46% 54%, transparent 55%) center / 24px 24px
+      no-repeat;
   height: 30px;
   margin-bottom: 18px;
   position: relative;
@@ -125,7 +137,7 @@
 .brandMark::after {
   background: #fb7a68;
   border-radius: 999px;
-  content: "";
+  content: '';
   height: 2px;
   left: 4px;
   position: absolute;
@@ -139,7 +151,7 @@
 
 .title {
   color: #141414;
-  font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+  font-family: Inter, 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
   font-size: clamp(25px, 3vw, 34px);
   /* Page's primary heading rides the 600 step like every other page title
      (the weight scale is 400/500/600). */
@@ -303,8 +315,8 @@
   opacity: 1;
 }
 
-.textField :global(input[type="password"]::-ms-reveal),
-.textField :global(input[type="password"]::-ms-clear) {
+.textField :global(input[type='password']::-ms-reveal),
+.textField :global(input[type='password']::-ms-clear) {
   display: none;
 }
 
@@ -492,7 +504,6 @@
     padding: clamp(48px, 7vw, 96px);
     width: auto;
   }
-
 }
 
 @media (prefers-reduced-motion: reduce) {

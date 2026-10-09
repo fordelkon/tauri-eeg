@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  SCALE_GRACE_PERIOD_MS,
-  createScaleCompletionStore,
-} from './scaleCompletion';
+import { SCALE_GRACE_PERIOD_MS, createScaleCompletionStore } from './scaleCompletion';
 
 const T0 = 1_700_000_000_000;
 const MIN = 60 * 1000;

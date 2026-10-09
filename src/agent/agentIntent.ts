@@ -16,7 +16,8 @@ export function classifyAgentIntent(input: string): AgentIntent {
   }
 
   if (/(打开实验范式|进入实验范式|开始范式)/.test(normalized)) return 'open_paradigm';
-  if (/(打开实验设置|进入实验设置|trigger设置|触发设置)/i.test(normalized)) return 'open_experiment_settings';
+  if (/(打开实验设置|进入实验设置|trigger设置|触发设置)/i.test(normalized))
+    return 'open_experiment_settings';
 
   if (/(下一步|继续|开始实验|start|next)/i.test(normalized)) {
     return 'go_next_page';

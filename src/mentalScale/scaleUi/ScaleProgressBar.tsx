@@ -12,9 +12,7 @@ export type ScaleProgressBarProps = {
  * bar (brand gradient while in progress, success green once complete).
  */
 export default function ScaleProgressBar({ answered, total, label }: ScaleProgressBarProps) {
-  const percent = total > 0
-    ? Math.min(100, Math.round((answered / total) * 100))
-    : 0;
+  const percent = total > 0 ? Math.min(100, Math.round((answered / total) * 100)) : 0;
   const isDone = total > 0 && answered >= total;
 
   return (

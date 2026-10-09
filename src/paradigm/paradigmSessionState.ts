@@ -1,9 +1,4 @@
-import type {
-  ParadigmSessionKind,
-  ParadigmTrialPlanItem,
-  SelfReport,
-  TrialQuality,
-} from './types';
+import type { ParadigmSessionKind, ParadigmTrialPlanItem, SelfReport, TrialQuality } from './types';
 
 export type ParadigmSessionPhase = 'idle' | 'setup' | 'running' | 'finished' | 'error';
 
@@ -12,13 +7,7 @@ export type ParadigmSessionPhase = 'idle' | 'setup' | 'running' | 'finished' | '
  * trial, including before the first trial and after the last one.
  */
 export type ParadigmTrialPhaseState =
-  | 'baseline'
-  | 'hint'
-  | 'video'
-  | 'postRest'
-  | 'selfReport'
-  | 'qualityCheck'
-  | 'interTrial';
+  'baseline' | 'hint' | 'video' | 'postRest' | 'selfReport' | 'qualityCheck' | 'interTrial';
 
 export type ParadigmSessionState = {
   phase: ParadigmSessionPhase;
@@ -120,8 +109,7 @@ export function canEnterSetup(state: ParadigmSessionState) {
 
 export function canAdvanceTrialPhase(state: ParadigmSessionState) {
   return (
-    state.phase === 'running' &&
-    countdownAdvanceFrom(state.sessionKind).includes(state.trialPhase)
+    state.phase === 'running' && countdownAdvanceFrom(state.sessionKind).includes(state.trialPhase)
   );
 }
 
@@ -130,10 +118,7 @@ export function canAdvanceTrialPhase(state: ParadigmSessionState) {
  * (regulation); the two phases never coexist in one session kind.
  */
 export function canEndTrial(state: ParadigmSessionState) {
-  return (
-    state.phase === 'running' &&
-    state.trialPhase === 'postRest'
-  );
+  return state.phase === 'running' && state.trialPhase === 'postRest';
 }
 
 export function canSubmitSelfReport(state: ParadigmSessionState) {
@@ -151,25 +136,16 @@ export function nextTrialIndex(state: ParadigmSessionState) {
 
 export function canStartNextTrial(state: ParadigmSessionState) {
   return (
-    state.phase === 'running' &&
-    state.trialPhase === 'interTrial' &&
-    nextTrialIndex(state) !== null
+    state.phase === 'running' && state.trialPhase === 'interTrial' && nextTrialIndex(state) !== null
   );
 }
 
 export function isLastTrial(state: ParadigmSessionState) {
-  return (
-    state.queue.length > 0 &&
-    state.currentTrialIndex === state.queue.length - 1
-  );
+  return state.queue.length > 0 && state.currentTrialIndex === state.queue.length - 1;
 }
 
 export function canEndSession(state: ParadigmSessionState) {
-  return (
-    state.phase === 'running' ||
-    state.phase === 'finished' ||
-    state.phase === 'error'
-  );
+  return state.phase === 'running' || state.phase === 'finished' || state.phase === 'error';
 }
 
 function clearTrialReview(state: ParadigmSessionState): ParadigmSessionState {

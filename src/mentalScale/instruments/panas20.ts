@@ -88,10 +88,10 @@ function subscaleMean(answers: Record<string, number>, itemIds: readonly string[
   for (const id of itemIds) {
     const value = answers[id];
     if (
-      typeof value !== 'number'
-      || !Number.isInteger(value)
-      || value < PANAS_MIN_VALUE
-      || value > PANAS_MAX_VALUE
+      typeof value !== 'number' ||
+      !Number.isInteger(value) ||
+      value < PANAS_MIN_VALUE ||
+      value > PANAS_MAX_VALUE
     ) {
       throw new Error(`Invalid or missing PANAS answer for ${id}.`);
     }

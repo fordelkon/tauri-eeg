@@ -56,10 +56,11 @@ export const EffectTimeline = memo(function EffectTimeline({
         const clickable = isDone || isCurrent;
         const dotClass = isDone
           ? styles.stationDotDone
-          : isCurrent ? styles.stationDotCurrent : styles.stationDotPending;
-        const labelClass = node.status === 'pending'
-          ? styles.stationLabelPending
-          : styles.stationLabel;
+          : isCurrent
+            ? styles.stationDotCurrent
+            : styles.stationDotPending;
+        const labelClass =
+          node.status === 'pending' ? styles.stationLabelPending : styles.stationLabel;
 
         return (
           <li

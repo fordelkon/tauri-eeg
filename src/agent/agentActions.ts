@@ -35,7 +35,6 @@ export type AgentAvailableResources = {
   videos: AgentPlannerVideoResource[];
 };
 
-
 const allPhases = [
   'intro',
   'baseline',
@@ -47,16 +46,78 @@ const allPhases = [
 ] as const;
 
 export const agentActions = [
-  { id: 'open_paradigm', label: '打开实验范式', risk: 'safe', requiresConfirmation: false, allowedPhases: allPhases },
-  { id: 'open_experiment_settings', label: '打开实验设置', risk: 'safe', requiresConfirmation: false, allowedPhases: allPhases },
-  { id: 'go_next_page', label: '下一步', risk: 'safe', requiresConfirmation: false, allowedPhases: allPhases },
-  { id: 'go_to_phase', label: '进入阶段', risk: 'safe', requiresConfirmation: false, allowedPhases: allPhases },
-  { id: 'select_video', label: '选择视频', risk: 'safe', requiresConfirmation: false, allowedPhases: ['video_regulation'] },
-  { id: 'play_video', label: '播放视频', risk: 'stimulus', requiresConfirmation: true, allowedPhases: ['video_regulation'], confirmationLabel: '播放调控视频？' },
-  { id: 'generate_music', label: '生成音乐', risk: 'resource_sensitive', requiresConfirmation: true, allowedPhases: ['music_regulation'], confirmationLabel: '将生成调控音乐并写入音乐历史。是否确认？' },
-  { id: 'skip_game', label: '跳过游戏', risk: 'safe', requiresConfirmation: false, allowedPhases: ['game_regulation'] },
-  { id: 'finish_experiment', label: '完成实验', risk: 'safe', requiresConfirmation: false, allowedPhases: ['finish', 'recovery'] },
-  { id: 'cancel', label: '取消', risk: 'safe', requiresConfirmation: false, allowedPhases: allPhases },
+  {
+    id: 'open_paradigm',
+    label: '打开实验范式',
+    risk: 'safe',
+    requiresConfirmation: false,
+    allowedPhases: allPhases,
+  },
+  {
+    id: 'open_experiment_settings',
+    label: '打开实验设置',
+    risk: 'safe',
+    requiresConfirmation: false,
+    allowedPhases: allPhases,
+  },
+  {
+    id: 'go_next_page',
+    label: '下一步',
+    risk: 'safe',
+    requiresConfirmation: false,
+    allowedPhases: allPhases,
+  },
+  {
+    id: 'go_to_phase',
+    label: '进入阶段',
+    risk: 'safe',
+    requiresConfirmation: false,
+    allowedPhases: allPhases,
+  },
+  {
+    id: 'select_video',
+    label: '选择视频',
+    risk: 'safe',
+    requiresConfirmation: false,
+    allowedPhases: ['video_regulation'],
+  },
+  {
+    id: 'play_video',
+    label: '播放视频',
+    risk: 'stimulus',
+    requiresConfirmation: true,
+    allowedPhases: ['video_regulation'],
+    confirmationLabel: '播放调控视频？',
+  },
+  {
+    id: 'generate_music',
+    label: '生成音乐',
+    risk: 'resource_sensitive',
+    requiresConfirmation: true,
+    allowedPhases: ['music_regulation'],
+    confirmationLabel: '将生成调控音乐并写入音乐历史。是否确认？',
+  },
+  {
+    id: 'skip_game',
+    label: '跳过游戏',
+    risk: 'safe',
+    requiresConfirmation: false,
+    allowedPhases: ['game_regulation'],
+  },
+  {
+    id: 'finish_experiment',
+    label: '完成实验',
+    risk: 'safe',
+    requiresConfirmation: false,
+    allowedPhases: ['finish', 'recovery'],
+  },
+  {
+    id: 'cancel',
+    label: '取消',
+    risk: 'safe',
+    requiresConfirmation: false,
+    allowedPhases: allPhases,
+  },
 ] as const satisfies readonly AgentActionDefinition[];
 
 export type AgentActionValidation = { ok: true } | { ok: false; reason: string };
@@ -69,7 +130,10 @@ export function requiresAgentConfirmation(id: AgentActionId): boolean {
   return getAgentAction(id)?.requiresConfirmation ?? false;
 }
 
-export function getAgentActionValidation(id: AgentActionId, phase: AgentPhase): AgentActionValidation {
+export function getAgentActionValidation(
+  id: AgentActionId,
+  phase: AgentPhase,
+): AgentActionValidation {
   const action = getAgentAction(id);
 
   if (!action) {

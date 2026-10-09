@@ -16,37 +16,75 @@ export type ParadigmVideoLibrary = {
   readinessWarnings: string[];
 };
 export type ParadigmTrialPlanItem = {
-  trialIndex: number; emotion: ParadigmEmotion; triggerClass: ParadigmTriggerClass;
-  videoId: string; videoPath: string;
+  trialIndex: number;
+  emotion: ParadigmEmotion;
+  triggerClass: ParadigmTriggerClass;
+  videoId: string;
+  videoPath: string;
 };
-export type TrialSnapshot = ParadigmTrialPlanItem & { presentationStartedAt: string; presentationEndedAt: string | null };
+export type TrialSnapshot = ParadigmTrialPlanItem & {
+  presentationStartedAt: string;
+  presentationEndedAt: string | null;
+};
 export type TrialRecord = TrialSnapshot & {
-  selfReport: SelfReport | null; quality: TrialQuality | null; artifactFlags: string[];
-  operatorNotes: string | null; labelSource: TrialLabelSource | null;
+  selfReport: SelfReport | null;
+  quality: TrialQuality | null;
+  artifactFlags: string[];
+  operatorNotes: string | null;
+  labelSource: TrialLabelSource | null;
 };
 export type ParadigmSessionClassSummary = {
-  emotion: ParadigmEmotion; accepted: number; uncertain: number; rejected: number;
-  artifactRejected: number; interrupted: number;
+  emotion: ParadigmEmotion;
+  accepted: number;
+  uncertain: number;
+  rejected: number;
+  artifactRejected: number;
+  interrupted: number;
 };
 export type ParadigmSessionSummary = {
-  sessionId: string; totalTrials: number; perClass: ParadigmSessionClassSummary[];
-  valenceMean: number | null; arousalMean: number | null; warnings: string[];
+  sessionId: string;
+  totalTrials: number;
+  perClass: ParadigmSessionClassSummary[];
+  valenceMean: number | null;
+  arousalMean: number | null;
+  warnings: string[];
 };
 export const paradigmEmotionLabels: Record<ParadigmEmotion, string> = {
-  anxiety: '焦虑', calm: '平静', depression: '抑郁', fear: '恐惧',
+  anxiety: '焦虑',
+  calm: '平静',
+  depression: '抑郁',
+  fear: '恐惧',
 };
 export const trialQualityLabels: Record<TrialQuality, string> = {
-  accepted: '接纳', artifact_rejected: '呈现异常拒收', rejected: '拒收', uncertain: '不确定',
+  accepted: '接纳',
+  artifact_rejected: '呈现异常拒收',
+  rejected: '拒收',
+  uncertain: '不确定',
 };
 export const paradigmSessionKindLabels: Record<ParadigmSessionKind, string> = {
-  held_out_generation: '独立诱发', personal_calibration: '个人校准',
+  held_out_generation: '独立诱发',
+  personal_calibration: '个人校准',
 };
-export const PARADIGM_EMOTIONS: readonly ParadigmEmotion[] = ['depression', 'anxiety', 'calm', 'fear'];
+export const PARADIGM_EMOTIONS: readonly ParadigmEmotion[] = [
+  'depression',
+  'anxiety',
+  'calm',
+  'fear',
+];
 export const PARADIGM_TRIALS_PER_CLASS = 5;
 export const PARADIGM_BLOCKS_BY_KIND: Record<ParadigmSessionKind, readonly ParadigmEmotion[]> = {
-  personal_calibration: ['calm'], held_out_generation: ['anxiety', 'depression', 'fear'],
+  personal_calibration: ['calm'],
+  held_out_generation: ['anxiety', 'depression', 'fear'],
 };
-export const PARADIGM_EMOTION_DISPLAY_ORDER: readonly ParadigmEmotion[] = ['calm', 'anxiety', 'depression', 'fear'];
+export const PARADIGM_EMOTION_DISPLAY_ORDER: readonly ParadigmEmotion[] = [
+  'calm',
+  'anxiety',
+  'depression',
+  'fear',
+];
 export const PARADIGM_TRIGGER_CLASSES: Record<ParadigmEmotion, ParadigmTriggerClass> = {
-  anxiety: 2, calm: 3, depression: 1, fear: 5,
+  anxiety: 2,
+  calm: 3,
+  depression: 1,
+  fear: 5,
 };

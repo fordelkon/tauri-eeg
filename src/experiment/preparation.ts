@@ -22,7 +22,8 @@ export function getPreparationReadiness(input: PreparationInput): {
   if (!input.libraryValidated) blockers.push('请先选择素材库并完成验证。');
   if (input.mode === 'formal') {
     if (!input.connected) blockers.push('请先连接触发盒。');
-    if (!input.externalRecordingConfirmed) blockers.push('请先在 ActiView 开始保存 BDF，并确认保存秒数正在增加。');
+    if (!input.externalRecordingConfirmed)
+      blockers.push('请先在 ActiView 开始保存 BDF，并确认保存秒数正在增加。');
   }
   return { canEnter: blockers.length === 0, blockers };
 }

@@ -24,8 +24,14 @@
    .workspace as a containing block for the paradigm stage's position:fixed
    surfaces — the same trap EffectEvaluation dodges on its workspace. */
 @keyframes workspaceEnter {
-  from { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.99); }
-  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 /* ---------------------------------------------------------------- */
@@ -125,7 +131,11 @@
 
 .sectionIndex {
   color: var(--calm-primary);
-  font: 600 var(--text-xs)/1.8 ui-monospace, SFMono-Regular, Consolas, monospace;
+  font:
+    600 var(--text-xs)/1.8 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
   letter-spacing: 0.08em;
 }
 
@@ -171,7 +181,9 @@
   font: inherit;
   min-height: var(--button-height);
   padding: 8px 12px;
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
   width: 100%;
 }
 
@@ -204,7 +216,12 @@
   padding: 0 calc(var(--button-padding-inline) + 8px);
   position: relative;
   white-space: nowrap;
-  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
 }
 
 .workspace button:hover:enabled {
@@ -260,7 +277,7 @@
   border: 2px solid currentColor;
   border-radius: 999px;
   border-top-color: transparent;
-  content: "";
+  content: '';
   box-sizing: border-box;
   height: 12px;
   inset-inline-start: 7px;
@@ -269,7 +286,9 @@
 }
 
 @keyframes busySpin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ---------------------------------------------------------------- */
@@ -309,8 +328,14 @@
 }
 
 @keyframes bannerEnter {
-  from { opacity: 0; transform: translate3d(0, 6px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 /* ---------------------------------------------------------------- */
@@ -368,7 +393,9 @@
   font-weight: 600;
   padding-bottom: 3px;
   text-decoration: none;
-  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 .workspace a:hover {
@@ -415,8 +442,14 @@
 }
 
 @keyframes stageSwapIn {
-  from { opacity: 0; transform: translate3d(0, 8px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 @media (max-width: 640px) {

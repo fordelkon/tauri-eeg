@@ -66,7 +66,12 @@ describe('videoRegulationCatalog', () => {
     ]);
     expect(
       getVideoRegulationCatalog(
-        { ...getDefaultVideoSelections(), tag: '自定义标签', atmosphere: '自定义氛围', scene: '自定义场景' },
+        {
+          ...getDefaultVideoSelections(),
+          tag: '自定义标签',
+          atmosphere: '自定义氛围',
+          scene: '自定义场景',
+        },
         [customAsset],
       ),
     ).toEqual([customAsset]);
@@ -104,7 +109,9 @@ describe('videoRegulationCatalog', () => {
     ]);
 
     const afterScene = { ...selections, scene: '暮色海岸' };
-    expect(getVideoSelectionOptions(afterScene, 'atmosphere').map((option) => option.value)).toEqual(['温柔浪漫']);
+    expect(
+      getVideoSelectionOptions(afterScene, 'atmosphere').map((option) => option.value),
+    ).toEqual(['温柔浪漫']);
     expect(getVideoSelectionOptions(afterScene, 'tag').map((option) => option.value)).toEqual([
       '海岸',
       '黄昏',
@@ -132,8 +139,16 @@ describe('videoRegulationCatalog', () => {
   it('reports the next missing selection step', () => {
     expect(videoSelectionSteps).toEqual(['tag', 'atmosphere', 'scene']);
     expect(getNextVideoSelectionStep(getDefaultVideoSelections())).toBe('tag');
-    expect(getNextVideoSelectionStep({ ...getDefaultVideoSelections(), tag: '码头' })).toBe('atmosphere');
-    expect(getNextVideoSelectionStep({ ...getDefaultVideoSelections(), tag: '码头', atmosphere: '温柔浪漫' })).toBe('scene');
+    expect(getNextVideoSelectionStep({ ...getDefaultVideoSelections(), tag: '码头' })).toBe(
+      'atmosphere',
+    );
+    expect(
+      getNextVideoSelectionStep({
+        ...getDefaultVideoSelections(),
+        tag: '码头',
+        atmosphere: '温柔浪漫',
+      }),
+    ).toBe('scene');
   });
 
   it('converts a Windows path into a playable local video URL', () => {
@@ -143,8 +158,11 @@ describe('videoRegulationCatalog', () => {
   });
 
   it('uses an injected Tauri file converter when one is provided', () => {
-    expect(toPlayableVideoUrl('D:\\tauri-eeg\\video_database\\14_seg000.mp4', (path) => `asset://${path}`)).toBe(
-      'asset://D:\\tauri-eeg\\video_database\\14_seg000.mp4',
-    );
+    expect(
+      toPlayableVideoUrl(
+        'D:\\tauri-eeg\\video_database\\14_seg000.mp4',
+        (path) => `asset://${path}`,
+      ),
+    ).toBe('asset://D:\\tauri-eeg\\video_database\\14_seg000.mp4');
   });
 });

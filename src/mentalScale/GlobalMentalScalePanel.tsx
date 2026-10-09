@@ -2,10 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { EChartsType } from 'echarts/core';
 import type { ReactNode } from 'react';
 import { chartAnimationDuration } from '../pages/home/effectResultChartOption';
-import {
-  getMentalScaleStatusSnapshot,
-  subscribeMentalScaleStatus,
-} from './mentalScaleStatus';
+import { getMentalScaleStatusSnapshot, subscribeMentalScaleStatus } from './mentalScaleStatus';
 import styles from './GlobalMentalScalePanel.module.css';
 
 type Props = {
@@ -24,9 +21,9 @@ const scaleTitleLabels: Record<string, string> = {
   'Game Regulation Scale': '游戏调控量表',
   'Music Regulation Scale': '音乐调控量表',
   'Video Regulation Scale': '视频调控量表',
-  '游戏调控量表': '游戏调控量表',
-  '音乐调控量表': '音乐调控量表',
-  '视频调控量表': '视频调控量表',
+  游戏调控量表: '游戏调控量表',
+  音乐调控量表: '音乐调控量表',
+  视频调控量表: '视频调控量表',
 };
 
 const getDimensionLabel = (key: string, fallback: string) => dimensionLabels[key] ?? fallback;
@@ -236,9 +233,9 @@ export default function GlobalMentalScalePanel({ children }: Props) {
 
   const updatedLabel = status.updatedAt
     ? new Intl.DateTimeFormat(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(new Date(status.updatedAt))
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(new Date(status.updatedAt))
     : '基线';
 
   return (
@@ -252,12 +249,7 @@ export default function GlobalMentalScalePanel({ children }: Props) {
       </div>
 
       <div className={styles.chartWrap}>
-        <div
-          ref={chartRef}
-          className={styles.radar}
-          role="img"
-          aria-label="心理状态雷达图"
-        />
+        <div ref={chartRef} className={styles.radar} role="img" aria-label="心理状态雷达图" />
       </div>
 
       {children ? <div className={styles.assistantSlot}>{children}</div> : null}

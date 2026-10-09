@@ -54,9 +54,9 @@ export function evaluateParadigmAcceptance(
     return 'uncertain';
   }
 
-  const insideOtherRegion = ALL_EMOTIONS.some((candidate) => (
-    candidate !== emotion && OWN_REGIONS[candidate](valence, arousal)
-  ));
+  const insideOtherRegion = ALL_EMOTIONS.some(
+    (candidate) => candidate !== emotion && OWN_REGIONS[candidate](valence, arousal),
+  );
   if (insideOtherRegion) {
     return 'rejected';
   }
@@ -67,4 +67,3 @@ export function evaluateParadigmAcceptance(
 
   return 'uncertain';
 }
-

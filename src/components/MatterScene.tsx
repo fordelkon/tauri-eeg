@@ -73,7 +73,7 @@ export default function MatterScene({
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     // pointerenter populates the cache first; measure live only if it is
     // somehow missing (e.g. the very first event before enter ran).
-    const bounds = hostBoundsRef.current ?? (hostRef.current?.getBoundingClientRect() ?? null);
+    const bounds = hostBoundsRef.current ?? hostRef.current?.getBoundingClientRect() ?? null;
 
     if (bounds) {
       hostBoundsRef.current = bounds;

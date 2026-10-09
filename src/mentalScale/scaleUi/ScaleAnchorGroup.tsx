@@ -29,10 +29,9 @@ export function buildAnchorOptions({
 }: AnchorModelInput): ScaleAnchorOption[] {
   if (layout === 'bipolar') {
     const top = maxValue ?? minValue;
-    return Array.from(
-      { length: Math.max(0, top - minValue + 1) },
-      (_, index) => ({ value: minValue + index }),
-    );
+    return Array.from({ length: Math.max(0, top - minValue + 1) }, (_, index) => ({
+      value: minValue + index,
+    }));
   }
 
   return anchorLabels.map((label, index) => ({ value: minValue + index, label }));
@@ -109,7 +108,7 @@ export default function ScaleAnchorGroup({
     switch (event.key) {
       case 'ArrowLeft':
       case 'ArrowUp':
-        nextIndex = (currentIndex <= 0 ? 0 : currentIndex - 1);
+        nextIndex = currentIndex <= 0 ? 0 : currentIndex - 1;
         break;
       case 'ArrowRight':
       case 'ArrowDown':
@@ -142,9 +141,7 @@ export default function ScaleAnchorGroup({
     const hint = valueHints?.[option.value];
     // Bipolar buttons name themselves after the hint copy when one exists
     // (paradigm rows), otherwise after the question text.
-    const aria = isBipolar && hint
-      ? `${option.value}(${hint})`
-      : `${ariaLabel} ${option.value}`;
+    const aria = isBipolar && hint ? `${option.value}(${hint})` : `${ariaLabel} ${option.value}`;
 
     return (
       <button

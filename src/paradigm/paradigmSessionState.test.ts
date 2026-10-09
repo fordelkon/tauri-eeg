@@ -47,7 +47,11 @@ describe('paradigmSessionReducer', () => {
   it('walks one trial from baseline through quality check', () => {
     let state = startRunningSession();
 
-    expect(state).toMatchObject({ phase: 'running', trialPhase: 'interTrial', currentTrialIndex: -1 });
+    expect(state).toMatchObject({
+      phase: 'running',
+      trialPhase: 'interTrial',
+      currentTrialIndex: -1,
+    });
     expect(canStartNextTrial(state)).toBe(true);
 
     state = paradigmSessionReducer(state, { type: 'trial_started', trialIndex: 0 });
@@ -96,10 +100,9 @@ describe('paradigmSessionReducer', () => {
     state = paradigmSessionReducer(state, { type: 'trial_started', trialIndex: 0 });
     // baseline -> hint -> video -> postRest, then gate into self report.
     state = paradigmSessionReducer(
-      paradigmSessionReducer(
-        paradigmSessionReducer(state, { type: 'advance_trial_phase' }),
-        { type: 'advance_trial_phase' },
-      ),
+      paradigmSessionReducer(paradigmSessionReducer(state, { type: 'advance_trial_phase' }), {
+        type: 'advance_trial_phase',
+      }),
       { type: 'advance_trial_phase' },
     );
     state = paradigmSessionReducer(state, { type: 'trial_ended' });
@@ -190,22 +193,28 @@ describe('paradigmSessionReducer', () => {
     // No active trial yet: countdown/self-report/finalize all no-ops.
     expect(paradigmSessionReducer(state, { type: 'advance_trial_phase' })).toBe(state);
     expect(paradigmSessionReducer(state, { type: 'trial_ended' })).toBe(state);
-    expect(paradigmSessionReducer(state, {
-      type: 'self_report_submitted',
-      selfReport: { valence: 5, arousal: 5 },
-      suggestedQuality: 'uncertain',
-    })).toBe(state);
+    expect(
+      paradigmSessionReducer(state, {
+        type: 'self_report_submitted',
+        selfReport: { valence: 5, arousal: 5 },
+        suggestedQuality: 'uncertain',
+      }),
+    ).toBe(state);
     expect(paradigmSessionReducer(state, { type: 'trial_finalized' })).toBe(state);
 
     // setup -> running only via session_started; idle cannot jump ahead.
-    expect(paradigmSessionReducer(initialParadigmSessionState, {
-      type: 'session_started',
-      queue,
-    })).toBe(initialParadigmSessionState);
-    expect(paradigmSessionReducer(initialParadigmSessionState, {
-      type: 'trial_started',
-      trialIndex: 0,
-    })).toBe(initialParadigmSessionState);
+    expect(
+      paradigmSessionReducer(initialParadigmSessionState, {
+        type: 'session_started',
+        queue,
+      }),
+    ).toBe(initialParadigmSessionState);
+    expect(
+      paradigmSessionReducer(initialParadigmSessionState, {
+        type: 'trial_started',
+        trialIndex: 0,
+      }),
+    ).toBe(initialParadigmSessionState);
   });
 
   it('records recoverable command errors without leaving the stage', () => {

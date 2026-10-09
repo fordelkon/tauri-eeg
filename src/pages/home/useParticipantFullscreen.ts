@@ -17,7 +17,9 @@ export function useParticipantFullscreen() {
     ownerRef.current = 'none';
 
     if (owner === 'native-window' && isTauriAvailable()) {
-      void getCurrentWindow().setFullscreen(false).catch(() => {});
+      void getCurrentWindow()
+        .setFullscreen(false)
+        .catch(() => {});
     }
     if (owner === 'document' && document.fullscreenElement) {
       void document.exitFullscreen?.().catch(() => {});
@@ -39,7 +41,10 @@ export function useParticipantFullscreen() {
       }
     }
 
-    if (document.fullscreenElement || typeof document.documentElement.requestFullscreen !== 'function') {
+    if (
+      document.fullscreenElement ||
+      typeof document.documentElement.requestFullscreen !== 'function'
+    ) {
       return;
     }
 

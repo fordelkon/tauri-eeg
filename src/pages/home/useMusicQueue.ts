@@ -20,7 +20,10 @@ export function useMusicQueue(options: {
   const { userId, onLoadError, onPlaybackError } = options;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const bundledAssets = useMemo(() => createBundledMusicAssets(bundledMusicFiles), []);
-  const { items: generatedItems, setItems: setGeneratedItems } = useMusicHistory({ userId, onError: onLoadError });
+  const { items: generatedItems, setItems: setGeneratedItems } = useMusicHistory({
+    userId,
+    onError: onLoadError,
+  });
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const generatedAssets = useMemo(
@@ -36,9 +39,12 @@ export function useMusicQueue(options: {
   // from the `ended` → next-track transition.
   const nextAsset = assets[activeIndex + 1];
 
-  useEffect(() => () => {
-    audioRef.current?.pause();
-  }, []);
+  useEffect(
+    () => () => {
+      audioRef.current?.pause();
+    },
+    [],
+  );
 
   // Prewarms the next queue entry through a detached <audio> element so its
   // multi-MB WAV is already fetched (HTTP-cached) when `ended` advances the
@@ -60,10 +66,13 @@ export function useMusicQueue(options: {
     };
   }, [nextAsset]);
 
-  useEffect(() => () => {
-    prewarmAudioRef.current?.pause();
-    prewarmAudioRef.current = null;
-  }, []);
+  useEffect(
+    () => () => {
+      prewarmAudioRef.current?.pause();
+      prewarmAudioRef.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (activeIndex >= assets.length) {

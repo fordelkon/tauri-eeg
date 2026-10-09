@@ -62,8 +62,7 @@
   overflow-y: auto;
   padding: 24px 18px;
   transform: translateX(-100%);
-  transition:
-    transform var(--dur-drawer) var(--ease-drawer);
+  transition: transform var(--dur-drawer) var(--ease-drawer);
   width: 100%;
 }
 
@@ -123,8 +122,10 @@
 .logoMark {
   background:
     linear-gradient(#2c2218, #2c2218) center / 2px 22px no-repeat,
-    linear-gradient(45deg, transparent 45%, #2c2218 46% 54%, transparent 55%) center / 22px 22px no-repeat,
-    linear-gradient(-45deg, transparent 45%, #2c2218 46% 54%, transparent 55%) center / 22px 22px no-repeat;
+    linear-gradient(45deg, transparent 45%, #2c2218 46% 54%, transparent 55%) center / 22px 22px
+      no-repeat,
+    linear-gradient(-45deg, transparent 45%, #2c2218 46% 54%, transparent 55%) center / 22px 22px
+      no-repeat;
   height: 28px;
   position: relative;
   width: 28px;
@@ -134,7 +135,7 @@
 .logoMark::after {
   background: #2c2218;
   border-radius: 999px;
-  content: "";
+  content: '';
   height: 2px;
   left: 4px;
   position: absolute;
@@ -508,7 +509,7 @@
      warm-accent token) - no colored glow, no saturated red. */
   background: var(--brand-coral, #fb7f6e);
   border-radius: 999px;
-  content: "";
+  content: '';
   height: 22px;
   left: 0;
   position: absolute;
@@ -572,9 +573,14 @@
 
 .shell::before {
   background:
-    url("/flower.webp") left center / 72px 50px repeat-x,
-    linear-gradient(90deg, rgba(44, 34, 24, 0), rgba(44, 34, 24, 0.06) 42% 58%, rgba(44, 34, 24, 0));
-  content: "";
+    url('/flower.webp') left center / 72px 50px repeat-x,
+    linear-gradient(
+      90deg,
+      rgba(44, 34, 24, 0),
+      rgba(44, 34, 24, 0.06) 42% 58%,
+      rgba(44, 34, 24, 0)
+    );
+  content: '';
   height: var(--status-divider-width);
   left: calc(75% + var(--status-divider-offset));
   opacity: 0.78;
@@ -648,7 +654,7 @@
   box-shadow: var(--shadow-control);
   color: #f5f0eb;
   display: inline-flex;
-  font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+  font-family: Inter, 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
   font-size: var(--text-base);
   font-weight: 600;
   gap: var(--button-gap);
@@ -700,7 +706,7 @@
 .nextPageButton:focus-visible {
   /* Sage ring family, layered over the resting shadow. */
   box-shadow:
-    0 3px 12px rgba(var(--calm-primary-rgb), 0.30),
+    0 3px 12px rgba(var(--calm-primary-rgb), 0.3),
     0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
   outline-offset: 3px;
@@ -779,7 +785,7 @@
   /* Same coral beacon as the sidebar's active item. */
   background: var(--brand-coral, #fb7f6e);
   border-radius: 999px;
-  content: "";
+  content: '';
   height: 20px;
   left: 0;
   position: absolute;
@@ -962,7 +968,7 @@
   background:
     radial-gradient(circle at 50% 50%, rgba(245, 240, 235, 0.54), transparent 24%),
     radial-gradient(circle at 50% 50%, rgba(184, 31, 31, 0.045), transparent 38%);
-  content: "";
+  content: '';
   height: min(46vw, 430px);
   left: 50%;
   pointer-events: none;
@@ -994,7 +1000,7 @@
 
 .title {
   color: #2c2218;
-  font-family: Inter, "SF Pro Display", "Segoe UI", Arial, sans-serif;
+  font-family: Inter, 'SF Pro Display', 'Segoe UI', Arial, sans-serif;
   font-size: clamp(36px, 6vw, 72px);
   font-weight: 600;
   letter-spacing: 0;

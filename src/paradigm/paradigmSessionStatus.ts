@@ -42,8 +42,9 @@ export function subscribeParadigmSessionStatus(
 
 export function setParadigmSessionStatus(status: ParadigmSessionStatus): void {
   const isUnchanged = Object.keys(defaultParadigmSessionStatus).every(
-    (key) => currentStatus[key as keyof ParadigmSessionStatus]
-      === status[key as keyof ParadigmSessionStatus],
+    (key) =>
+      currentStatus[key as keyof ParadigmSessionStatus] ===
+      status[key as keyof ParadigmSessionStatus],
   );
 
   if (isUnchanged) {

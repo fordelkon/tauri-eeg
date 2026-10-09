@@ -48,6 +48,8 @@ describe('ScaleGateRoute access decision', () => {
 });
 
 /** Mirrors ScaleGateRoute's render branch without needing a DOM. */
-function gateDecision(path: '/video-regulation' | '/game-regulation' | '/music-regulation'): 'open' | 'gate' {
+function gateDecision(
+  path: '/video-regulation' | '/game-regulation' | '/music-regulation',
+): 'open' | 'gate' {
   return isScaleSatisfiedForPath(path) ? 'open' : 'gate';
 }

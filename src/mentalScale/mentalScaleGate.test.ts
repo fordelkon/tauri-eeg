@@ -57,16 +57,20 @@ describe('mentalScaleGate', () => {
     const scale = getMentalScaleForPath('/music-regulation')!;
 
     expect(isMentalScaleComplete(scale, {})).toBe(false);
-    expect(isMentalScaleComplete(scale, {
-      [scale.questions[0].id]: 0,
-      [scale.questions[1].id]: 1,
-      [scale.questions[2].id]: 2,
-    })).toBe(false);
-    expect(isMentalScaleComplete(scale, {
-      [scale.questions[0].id]: 0,
-      [scale.questions[1].id]: 1,
-      [scale.questions[2].id]: 2,
-      [scale.questions[3].id]: 3,
-    })).toBe(true);
+    expect(
+      isMentalScaleComplete(scale, {
+        [scale.questions[0].id]: 0,
+        [scale.questions[1].id]: 1,
+        [scale.questions[2].id]: 2,
+      }),
+    ).toBe(false);
+    expect(
+      isMentalScaleComplete(scale, {
+        [scale.questions[0].id]: 0,
+        [scale.questions[1].id]: 1,
+        [scale.questions[2].id]: 2,
+        [scale.questions[3].id]: 3,
+      }),
+    ).toBe(true);
   });
 });

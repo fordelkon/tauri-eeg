@@ -26,9 +26,7 @@ function toPlayableInductionUrl(sourcePath: string) {
     return convertFileSrc(sourcePath);
   }
 
-  return /^[a-zA-Z]:\\/.test(sourcePath)
-    ? `file:///${sourcePath.replace(/\\/g, '/')}`
-    : sourcePath;
+  return /^[a-zA-Z]:\\/.test(sourcePath) ? `file:///${sourcePath.replace(/\\/g, '/')}` : sourcePath;
 }
 
 /** Participant-facing induction presentation with an explicit ready cue. */
@@ -52,7 +50,10 @@ export function EffectFullscreenInduction({
   const { enterFullscreen } = useParticipantFullscreen();
 
   useEffect(() => {
-    if (interrupted) { videoRef.current?.pause(); return; }
+    if (interrupted) {
+      videoRef.current?.pause();
+      return;
+    }
     if (isPlaying) {
       void videoRef.current?.play().catch(onError);
     }
@@ -65,7 +66,15 @@ export function EffectFullscreenInduction({
 
   return createPortal(
     <section className={styles.fullscreenRegulationStage} aria-label="诱发视频呈现">
-      {interrupted ? <div className={styles.fullscreenStageNotice} role="alert"><strong>本次实验已中断</strong><span>请检查 Trigger 和素材，重新开始实验。外部 BDF 继续由 ActiView 管理。</span><button type="button" className={styles.fullscreenStagePrimaryAction} onClick={onReset}>重置本次实验</button></div> : null}
+      {interrupted ? (
+        <div className={styles.fullscreenStageNotice} role="alert">
+          <strong>本次实验已中断</strong>
+          <span>请检查 Trigger 和素材，重新开始实验。外部 BDF 继续由 ActiView 管理。</span>
+          <button type="button" className={styles.fullscreenStagePrimaryAction} onClick={onReset}>
+            重置本次实验
+          </button>
+        </div>
+      ) : null}
       <header className={styles.fullscreenStageHeader}>
         <span>{isPlaying ? '诱发视频进行中' : '准备播放诱发视频'}</span>
         <span aria-label={`被试 ${subjectId}`}>被试 {subjectId}</span>
@@ -81,7 +90,12 @@ export function EffectFullscreenInduction({
           playsInline
           preload="auto"
           onCanPlay={() => setIsMediaReady(true)}
-          onPlaying={() => { if (!onsetRef.current && !interrupted) { onsetRef.current = true; onPlaying(); } }}
+          onPlaying={() => {
+            if (!onsetRef.current && !interrupted) {
+              onsetRef.current = true;
+              onPlaying();
+            }
+          }}
           onEnded={onFinished}
           onError={onError}
         />
@@ -102,7 +116,11 @@ export function EffectFullscreenInduction({
         ) : null}
       </div>
 
-      {startError ? <p className={styles.fullscreenStageNotice} role="alert">{startError}</p> : null}
+      {startError ? (
+        <p className={styles.fullscreenStageNotice} role="alert">
+          {startError}
+        </p>
+      ) : null}
       <footer className={styles.fullscreenStageFooter}>
         <span className={styles.fullscreenPlaybackHint}>
           {isPlaying ? `正在播放：${entry.fileName}` : '首次播放时发送诱发开始标记。'}

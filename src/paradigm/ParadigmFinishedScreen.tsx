@@ -1,8 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import {
-  paradigmEmotionLabels,
-  trialQualityLabels,
-} from './types';
+import { paradigmEmotionLabels, trialQualityLabels } from './types';
 import type { ParadigmSessionSummary } from './types';
 import styles from './ParadigmSession.module.css';
 
@@ -61,14 +58,15 @@ export default function ParadigmFinishedScreen({
             </thead>
             <tbody>
               {summary.perClass
-                .filter((row) => (
-                  row.accepted
-                  + row.uncertain
-                  + row.rejected
-                  + row.artifactRejected
-                  + row.interrupted
-                  > 0
-                ))
+                .filter(
+                  (row) =>
+                    row.accepted +
+                      row.uncertain +
+                      row.rejected +
+                      row.artifactRejected +
+                      row.interrupted >
+                    0,
+                )
                 .map((row) => (
                   <tr key={row.emotion}>
                     <td>{paradigmEmotionLabels[row.emotion]}</td>
@@ -81,12 +79,16 @@ export default function ParadigmFinishedScreen({
                 ))}
             </tbody>
           </table>
-
           <div className={styles.summaryMeans}>
             <span>共 {summary.totalTrials} 个试次</span>
-            <span>愉悦度均值 {summary.valenceMean === null ? '—' : summary.valenceMean.toFixed(2)}</span>
-            <span>唤醒度均值 {summary.arousalMean === null ? '—' : summary.arousalMean.toFixed(2)}</span>
-          </div>`r`n
+            <span>
+              愉悦度均值 {summary.valenceMean === null ? '—' : summary.valenceMean.toFixed(2)}
+            </span>
+            <span>
+              唤醒度均值 {summary.arousalMean === null ? '—' : summary.arousalMean.toFixed(2)}
+            </span>
+          </div>
+          `r`n
           {summary.warnings.length > 0 ? (
             <ul className={styles.summaryWarnings}>
               {summary.warnings.map((warning) => (
@@ -100,11 +102,7 @@ export default function ParadigmFinishedScreen({
       )}
 
       <div className={styles.actionRow}>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          onClick={onReturnToSetup}
-        >
+        <button type="button" className={styles.primaryButton} onClick={onReturnToSetup}>
           返回设置
         </button>
         <button

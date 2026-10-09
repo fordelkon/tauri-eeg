@@ -60,9 +60,11 @@ export type EmitEventInput = {
   details?: unknown;
 };
 
-export const listTriggerPorts = () => invoke<{ portName: string; description: string }[]>('trigger_list_ports');
+export const listTriggerPorts = () =>
+  invoke<{ portName: string; description: string }[]>('trigger_list_ports');
 export const getTriggerStatus = () => invoke<TriggerStatus>('trigger_status');
-export const connectTrigger = (portName: string) => invoke<TriggerStatus>('trigger_connect', { portName });
+export const connectTrigger = (portName: string) =>
+  invoke<TriggerStatus>('trigger_connect', { portName });
 export const disconnectTrigger = () => invoke<TriggerStatus>('trigger_disconnect');
 export const testTrigger = () => invoke<TriggerStatus>('trigger_test');
 
@@ -81,14 +83,22 @@ export async function emitEvent({ eventName, frontendMonotonicMs, ...input }: Em
   return event;
 }
 
-export function finishRun(runId: string, status: 'completed' | 'aborted', reason = '操作者结束实验') {
+export function finishRun(
+  runId: string,
+  status: 'completed' | 'aborted',
+  reason = '操作者结束实验',
+) {
   return status === 'completed'
     ? invoke<ExperimentRun>('experiment_finish', { runId })
     : invoke<ExperimentRun>('experiment_abort', { runId, reason });
 }
 
 export const listRuns = (userId?: string) => invoke<ExperimentRun[]>('experiment_list', { userId });
-export const associateBdf = (runId: string, bdfFiles: string[]) => invoke<ExperimentRun>('experiment_associate_bdf', { runId, bdfFiles });
-export const exportRun = (runId: string, path: string) => invoke<{ path: string }>('experiment_export', { runId, path });
-export const linkScale = (runId: string, recordId: string, phase: 'baseline' | 'post') => invoke<void>('experiment_link_scale', { runId, recordId, measurementTime: phase });
-export const saveTrial = <T extends { trialId: string }>(runId: string, trial: T) => invoke<T>('experiment_save_trial', { runId, trial });
+export const associateBdf = (runId: string, bdfFiles: string[]) =>
+  invoke<ExperimentRun>('experiment_associate_bdf', { runId, bdfFiles });
+export const exportRun = (runId: string, path: string) =>
+  invoke<{ path: string }>('experiment_export', { runId, path });
+export const linkScale = (runId: string, recordId: string, phase: 'baseline' | 'post') =>
+  invoke<void>('experiment_link_scale', { runId, recordId, measurementTime: phase });
+export const saveTrial = <T extends { trialId: string }>(runId: string, trial: T) =>
+  invoke<T>('experiment_save_trial', { runId, trial });

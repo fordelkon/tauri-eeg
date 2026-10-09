@@ -3,7 +3,7 @@
 
 /* App-wide design tokens (green stays the acquisition STATUS dialect on the
    globals; controls follow the calm ink recipes). */
-@import "../styles/tokens.css";
+@import '../styles/tokens.css';
 
 .panel {
   color: var(--ink-cool);

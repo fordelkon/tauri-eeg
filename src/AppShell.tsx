@@ -47,7 +47,8 @@ const theme = createTheme({
     text: { primary: '#2c2218' },
   },
   typography: {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
   },
   shape: {
     borderRadius: 8,
@@ -147,7 +148,10 @@ const theme = createTheme({
           borderRadius: 'var(--button-radius)',
           padding: 0,
           '& .MuiSvgIcon-root': { fontSize: 'var(--button-icon-glyph)' },
-          '&:active:not(.Mui-disabled)': { transform: 'scale(0.96)', transitionDuration: 'var(--dur-press)' },
+          '&:active:not(.Mui-disabled)': {
+            transform: 'scale(0.96)',
+            transitionDuration: 'var(--dur-press)',
+          },
           '&:focus-visible': { outline: '2px solid var(--calm-primary)', outlineOffset: 3 },
         },
         sizeSmall: { width: 'var(--button-height-sm)', height: 'var(--button-height-sm)' },

@@ -20,7 +20,7 @@
     linear-gradient(90deg, rgba(44, 34, 24, 0.08) 1px, transparent 1px),
     linear-gradient(rgba(44, 34, 24, 0.06) 1px, transparent 1px);
   background-size: 42px 42px;
-  content: "";
+  content: '';
   inset: -42px;
   mask-image: radial-gradient(circle at 50% 50%, #000 0 36%, transparent 68%);
   opacity: 0.4;

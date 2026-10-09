@@ -27,9 +27,10 @@ export default function HomeIntroLogo({ onComplete }: HomeIntroLogoProps) {
       onCompleteRef.current?.();
     };
 
-    const prefersReducedMotion = typeof window !== 'undefined'
-      && typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (prefersReducedMotion) {
       // No splash wait for motion-sensitive users: unmount on next frame

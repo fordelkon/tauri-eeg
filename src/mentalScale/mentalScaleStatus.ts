@@ -6,11 +6,7 @@ import type {
   MentalScaleQuestion,
 } from './mentalScaleGate';
 
-export type MentalScaleDimensionKey =
-  | 'anxiety'
-  | 'worry'
-  | 'mood'
-  | 'energy';
+export type MentalScaleDimensionKey = 'anxiety' | 'worry' | 'mood' | 'energy';
 
 export type MentalScaleDimensionDefinition = {
   key: MentalScaleDimensionKey;
@@ -50,10 +46,10 @@ type MentalScaleListener = () => void;
 // depression subscale (→ mood), items 3-4 the anxiety subscale; item 4 is the
 // core worry item (→ worry).
 const questionDimensionMap: Record<string, MentalScaleDimensionKey> = {
-  'phq4_1': 'mood',
-  'phq4_2': 'mood',
-  'phq4_3': 'anxiety',
-  'phq4_4': 'worry',
+  phq4_1: 'mood',
+  phq4_2: 'mood',
+  phq4_3: 'anxiety',
+  phq4_4: 'worry',
 };
 
 let currentStatus: MentalScaleStatus = defaultMentalScaleStatus;
@@ -112,9 +108,7 @@ export function measuredDimensionKeys(
 ): MentalScaleDimensionKey[] {
   const measured = collectDimensionAnswers(scale, answers);
 
-  return mentalScaleDimensions
-    .map((dimension) => dimension.key)
-    .filter((key) => measured.has(key));
+  return mentalScaleDimensions.map((dimension) => dimension.key).filter((key) => measured.has(key));
 }
 
 export function buildMentalScaleStatus(
@@ -127,9 +121,10 @@ export function buildMentalScaleStatus(
   return {
     dimensions: mentalScaleDimensions.map((dimension) => {
       const values = dimensionValues.get(dimension.key);
-      const value = values && values.length > 0
-        ? Math.round(values.reduce((total, item) => total + item, 0) / values.length)
-        : 50;
+      const value =
+        values && values.length > 0
+          ? Math.round(values.reduce((total, item) => total + item, 0) / values.length)
+          : 50;
 
       return {
         ...dimension,

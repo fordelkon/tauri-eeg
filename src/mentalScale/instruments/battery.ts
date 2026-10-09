@@ -16,15 +16,22 @@
  * so the backend `(baseline − post)/baseline` formula stays untouched.
  */
 
-import { scorePanas20, panas20Items, PANAS_ANCHOR_LABELS, PANAS_MIN_VALUE, PANAS_STATE_INSTRUCTION, round4 } from './panas20';
-import { scoreStaiS, staiSItems, STAI_S_ANCHOR_LABELS, STAI_S_MIN_VALUE, STAI_S_STATE_INSTRUCTION } from './staiS';
 import {
-  SAM_INSTRUCTION,
-  SAM_MAX_VALUE,
-  SAM_MIN_VALUE,
-  samDimensions,
-  scoreSam,
-} from './sam';
+  scorePanas20,
+  panas20Items,
+  PANAS_ANCHOR_LABELS,
+  PANAS_MIN_VALUE,
+  PANAS_STATE_INSTRUCTION,
+  round4,
+} from './panas20';
+import {
+  scoreStaiS,
+  staiSItems,
+  STAI_S_ANCHOR_LABELS,
+  STAI_S_MIN_VALUE,
+  STAI_S_STATE_INSTRUCTION,
+} from './staiS';
+import { SAM_INSTRUCTION, SAM_MAX_VALUE, SAM_MIN_VALUE, samDimensions, scoreSam } from './sam';
 import {
   GEMS9_ANCHOR_LABELS,
   GEMS9_INSTRUCTION,
@@ -176,12 +183,9 @@ export function buildBatteryDefinition(options: BuildBatteryOptions = {}): Batte
     });
   }
 
-  const scaleNames = [
-    includeSam ? 'SAM' : null,
-    'STAI-S',
-    'PANAS',
-    includeGems ? 'GEMS-9' : null,
-  ].filter((name): name is string => name !== null).join(' + ');
+  const scaleNames = [includeSam ? 'SAM' : null, 'STAI-S', 'PANAS', includeGems ? 'GEMS-9' : null]
+    .filter((name): name is string => name !== null)
+    .join(' + ');
 
   const questionCount = sections.reduce((sum, section) => sum + section.questions.length, 0);
   const gemsTail = includeGems ? '，最后完成 GEMS-9 音乐情绪感受（9 题）' : '';

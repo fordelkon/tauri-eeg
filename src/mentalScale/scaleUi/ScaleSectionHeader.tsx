@@ -23,9 +23,8 @@ export default function ScaleSectionHeader({
   answeredCount,
   totalCount,
 }: ScaleSectionHeaderProps) {
-  const percent = totalCount > 0
-    ? Math.min(100, Math.round((answeredCount / totalCount) * 100))
-    : 0;
+  const percent =
+    totalCount > 0 ? Math.min(100, Math.round((answeredCount / totalCount) * 100)) : 0;
   const isComplete = totalCount > 0 && answeredCount >= totalCount;
 
   return (

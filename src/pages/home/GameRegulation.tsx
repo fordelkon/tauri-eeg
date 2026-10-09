@@ -15,9 +15,7 @@ export default function GameRegulation() {
       <header className={styles.header}>
         <p className={styles.eyebrow}>游戏调控</p>
         <h1>VR 与 AR 调控</h1>
-        <p>
-          选择一个调控场景入口，内部游戏启动与设备联动后续接入。
-        </p>
+        <p>选择一个调控场景入口，内部游戏启动与设备联动后续接入。</p>
       </header>
 
       <section className={styles.grid} aria-label="VR 与 AR 游戏调控入口">

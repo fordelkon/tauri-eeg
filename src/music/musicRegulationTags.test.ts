@@ -69,6 +69,10 @@ describe('current music regulation tags', () => {
   it('deduplicates and trims selected tags for the assistant planner', () => {
     setCurrentMusicRegulationTags([' piano ', 'ambient instrumental', 'piano', '', 'soft rhythm']);
 
-    expect(getCurrentMusicRegulationTags()).toEqual(['piano', 'ambient instrumental', 'soft rhythm']);
+    expect(getCurrentMusicRegulationTags()).toEqual([
+      'piano',
+      'ambient instrumental',
+      'soft rhythm',
+    ]);
   });
 });

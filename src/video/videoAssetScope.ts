@@ -1,3 +1,1 @@
-export const videoAssetProtocolScopes = [
-  '**',
-] as const;
+export const videoAssetProtocolScopes = ['**'] as const;

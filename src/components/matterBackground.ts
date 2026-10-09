@@ -1,10 +1,7 @@
 import { Bodies, Body, Composite, Engine, Events, Render } from 'matter-js';
 import { getBallSprite } from './matterBallSprite';
 import { createPopParticleField } from './matterPopParticles';
-import {
-  defaultTitleFontSize,
-  LETTER_FONT,
-} from './matterTitleSprite';
+import { defaultTitleFontSize, LETTER_FONT } from './matterTitleSprite';
 import { createTitleMotionField, type TitleMotion } from './matterTitleMotion';
 
 type SceneBody = Body & {
@@ -125,13 +122,16 @@ export function createMatterBackground({
     render.context.font = LETTER_FONT(resolvedFontSize);
     titleBounds = {
       height: resolvedFontSize * 1.28,
-      width: Math.max(render.context.measureText(currentTitle).width, resolvedFontSize * Math.min(currentTitle.length, 11) * 0.62),
+      width: Math.max(
+        render.context.measureText(currentTitle).width,
+        resolvedFontSize * Math.min(currentTitle.length, 11) * 0.62,
+      ),
     };
 
     const letterGap = resolvedFontSize * 0.025;
-    const measuredLetters = [...currentTitle].map((char) => (
-      char === ' ' ? resolvedFontSize * 0.4 : render.context.measureText(char).width
-    ));
+    const measuredLetters = [...currentTitle].map((char) =>
+      char === ' ' ? resolvedFontSize * 0.4 : render.context.measureText(char).width,
+    );
     const measuredTitleWidth = measuredLetters.reduce(
       (total, letterWidth) => total + letterWidth + letterGap,
       -letterGap,
@@ -143,24 +143,32 @@ export function createMatterBackground({
       const letterWidth = measuredLetters[index];
 
       if (char !== ' ') {
-        titleLetters.push(titleMotionField.createLetterMotion(
-          char,
-          cursorX + letterWidth / 2,
-          centerY,
-          resolvedFontSize,
-        ));
+        titleLetters.push(
+          titleMotionField.createLetterMotion(
+            char,
+            cursorX + letterWidth / 2,
+            centerY,
+            resolvedFontSize,
+          ),
+        );
       }
 
       cursorX += letterWidth + letterGap;
     });
 
-    const nextBarrier = Bodies.rectangle(centerX, centerY, titleBounds.width * 0.92, titleBounds.height, {
-      chamfer: { radius: titleBounds.height * 0.48 },
-      friction: 0.02,
-      isStatic: true,
-      render: { visible: false },
-      restitution: 0.92,
-    });
+    const nextBarrier = Bodies.rectangle(
+      centerX,
+      centerY,
+      titleBounds.width * 0.92,
+      titleBounds.height,
+      {
+        chamfer: { radius: titleBounds.height * 0.48 },
+        friction: 0.02,
+        isStatic: true,
+        render: { visible: false },
+        restitution: 0.92,
+      },
+    );
 
     if (titleBarrier) {
       Composite.remove(engine.world, titleBarrier);
@@ -172,7 +180,10 @@ export function createMatterBackground({
   const buildWorld = () => {
     const width = Math.max(host.clientWidth, 1);
     const height = Math.max(host.clientHeight, 1);
-    const arenaRadius = Math.max(Math.min(width, height) * 0.46 * scale, Math.min(width, height) * 0.38 * scale);
+    const arenaRadius = Math.max(
+      Math.min(width, height) * 0.46 * scale,
+      Math.min(width, height) * 0.38 * scale,
+    );
     const centerX = width / 2;
     const centerY = height / 2;
     const segmentCount = 36;
@@ -189,14 +200,7 @@ export function createMatterBackground({
     // and Matter's setPixelRatio early-returns when the ratio is unchanged —
     // so without this, the whole scene renders at 1/dpr in the top-left on
     // any display with devicePixelRatio != 1.
-    render.context.setTransform(
-      window.devicePixelRatio,
-      0,
-      0,
-      window.devicePixelRatio,
-      0,
-      0,
-    );
+    render.context.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
 
     Composite.clear(engine.world, false);
     titleBarrier = null;
@@ -292,7 +296,6 @@ export function createMatterBackground({
     });
   };
 
-
   const updateScene = (event: { timestamp: number }) => {
     const time = event.timestamp;
     const particleDelta = Math.min(time - lastParticleTick, 32);
@@ -325,7 +328,10 @@ export function createMatterBackground({
     const context = render.context;
     const width = Number(render.options.width ?? host.clientWidth);
     const height = Number(render.options.height ?? host.clientHeight);
-    const arenaRadius = Math.max(Math.min(width, height) * 0.46 * scale, Math.min(width, height) * 0.38 * scale);
+    const arenaRadius = Math.max(
+      Math.min(width, height) * 0.46 * scale,
+      Math.min(width, height) * 0.38 * scale,
+    );
     const centerX = width / 2;
     const centerY = height / 2;
 
@@ -354,7 +360,13 @@ export function createMatterBackground({
 
       context.save();
       context.translate(body.position.x, body.position.y);
-      context.drawImage(sprite.canvas, -sprite.size / 2, -sprite.size / 2, sprite.size, sprite.size);
+      context.drawImage(
+        sprite.canvas,
+        -sprite.size / 2,
+        -sprite.size / 2,
+        sprite.size,
+        sprite.size,
+      );
       context.rotate(body.angle);
       context.strokeStyle = ringColor;
       context.lineWidth = 2.5;

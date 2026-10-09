@@ -25,11 +25,7 @@ export const SAM_MAX_VALUE = 9;
 export type SamDimensionKey = 'valence' | 'arousal' | 'dominance';
 
 /** The three VAD dimensions in presentation order. */
-export const samDimensionKeys: readonly SamDimensionKey[] = [
-  'valence',
-  'arousal',
-  'dominance',
-];
+export const samDimensionKeys: readonly SamDimensionKey[] = ['valence', 'arousal', 'dominance'];
 
 export type SamDimension = {
   /** Raw answer key (doc §3.3 stores answers as {valence, arousal, dominance}). */
@@ -50,9 +46,21 @@ export type SamDimension = {
  * 9=完全主导.
  */
 export const samDimensions: readonly SamDimension[] = [
-  { id: 'valence', textEn: 'Valence', textZh: '效价', lowLabel: '非常不愉快', highLabel: '非常愉快' },
+  {
+    id: 'valence',
+    textEn: 'Valence',
+    textZh: '效价',
+    lowLabel: '非常不愉快',
+    highLabel: '非常愉快',
+  },
   { id: 'arousal', textEn: 'Arousal', textZh: '唤醒', lowLabel: '完全平静', highLabel: '完全激动' },
-  { id: 'dominance', textEn: 'Dominance', textZh: '支配', lowLabel: '完全受控', highLabel: '完全主导' },
+  {
+    id: 'dominance',
+    textEn: 'Dominance',
+    textZh: '支配',
+    lowLabel: '完全受控',
+    highLabel: '完全主导',
+  },
 ];
 
 /** Section instruction shown above the three bipolar rows in the battery dialog. */
@@ -73,10 +81,10 @@ export function scoreSam(answers: Record<string, number>): SamScore {
   for (const key of samDimensionKeys) {
     const value = answers[key];
     if (
-      typeof value !== 'number'
-      || !Number.isInteger(value)
-      || value < SAM_MIN_VALUE
-      || value > SAM_MAX_VALUE
+      typeof value !== 'number' ||
+      !Number.isInteger(value) ||
+      value < SAM_MIN_VALUE ||
+      value > SAM_MAX_VALUE
     ) {
       throw new Error(`Invalid or missing SAM answer for ${key}.`);
     }

@@ -35,8 +35,10 @@ function resolveStorage(): StorageLike | null {
  */
 export function readStoredLibraryRootPath(): string {
   try {
-    return resolveStorage()?.getItem(LIBRARY_ROOT_PATH_STORAGE_KEY)?.trim()
-      || defaultParadigmLibraryRootPath;
+    return (
+      resolveStorage()?.getItem(LIBRARY_ROOT_PATH_STORAGE_KEY)?.trim() ||
+      defaultParadigmLibraryRootPath
+    );
   } catch {
     return defaultParadigmLibraryRootPath;
   }

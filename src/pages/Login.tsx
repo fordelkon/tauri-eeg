@@ -2,14 +2,7 @@ import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
-import {
-  Box,
-  Button,
-  IconButton,
-  InputAdornment,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, Button, IconButton, InputAdornment, TextField, Typography } from '@mui/material';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -63,11 +56,14 @@ export default function Login() {
   const [exitStyle, setExitStyle] = useState<CSSProperties>({});
   const exitTimeoutRef = useRef<number | null>(null);
 
-  useEffect(() => () => {
-    if (exitTimeoutRef.current !== null) {
-      window.clearTimeout(exitTimeoutRef.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (exitTimeoutRef.current !== null) {
+        window.clearTimeout(exitTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   // getBoundingClientRect inside the pointermove handler forces a synchronous
   // layout on every pointer event over the half-screen panel. The panel rect is
@@ -184,7 +180,7 @@ export default function Login() {
     setSuccessMessage('');
     const username = account.trim();
 
-    if (!username || !password || (isSignup || isReset) && password !== confirmPassword) {
+    if (!username || !password || ((isSignup || isReset) && password !== confirmPassword)) {
       setErrorMessage(
         (isSignup || isReset) && password !== confirmPassword
           ? '两次输入的密码不一致。'
@@ -237,9 +233,12 @@ export default function Login() {
       setHasError(false);
       setIsExiting(true);
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      exitTimeoutRef.current = window.setTimeout(() => {
-        navigate('/home');
-      }, reducedMotion ? 0 : 940);
+      exitTimeoutRef.current = window.setTimeout(
+        () => {
+          navigate('/home');
+        },
+        reducedMotion ? 0 : 940,
+      );
     } catch (error) {
       setErrorMessage(translateAuthError(error));
       setHasError(true);
@@ -271,8 +270,8 @@ export default function Login() {
   const handleLeftPanelPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     // pointerenter populates the cache; measure live only if it is somehow
     // missing (e.g. the very first event before enter ran).
-    const bounds = leftPanelBoundsRef.current
-      ?? (leftPanelRef.current?.getBoundingClientRect() ?? null);
+    const bounds =
+      leftPanelBoundsRef.current ?? leftPanelRef.current?.getBoundingClientRect() ?? null;
 
     if (bounds) {
       leftPanelBoundsRef.current = bounds;
@@ -312,8 +311,12 @@ export default function Login() {
         </div>
       </Box>
 
-      <Box className={`${styles.rightPanel} box-border flex flex-1 items-center justify-center overflow-hidden opacity-0`}>
-        <Box className={`${styles.formPanel} flex w-full max-w-360px flex-col items-center opacity-0`}>
+      <Box
+        className={`${styles.rightPanel} box-border flex flex-1 items-center justify-center overflow-hidden opacity-0`}
+      >
+        <Box
+          className={`${styles.formPanel} flex w-full max-w-360px flex-col items-center opacity-0`}
+        >
           <span className={styles.brandMark} aria-hidden="true" />
           <Typography variant="h4" component="h1" className={`${styles.title} text-center`}>
             EEG Ecosystem
@@ -321,11 +324,17 @@ export default function Login() {
           {/* Spacing lives in .formPanel .subtitle: MUI's Typography reset
               flattens margin utilities like mb-34px on this element. */}
           <Typography variant="body2" className={`${styles.subtitle} text-center`}>
-            {isSignup ? '创建账号以开始使用。' : isReset ? '重置你的登录密码。' : '登录后继续实验。'}
+            {isSignup
+              ? '创建账号以开始使用。'
+              : isReset
+                ? '重置你的登录密码。'
+                : '登录后继续实验。'}
           </Typography>
 
           <form onSubmit={handleAuthSubmit} className="w-full">
-            <Box className={`${styles.fieldGroup} mb-24px flex flex-col gap-16px ${hasError ? styles.isError : ''}`}>
+            <Box
+              className={`${styles.fieldGroup} mb-24px flex flex-col gap-16px ${hasError ? styles.isError : ''}`}
+            >
               <TextField
                 className={`${styles.textField} ${isShaking ? styles.isShaking : ''}`}
                 value={account}
@@ -440,7 +449,9 @@ export default function Login() {
                 />
               ) : null}
 
-              <p className={`${styles.errorMsg} pl-2px`} role="alert">{errorMessage}</p>
+              <p className={`${styles.errorMsg} pl-2px`} role="alert">
+                {errorMessage}
+              </p>
               {successMessage ? (
                 <p className={`${styles.successMsg} pl-2px`} role="status">
                   {successMessage}

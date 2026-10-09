@@ -40,11 +40,7 @@ const scoreBarPercent = (score: number) => Math.min(100, Math.max(0, Math.round(
  *  with an icon disc, so the finish reads as a completed state instead of
  *  an incidental message. The copy comes straight from the pure builders -
  *  presentation only, the text is not modified here. */
-function VerdictBanner({
-  copy,
-}: {
-  copy: EffectVerdictCopy;
-}) {
+function VerdictBanner({ copy }: { copy: EffectVerdictCopy }) {
   const isPass = copy.severity === 'success';
 
   return (
@@ -151,10 +147,7 @@ export const ResultCard = memo(function ResultCard({
   verdictCopy,
 }: ResultCardProps) {
   return (
-    <section
-      className={`${styles.panel} ${styles.resultPanel}`}
-      aria-label="结果评价"
-    >
+    <section className={`${styles.panel} ${styles.resultPanel}`} aria-label="结果评价">
       <h2 className={styles.panelTitle}>结果评价</h2>
 
       {isLoadingSummary ? (
@@ -185,9 +178,7 @@ export const ResultCard = memo(function ResultCard({
                 {summary.meanImprovementRate === null ? null : (
                   <span
                     className={`${styles.deltaArrow} ${
-                      summary.meanImprovementRate >= 0
-                        ? styles.deltaArrowUp
-                        : styles.deltaArrowDown
+                      summary.meanImprovementRate >= 0 ? styles.deltaArrowUp : styles.deltaArrowDown
                     }`}
                     aria-hidden="true"
                   />
@@ -210,7 +201,9 @@ export const ResultCard = memo(function ResultCard({
           </div>
 
           {measuredBasisNote ? (
-            <p className={styles.noteCallout} role="note">{measuredBasisNote}</p>
+            <p className={styles.noteCallout} role="note">
+              {measuredBasisNote}
+            </p>
           ) : null}
 
           {runId ? (
@@ -238,14 +231,23 @@ export const ResultCard = memo(function ResultCard({
                     {summary.dimensions.map((dimension) => (
                       <tr key={dimension.dimension}>
                         <td>{labelForDimension(dimension.dimension)}</td>
-                        <td><ScoreCell value={dimension.baseline} /></td>
-                        <td><ScoreCell
-                          value={dimension.post}
-                          barClass={dimension.improvementRate >= 0 ? styles.barUp : styles.barDown}
-                        /></td>
-                        <td className={dimension.improvementRate >= 0
-                          ? `${styles.rateCell} ${styles.isPositive}`
-                          : `${styles.rateCell} ${styles.isNegative}`}
+                        <td>
+                          <ScoreCell value={dimension.baseline} />
+                        </td>
+                        <td>
+                          <ScoreCell
+                            value={dimension.post}
+                            barClass={
+                              dimension.improvementRate >= 0 ? styles.barUp : styles.barDown
+                            }
+                          />
+                        </td>
+                        <td
+                          className={
+                            dimension.improvementRate >= 0
+                              ? `${styles.rateCell} ${styles.isPositive}`
+                              : `${styles.rateCell} ${styles.isNegative}`
+                          }
                         >
                           {formatImprovementRate(dimension.improvementRate)}
                         </td>
@@ -258,18 +260,10 @@ export const ResultCard = memo(function ResultCard({
           ) : null}
 
           <div className={`${styles.actionsRow} ${styles.resultActions}`}>
-            <Button
-              variant="outlined"
-              disabled={isExporting}
-              onClick={onExportJson}
-            >
+            <Button variant="outlined" disabled={isExporting} onClick={onExportJson}>
               导出单次报告（JSON）
             </Button>
-            <Button
-              variant="outlined"
-              disabled={isExporting}
-              onClick={onExportCsv}
-            >
+            <Button variant="outlined" disabled={isExporting} onClick={onExportCsv}>
               导出单次报告（CSV）
             </Button>
           </div>
@@ -327,10 +321,7 @@ export const ConditionComparisonCard = memo(function ConditionComparisonCard({
   );
 
   return (
-    <section
-      className={`${styles.panel} ${styles.resultPanel}`}
-      aria-label="跨条件对比"
-    >
+    <section className={`${styles.panel} ${styles.resultPanel}`} aria-label="跨条件对比">
       <div className={styles.stepHeader}>
         <h2 className={styles.panelTitle}>跨条件对比（基线条件 vs 调控条件）</h2>
         <p className={styles.panelHint}>
@@ -352,10 +343,7 @@ export const ConditionComparisonCard = memo(function ConditionComparisonCard({
             本次运行的数据已保存；重置流程后选择另一条件再完整评价一次即可补齐。
           </Alert>
           <div className={styles.actionsRow}>
-            <Button
-              variant="outlined"
-              onClick={onRetry}
-            >
+            <Button variant="outlined" onClick={onRetry}>
               重试计算
             </Button>
           </div>
@@ -395,18 +383,26 @@ export const ConditionComparisonCard = memo(function ConditionComparisonCard({
             </div>
           </div>
 
-          <p className={styles.noteCallout} role="note">{CONDITION_COMPARISON_FORMULA_NOTE}</p>
+          <p className={styles.noteCallout} role="note">
+            {CONDITION_COMPARISON_FORMULA_NOTE}
+          </p>
 
           {/* R7, 大纲 6.3 步骤 5: both legs' post-record ids and timestamps
               stay visible on screen so the pairing is auditable without the
               export document (the full ids ride on the card tooltips). */}
           <div className={styles.legTraceGrid}>
-            {renderComparisonLegTrace('基线条件', conditionComparison.naturalRecoveryLeg, 'baseline')}
+            {renderComparisonLegTrace(
+              '基线条件',
+              conditionComparison.naturalRecoveryLeg,
+              'baseline',
+            )}
             {renderComparisonLegTrace('调控条件', conditionComparison.regulationLeg, 'regulation')}
           </div>
 
           {measuredBasisNote ? (
-            <p className={styles.noteCallout} role="note">{measuredBasisNote}</p>
+            <p className={styles.noteCallout} role="note">
+              {measuredBasisNote}
+            </p>
           ) : null}
 
           {chartOption ? (
@@ -429,14 +425,23 @@ export const ConditionComparisonCard = memo(function ConditionComparisonCard({
                     {conditionComparison.dimensions.map((dimension) => (
                       <tr key={dimension.dimension}>
                         <td>{labelForDimension(dimension.dimension)}</td>
-                        <td><ScoreCell value={dimension.naturalRecoveryPost} /></td>
-                        <td><ScoreCell
-                          value={dimension.regulationPost}
-                          barClass={dimension.improvementRate >= 0 ? styles.barUp : styles.barDown}
-                        /></td>
-                        <td className={dimension.improvementRate >= 0
-                          ? `${styles.rateCell} ${styles.isPositive}`
-                          : `${styles.rateCell} ${styles.isNegative}`}
+                        <td>
+                          <ScoreCell value={dimension.naturalRecoveryPost} />
+                        </td>
+                        <td>
+                          <ScoreCell
+                            value={dimension.regulationPost}
+                            barClass={
+                              dimension.improvementRate >= 0 ? styles.barUp : styles.barDown
+                            }
+                          />
+                        </td>
+                        <td
+                          className={
+                            dimension.improvementRate >= 0
+                              ? `${styles.rateCell} ${styles.isPositive}`
+                              : `${styles.rateCell} ${styles.isNegative}`
+                          }
                         >
                           {formatImprovementRate(dimension.improvementRate)}
                         </td>
@@ -452,18 +457,10 @@ export const ConditionComparisonCard = memo(function ConditionComparisonCard({
               the page and lands in a file (JSON: full legs + formula; CSV:
               per-dimension rows, single-report style). */}
           <div className={`${styles.actionsRow} ${styles.resultActions}`}>
-            <Button
-              variant="outlined"
-              disabled={isExporting}
-              onClick={onExportJson}
-            >
+            <Button variant="outlined" disabled={isExporting} onClick={onExportJson}>
               导出跨条件对比报告（JSON）
             </Button>
-            <Button
-              variant="outlined"
-              disabled={isExporting}
-              onClick={onExportCsv}
-            >
+            <Button variant="outlined" disabled={isExporting} onClick={onExportCsv}>
               导出跨条件对比报告（CSV）
             </Button>
           </div>

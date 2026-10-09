@@ -26,10 +26,10 @@ function readLiveWindowContext(
   const raw = window.sessionStorage.getItem(FLOW_STORAGE_KEY);
 
   if (
-    raw === null
-    || !raw.includes('"step":3')
-    || !raw.includes('"regulationStartedAtMs":')
-    || raw.includes('"regulationStartedAtMs":null')
+    raw === null ||
+    !raw.includes('"step":3') ||
+    !raw.includes('"regulationStartedAtMs":') ||
+    raw.includes('"regulationStartedAtMs":null')
   ) {
     return null;
   }
@@ -57,8 +57,8 @@ export function useEffectRegulationContext(
   method: EffectRegulationMethod,
   onWindowElapsed: () => void,
 ): RegulationPageContext | null {
-  const [context, setContext] = useState<RegulationPageContext | null>(
-    () => readLiveWindowContext(method, Date.now()),
+  const [context, setContext] = useState<RegulationPageContext | null>(() =>
+    readLiveWindowContext(method, Date.now()),
   );
   const onWindowElapsedRef = useRef(onWindowElapsed);
 
@@ -73,14 +73,14 @@ export function useEffectRegulationContext(
       // Re-render only when the exposed value actually changed: identical
       // 1 Hz countdown readings (and the null → null idle case) keep the
       // previous reference so React bails out without re-rendering.
-      setContext((previous) => (
-        previous !== null
-          && current !== null
-          && previous.emotionLabel === current.emotionLabel
-          && previous.remainingSeconds === current.remainingSeconds
+      setContext((previous) =>
+        previous !== null &&
+        current !== null &&
+        previous.emotionLabel === current.emotionLabel &&
+        previous.remainingSeconds === current.remainingSeconds
           ? previous
-          : current
-      ));
+          : current,
+      );
 
       if (current !== null && current.remainingSeconds === 0) {
         onWindowElapsedRef.current();

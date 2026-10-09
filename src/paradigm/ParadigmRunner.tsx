@@ -1,10 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { createPortal } from 'react-dom';
-import {
-  defaultParadigmSessionStatus,
-  setParadigmSessionStatus,
-} from './paradigmSessionStatus';
+import { defaultParadigmSessionStatus, setParadigmSessionStatus } from './paradigmSessionStatus';
 import { useConfirmDialog } from '../ui/useConfirmDialog';
 import SamRatingDialog from './SamRatingDialog';
 import TrialStageRenderer, {
@@ -23,12 +20,7 @@ type Props = {
   onExitToSetup: () => void;
 };
 
-const STAGE_PHASES: readonly string[] = [
-  'baseline',
-  'hint',
-  'video',
-  'postRest',
-];
+const STAGE_PHASES: readonly string[] = ['baseline', 'hint', 'video', 'postRest'];
 
 /**
  * Presentation + OS lifecycle half of the paradigm runner. The trial command
@@ -39,8 +31,6 @@ const STAGE_PHASES: readonly string[] = [
  * confirmations.
  */
 export default function ParadigmRunner({ request, onExitToSetup }: Props) {
-
-
   const dryRun = request.dryRun;
   /** Regulation sessions run the closed-loop trial flow (dry-run only for now). */
 
@@ -70,12 +60,12 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     confirm,
   });
 
-  const currentPlan = state.currentTrialIndex >= 0
-    ? state.queue[state.currentTrialIndex] ?? null
-    : null;
-  const stagePhase = state.phase === 'running' && STAGE_PHASES.includes(state.trialPhase)
-    ? state.trialPhase as TrialStagePhase
-    : null;
+  const currentPlan =
+    state.currentTrialIndex >= 0 ? (state.queue[state.currentTrialIndex] ?? null) : null;
+  const stagePhase =
+    state.phase === 'running' && STAGE_PHASES.includes(state.trialPhase)
+      ? (state.trialPhase as TrialStagePhase)
+      : null;
   // Local const so the null narrowing below survives into the click handler.
   const pendingBlockStart = progress.pendingBlockStart;
 
@@ -92,9 +82,12 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     });
   }, [isSessionActive, state.phase, state.currentTrialIndex, state.queue.length]);
 
-  useEffect(() => () => {
-    setParadigmSessionStatus(defaultParadigmSessionStatus);
-  }, []);
+  useEffect(
+    () => () => {
+      setParadigmSessionStatus(defaultParadigmSessionStatus);
+    },
+    [],
+  );
 
   // Guard against a dirty refresh / accidental close while the session runs.
   useEffect(() => {
@@ -126,20 +119,30 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
       return undefined;
     }
 
-    void getCurrentWindow().setFullscreen(true).catch((error) => {
-      // Most often a stale build without the set-fullscreen capability.
-      console.warn('[paradigm] 进入视频全屏失败', error);
-    });
+    void getCurrentWindow()
+      .setFullscreen(true)
+      .catch((error) => {
+        // Most often a stale build without the set-fullscreen capability.
+        console.warn('[paradigm] 进入视频全屏失败', error);
+      });
 
     return () => {
-      void getCurrentWindow().setFullscreen(false).catch(() => {});
+      void getCurrentWindow()
+        .setFullscreen(false)
+        .catch(() => {});
     };
   }, [isVideoStage]);
 
   // --- Session exits -----------------------------------------------------
 
   const handleEarlyEnd = useCallback(async () => {
-    if (!(await confirm({ title: '提前结束实验？', description: '记录中止事件，BDF 保存仍由 ActiView 控制。' }))) return;
+    if (
+      !(await confirm({
+        title: '提前结束实验？',
+        description: '记录中止事件，BDF 保存仍由 ActiView 控制。',
+      }))
+    )
+      return;
     await abortRun();
     exitSession();
     onExitToSetup();
@@ -173,16 +176,16 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
       <header className={styles.runnerHeader}>
         <div className={styles.runnerProgress}>
           {dryRun ? <span>试运行</span> : null}
-          <span>阶段 {progress.currentBlockNumber} / {progress.blockCount}</span>
-          <span>试次 {state.currentTrialIndex + 1} / {state.queue.length}</span>
+          <span>
+            阶段 {progress.currentBlockNumber} / {progress.blockCount}
+          </span>
+          <span>
+            试次 {state.currentTrialIndex + 1} / {state.queue.length}
+          </span>
           <span>被试 {request.subjectId}</span>
           <span>运行 {request.sessionRunId}</span>
         </div>
-        <button
-          type="button"
-          className={styles.dangerButton}
-          onClick={handleEarlyEnd}
-        >
+        <button type="button" className={styles.dangerButton} onClick={handleEarlyEnd}>
           提前结束 Session
         </button>
       </header>
@@ -190,9 +193,6 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
       {state.errorMessage ? (
         <div className={styles.errorBanner}>
           <span>{state.errorMessage}</span>
-
-
-
         </div>
       ) : null}
 
@@ -220,53 +220,52 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
             onSkipTrial={handleSkipTrial}
             stageNotice={stageNotice}
           />
-          {isEndingTrial ? (
-            <p className={styles.sectionHint}>正在保存试次边界，请稍候…</p>
-          ) : null}
+          {isEndingTrial ? <p className={styles.sectionHint}>正在保存试次边界，请稍候…</p> : null}
         </>
       ) : null}
 
-      {state.trialPhase === 'interTrial' && state.phase === 'running' ? (
-        createPortal(
-          <div className={styles.stageHost}>
-            <span className={styles.stageTrialLabel}>
-              视频 {progress.upcomingVideoNumber} / {PARADIGM_TRIALS_PER_CLASS}
-            </span>
-            <button type="button" className={styles.stageEndButton} onClick={handleEarlyEnd}>
-              结束
-            </button>
-            {stageNotice ? <StageNoticeBar notice={stageNotice} /> : null}
-            <div className={styles.stageMessage}>
-              {pendingBlockStart !== null && progress.awaitingBlockGate ? (
-                <>
-                  <span className={styles.stageTitle}>阶段间休息</span>
-                  <span className={styles.stageHintText}>
-                    第 {progress.completedBlockCount} / {progress.blockCount} 阶段完成,被试休息片刻后继续
+      {state.trialPhase === 'interTrial' && state.phase === 'running'
+        ? createPortal(
+            <div className={styles.stageHost}>
+              <span className={styles.stageTrialLabel}>
+                视频 {progress.upcomingVideoNumber} / {PARADIGM_TRIALS_PER_CLASS}
+              </span>
+              <button type="button" className={styles.stageEndButton} onClick={handleEarlyEnd}>
+                结束
+              </button>
+              {stageNotice ? <StageNoticeBar notice={stageNotice} /> : null}
+              <div className={styles.stageMessage}>
+                {pendingBlockStart !== null && progress.awaitingBlockGate ? (
+                  <>
+                    <span className={styles.stageTitle}>阶段间休息</span>
+                    <span className={styles.stageHintText}>
+                      第 {progress.completedBlockCount} / {progress.blockCount}{' '}
+                      阶段完成,被试休息片刻后继续
+                    </span>
+                    <button
+                      type="button"
+                      className={styles.stageActionButton}
+                      onClick={() => setBlockGate(pendingBlockStart)}
+                    >
+                      开始下一阶段
+                    </button>
+                  </>
+                ) : (
+                  <span className={styles.stageTitle}>
+                    {isStartingTrial
+                      ? '正在开始试次…'
+                      : stageNotice
+                        ? '试次启动失败'
+                        : '准备下一个试次'}
                   </span>
-                  <button
-                    type="button"
-                    className={styles.stageActionButton}
-                    onClick={() => setBlockGate(pendingBlockStart)}
-                  >
-                    开始下一阶段
-                  </button>
-                </>
-              ) : (
-                <span className={styles.stageTitle}>
-                  {isStartingTrial
-                    ? '正在开始试次…'
-                    : stageNotice
-                      ? '试次启动失败'
-                      : '准备下一个试次'}
-                </span>
-              )}
-            </div>
-          </div>,
-          // Same portal reason as TrialStageRenderer: the app shell's lingering
-          // transforms would otherwise embed this fixed stage in the layout.
-          document.body,
-        )
-      ) : null}
+                )}
+              </div>
+            </div>,
+            // Same portal reason as TrialStageRenderer: the app shell's lingering
+            // transforms would otherwise embed this fixed stage in the layout.
+            document.body,
+          )
+        : null}
 
       {state.phase === 'running' && state.trialPhase === 'selfReport' ? (
         <SamRatingDialog

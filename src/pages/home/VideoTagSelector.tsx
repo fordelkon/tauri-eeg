@@ -50,20 +50,19 @@ type TagGroupSectionsProps = {
 
 function TagGroupSections({ colors, options, selectedValue, onSelect }: TagGroupSectionsProps) {
   const groups = useMemo(() => getGroupedTagOptions(options), [options]);
-  const selectedGroupLabel = groups.find((group) => (
-    group.options.some((option) => option.value === selectedValue)
-  ))?.label;
+  const selectedGroupLabel = groups.find((group) =>
+    group.options.some((option) => option.value === selectedValue),
+  )?.label;
   const fallbackGroupLabel = groups[0]?.label ?? '';
-  const [openTagGroupLabel, setOpenTagGroupLabel] = useState(selectedGroupLabel ?? fallbackGroupLabel);
+  const [openTagGroupLabel, setOpenTagGroupLabel] = useState(
+    selectedGroupLabel ?? fallbackGroupLabel,
+  );
 
   useEffect(() => {
     setOpenTagGroupLabel(selectedGroupLabel ?? fallbackGroupLabel);
   }, [fallbackGroupLabel, selectedGroupLabel]);
 
-  const handleAccordionSummaryClick = (
-    event: MouseEvent<HTMLElement>,
-    groupLabel: string,
-  ) => {
+  const handleAccordionSummaryClick = (event: MouseEvent<HTMLElement>, groupLabel: string) => {
     event.preventDefault();
     setOpenTagGroupLabel(groupLabel);
   };

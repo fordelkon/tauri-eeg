@@ -53,16 +53,24 @@ describe('groupHistoryBySubject (历史列表分组)', () => {
   it('orders subjects by their newest run and sends the unbound group last', () => {
     const groups = groupHistoryBySubject([
       // Unbound runs collect under the empty subject key.
-      entry({ subjectId: '', postRecordId: 'p-unbound', postCreatedAt: '2026-08-05T10:00:00+00:00' }),
-      entry({ subjectId: 'late-bloomer', postRecordId: 'p-late', postCreatedAt: '2026-08-04T10:00:00+00:00' }),
-      entry({ subjectId: 'early-bird', postRecordId: 'p-early', postCreatedAt: '2026-08-01T10:00:00+00:00' }),
+      entry({
+        subjectId: '',
+        postRecordId: 'p-unbound',
+        postCreatedAt: '2026-08-05T10:00:00+00:00',
+      }),
+      entry({
+        subjectId: 'late-bloomer',
+        postRecordId: 'p-late',
+        postCreatedAt: '2026-08-04T10:00:00+00:00',
+      }),
+      entry({
+        subjectId: 'early-bird',
+        postRecordId: 'p-early',
+        postCreatedAt: '2026-08-01T10:00:00+00:00',
+      }),
     ]);
 
-    expect(groups.map((group) => group.subjectId)).toEqual([
-      'late-bloomer',
-      'early-bird',
-      '',
-    ]);
+    expect(groups.map((group) => group.subjectId)).toEqual(['late-bloomer', 'early-bird', '']);
     expect(groups[2].entries[0].postRecordId).toBe('p-unbound');
   });
 
@@ -92,10 +100,11 @@ describe('filterHistoryEntries (历史列表过滤)', () => {
   });
 
   it('matches subject ids case-insensitively as a substring', () => {
-    expect(filterHistoryEntries(records, 'subj').map((run) => run.postRecordId))
-      .toEqual(['p1', 'p2']);
-    expect(filterHistoryEntries(records, ' 002 ').map((run) => run.postRecordId))
-      .toEqual(['p2']);
+    expect(filterHistoryEntries(records, 'subj').map((run) => run.postRecordId)).toEqual([
+      'p1',
+      'p2',
+    ]);
+    expect(filterHistoryEntries(records, ' 002 ').map((run) => run.postRecordId)).toEqual(['p2']);
   });
 
   it('returns nothing when no subject matches', () => {

@@ -1,10 +1,4 @@
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useMemo,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useContext, useMemo, useState } from 'react';
 import { loginUser, registerUser, resetUserPassword } from './api';
 import { clearUserSessionState } from './signOutCleanup';
 import type { UserProfile } from './types';
@@ -48,42 +42,40 @@ const storeUser = (user: UserProfile) => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => loadStoredUser());
 
-  const value = useMemo<AuthContextValue>(() => ({
-    currentUser,
-    resetPassword: (username, resetCode, newPassword) => (
-      resetUserPassword(username, resetCode, newPassword)
-    ),
-    signIn: async (username, password) => {
-      const user = await loginUser(username, password);
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      currentUser,
+      resetPassword: (username, resetCode, newPassword) =>
+        resetUserPassword(username, resetCode, newPassword),
+      signIn: async (username, password) => {
+        const user = await loginUser(username, password);
 
-      setCurrentUser(user);
-      storeUser(user);
+        setCurrentUser(user);
+        storeUser(user);
 
-      return user;
-    },
-    signOut: () => {
-      setCurrentUser(null);
-      window.localStorage.removeItem(STORAGE_KEY);
-      // Cross-user hygiene: the wizard run state, subject binding, and
-      // scale-gate memory are per-user but live outside the auth session;
-      // without this the next login inherits them.
-      clearUserSessionState();
-    },
-    signUp: async (username, password) => {
-      const user = await registerUser(username, password);
+        return user;
+      },
+      signOut: () => {
+        setCurrentUser(null);
+        window.localStorage.removeItem(STORAGE_KEY);
+        // Cross-user hygiene: the wizard run state, subject binding, and
+        // scale-gate memory are per-user but live outside the auth session;
+        // without this the next login inherits them.
+        clearUserSessionState();
+      },
+      signUp: async (username, password) => {
+        const user = await registerUser(username, password);
 
-      setCurrentUser(user);
-      storeUser(user);
+        setCurrentUser(user);
+        storeUser(user);
 
-      return user;
-    },
-  }), [currentUser]);
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
+        return user;
+      },
+    }),
+    [currentUser],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

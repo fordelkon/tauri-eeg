@@ -29,7 +29,10 @@ export function serializeFlowState(state: EffectEvaluationFlowState): string {
 }
 
 /** Best-effort write; an unavailable storage just disables run resume. */
-export function writeFlowStateToStorage(storage: FlowStorage, state: EffectEvaluationFlowState): void {
+export function writeFlowStateToStorage(
+  storage: FlowStorage,
+  state: EffectEvaluationFlowState,
+): void {
   try {
     storage.setItem(FLOW_STORAGE_KEY, serializeFlowState(state));
   } catch {

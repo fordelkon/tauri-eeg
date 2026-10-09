@@ -13,7 +13,11 @@ import {
   recordScaleCompletion,
   recordScaleSkip,
 } from '../mentalScale/scaleCompletion';
-import { readStoredSubjectId, SUBJECT_ID_STORAGE_KEY, writeStoredSubjectId } from '../storage/currentSubject';
+import {
+  readStoredSubjectId,
+  SUBJECT_ID_STORAGE_KEY,
+  writeStoredSubjectId,
+} from '../storage/currentSubject';
 
 type MemoryStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 

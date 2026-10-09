@@ -23,9 +23,7 @@ function defaultStorage(): SubjectIdStorage | null {
   }
 }
 
-export function readStoredSubjectId(
-  storage: SubjectIdStorage | null = defaultStorage(),
-): string {
+export function readStoredSubjectId(storage: SubjectIdStorage | null = defaultStorage()): string {
   if (!storage) {
     return '';
   }
@@ -54,9 +52,7 @@ export function writeStoredSubjectId(
 
 /** Clears the subject memory (sign-out hygiene): the next user must not
  * inherit the previous one's subject binding. Best-effort like the writes. */
-export function clearStoredSubjectId(
-  storage: SubjectIdStorage | null = defaultStorage(),
-): void {
+export function clearStoredSubjectId(storage: SubjectIdStorage | null = defaultStorage()): void {
   if (!storage) {
     return;
   }

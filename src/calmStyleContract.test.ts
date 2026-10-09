@@ -106,29 +106,21 @@ const brandRedAllowlist = [
 
 const cssFiles = collectCssFiles(SRC_ROOT);
 
-const inkFills = findPattern(
-  cssFiles,
-  /background:\s*(?:#2c2218|#172026)\b/,
-).filter((v) => !inkFillAllowlist.some((a) => v.file === a.path));
+const inkFills = findPattern(cssFiles, /background:\s*(?:#2c2218|#172026)\b/).filter(
+  (v) => !inkFillAllowlist.some((a) => v.file === a.path),
+);
 
-const brandRed = findPattern(
-  cssFiles,
-  /#b81f1f\b|#df0203\b|rgba\(\s*223,\s*2,\s*3\s*,/,
-).filter((v) => !brandRedAllowlist.some((a) => v.file === a.path));
+const brandRed = findPattern(cssFiles, /#b81f1f\b|#df0203\b|rgba\(\s*223,\s*2,\s*3\s*,/).filter(
+  (v) => !brandRedAllowlist.some((a) => v.file === a.path),
+);
 
 // The retired heavy ink shadow recipe — shadows are diffuse and hue-tinted.
-const heavyInkShadows = findPattern(
-  cssFiles,
-  /box-shadow:[^;]*rgba\(\s*23,\s*32,\s*38,\s*0\.24/,
-);
+const heavyInkShadows = findPattern(cssFiles, /box-shadow:[^;]*rgba\(\s*23,\s*32,\s*38,\s*0\.24/);
 
 // Round-9 quiet-the-surface: the UI text band snaps to the {11…20} token
 // scale, so every raw px font-size in the 10–21 band is a violation (22px+
 // display numerals and clamp() heads stay bespoke).
-const rawUiFontSizes = findPattern(
-  cssFiles,
-  /font-size:\s*(?:1[0-9]|2[01])(?:\.\d+)?px/,
-);
+const rawUiFontSizes = findPattern(cssFiles, /font-size:\s*(?:1[0-9]|2[01])(?:\.\d+)?px/);
 
 // Round-9 hairline ladder: 1px ink borders ride --line* tokens instead of
 // ad-hoc warm/cool rgba alphas. Semantic tint borders (info/success/…)

@@ -1,6 +1,20 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, IconButton } from '@mui/material';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+} from '@mui/material';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   isInstrumentSectionComplete,
@@ -83,19 +97,22 @@ export default function InstrumentScaleDialog({
     dialogRef.current = node;
   };
 
-  useEffect(() => () => {
-    const opener = openerElementRef.current;
-    if (opener instanceof HTMLElement && opener.isConnected) {
-      opener.focus();
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      const opener = openerElementRef.current;
+      if (opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus();
+      }
+    },
+    [],
+  );
 
   const sectionStates: SectionAnswerState[] = definition.sections.map((section) => ({
     section,
     answers: answersBySection[section.key] ?? {},
   }));
-  const isBatteryReady = sectionStates.every(
-    ({ section, answers }) => isInstrumentSectionComplete(section, answers),
+  const isBatteryReady = sectionStates.every(({ section, answers }) =>
+    isInstrumentSectionComplete(section, answers),
   );
   const hasAnyAnswer = sectionStates.some(({ answers }) => Object.keys(answers).length > 0);
   const answeredCount = sectionStates.reduce(
@@ -196,21 +213,29 @@ export default function InstrumentScaleDialog({
   // Dev auto-fill rides the SAME handleAnswer path as manual clicks: one flat
   // item list (question id + legal range) plus an id -> section lookup.
   const fillItems = useMemo<ScaleFillItem[]>(
-    () => definition.sections.flatMap((section) => section.questions.map((question) => ({
-      id: question.id,
-      minValue: section.minValue,
-      maxValue: section.maxValue ?? section.minValue + Math.max(0, section.anchorLabels.length - 1),
-    }))),
+    () =>
+      definition.sections.flatMap((section) =>
+        section.questions.map((question) => ({
+          id: question.id,
+          minValue: section.minValue,
+          maxValue:
+            section.maxValue ?? section.minValue + Math.max(0, section.anchorLabels.length - 1),
+        })),
+      ),
     [definition],
   );
   const sectionKeyById = useMemo(
-    () => new Map(
-      definition.sections.flatMap((section) => section.questions.map((question) => [question.id, section.key] as const)),
-    ),
+    () =>
+      new Map(
+        definition.sections.flatMap((section) =>
+          section.questions.map((question) => [question.id, section.key] as const),
+        ),
+      ),
     [definition],
   );
   const answeredIds = sectionStates.flatMap(({ answers }) =>
-    Object.keys(answers).filter((id) => typeof answers[id] === 'number'));
+    Object.keys(answers).filter((id) => typeof answers[id] === 'number'),
+  );
 
   // Portal to <body>: same overlay-trapping rationale as MentalScaleDialog.
   return createPortal(
@@ -296,12 +321,17 @@ export default function InstrumentScaleDialog({
                 the owner keeps this dialog mounted on failure so the
                 participant can resubmit instead of refilling 40+ items. */}
             {submitError ? (
-              <span className={`${styles.scaleFooterHint} ${sectionStyles.submitError}`} role="alert">
+              <span
+                className={`${styles.scaleFooterHint} ${sectionStyles.submitError}`}
+                role="alert"
+              >
                 {submitError}
               </span>
             ) : (
               <span className={styles.scaleFooterHint}>
-                {isBatteryReady ? '已完成，可以提交量表。' : `完成全部 ${sectionStates.length} 节的题目后才能提交。`}
+                {isBatteryReady
+                  ? '已完成，可以提交量表。'
+                  : `完成全部 ${sectionStates.length} 节的题目后才能提交。`}
               </span>
             )}
             <button
@@ -328,7 +358,9 @@ export default function InstrumentScaleDialog({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsDiscardConfirmOpen(false)}>继续作答</Button>
-          <Button color="error" onClick={onClose}>放弃并关闭</Button>
+          <Button color="error" onClick={onClose}>
+            放弃并关闭
+          </Button>
         </DialogActions>
       </Dialog>
     </div>,

@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { addAgentTimelineEntry, getLatestPersonalizedAnswer, normalizePersonalizedAnswer } from './agentContext';
+import {
+  addAgentTimelineEntry,
+  getLatestPersonalizedAnswer,
+  normalizePersonalizedAnswer,
+} from './agentContext';
 
 describe('agentContext', () => {
   it('normalizes short personalized answers into bounded tags', () => {
-    const answer = normalizePersonalizedAnswer('music_regulation', '我想要轻柔钢琴，不要人声', 1000);
+    const answer = normalizePersonalizedAnswer(
+      'music_regulation',
+      '我想要轻柔钢琴，不要人声',
+      1000,
+    );
 
     expect(answer).toEqual({
       phase: 'music_regulation',
@@ -27,10 +35,13 @@ describe('agentContext', () => {
   });
 
   it('returns the latest personalized answer for a phase', () => {
-    const latest = getLatestPersonalizedAnswer([
-      normalizePersonalizedAnswer('video_regulation', '海岸', 1),
-      normalizePersonalizedAnswer('video_regulation', '森林', 2),
-    ], 'video_regulation');
+    const latest = getLatestPersonalizedAnswer(
+      [
+        normalizePersonalizedAnswer('video_regulation', '海岸', 1),
+        normalizePersonalizedAnswer('video_regulation', '森林', 2),
+      ],
+      'video_regulation',
+    );
 
     expect(latest?.answer).toBe('森林');
   });

@@ -17,7 +17,7 @@ function makeMapStorage() {
   const entries = new Map<string, string>();
 
   return {
-    getItem: (key: string) => (entries.has(key) ? entries.get(key) ?? null : null),
+    getItem: (key: string) => (entries.has(key) ? (entries.get(key) ?? null) : null),
     setItem: (key: string, value: string) => {
       entries.set(key, value);
     },

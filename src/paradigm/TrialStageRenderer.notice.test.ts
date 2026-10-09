@@ -24,22 +24,29 @@ describe('fullscreen stage error notices stay actionable', () => {
     expect(rendererTsx).toContain('className={styles.stageActionButton}');
     expect(rendererTsx).toContain('onClick={action.onClick}');
     // Both renderer branches (video + countdown stages) surface the notice.
-    expect(rendererTsx.match(/{stageNotice \? <StageNoticeBar notice=\{stageNotice\} \/>\ : null}/g)?.length).toBe(2);
+    expect(
+      rendererTsx.match(/{stageNotice \? <StageNoticeBar notice=\{stageNotice\} \/>\ : null}/g)
+        ?.length,
+    ).toBe(2);
   });
 
   test('runner mirrors command failures into the trial stage renderer and its own portals', () => {
     expect(runnerTsx).toContain('stageNotice={stageNotice}');
     // The runner's own fullscreen portals (interTrial + qualityCheck).
-    expect(runnerTsx.match(/{stageNotice \? <StageNoticeBar notice=\{stageNotice\} \/>\ : null}/g)?.length).toBe(2);
-    expect(runnerTsx).toContain("import TrialStageRenderer, {\n  StageNoticeBar,");
+    expect(
+      runnerTsx.match(/{stageNotice \? <StageNoticeBar notice=\{stageNotice\} \/>\ : null}/g)
+        ?.length,
+    ).toBe(2);
+    expect(runnerTsx).toContain('import TrialStageRenderer, {\n  StageNoticeBar,');
   });
 
-
   test('stage titles no longer promise progress while a command failure is shown', () => {
-    const qualityCheckBlock = runnerTsx.match(/trialPhase === 'qualityCheck' \? \([\s\S]*?\)\ : null\}/)?.[0] ?? '';
+    const qualityCheckBlock =
+      runnerTsx.match(/trialPhase === 'qualityCheck' \? \([\s\S]*?\)\ : null\}/)?.[0] ?? '';
     expect(qualityCheckBlock).toContain("stageNotice\n                  ? '试次保存失败'");
 
-    const interTrialBlock = runnerTsx.match(/isStartingTrial\s+\?\s+'正在开始试次…'[\s\S]*?'准备下一个试次'/)?.[0] ?? '';
+    const interTrialBlock =
+      runnerTsx.match(/isStartingTrial\s+\?\s+'正在开始试次…'[\s\S]*?'准备下一个试次'/)?.[0] ?? '';
     expect(interTrialBlock).toContain("'试次启动失败'");
   });
 

@@ -72,10 +72,10 @@ export type Phq4Score = {
 function requireAnswer(answers: Record<string, number>, id: string): number {
   const value = answers[id];
   if (
-    typeof value !== 'number'
-    || !Number.isInteger(value)
-    || value < PHQ4_MIN_VALUE
-    || value > PHQ4_MAX_VALUE
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < PHQ4_MIN_VALUE ||
+    value > PHQ4_MAX_VALUE
   ) {
     throw new Error(`Invalid or missing PHQ-4 answer for ${id}.`);
   }

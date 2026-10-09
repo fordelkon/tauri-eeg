@@ -13,16 +13,18 @@ describe('eegWaveHexLogoAnimation', () => {
     expect(eegWaveHexLogoAnimation.w).toBe(360);
     expect(eegWaveHexLogoAnimation.h).toBe(360);
     expect(eegWaveHexLogoAnimation.fr).toBe(60);
-    expect(layerNames).toEqual(expect.arrayContaining([
-      'hex-radar',
-      'inner-radar',
-      'eeg-wave',
-      'center-core',
-      'neural-node-top',
-      'neural-node-right',
-      'neural-node-bottom',
-      'neural-node-left',
-    ]));
+    expect(layerNames).toEqual(
+      expect.arrayContaining([
+        'hex-radar',
+        'inner-radar',
+        'eeg-wave',
+        'center-core',
+        'neural-node-top',
+        'neural-node-right',
+        'neural-node-bottom',
+        'neural-node-left',
+      ]),
+    );
     expect(JSON.stringify(eegWaveHexLogoAnimation)).toContain('"ty":"st"');
     expect(JSON.stringify(eegWaveHexLogoAnimation)).toContain('"ty":"fl"');
     expect(wavePath?.length).toBeGreaterThanOrEqual(24);

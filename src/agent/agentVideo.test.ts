@@ -4,8 +4,16 @@ import { buildRegulationVideos } from '../video/paradigmRegulationCatalog';
 import { setCurrentRegulationVideos } from '../video/regulationVideoResources';
 
 const videos = buildRegulationVideos([
-  { videoId: 'scenery/calm_vid01', fileName: 'scenery/calm_vid01.mp4', absolutePath: 'C:/Calm/scenery/calm_vid01.mp4' },
-  { videoId: 'music/calm_vid02', fileName: 'music/calm_vid02.mp4', absolutePath: 'C:/Calm/music/calm_vid02.mp4' },
+  {
+    videoId: 'scenery/calm_vid01',
+    fileName: 'scenery/calm_vid01.mp4',
+    absolutePath: 'C:/Calm/scenery/calm_vid01.mp4',
+  },
+  {
+    videoId: 'music/calm_vid02',
+    fileName: 'music/calm_vid02.mp4',
+    absolutePath: 'C:/Calm/music/calm_vid02.mp4',
+  },
 ]);
 afterEach(() => setCurrentRegulationVideos([]));
 
@@ -42,6 +50,9 @@ describe('agentVideo', () => {
   });
 
   it('does not fall back to invented assets when no directory is loaded', () => {
-    expect(findAgentVideoMatch('播放暮色海岸视频')).toEqual({ status: 'unavailable', message: '当前没有可用视频素材。' });
+    expect(findAgentVideoMatch('播放暮色海岸视频')).toEqual({
+      status: 'unavailable',
+      message: '当前没有可用视频素材。',
+    });
   });
 });

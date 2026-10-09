@@ -110,17 +110,16 @@ export default function LottieEegLogo({
   }, [loop]);
 
   return (
-    <div ref={rootRef} className={`${styles.logo} ${className ?? ''}`} aria-label={title} role="img">
+    <div
+      ref={rootRef}
+      className={`${styles.logo} ${className ?? ''}`}
+      aria-label={title}
+      role="img"
+    >
       <svg className={styles.mark} viewBox="0 0 360 360" aria-hidden="true">
         <g className={styles.hexSignal}>
-          <path
-            className={styles.outerHex}
-            d="M180 48 294 114v132L180 312 66 246V114L180 48Z"
-          />
-          <path
-            className={styles.innerHex}
-            d="M180 95 253 138v84l-73 43-73-43v-84l73-43Z"
-          />
+          <path className={styles.outerHex} d="M180 48 294 114v132L180 312 66 246V114L180 48Z" />
+          <path className={styles.innerHex} d="M180 95 253 138v84l-73 43-73-43v-84l73-43Z" />
         </g>
         <path
           className={styles.waveGhost}

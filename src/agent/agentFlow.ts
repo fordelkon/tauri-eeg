@@ -8,11 +8,7 @@ export type AgentPhase =
   | 'finish';
 
 export type AgentRoute =
-  | '/home'
-  | '/experiment-settings'
-  | '/video-regulation'
-  | '/game-regulation'
-  | '/music-regulation';
+  '/home' | '/experiment-settings' | '/video-regulation' | '/game-regulation' | '/music-regulation';
 
 export const agentPhases = [
   'intro',
@@ -149,16 +145,23 @@ export function getLocalRegulationPromptExamples(
   return selected;
 }
 
-export function getAgentPhaseForRoute(pathname: string, previousPhase: AgentPhase = 'intro'): AgentPhase {
+export function getAgentPhaseForRoute(
+  pathname: string,
+  previousPhase: AgentPhase = 'intro',
+): AgentPhase {
   if (pathname === '/home') {
     return previousPhase === 'finish' || previousPhase === 'recovery' ? 'finish' : 'intro';
   }
 
   if (pathname === '/experiment-settings') {
-    return previousPhase === 'music_regulation' || previousPhase === 'recovery' ? 'recovery' : 'baseline';
+    return previousPhase === 'music_regulation' || previousPhase === 'recovery'
+      ? 'recovery'
+      : 'baseline';
   }
   if (pathname === '/eeg-acquisition') {
-    return previousPhase === 'music_regulation' || previousPhase === 'recovery' ? 'recovery' : 'baseline';
+    return previousPhase === 'music_regulation' || previousPhase === 'recovery'
+      ? 'recovery'
+      : 'baseline';
   }
 
   if (pathname === '/video-regulation') {

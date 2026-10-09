@@ -37,61 +37,62 @@ export function MusicHistoryDrawer({
         }
       }}
     >
-      <section className={`${styles.historyModal} flex min-h-0 w-full flex-col`} aria-label="生成的 WAV 记录">
+      <section
+        className={`${styles.historyModal} flex min-h-0 w-full flex-col`}
+        aria-label="生成的 WAV 记录"
+      >
         <div className={`${styles.historyHeader} flex items-center justify-between`}>
           <div>
             <span>生成记录</span>
             <strong>生成的 WAV</strong>
           </div>
-          <IconButton
-            className={styles.closeButton}
-            aria-label="关闭记录"
-            onClick={onClose}
-          >
+          <IconButton className={styles.closeButton} aria-label="关闭记录" onClick={onClose}>
             <CloseRoundedIcon />
           </IconButton>
         </div>
         <div className={`${styles.queueList} grid min-h-0 overflow-auto`}>
           {assets.length === 0 ? (
             <div className={styles.emptyQueue}>生成一首 WAV 后开始播放。</div>
-          ) : assets.map((asset, index) => (
-            <div
-              key={asset.id}
-              className={`${styles.queueItem} grid items-center ${index === activeIndex ? styles.activeQueueItem : ''}`}
-            >
-              <button
-                className={`${styles.queueSelectButton} grid min-w-0 items-center border-0 bg-transparent text-left`}
-                type="button"
-                onClick={() => onSelectTrack(index)}
+          ) : (
+            assets.map((asset, index) => (
+              <div
+                key={asset.id}
+                className={`${styles.queueItem} grid items-center ${index === activeIndex ? styles.activeQueueItem : ''}`}
               >
-                <span>{String(index + 1).padStart(2, '0')}</span>
-                <strong>{asset.title}</strong>
-                {index === activeIndex ? (
-                  <span className={styles.queueEqualizer} aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                ) : null}
-                <em>{asset.source === 'generated' ? '已生成' : '内置'}</em>
-              </button>
-              {asset.source === 'generated' ? (
-                <IconButton
-                  className={styles.deleteQueueButton}
-                  aria-label={`删除 ${asset.title}`}
-                  disabled={deletingItemId === asset.id}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDeleteItem(asset.id, index);
-                  }}
+                <button
+                  className={`${styles.queueSelectButton} grid min-w-0 items-center border-0 bg-transparent text-left`}
+                  type="button"
+                  onClick={() => onSelectTrack(index)}
                 >
-                  <DeleteOutlineRoundedIcon />
-                </IconButton>
-              ) : (
-                <span className={styles.queueSpacer} aria-hidden="true" />
-              )}
-            </div>
-          ))}
+                  <span>{String(index + 1).padStart(2, '0')}</span>
+                  <strong>{asset.title}</strong>
+                  {index === activeIndex ? (
+                    <span className={styles.queueEqualizer} aria-hidden="true">
+                      <span />
+                      <span />
+                      <span />
+                    </span>
+                  ) : null}
+                  <em>{asset.source === 'generated' ? '已生成' : '内置'}</em>
+                </button>
+                {asset.source === 'generated' ? (
+                  <IconButton
+                    className={styles.deleteQueueButton}
+                    aria-label={`删除 ${asset.title}`}
+                    disabled={deletingItemId === asset.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onDeleteItem(asset.id, index);
+                    }}
+                  >
+                    <DeleteOutlineRoundedIcon />
+                  </IconButton>
+                ) : (
+                  <span className={styles.queueSpacer} aria-hidden="true" />
+                )}
+              </div>
+            ))
+          )}
         </div>
       </section>
     </div>

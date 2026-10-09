@@ -97,7 +97,9 @@ describe('progress disclosure contract (round 7)', () => {
     const source = readText(disclosureUrl);
 
     // Same bailout contract as the timeline/done band it hosts.
-    expect(source).toMatch(/export const EffectProgressDisclosure = memo\(function EffectProgressDisclosure/);
+    expect(source).toMatch(
+      /export const EffectProgressDisclosure = memo\(function EffectProgressDisclosure/,
+    );
     // The announce timer is a one-shot setTimeout — never a wall-clock poll.
     expect(source).not.toContain('setInterval');
   });

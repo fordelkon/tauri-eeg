@@ -62,11 +62,7 @@ describe('mentalScaleStatus', () => {
     for (const question of scale.questions) {
       allAnswered[question.id] = 2;
     }
-    expect(measuredDimensionKeys(scale, allAnswered)).toEqual([
-      'anxiety',
-      'worry',
-      'mood',
-    ]);
+    expect(measuredDimensionKeys(scale, allAnswered)).toEqual(['anxiety', 'worry', 'mood']);
   });
 });
 
