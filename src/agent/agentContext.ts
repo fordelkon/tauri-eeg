@@ -52,7 +52,12 @@ export function addAgentTimelineEntry(
   entries: readonly AgentTimelineEntry[],
   entry: AgentTimelineEntry,
 ): AgentTimelineEntry[] {
-  return [...entries, entry].slice(-20);
+  // `at` doubles as the list key in the panel, so it must be unique even when
+  // two entries are minted in the same millisecond (e.g. double-dispatched
+  // events): bump past the previous entry instead of colliding.
+  const previous = entries[entries.length - 1];
+  const at = previous && entry.at <= previous.at ? previous.at + 1 : entry.at;
+  return [...entries, { ...entry, at }].slice(-20);
 }
 
 export function getLatestPersonalizedAnswer(

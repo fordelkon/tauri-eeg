@@ -175,7 +175,9 @@ export default function Login() {
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isSubmitting) {
+    // A second click while the exit animation is still running would re-sign
+    // in and schedule a duplicate navigation.
+    if (isSubmitting || isExiting) {
       return;
     }
 
@@ -438,7 +440,7 @@ export default function Login() {
                 />
               ) : null}
 
-              <p className={`${styles.errorMsg} pl-2px`}>{errorMessage}</p>
+              <p className={`${styles.errorMsg} pl-2px`} role="alert">{errorMessage}</p>
               {successMessage ? (
                 <p className={`${styles.successMsg} pl-2px`} role="status">
                   {successMessage}

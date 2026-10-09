@@ -27,6 +27,7 @@ export class ParadigmExecution {
   private started = false;
   private videoStarted = false;
   private videoEndMarked = false;
+  private videoErrorMarked = false;
   private videoDuration: number | null = null;
   private pending: Promise<void> = Promise.resolve();
   private termination: Promise<void> | null = null;
@@ -131,6 +132,7 @@ export class ParadigmExecution {
         if (this.stopped) return;
         this.videoStarted = false;
         this.videoEndMarked = false;
+        this.videoErrorMarked = false;
         this.videoDuration = null;
         this.transition({ type: 'trial_started', trialIndex: plan.trialIndex });
       });
@@ -167,7 +169,12 @@ export class ParadigmExecution {
   }
 
   videoError(token: TrialCallbackToken) {
-    if (this.current(token)) return this.mark('playback_error', 'video_error');
+    // Defense in depth against duplicate callers: `playback_error` is a
+    // research-data event, so it must be recorded at most once per video
+    // phase (VideoStage already reports one-shot).
+    if (!this.current(token) || this.videoErrorMarked) return;
+    this.videoErrorMarked = true;
+    return this.mark('playback_error', 'video_error');
   }
 
   videoDurationLoaded(token: TrialCallbackToken, seconds: number | null) {

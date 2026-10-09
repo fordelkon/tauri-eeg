@@ -294,7 +294,19 @@ function VideoStage({
     return () => window.clearTimeout(timer);
   }, [loadFailed, plan.videoId]);
 
-  useEffect(() => { if (loadFailed) onVideoError(); }, [loadFailed, onVideoError]);
+  // One-shot: the playback_error experiment event is research data, so it is
+  // reported exactly once per stage mount even though `onVideoError` arrives
+  // as a fresh function identity on every parent re-render while the error
+  // bar is showing.
+  const errorReportedRef = useRef(false);
+  useEffect(() => {
+    if (!loadFailed || errorReportedRef.current) {
+      return;
+    }
+
+    errorReportedRef.current = true;
+    onVideoError();
+  }, [loadFailed, onVideoError]);
 
   return (
     <>

@@ -287,7 +287,6 @@ export type EffectHistoryEntryView = {
   condition: string | null;
   durationMinutes: number | null;
   regulationSkipped: boolean;
-  /** EEG recording session of the run (post leg first, baseline fallback). */
   /** False when the mean was computed over unmarked legacy records. */
   measuredOnly: boolean;
   meanImprovementRate: number | null;
@@ -343,4 +342,3 @@ export function exportEffectReport(
   return invoke<ExportEffectReportResultView>('export_effect_report', { input });
 }
 
-// PROBE-1788340860040

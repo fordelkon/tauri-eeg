@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { getMentalScaleStatusSnapshot } from '../mentalScale/mentalScaleStatus';
+import {
+  getMentalScaleStatusSnapshot,
+  type MentalScaleDimensionKey,
+} from '../mentalScale/mentalScaleStatus';
 import { generateMusic } from '../music/musicGenerationApi';
 import {
   type AgentActionId,
@@ -173,7 +176,7 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
       case 'generate_music': {
         const scores = Object.fromEntries(
           getMentalScaleStatusSnapshot().dimensions.map((dimension) => [dimension.key, dimension.value]),
-        ) as { anxiety: number; worry: number; mood: number; energy: number };
+        ) as Record<MentalScaleDimensionKey, number>;
         const plannerPrompt = getPlannerStringParam(params, 'prompt');
         const plannerDuration = getPlannerDurationParam(params);
         const plannerInstrument = getPlannerStringParam(params, 'instrument');
