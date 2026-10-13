@@ -92,6 +92,7 @@ export type InstrumentSection = {
 
 export type BatteryDefinition = {
   scaleId: typeof STAI_PANAS_BATTERY_SCALE_ID;
+  id?: string;
   title: string;
   subtitle: string;
   sections: readonly InstrumentSection[];
@@ -193,6 +194,7 @@ export function buildBatteryDefinition(options: BuildBatteryOptions = {}): Batte
 
   return {
     scaleId: STAI_PANAS_BATTERY_SCALE_ID,
+    id: STAI_PANAS_BATTERY_SCALE_ID,
     title: `情绪状态量表（${scaleNames}）`,
     subtitle: `${samHead}两个量表均测量「此刻」的状态${gemsTail}，请依次完成全部 ${questionCount} 题后提交。`,
     sections,

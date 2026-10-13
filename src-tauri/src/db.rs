@@ -76,6 +76,27 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|_| "Failed to initialize database schema.".to_string())?;
 
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS subjects (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            subject_code TEXT NOT NULL,
+            name_alias TEXT,
+            gender TEXT,
+            birth_year INTEGER,
+            handedness TEXT,
+            cap_size TEXT,
+            clinical_group TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            UNIQUE(user_id, subject_code)
+        );
+        CREATE INDEX IF NOT EXISTS idx_subjects_user_code ON subjects(user_id, subject_code);",
+    )
+    .map_err(|_| "Failed to initialize subjects table schema.".to_string())?;
+
     crate::music_history::init_music_history_schema(conn)?;
     crate::scale_records::init_scale_records_schema(conn)?;
     crate::experiment::init(conn)?;
@@ -103,6 +124,33 @@ mod tests {
             .expect("query sqlite schema");
 
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn creates_subjects_table() {
+        let conn = Connection::open_in_memory().expect("open in-memory sqlite");
+
+        init_schema(&conn).expect("init schema");
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'subjects'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("query sqlite schema");
+
+        assert_eq!(count, 1);
+
+        let index_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_subjects_user_code'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("query sqlite index");
+
+        assert_eq!(index_count, 1);
     }
 
     #[test]

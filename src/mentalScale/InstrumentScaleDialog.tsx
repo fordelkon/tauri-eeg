@@ -1,5 +1,6 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import {
+  Alert,
   Button,
   Dialog,
   DialogActions,
@@ -32,6 +33,55 @@ import ScaleProgressBar from './scaleUi/ScaleProgressBar';
 import styles from './MentalScaleDialog.module.css';
 import sectionStyles from './InstrumentScaleDialog.module.css';
 
+export function getInstrumentScaleDraftKey(
+  definition: Pick<BatteryDefinition, 'scaleId'> & { id?: string },
+): string {
+  const id = definition.id ?? definition.scaleId;
+  return `mental_scale_draft_${id}`;
+}
+
+export function readInstrumentScaleDraft(
+  storage: Pick<Storage, 'getItem'>,
+  key: string,
+): Partial<Record<BatterySectionKey, InstrumentAnswers>> | null {
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      const hasAnswers = Object.values(parsed).some(
+        (sec) => sec && typeof sec === 'object' && Object.keys(sec).length > 0,
+      );
+      if (hasAnswers) {
+        return parsed as Partial<Record<BatterySectionKey, InstrumentAnswers>>;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function writeInstrumentScaleDraft(
+  storage: Pick<Storage, 'setItem'>,
+  key: string,
+  answers: Partial<Record<BatterySectionKey, InstrumentAnswers>>,
+): void {
+  try {
+    storage.setItem(key, JSON.stringify(answers));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+export function clearInstrumentScaleDraft(storage: Pick<Storage, 'removeItem'>, key: string): void {
+  try {
+    storage.removeItem(key);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 type InstrumentScaleDialogProps = {
   /** The battery definition for this phase (optional SAM/GEMS sections per
    *  doc scale-instruments.md §3.3). */
@@ -50,6 +100,8 @@ type InstrumentScaleDialogProps = {
   /** Owner-side failure copy (e.g. the save request failed); rendered in the
    *  sticky footer so it is visible while the answers are still on screen. */
   submitError?: string | null;
+  /** Optional storage driver for unit testing; defaults to window.sessionStorage. */
+  storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 };
 
 type SectionAnswerState = {
@@ -76,13 +128,28 @@ export default function InstrumentScaleDialog({
   onClose,
   isSubmitting = false,
   submitError = null,
+  storage,
 }: InstrumentScaleDialogProps) {
+  const draftStorage =
+    storage ?? (typeof window !== 'undefined' ? window.sessionStorage : undefined);
+  const draftKey = getInstrumentScaleDraftKey(definition);
+
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(() => {
+    if (!draftStorage) return false;
+    return readInstrumentScaleDraft(draftStorage, draftKey) !== null;
+  });
+
   const [answersBySection, setAnswersBySection] = useState<
     Partial<Record<BatterySectionKey, InstrumentAnswers>>
-  >({});
+  >(() => {
+    if (!draftStorage) return {};
+    return readInstrumentScaleDraft(draftStorage, draftKey) ?? {};
+  });
+
   // Closing with answers already filled in asks for confirmation first; 40+
   // items are too much work to lose to one misclick.
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
+  const isDiscardingRef = useRef(false);
   // Focus management (audit 3/10): the overlay is a hand-rolled portal (not a
   // MUI Dialog), so it must move focus in on open, keep Tab cycling inside,
   // and hand focus back to the trigger on close — otherwise keyboard users
@@ -124,6 +191,25 @@ export default function InstrumentScaleDialog({
     0,
   );
 
+  // Sync draft to storage on changes
+  useEffect(() => {
+    if (!draftStorage || isDiscardingRef.current) {
+      return;
+    }
+    if (hasAnyAnswer) {
+      writeInstrumentScaleDraft(draftStorage, draftKey, answersBySection);
+    } else {
+      clearInstrumentScaleDraft(draftStorage, draftKey);
+    }
+  }, [answersBySection, draftKey, draftStorage, hasAnyAnswer]);
+
+  // Re-save draft if a submit attempt fails so errors don't lead to lost drafts
+  useEffect(() => {
+    if (submitError && hasAnyAnswer && draftStorage) {
+      writeInstrumentScaleDraft(draftStorage, draftKey, answersBySection);
+    }
+  }, [submitError, hasAnyAnswer, draftStorage, draftKey, answersBySection]);
+
   const handleAnswer = (sectionKey: BatterySectionKey, questionId: string, value: number) => {
     setAnswersBySection((current) => ({
       ...current,
@@ -143,6 +229,16 @@ export default function InstrumentScaleDialog({
       return;
     }
 
+    onClose();
+  };
+
+  const handleConfirmDiscard = () => {
+    isDiscardingRef.current = true;
+    if (draftStorage) {
+      clearInstrumentScaleDraft(draftStorage, draftKey);
+    }
+    setIsDiscardConfirmOpen(false);
+    setAnswersBySection({});
     onClose();
   };
 
@@ -200,6 +296,10 @@ export default function InstrumentScaleDialog({
       return;
     }
 
+    if (draftStorage) {
+      clearInstrumentScaleDraft(draftStorage, draftKey);
+    }
+
     // The optional sections appear in the payload only when they were rendered
     // (doc §3.3: sam/gems keys ride the same battery record when enabled).
     onComplete({
@@ -238,7 +338,7 @@ export default function InstrumentScaleDialog({
   );
 
   // Portal to <body>: same overlay-trapping rationale as MentalScaleDialog.
-  return createPortal(
+  const dialogElement = (
     <div
       className={`${styles.scaleOverlay} fixed inset-0 flex items-center justify-center p-22px`}
       role="presentation"
@@ -269,6 +369,13 @@ export default function InstrumentScaleDialog({
           <p className={styles.scaleEyebrow}>心理量表</p>
           <h2 id="instrument-scale-title">{definition.title}</h2>
           <p>{definition.subtitle}</p>
+          {hasRestoredDraft ? (
+            <div className={sectionStyles.draftRestoredAlert} role="status">
+              <Alert severity="info" onClose={() => setHasRestoredDraft(false)}>
+                已恢复上次未提交的答题进度
+              </Alert>
+            </div>
+          ) : null}
         </div>
 
         <div className={sectionStyles.scaleBody}>
@@ -314,7 +421,12 @@ export default function InstrumentScaleDialog({
                 handleAnswer(sectionKey, questionId, value);
               }
             }}
-            onClear={() => setAnswersBySection({})}
+            onClear={() => {
+              if (draftStorage) {
+                clearInstrumentScaleDraft(draftStorage, draftKey);
+              }
+              setAnswersBySection({});
+            }}
           />
           <div className={styles.scaleFooterActions}>
             {/* A failed save surfaces HERE, above the still-filled answers:
@@ -358,12 +470,15 @@ export default function InstrumentScaleDialog({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsDiscardConfirmOpen(false)}>继续作答</Button>
-          <Button color="error" onClick={onClose}>
-            放弃并关闭
+          <Button color="error" onClick={handleConfirmDiscard}>
+            丢弃并退出
           </Button>
         </DialogActions>
       </Dialog>
-    </div>,
-    document.body,
+    </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(dialogElement, document.body)
+    : dialogElement;
 }

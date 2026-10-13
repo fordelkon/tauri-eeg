@@ -44,3 +44,8 @@
   color: var(--danger-ink, #8d2d25);
   font-weight: 600;
 }
+
+/* Soft draft recovery notification */
+.draftRestoredAlert {
+  margin-top: 12px;
+}

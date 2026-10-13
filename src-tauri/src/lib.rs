@@ -10,6 +10,7 @@ mod python_client;
 mod python_service;
 mod scale_records;
 mod storage_paths;
+mod subjects;
 mod video_library;
 
 use auth::UserProfile;
@@ -499,6 +500,76 @@ async fn load_video_library(
         .map_err(AppError)
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListSubjectsInput {
+    user_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DeleteSubjectInput {
+    id: String,
+    user_id: String,
+}
+
+#[tauri::command]
+async fn list_subjects(
+    db: State<'_, AppDb>,
+    user_id: Option<String>,
+    input: Option<ListSubjectsInput>,
+) -> Result<Vec<subjects::Subject>, AppError> {
+    let uid = match (user_id, input) {
+        (Some(u), _) if !u.trim().is_empty() => u,
+        (_, Some(inp)) if !inp.user_id.trim().is_empty() => inp.user_id,
+        _ => return Err("User ID is required.".to_string().into()),
+    };
+
+    let db = db.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        db.with_conn(|conn| subjects::list_subjects(conn, &uid))
+    })
+    .await
+    .map_err(|_| "Failed to list subjects.".to_string())?
+    .map_err(AppError)
+}
+
+#[tauri::command]
+async fn save_subject(
+    db: State<'_, AppDb>,
+    input: subjects::SaveSubjectInput,
+) -> Result<subjects::Subject, AppError> {
+    let db = db.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        db.with_conn(|conn| subjects::save_subject(conn, &input))
+    })
+    .await
+    .map_err(|_| "Failed to save subject.".to_string())?
+    .map_err(AppError)
+}
+
+#[tauri::command]
+async fn delete_subject(
+    db: State<'_, AppDb>,
+    id: Option<String>,
+    user_id: Option<String>,
+    input: Option<DeleteSubjectInput>,
+) -> Result<subjects::Subject, AppError> {
+    let (target_id, target_user_id) = match (id, user_id, input) {
+        (_, _, Some(inp)) => (inp.id, inp.user_id),
+        (Some(i), Some(u), _) => (i, u),
+        _ => return Err("Both subject ID and user ID are required.".to_string().into()),
+    };
+
+    let db = db.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        db.with_conn(|conn| subjects::delete_subject(conn, &target_id, &target_user_id))
+    })
+    .await
+    .map_err(|_| "Failed to delete subject.".to_string())?
+    .map_err(AppError)
+}
+
 fn delete_music_file_in_storage_root(
     storage_root: &std::path::Path,
     file_path: &str,
@@ -573,7 +644,10 @@ pub fn run() {
             delete_music_history,
             get_storage_location,
             set_storage_root,
-            load_video_library
+            load_video_library,
+            list_subjects,
+            save_subject,
+            delete_subject
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
