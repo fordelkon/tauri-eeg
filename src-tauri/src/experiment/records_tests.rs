@@ -305,3 +305,21 @@ fn list_filters_user_and_detail_retains_manifest_contract_and_event_order() {
     assert_eq!(data["hardwareReceiptVerified"], false);
     assert_eq!(data["eventDefinitions"], json!(EVENT_CODES));
 }
+
+#[test]
+fn deleting_scale_record_cascades_from_experiment_scales_so_detail_succeeds() {
+    let (db, service, run) = setup();
+    let id = save_scale(&db, &scale_input());
+    link(&service, &run.run_id, &id, "baseline").unwrap();
+    assert_eq!(
+        detail(&service, &run.run_id)["scales"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    scale_records::delete_scale_record(&db.lock().unwrap(), &id).unwrap();
+    let detail_val = detail(&service, &run.run_id);
+    assert_eq!(detail_val["scales"], json!([]));
+}

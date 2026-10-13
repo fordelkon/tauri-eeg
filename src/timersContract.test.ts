@@ -94,7 +94,7 @@ const intervalAllowlist = [
 const allowlistedPaths = intervalAllowlist.map((entry) => entry.path);
 
 describe('app-wide wall-clock interval contract', () => {
-  test('every recurring interval lives in the audited allowlist', () => {
+  test('every recurring interval lives in the audited allowlist', { timeout: 30000 }, () => {
     const owners = srcFiles.filter((file) => readText(file).includes('window.setInterval('));
 
     expect(

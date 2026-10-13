@@ -32,9 +32,26 @@ import styles from './EffectEvaluation.module.css';
 const metricValueClass = (rate: number | null) =>
   `${styles.metricHeroValue}${rate !== null ? ` ${rate >= 0 ? styles.isPositive : styles.isNegative}` : ''}`;
 
+/** Formats dimension scores preserving decimals for small scales (<= 10, e.g. PANAS 1.0-5.0)
+ *  while keeping clean formatting for total scores (e.g. STAI 20-80). */
+export const formatScoreValue = (value: number): string => {
+  if (value <= 10) {
+    return value.toFixed(1);
+  }
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+};
+
 /** Clamps a scale score into the 0-100% width of the mini before/after
- *  bars (the same axis range the result charts use). */
-const scoreBarPercent = (score: number) => Math.min(100, Math.max(0, Math.round(score)));
+ *  bars, adapting to small 1-5 or 1-10 scales proportionally. */
+export const scoreBarPercent = (score: number) => {
+  if (score <= 5) {
+    return Math.min(100, Math.max(0, (score / 5) * 100));
+  }
+  if (score <= 10) {
+    return Math.min(100, Math.max(0, (score / 10) * 100));
+  }
+  return Math.min(100, Math.max(0, Math.round(score)));
+};
 
 /** Verdict hero for the result & comparison cards: a severity-tinted banner
  *  with an icon disc, so the finish reads as a completed state instead of
@@ -66,7 +83,7 @@ function VerdictBanner({ copy }: { copy: EffectVerdictCopy }) {
 function ScoreCell({ value, barClass }: { value: number; barClass?: string }) {
   return (
     <span className={styles.scoreCell}>
-      <span className={styles.scoreNum}>{Math.round(value)}</span>
+      <span className={styles.scoreNum}>{formatScoreValue(value)}</span>
       <span className={styles.scoreTrack} aria-hidden="true">
         <span
           className={`${styles.scoreBar}${barClass ? ` ${barClass}` : ''}`}

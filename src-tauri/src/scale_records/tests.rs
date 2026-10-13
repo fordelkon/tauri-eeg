@@ -26,6 +26,15 @@ fn setup_conn() -> Connection {
     )
     .expect("insert user");
     init_scale_records_schema(&conn).expect("init scale records schema");
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS experiment_scales (
+            record_id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            measurement_time TEXT NOT NULL
+        )",
+        [],
+    )
+    .expect("create experiment_scales table");
     conn
 }
 
@@ -242,11 +251,26 @@ fn deletes_scale_record_by_id_only() {
     )
     .expect("save record");
 
+    conn.execute(
+        "INSERT INTO experiment_scales (record_id, run_id, measurement_time) VALUES (?1, 'run-1', 'baseline')",
+        params![saved.id],
+    )
+    .expect("insert experiment scale link");
+
     let deleted = delete_scale_record(&conn, &saved.id).expect("delete record");
     assert_eq!(deleted.id, saved.id);
     assert!(list_scale_records(&conn, None, None)
         .expect("list records")
         .is_empty());
+
+    let remaining_links: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM experiment_scales WHERE record_id = ?1",
+            params![saved.id],
+            |row| row.get(0),
+        )
+        .expect("count remaining links");
+    assert_eq!(remaining_links, 0);
 
     assert_eq!(
         delete_scale_record(&conn, &saved.id).unwrap_err(),

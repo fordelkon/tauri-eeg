@@ -284,12 +284,14 @@ export default function SamRatingDialog({ videoNumber, videosInBlock, onSubmit }
         )}
 
         <footer className={styles.dialogFooter}>
-          <DevAutoFillButton
-            items={fillItems}
-            answeredIds={answeredRowIds}
-            onAnswer={(rowId, value) => selectForRow(rowId as RatingRowKey)(value)}
-            onClear={handleClearRatings}
-          />
+          {Boolean(import.meta.env.DEV) && (
+            <DevAutoFillButton
+              items={fillItems}
+              answeredIds={answeredRowIds}
+              onAnswer={(rowId, value) => selectForRow(rowId as RatingRowKey)(value)}
+              onClear={handleClearRatings}
+            />
+          )}
           <span className={styles.dialogFooterHint}>
             {isReady ? '两项必选评分已完成。' : '请先完成愉悦度与唤醒度评分。'}
           </span>

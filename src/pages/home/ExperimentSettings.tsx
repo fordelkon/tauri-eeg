@@ -20,6 +20,8 @@ import {
   readStoredLibraryRootPath,
   writeStoredLibraryRootPath,
 } from '../../paradigm/paradigmStorage';
+import { readStoredSubjectId } from '../../storage/currentSubject';
+import { buildStandardBdfFileName } from '../../experiment/bdfNaming';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import ExperimentRunHistory from '../../experiment/ExperimentRunHistory';
@@ -497,16 +499,68 @@ export default function ExperimentSettings() {
                       <input
                         disabled={locked}
                         value={preferences.expectedRecordingName}
-                        placeholder="例如 sub01_effect_run01.bdf"
-                        onChange={(event) =>
+                        placeholder={`例如 ${buildStandardBdfFileName({ subjectId: readStoredSubjectId(), task: destination })}`}
+                        onChange={(event) => {
+                          const nextName = event.target.value;
                           savePreferences({
                             ...preferences,
-                            expectedRecordingName: event.target.value,
-                            externalRecordingConfirmed: false,
-                          })
-                        }
+                            expectedRecordingName: nextName,
+                            externalRecordingConfirmed:
+                              nextName.trim() === ''
+                                ? false
+                                : preferences.externalRecordingConfirmed,
+                          });
+                        }}
                       />
                     </label>
+                    <div className={styles.row}>
+                      <button
+                        type="button"
+                        disabled={locked}
+                        className={styles.ghostButton}
+                        onClick={() => {
+                          const standardName = buildStandardBdfFileName({
+                            subjectId: readStoredSubjectId(),
+                            task: destination,
+                          });
+                          savePreferences({
+                            ...preferences,
+                            expectedRecordingName: standardName,
+                            externalRecordingConfirmed: false,
+                          });
+                          setNotice(`已生成规范 BDF 记录名：${standardName}`);
+                        }}
+                      >
+                        基于当前被试生成规范 BDF 命名
+                      </button>
+                      <button
+                        type="button"
+                        disabled={locked || !preferences.expectedRecordingName.trim()}
+                        className={styles.ghostButton}
+                        onClick={async () => {
+                          const nameToCopy = preferences.expectedRecordingName.trim();
+                          if (!nameToCopy) return;
+                          try {
+                            if (navigator?.clipboard?.writeText) {
+                              await navigator.clipboard.writeText(nameToCopy);
+                              setNotice(
+                                `已复制「${nameToCopy}」到剪贴板，可直接在 ActiView 保存对话框中粘贴。`,
+                              );
+                            } else {
+                              setNotice(`当前环境不支持自动剪贴板，请手动复制：${nameToCopy}`);
+                            }
+                          } catch {
+                            setNotice(`复制失败，请手动复制：${nameToCopy}`);
+                          }
+                        }}
+                      >
+                        复制文件名到剪贴板
+                      </button>
+                    </div>
+                    <p className={styles.muted}>
+                      命名建议遵循 BIDS 脑电规范（例如 <code>sub-001_ses-01_task-effect.bdf</code>
+                      ），避免在文件名中出现空格或特殊符号。
+                    </p>
                     <label className={`${styles.check} ${guide.recordingCheck}`}>
                       <input
                         type="checkbox"

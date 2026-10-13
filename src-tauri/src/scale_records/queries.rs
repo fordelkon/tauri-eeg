@@ -217,6 +217,16 @@ fn map_record_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RecordRow> {
 pub fn delete_scale_record(conn: &Connection, id: &str) -> Result<ScaleRecord, String> {
     let row = fetch_record_row(conn, id)?;
 
+    if let Err(err) = conn.execute(
+        "DELETE FROM experiment_scales WHERE record_id = ?1",
+        params![id],
+    ) {
+        let msg = err.to_string();
+        if !msg.contains("no such table") {
+            return Err("Failed to delete scale record.".to_string());
+        }
+    }
+
     conn.execute("DELETE FROM scale_records WHERE id = ?1", params![id])
         .map_err(|_| "Failed to delete scale record.".to_string())?;
 

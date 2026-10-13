@@ -521,10 +521,13 @@ export function ConditionStepPanel({
             {isNaturalRecovery ? null : (
               <button
                 type="button"
+                disabled
                 className={styles.secondaryAction}
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                title="实验进行中已锁定当前播放器"
                 onClick={flow.openRegulationPage}
               >
-                在独立页打开{methodLabel}
+                在独立页打开{methodLabel}（已锁定）
               </button>
             )}
             {finishMode.mode === 'requires-skip' ? (

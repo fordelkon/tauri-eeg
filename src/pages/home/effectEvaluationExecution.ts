@@ -425,5 +425,8 @@ export class EffectEvaluationExecution {
     });
 
   openRegulationPage = () =>
-    this.publish({ actionError: '运行中请使用当前播放器。独立页面仅用于实验前准备素材。' });
+    this.publish({
+      actionError:
+        '实验进行中已锁定当前播放器，避免流程与脑电标记中断。如需配置素材，请在实验开始前前往独立页面。',
+    });
 }
