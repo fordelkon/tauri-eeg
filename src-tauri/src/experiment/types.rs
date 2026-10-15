@@ -10,6 +10,7 @@ pub const EVENT_CODES: &[(&str, u8)] = &[
     ("baseline_rest_start", 20),
     ("hint_start", 21),
     ("post_rest_start", 22),
+    ("baseline_rest_end", 23),
     ("music_regulation_start", 31),
     ("music_regulation_end", 32),
     ("video_regulation_start", 41),

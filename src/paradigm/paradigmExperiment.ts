@@ -66,6 +66,11 @@ export class ParadigmExperiment {
     return this.snapshot;
   }
 
+  async endBaselineRest() {
+    if (this.stopped) return;
+    return this.event('baseline_rest_end');
+  }
+
   async end() {
     if (!this.snapshot) throw new Error('没有活动试次');
     await this.event('trial_end');

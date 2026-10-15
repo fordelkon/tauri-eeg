@@ -14,6 +14,7 @@ pub fn validate(conn: &Connection, run: &Run, input: &EventInput) -> Result<(), 
     }
     let trial_events = [
         "baseline_rest_start",
+        "baseline_rest_end",
         "hint_start",
         "post_rest_start",
         "sam_start",

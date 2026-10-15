@@ -168,6 +168,8 @@ fn mapping_has_unique_codes_and_excludes_feedback() {
     assert_eq!(codes.len(), EVENT_CODES.len());
     assert!(!codes.contains(&0));
     assert!(code("reappraisal_start").is_err());
+    assert_eq!(code("baseline_rest_start").unwrap(), 20);
+    assert_eq!(code("baseline_rest_end").unwrap(), 23);
     assert_eq!(code("video_regulation_end").unwrap(), 42);
 }
 

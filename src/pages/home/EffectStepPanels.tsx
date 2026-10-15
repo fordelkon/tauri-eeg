@@ -152,6 +152,10 @@ export function SetupStepPanel({ flow }: SetupStepPanelProps) {
         <p className={styles.noteCallout} role="note">
           实验条件说明：基线条件（自然恢复）＝情绪诱发后不施加调控手段，静息自然恢复；调控条件＝情绪诱发后施加所选调控手段（音乐/视频）。同被试同情绪完成两种条件各一次后，结果步会给出跨条件对比。
         </p>
+        <p className={styles.noteCallout} role="note">
+          认知神经科学提示（生理洗脱期）：对同一受试者先后进行自然恢复与调控条件测试时，建议相隔至少
+          15 分钟生理洗脱期（Washout Period），以避免急性情绪与自主神经生理残留导致的滞后效应。
+        </p>
       </div>
 
       {flow.actionError ? (

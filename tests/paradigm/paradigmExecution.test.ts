@@ -49,7 +49,7 @@ describe('independent paradigm execution', () => {
     run.selfReportSubmit(token(run), report);
     await idle(run);
     expect(events()).toEqual([
-      'trial_start', 'baseline_rest_start', 'hint_start', 'calm_video_start',
+      'trial_start', 'baseline_rest_start', 'baseline_rest_end', 'hint_start', 'calm_video_start',
       'induction_video_end', 'post_rest_start', 'trial_end', 'sam_start', 'sam_submit',
     ]);
     expect(ipc.emitEvent.mock.calls.map(([input]) => input.eventId)).toEqual(

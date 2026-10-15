@@ -223,8 +223,10 @@ export class ParadigmExecution {
   }
 
   private advance() {
+    const prevPhase = this.snapshot.state.trialPhase;
     this.transition({ type: 'advance_trial_phase' });
     const phase = this.snapshot.state.trialPhase;
+    if (prevPhase === 'baseline' && phase === 'hint') void this.mark('baseline_rest_end');
     if (phase === 'hint') void this.mark('hint_start');
     if (phase === 'postRest') void this.mark('post_rest_start');
   }

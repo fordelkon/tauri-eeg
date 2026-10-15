@@ -176,7 +176,7 @@ Trigger 设置显示 COM 端口、刷新、连接、断开、测试与最近发�
 | 20 | baseline_rest_start | 逐试次静息基线开始 |
 | 21 | hint_start | 逐试次播放提示开始 |
 | 22 | post_rest_start | 逐试次试后静息开始 |
-| 23 | reappraisal_cue_start | 重评提示开始，保留码 |
+| 23 | baseline_rest_end | 逐试次静息基线结束 |
 | 24、25 | reappraisal_start、reappraisal_end | 重评窗口边界，保留码 |
 | 31、32 | music_regulation_start、music_regulation_end | 音乐调控窗口边界 |
 | 41、42 | video_regulation_start、video_regulation_end | 视频调控窗口边界 |

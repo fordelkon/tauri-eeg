@@ -21,6 +21,7 @@ describe('independent trial recording', () => {
   it('records stimulus boundaries and SAM', async () => {
     const run = new ParadigmExperiment('run-1');
     await run.begin(plan);
+    await run.endBaselineRest();
     await run.event('hint_start');
     await run.event('calm_video_start', 'html_video_playing');
     await run.event('calm_video_start', 'html_video_playing');
@@ -31,6 +32,7 @@ describe('independent trial recording', () => {
     expect(ipc.emitEvent.mock.calls.map(([input]) => input.eventName)).toEqual([
       'trial_start',
       'baseline_rest_start',
+      'baseline_rest_end',
       'hint_start',
       'calm_video_start',
       'induction_video_end',
@@ -44,6 +46,7 @@ describe('independent trial recording', () => {
     ).toEqual([
       ['trial_start', 'run-1:trial:0:trial'],
       ['baseline_rest_start', 'run-1:trial:0:baseline_rest_start'],
+      ['baseline_rest_end', 'run-1:trial:0:baseline_rest_end'],
       ['hint_start', 'run-1:trial:0:hint_start'],
       ['calm_video_start', 'run-1:trial:0:induction'],
       ['induction_video_end', 'run-1:trial:0:induction'],

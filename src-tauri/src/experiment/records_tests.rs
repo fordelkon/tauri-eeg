@@ -304,6 +304,10 @@ fn list_filters_user_and_detail_retains_manifest_contract_and_event_order() {
     assert_eq!(data["events"][0]["event"], "run_start");
     assert_eq!(data["hardwareReceiptVerified"], false);
     assert_eq!(data["eventDefinitions"], json!(EVENT_CODES));
+    assert!(data["eventDefinitions"]
+        .as_array()
+        .unwrap()
+        .contains(&json!(["baseline_rest_end", 23])));
 }
 
 #[test]
