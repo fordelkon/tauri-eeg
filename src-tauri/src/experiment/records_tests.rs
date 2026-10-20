@@ -327,3 +327,95 @@ fn deleting_scale_record_cascades_from_experiment_scales_so_detail_succeeds() {
     let detail_val = detail(&service, &run.run_id);
     assert_eq!(detail_val["scales"], json!([]));
 }
+
+#[test]
+fn delete_experiment_run_cascades_and_removes_all_associated_data() {
+    let (db, service, run) = setup();
+    let id = save_scale(&db, &scale_input());
+    link(&service, &run.run_id, &id, "baseline").unwrap();
+    trial(&service, &run.run_id, json!({"trialId": format!("{}:trial:1", run.run_id), "status": "ok"})).unwrap();
+
+    // Abort the run so it's not active/running
+    let _: Run = service
+        .call(Box::new({
+            let run_id = run.run_id.clone();
+            move |w| w.finish(run_id, Some("aborted for test".into()))
+        }))
+        .unwrap();
+
+    let conn = db.lock().unwrap();
+    let events_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM experiment_events WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .unwrap();
+    assert!(events_count > 0);
+
+    let trials_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM experiment_trials WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(trials_count, 1);
+
+    let scales_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM experiment_scales WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(scales_count, 1);
+    drop(conn);
+
+    // Delete with correct operator user_id
+    let deleted: Run = service
+        .call(Box::new({
+            let run_id = run.run_id.clone();
+            move |w| w.delete_run(run_id, Some("operator".into()))
+        }))
+        .unwrap();
+    assert_eq!(deleted.run_id, run.run_id);
+
+    let conn = db.lock().unwrap();
+    let runs_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM experiment_runs WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(runs_count, 0);
+
+    let events_count_after: i64 = conn
+        .query_row("SELECT COUNT(*) FROM experiment_events WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(events_count_after, 0);
+
+    let trials_count_after: i64 = conn
+        .query_row("SELECT COUNT(*) FROM experiment_trials WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(trials_count_after, 0);
+
+    let scales_count_after: i64 = conn
+        .query_row("SELECT COUNT(*) FROM experiment_scales WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .unwrap();
+    assert_eq!(scales_count_after, 0);
+}
+
+#[test]
+fn delete_experiment_run_rejects_running_and_unauthorized() {
+    let (_db, service, run) = setup();
+
+    // Rejection 1: cannot delete while still in running state
+    let err_running: Result<Run, String> = service.call(Box::new({
+        let run_id = run.run_id.clone();
+        move |w| w.delete_run(run_id, Some("operator".into()))
+    }));
+    assert!(err_running.is_err());
+    assert!(err_running.unwrap_err().contains("currently in progress"));
+
+    // Finish/abort run
+    let _: Run = service
+        .call(Box::new({
+            let run_id = run.run_id.clone();
+            move |w| w.finish(run_id, Some("aborted for test".into()))
+        }))
+        .unwrap();
+
+    // Rejection 2: unauthorized user
+    let err_unauth: Result<Run, String> = service.call(Box::new({
+        let run_id = run.run_id.clone();
+        move |w| w.delete_run(run_id, Some("other".into()))
+    }));
+    assert!(err_unauth.is_err());
+    assert!(err_unauth.unwrap_err().contains("not authorized"));
+}

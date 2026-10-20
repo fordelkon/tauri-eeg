@@ -625,6 +625,7 @@ pub fn run() {
             experiment::experiment_abort,
             experiment::experiment_list,
             experiment::experiment_get,
+            experiment::experiment_delete,
             experiment::experiment_associate_bdf,
             experiment::experiment_save_trial,
             experiment::experiment_link_scale,

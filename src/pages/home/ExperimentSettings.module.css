@@ -431,6 +431,16 @@
   overflow-wrap: anywhere;
 }
 
+.deleteBtn {
+  border-color: rgba(192, 57, 43, 0.35) !important;
+  color: #c0392b !important;
+}
+
+.deleteBtn:hover:not(:disabled) {
+  background: rgba(192, 57, 43, 0.08) !important;
+  border-color: #c0392b !important;
+}
+
 /* ---------------------------------------------------------------- */
 /* Stage swap (settings ↔ paradigm)                                  */
 /* ---------------------------------------------------------------- */

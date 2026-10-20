@@ -94,6 +94,8 @@ export function finishRun(
 }
 
 export const listRuns = (userId?: string) => invoke<ExperimentRun[]>('experiment_list', { userId });
+export const deleteRun = (runId: string, userId?: string) =>
+  invoke<ExperimentRun>('experiment_delete', { runId, userId });
 export const associateBdf = (runId: string, bdfFiles: string[]) =>
   invoke<ExperimentRun>('experiment_associate_bdf', { runId, bdfFiles });
 export const exportRun = (runId: string, path: string) =>

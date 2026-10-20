@@ -138,3 +138,42 @@ pub fn link_scale(
     .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+pub fn delete(conn: &Connection, run_id: &str, user_id: Option<&str>) -> Result<Run, String> {
+    let run = store::run(conn, run_id)?;
+    if let Some(uid) = user_id {
+        if run.input.user_id != uid {
+            return Err("You are not authorized to delete this experiment run.".into());
+        }
+    }
+    if run.status == "running" || run.status == "active" {
+        return Err("Cannot delete an experiment run that is currently in progress.".into());
+    }
+
+    conn.execute(
+        "DELETE FROM experiment_scales WHERE run_id = ?1",
+        params![run_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "DELETE FROM experiment_events WHERE run_id = ?1",
+        params![run_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "DELETE FROM experiment_trials WHERE run_id = ?1",
+        params![run_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "DELETE FROM experiment_runs WHERE run_id = ?1",
+        params![run_id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(run)
+}
+

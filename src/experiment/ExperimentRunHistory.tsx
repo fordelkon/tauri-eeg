@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useAuth } from '../auth/AuthContext';
-import { associateBdf, exportRun, listRuns, type ExperimentRun } from './api';
+import { associateBdf, deleteRun, exportRun, listRuns, type ExperimentRun } from './api';
 import { isTauriAvailable } from '../ui/tauriEnvironment';
 import { describeFriendlyError } from '../ui/friendlyError';
+import { useConfirmDialog } from '../ui/useConfirmDialog';
 import styles from '../pages/home/ExperimentSettings.module.css';
 
 const statusLabels: Record<string, string> = {
@@ -22,6 +23,7 @@ const flowLabels: Record<string, string> = {
 export default function ExperimentRunHistory() {
   const { currentUser } = useAuth();
   const userId = currentUser?.id ?? null;
+  const { confirm, confirmDialogElement } = useConfirmDialog();
   const [runs, setRuns] = useState<ExperimentRun[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -127,9 +129,31 @@ export default function ExperimentRunHistory() {
             >
               导出实验日志
             </button>
+            <button
+              disabled={busy || run.status === 'running' || run.status === 'active'}
+              className={`${styles.deleteBtn} ${busy ? styles.isBusy : ''}`}
+              onClick={() =>
+                void perform(async () => {
+                  const ok = await confirm({
+                    title: '删除实验记录',
+                    description: `确定要删除被试 ${run.subjectId} 的本次实验记录（${run.runId}）吗？关联的事件记录和试次数据将被彻底删除，此操作不可逆。`,
+                    confirmText: '删除',
+                    cancelText: '取消',
+                    destructive: true,
+                  });
+                  if (!ok) return;
+                  await deleteRun(run.runId, userId ?? undefined);
+                  setNotice(`已删除实验记录：${run.runId}`);
+                  await refresh();
+                })
+              }
+            >
+              删除记录
+            </button>
           </div>
         </details>
       ))}
+      {confirmDialogElement}
     </section>
   );
 }

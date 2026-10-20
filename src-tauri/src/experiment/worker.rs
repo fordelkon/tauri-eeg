@@ -96,6 +96,10 @@ impl Worker {
             &run_id,
         )
     }
+    pub fn delete_run(&self, run_id: String, user_id: Option<String>) -> Result<Value, String> {
+        let conn = self.db.lock().map_err(|_| "Database unavailable")?;
+        value(records::delete(&conn, &run_id, user_id.as_deref())?)
+    }
     pub fn associate_bdf(&self, run_id: String, bdf_files: Vec<String>) -> Result<Value, String> {
         let conn = self.db.lock().map_err(|_| "Database unavailable")?;
         value(records::associate_bdf(&conn, &run_id, bdf_files)?)

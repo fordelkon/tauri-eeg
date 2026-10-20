@@ -118,6 +118,14 @@ pub async fn experiment_get(service: State<'_, Service>, run_id: String) -> Resu
     call(service, Box::new(move |w| w.record_detail(run_id))).await
 }
 #[tauri::command]
+pub async fn experiment_delete(
+    service: State<'_, Service>,
+    run_id: String,
+    user_id: Option<String>,
+) -> Result<Run, String> {
+    call(service, Box::new(move |w| w.delete_run(run_id, user_id))).await
+}
+#[tauri::command]
 pub async fn experiment_associate_bdf(
     service: State<'_, Service>,
     run_id: String,
