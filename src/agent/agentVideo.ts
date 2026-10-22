@@ -17,7 +17,7 @@ export function findAgentVideoMatch(
     };
   }
 
-  const query = normalizeAgentInput(input).replace(/播放|视频|放松/g, '');
+  const query = normalizeAgentInput(input).replace(/播放|视频|放松|诱发/g, '');
   const matched = catalog.find((video) => {
     const searchable = getSearchTerms(video).join('');
 
@@ -58,5 +58,12 @@ function pickNearestVideo(query: string, catalog: readonly RegulationVideo[]): R
 }
 
 function getSearchTerms(video: RegulationVideo): string[] {
-  return [video.title, video.relativePath, video.categoryLabel];
+  return [
+    video.title,
+    video.relativePath,
+    video.categoryLabel,
+    video.sceneLabel ?? '',
+    video.emotionLabel ?? '',
+    ...(video.tags ?? []),
+  ].filter(Boolean);
 }

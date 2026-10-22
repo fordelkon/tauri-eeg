@@ -108,13 +108,30 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
     };
   }, [thinkingBuffer]);
 
-  const recommendedPrompt = useMemo(() => getRecommendedPrompt(phase), [phase]);
+  const [videoRevision, setVideoRevision] = useState(0);
+
+  useEffect(() => {
+    const handleVideosUpdated = () => {
+      setVideoRevision((prev) => prev + 1);
+    };
+    window.addEventListener('regulation-videos-updated', handleVideosUpdated);
+    return () => window.removeEventListener('regulation-videos-updated', handleVideosUpdated);
+  }, []);
+
+  const recommendedPrompt = useMemo(
+    () => getRecommendedPrompt(phase),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [phase, videoRevision],
+  );
   const quickPrompts = useMemo(() => {
     const nextStepPrompt = getAgentPromptExamplesForPhase(phase).find(
       (prompt) => prompt === '下一步',
     );
     const phasePrompts = getAgentPromptExamplesForPhase(phase).filter(
-      (prompt) => prompt !== nextStepPrompt,
+      (prompt) =>
+        prompt !== nextStepPrompt &&
+        prompt !== recommendedPrompt &&
+        (phase !== 'video_regulation' || prompt !== '播放放松视频'),
     );
     const generatedPrompts = getLocalRegulationPromptExamples(phase);
 
@@ -124,7 +141,8 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
       ...generatedPrompts,
       ...(nextStepPrompt ? [nextStepPrompt] : []),
     ];
-  }, [phase, recommendedPrompt]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, recommendedPrompt, videoRevision]);
 
   const pushTimeline = useCallback(
     (type: AgentTimelineEntry['type'], text: string) => {

@@ -1,3 +1,6 @@
+import type { RegulationVideo } from '../video/paradigmRegulationCatalog';
+import { getCurrentRegulationVideos } from '../video/regulationVideoResources';
+
 export type AgentPhase =
   | 'intro'
   | 'baseline'
@@ -122,6 +125,16 @@ export function getNextAgentPhase(phase: AgentPhase): AgentPhase {
 }
 
 export function getRecommendedPrompt(phase: AgentPhase): string {
+  if (phase === 'video_regulation') {
+    const currentVideos = getCurrentRegulationVideos();
+    if (currentVideos.length > 0) {
+      const first = currentVideos[0];
+      if (first.emotion === 'anxiety') return '播放焦虑诱发视频';
+      if (first.emotion === 'depression') return '播放抑郁诱发视频';
+      if (first.emotion === 'fear') return '播放恐惧诱发视频';
+      if (first.emotion === 'calm') return '播放平静放松视频';
+    }
+  }
   return recommendedPrompts[phase];
 }
 
@@ -129,10 +142,74 @@ export function getAgentPromptExamplesForPhase(phase: AgentPhase): readonly stri
   return phasePromptExamples[phase];
 }
 
+export function extractVideoTagPromptCandidates(
+  videos: readonly RegulationVideo[],
+): string[] {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (prompt: string) => {
+    if (!seen.has(prompt)) {
+      seen.add(prompt);
+      candidates.push(prompt);
+    }
+  };
+
+  // 1. Scene labels (e.g. 封闭暗室, 太空舱室, 童话治愈, 海岸浪花, 水流雨声)
+  for (const video of videos) {
+    if (video.sceneLabel) {
+      const cleanLabel = video.sceneLabel.replace(/绝境|永别|悬念/g, '');
+      add(`播放${cleanLabel}视频`);
+    }
+  }
+
+  // 2. Specific tags (e.g. 海景, 星空, 灾难, 逃生, 密闭, 悬疑)
+  for (const video of videos) {
+    if (video.tags) {
+      for (const tag of video.tags) {
+        if (tag.length >= 2 && !['焦虑', '抑郁', '恐惧', '平静'].includes(tag)) {
+          add(`播放${tag}视频`);
+        }
+      }
+    }
+  }
+
+  // 3. Category labels if descriptive
+  for (const video of videos) {
+    if (
+      video.categoryLabel &&
+      !['平静视频', '焦虑诱发', '抑郁诱发', '恐惧诱发', 'uncategorized'].includes(
+        video.categoryLabel,
+      )
+    ) {
+      const cleanCat = video.categoryLabel.replace(/绝境|永别|悬念/g, '');
+      add(`播放${cleanCat}视频`);
+    }
+  }
+
+  return candidates;
+}
+
 export function getLocalRegulationPromptExamples(
   phase: AgentPhase,
   random: () => number = Math.random,
 ): string[] {
+  if (phase === 'video_regulation') {
+    const currentVideos = getCurrentRegulationVideos();
+    if (currentVideos.length > 0) {
+      const candidates = extractVideoTagPromptCandidates(currentVideos);
+      if (candidates.length > 0) {
+        const pool = [...candidates];
+        const selected: string[] = [];
+        while (selected.length < 2 && pool.length > 0) {
+          const index = Math.floor(random() * pool.length);
+          selected.push(pool.splice(index, 1)[0]);
+        }
+        return selected;
+      }
+    }
+  }
+
   const pool = localRegulationPromptPools[phase] ?? [];
   const candidates = [...pool];
   const selected: string[] = [];

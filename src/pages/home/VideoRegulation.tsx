@@ -4,9 +4,11 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMaterialLibraryLoader } from '../../paradigm/useMaterialLibrary';
 import {
-  buildRegulationVideos,
+  buildAllRegulationVideos,
   filterRegulationVideos,
+  getEmotionSummary,
   getRegulationCategories,
+  type EmotionKey,
   type RegulationVideo,
 } from '../../video/paradigmRegulationCatalog';
 import {
@@ -25,10 +27,13 @@ import browserStyles from './VideoRegulationBrowser.module.css';
 
 export default function VideoRegulation() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const filterScrollRef = useRef<HTMLDivElement | null>(null);
   const [initialRootPath] = useState(readStoredParadigmLibraryRootPath);
   const { loader, state: libraryState } = useMaterialLibraryLoader();
   const [activeVideo, setActiveVideo] = useState<RegulationVideo | null>(null);
+  const [emotion, setEmotion] = useState<EmotionKey>('calm');
   const [category, setCategory] = useState('');
+  const [waterOnly, setWaterOnly] = useState(false);
   const [search, setSearch] = useState('');
   const [choosingLibrary, setChoosingLibrary] = useState(false);
   const [pickerError, setPickerError] = useState('');
@@ -38,11 +43,17 @@ export default function VideoRegulation() {
   });
   const library =
     libraryState.kind === 'ready' || libraryState.kind === 'invalid' ? libraryState.library : null;
-  const videos = useMemo(() => buildRegulationVideos(library?.calm ?? []), [library]);
-  const categories = useMemo(() => getRegulationCategories(videos), [videos]);
+
+  const videos = useMemo(() => buildAllRegulationVideos(library), [library]);
+  const emotionSummary = useMemo(() => getEmotionSummary(videos), [videos]);
+  const emotionVideos = useMemo(
+    () => videos.filter((video) => video.emotion === emotion),
+    [videos, emotion],
+  );
+  const categories = useMemo(() => getRegulationCategories(emotionVideos), [emotionVideos]);
   const visibleVideos = useMemo(
-    () => filterRegulationVideos(videos, category, search),
-    [videos, category, search],
+    () => filterRegulationVideos(videos, category, search, emotion, waterOnly),
+    [videos, category, search, emotion, waterOnly],
   );
   const loadingLibrary = choosingLibrary || libraryState.kind === 'loading';
   const libraryRoot = libraryState.kind === 'idle' ? initialRootPath : libraryState.rootPath;
@@ -59,9 +70,12 @@ export default function VideoRegulation() {
     void loader.load(initialRootPath);
   }, [initialRootPath, loader]);
   useEffect(() => {
-    setCurrentRegulationVideos(videos);
+    setCurrentRegulationVideos(visibleVideos);
     return () => setCurrentRegulationVideos([]);
-  }, [videos]);
+  }, [visibleVideos]);
+  useEffect(() => {
+    filterScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [emotion]);
   usePauseMediaOnChange(videoRef, activeVideo?.id);
 
   useEffect(() => {
@@ -101,7 +115,12 @@ export default function VideoRegulation() {
       if (result && (result.kind === 'ready' || result.kind === 'invalid')) {
         setCategory('');
         setSearch('');
-        if (result.library.calm.length > 0) writeStoredParadigmLibraryRootPath(result.rootPath);
+        const total =
+          (result.library.calm?.length ?? 0) +
+          (result.library.anxiety?.length ?? 0) +
+          (result.library.depression?.length ?? 0) +
+          (result.library.fear?.length ?? 0);
+        if (total > 0) writeStoredParadigmLibraryRootPath(result.rootPath);
       }
     } catch (error) {
       setPickerError(describeFriendlyError(error, '选择视频库'));
@@ -110,22 +129,25 @@ export default function VideoRegulation() {
     }
   };
 
+  const currentEmotionLabel = emotionSummary.find((item) => item.value === emotion)?.label ?? '平静';
+
   return (
     <section
       className={`${styles.workspace} mx-auto flex w-full flex-col`}
       aria-label="视频调控工作区"
     >
-      <header className={`${styles.header} flex items-start justify-between`}>
+      <header className={`${styles.header} flex flex-col justify-between gap-3 md:flex-row md:items-end`}>
         <div>
-          <div className={styles.eyebrow}>视频调节刺激</div>
-          <h1 className={styles.title}>视频调控</h1>
+          <span className={styles.eyebrow}>多模态实验 · 视频库浏览器</span>
+          <h1 className={styles.title}>视频素材多维分层选择</h1>
           <p className={styles.description}>
-            从平静视频库中选择素材，按文件夹分类浏览，也可以搜索文件名。
+            分层浏览与检索实验素材库。支持按情绪大类、场景内容与标签特征多级筛选，可用于心境调控干预或诱发视频试听。
           </p>
         </div>
-        <div className={`${styles.statusBar} flex flex-wrap items-center justify-end`}>
+        <div className={`${styles.statusBar} flex flex-wrap items-center gap-2`}>
           <span
-            className={`${styles.statusPill} inline-flex items-center ${activeVideo ? styles.playing : styles.idle}`}
+            className={`${styles.statusPill} inline-flex items-center gap-1.5`}
+            data-testid="video-library-status"
           >
             <SlideshowRoundedIcon fontSize="small" />
             {activeVideo ? '播放中' : loadingLibrary ? '加载中' : '就绪'}
@@ -142,7 +164,9 @@ export default function VideoRegulation() {
       </header>
       <RegulationSessionBanner context={regulationContext} className={styles.effectSessionBanner} />
       <div className={`${styles.libraryNotice} grid`}>
-        <span>当前视频库 · Calm 平静素材</span>
+        <span>
+          当前素材库 · {currentEmotionLabel}素材 (共 {visibleVideos.length} / {emotionVideos.length} 部)
+        </span>
         <code>{libraryRoot}</code>
         {!isTauriAvailable() ? (
           <span className={styles.libraryEnvironmentNotice} role="status">
@@ -156,59 +180,111 @@ export default function VideoRegulation() {
         className={`${styles.contentGrid} ${styles.withResults} ${browserStyles.browserGrid} grid`}
       >
         <main
-          className={`${styles.selectorPanel} ${browserStyles.filterPanel} grid`}
-          aria-label="视频分类选择器"
+          className={`${styles.selectorPanel} ${browserStyles.filterPanel}`}
+          aria-label="视频分层选择器"
         >
           <div className={`${styles.panelHeader} grid`}>
-            <span>素材分类</span>
-            <strong>{videos.length} 个视频</strong>
+            <span>分层筛选器</span>
+            <strong>{visibleVideos.length} / {videos.length} 个视频</strong>
           </div>
-          <div className={browserStyles.categoryList}>
-            <button
-              type="button"
-              className={`${browserStyles.categoryButton} ${category === '' ? browserStyles.activeCategoryButton : ''}`}
-              aria-pressed={category === ''}
-              onClick={() => setCategory('')}
-            >
-              全部 <span>{videos.length}</span>
-            </button>
-            {categories.map((group) => (
-              <button
-                key={group.value}
-                type="button"
-                className={`${browserStyles.categoryButton} ${category === group.value ? browserStyles.activeCategoryButton : ''}`}
-                aria-pressed={category === group.value}
-                onClick={() => setCategory(group.value)}
-              >
-                {group.label} <span>{group.count}</span>
-              </button>
-            ))}
+
+          <div ref={filterScrollRef} className={browserStyles.filterScrollArea}>
+            {/* 第 1 层：情绪大类 */}
+            <div className={browserStyles.tierGroup}>
+              <span className={browserStyles.tierHeading}>第 1 层 · 情绪维度</span>
+              <div className={browserStyles.emotionTabs} role="group" aria-label="情绪大类选择">
+                {emotionSummary.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={`${browserStyles.emotionButton} ${
+                      emotion === item.value ? browserStyles.activeEmotionButton : ''
+                    }`}
+                    aria-pressed={emotion === item.value}
+                    onClick={() => {
+                      setEmotion(item.value);
+                      setCategory('');
+                    }}
+                  >
+                    {item.label} <span>{item.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 第 2 层：场景与分类 */}
+            <div className={browserStyles.tierGroup}>
+              <span className={browserStyles.tierHeading}>第 2 层 · 场景与内容分类</span>
+              <div className={browserStyles.categoryList}>
+                <button
+                  type="button"
+                  className={`${browserStyles.categoryButton} ${
+                    category === '' ? browserStyles.activeCategoryButton : ''
+                  }`}
+                  aria-pressed={category === ''}
+                  onClick={() => setCategory('')}
+                >
+                  全部场景 <span>{emotionVideos.length}</span>
+                </button>
+                {categories.map((group) => (
+                  <button
+                    key={group.value}
+                    type="button"
+                    className={`${browserStyles.categoryButton} ${
+                      category === group.value ? browserStyles.activeCategoryButton : ''
+                    }`}
+                    aria-pressed={category === group.value}
+                    onClick={() => setCategory(group.value)}
+                  >
+                    {group.label} <span>{group.count}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 第 3 层：特征过滤与搜索 */}
+            <div className={browserStyles.tierGroup}>
+              <span className={browserStyles.tierHeading}>第 3 层 · 特征过滤与检索</span>
+              <label className={browserStyles.searchLabel}>
+                搜索视频
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="输入文件名、分类或标签"
+                />
+              </label>
+              <label className={browserStyles.filterCheckbox}>
+                <input
+                  type="checkbox"
+                  checked={waterOnly}
+                  onChange={(event) => setWaterOnly(event.target.checked)}
+                />
+                仅含水体/海景/雨声视频
+              </label>
+              {(category || search || waterOnly || emotion !== 'calm') && (
+                <button
+                  type="button"
+                  className={styles.libraryButton}
+                  onClick={() => {
+                    setEmotion('calm');
+                    setCategory('');
+                    setSearch('');
+                    setWaterOnly(false);
+                  }}
+                >
+                  重置分层筛选
+                </button>
+              )}
+            </div>
           </div>
-          <label className={browserStyles.searchLabel}>
-            搜索视频
-            <input
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="文件名或分类"
-            />
-          </label>
-          {(category || search) && (
-            <button
-              type="button"
-              className={styles.libraryButton}
-              onClick={() => {
-                setCategory('');
-                setSearch('');
-              }}
-            >
-              清除筛选
-            </button>
-          )}
         </main>
-        <aside className={`${styles.libraryPanel} grid`} aria-label="筛选后的视频库">
+        <aside
+          className={`${styles.libraryPanel} ${browserStyles.libraryPanel}`}
+          aria-label="筛选后的视频库"
+        >
           <div className={`${styles.panelHeader} grid`}>
-            <span>可用素材</span>
+            <span>当前可用素材</span>
             <strong>{visibleVideos.length} 个视频</strong>
           </div>
           {loadingLibrary ? (
@@ -216,7 +292,7 @@ export default function VideoRegulation() {
               正在读取视频文件夹…
             </div>
           ) : visibleVideos.length > 0 ? (
-            <div className={`${styles.videoList} grid`}>
+            <div className={`${styles.videoList} ${browserStyles.videoListScroll} grid`}>
               {visibleVideos.map((video) => (
                 <article key={video.id} className={`${styles.videoCard} grid`}>
                   <div className={`${styles.thumbnail} grid place-items-center`} aria-hidden="true">
@@ -224,7 +300,30 @@ export default function VideoRegulation() {
                   </div>
                   <div className={`${styles.videoMeta} ${browserStyles.fileMeta} grid min-w-0`}>
                     <h2>{video.title}</h2>
-                    <p>{video.categoryLabel}</p>
+                    <div className={browserStyles.videoBadges}>
+                      {video.emotionLabel && (
+                        <span
+                          className={`${browserStyles.emotionBadge} ${
+                            video.emotion === 'calm'
+                              ? browserStyles.badgeCalm
+                              : video.emotion === 'anxiety'
+                              ? browserStyles.badgeAnxiety
+                              : video.emotion === 'depression'
+                              ? browserStyles.badgeDepression
+                              : browserStyles.badgeFear
+                          }`}
+                        >
+                          {video.emotionLabel}
+                        </span>
+                      )}
+                      <span className={browserStyles.sceneBadge}>{video.categoryLabel}</span>
+                      {video.sceneLabel && video.sceneLabel !== video.categoryLabel && (
+                        <span className={browserStyles.sceneBadge}>{video.sceneLabel}</span>
+                      )}
+                      {video.hasWater && (
+                        <span className={browserStyles.waterBadge}>含水景</span>
+                      )}
+                    </div>
                     <code>{video.relativePath}</code>
                   </div>
                   <button
@@ -242,8 +341,8 @@ export default function VideoRegulation() {
           ) : (
             <div className={styles.emptyState}>
               {videos.length > 0
-                ? '没有匹配的视频，请调整分类或搜索词。'
-                : '尚无可用的平静视频，请选择包含 Calm 子文件夹的视频根目录。'}
+                ? '没有匹配的视频，请调整情绪、分类或搜索条件。'
+                : '尚无可用的视频素材，请选择包含有效情绪子文件夹的视频根目录。'}
             </div>
           )}
         </aside>

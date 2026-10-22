@@ -8,4 +8,7 @@ export function getCurrentRegulationVideos(): readonly RegulationVideo[] {
 
 export function setCurrentRegulationVideos(videos: readonly RegulationVideo[]) {
   currentVideos = [...videos];
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('regulation-videos-updated'));
+  }
 }

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { buildRegulationVideos } from '../video/paradigmRegulationCatalog';
+import { setCurrentRegulationVideos } from '../video/regulationVideoResources';
 import {
   agentPromptExamples,
   getAgentPromptExamplesForPhase,
@@ -87,5 +89,27 @@ describe('agentFlow', () => {
       '生成情绪稳定音乐',
     ]);
     expect(getLocalRegulationPromptExamples('baseline')).toEqual([]);
+  });
+
+  it('dynamically adapts video prompt examples and recommended prompt to active tags', () => {
+    const fearVideos = buildRegulationVideos(
+      [
+        {
+          videoId: 'dark_room_01',
+          fileName: 'dark_room_01.mp4',
+          absolutePath: 'C:\\Fear\\dark_room_01.mp4',
+        },
+      ],
+      'fear',
+    );
+    setCurrentRegulationVideos(fearVideos);
+    try {
+      expect(getRecommendedPrompt('video_regulation')).toBe('播放恐惧诱发视频');
+      const examples = getLocalRegulationPromptExamples('video_regulation');
+      expect(examples.length).toBeGreaterThan(0);
+      expect(examples[0]).toMatch(/播放.*视频/);
+    } finally {
+      setCurrentRegulationVideos([]);
+    }
   });
 });

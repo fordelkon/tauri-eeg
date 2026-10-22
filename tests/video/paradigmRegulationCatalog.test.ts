@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { buildRegulationVideos, filterRegulationVideos, getRegulationCategories } from '../../src/video/paradigmRegulationCatalog';
+import {
+  buildAllRegulationVideos,
+  buildRegulationVideos,
+  filterRegulationVideos,
+  getEmotionSummary,
+  getRegulationCategories,
+} from '../../src/video/paradigmRegulationCatalog';
 import type { ParadigmVideoEntry } from '../../src/paradigm/types';
 
 const entries: ParadigmVideoEntry[] = [
@@ -45,4 +51,34 @@ describe('folder-based regulation catalog', () => {
     const videos = buildRegulationVideos([{ videoId: `${category}/a`, fileName: `${category}/a.mp4`, absolutePath: `/videos/Calm/${category}/a.mp4` }]);
     expect(getRegulationCategories(videos)).toEqual([{ value: category, label: category, count: 1 }]);
   });
+
+  test('aggregates multi-emotion library into hierarchical regulation catalog', () => {
+    const library = {
+      calm: [{ videoId: 'scenery/calm_vid01', fileName: 'scenery/calm_vid01.mp4', absolutePath: 'C:\\Calm\\scenery\\calm_vid01.mp4' }],
+      anxiety: [{ videoId: 'anxiety_vid01', fileName: 'anxiety_vid01.mp4', absolutePath: 'C:\\Anxiety\\anxiety_vid01.mp4' }],
+      depression: [{ videoId: 'depression_vid01', fileName: 'depression_vid01.mp4', absolutePath: 'C:\\Depression\\depression_vid01.mp4' }],
+      fear: [{ videoId: 'fear_vid01', fileName: 'fear_vid01.mp4', absolutePath: 'C:\\Fear\\fear_vid01.mp4' }],
+    };
+    const allVideos = buildAllRegulationVideos(library);
+    expect(allVideos).toHaveLength(4);
+    expect(allVideos.map(v => v.emotion)).toEqual(['calm', 'anxiety', 'depression', 'fear']);
+
+    const summary = getEmotionSummary(allVideos);
+    expect(summary).toEqual([
+      { value: 'calm', label: '平静', count: 1 },
+      { value: 'anxiety', label: '焦虑', count: 1 },
+      { value: 'depression', label: '抑郁', count: 1 },
+      { value: 'fear', label: '恐惧', count: 1 },
+    ]);
+
+    // Filtering by emotion
+    const calmOnly = filterRegulationVideos(allVideos, '', '', 'calm');
+    expect(calmOnly).toHaveLength(1);
+    expect(calmOnly[0].id).toBe('scenery/calm_vid01');
+
+    const anxietyOnly = filterRegulationVideos(allVideos, '', '', 'anxiety');
+    expect(anxietyOnly).toHaveLength(1);
+    expect(anxietyOnly[0].id).toBe('anxiety_vid01');
+  });
 });
+
