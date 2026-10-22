@@ -66,6 +66,14 @@ export function EffectFullscreenVideoRegulation({
   usePauseMediaOnChange(videoRef, activeAsset?.videoId);
 
   useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      setIsMediaReady(true);
+    }
+  }, [activeAsset?.videoId]);
+
+  useEffect(() => {
     if (shouldPause || interrupted) {
       videoRef.current?.pause();
     }
@@ -102,42 +110,18 @@ export function EffectFullscreenVideoRegulation({
       </header>
 
       <div className={styles.fullscreenVideoFrame}>
-        {isPlaying && activeAsset ? (
+        {activeAsset ? (
           <video
             key={activeAsset.videoId}
             ref={videoRef}
-            className={styles.fullscreenRegulationVideo}
+            className={isPlaying ? styles.fullscreenRegulationVideo : styles.fullscreenPreloadedVideo}
             src={toPlayableParadigmVideoUrl(activeAsset.absolutePath)}
-            autoPlay
+            autoPlay={isPlaying}
             loop
             playsInline
             preload="auto"
             onCanPlay={() => setIsMediaReady(true)}
-            onPlaying={() => {
-              if (!onsetRef.current && !interrupted) {
-                onsetRef.current = true;
-                onPlaying(activeAsset.videoId, {
-                  path: activeAsset.absolutePath,
-                  fileName: activeAsset.fileName,
-                });
-              }
-            }}
-            onError={() => {
-              setLoadFailed(true);
-              onError();
-            }}
-          />
-        ) : null}
-
-        {!isPlaying && activeAsset ? (
-          <video
-            key={activeAsset.videoId}
-            ref={videoRef}
-            className={styles.fullscreenPreloadedVideo}
-            src={toPlayableParadigmVideoUrl(activeAsset.absolutePath)}
-            playsInline
-            preload="auto"
-            onCanPlay={() => setIsMediaReady(true)}
+            onCanPlayThrough={() => setIsMediaReady(true)}
             onPlaying={() => {
               if (!onsetRef.current && !interrupted) {
                 onsetRef.current = true;

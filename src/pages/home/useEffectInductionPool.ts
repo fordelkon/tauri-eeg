@@ -14,7 +14,7 @@ export function useEffectInductionPool(
   inductionStatus: InductionPoolStatus;
   isInductionPoolLoading: boolean;
 } {
-  const library = useMaterialLibrary(step === 1 ? readStoredLibraryRootPath() : null);
+  const library = useMaterialLibrary(step <= 1 ? readStoredLibraryRootPath() : null);
   const pool =
     library.kind === 'ready' ? library.library[paradigmPoolKeyForEmotion(emotion)] : null;
   const inductionStatus = useMemo(

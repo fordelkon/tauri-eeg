@@ -50,6 +50,14 @@ export function EffectFullscreenInduction({
   const { enterFullscreen } = useParticipantFullscreen();
 
   useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      setIsMediaReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (interrupted) {
       videoRef.current?.pause();
       return;
@@ -62,6 +70,10 @@ export function EffectFullscreenInduction({
   const handleStartPlayback = () => {
     void enterFullscreen();
     onStartPlayback();
+  };
+
+  const handleMediaReady = () => {
+    setIsMediaReady(true);
   };
 
   return createPortal(
@@ -89,7 +101,17 @@ export function EffectFullscreenInduction({
           autoPlay={isPlaying}
           playsInline
           preload="auto"
-          onCanPlay={() => setIsMediaReady(true)}
+          onCanPlay={(event) => {
+            if (event.currentTarget.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+              handleMediaReady();
+            }
+          }}
+          onCanPlayThrough={handleMediaReady}
+          onLoadedData={(event) => {
+            if (event.currentTarget.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+              handleMediaReady();
+            }
+          }}
           onPlaying={() => {
             if (!onsetRef.current && !interrupted) {
               onsetRef.current = true;
