@@ -271,7 +271,7 @@ export function InductionStepPanel({
           isPlaying={isInductionPlaying}
           onError={onVideoError}
           onFinished={() => void flow.completeInduction()}
-          onPlaying={() => flow.inductionOnset(status.entry.videoId)}
+          onPlaying={(onset) => flow.inductionOnset(status.entry.videoId, onset)}
           startError={flow.actionError}
           isStarting={flow.isStartingRun}
           interrupted={state.interrupted}

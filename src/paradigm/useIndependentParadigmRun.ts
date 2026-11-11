@@ -2,6 +2,7 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { describeParadigmQueueProgress } from './paradigmBlockQueue';
 import { ParadigmExecution } from './paradigmExecution';
 import type { StartedParadigmRequest } from './ParadigmSetupPanel';
+import type { VideoOnsetInfo } from '../ui/videoFrameOnset';
 import type { SelfReport } from './types';
 
 export function useIndependentParadigmRun({
@@ -33,8 +34,8 @@ export function useIndependentParadigmRun({
     isStartingTrial: operation === 'begin',
     isEndingTrial: operation === 'end' || operation === 'skip',
     isFinalizing: operation === 'finalize',
-    handleVideoFirstPlay: () => {
-      void execution.videoFirstPlay(state);
+    handleVideoFirstPlay: (onset: VideoOnsetInfo) => {
+      void execution.videoFirstPlay(state, onset);
     },
     handleVideoEnded: () => {
       void execution.videoEnded(state);

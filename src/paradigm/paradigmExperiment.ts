@@ -21,7 +21,7 @@ export class ParadigmExperiment {
     this.stopped = true;
   }
 
-  async event(eventName: string, source = 'paradigm_phase') {
+  async event(eventName: string, source = 'paradigm_phase', details?: unknown) {
     if (this.stopped) return;
     const key = `${this.trialId ?? this.runId}:${eventName}`;
     const phase =
@@ -42,6 +42,7 @@ export class ParadigmExperiment {
       trialId: this.trialId ?? undefined,
       mediaId: this.snapshot?.videoId,
       source,
+      details,
       frontendMonotonicMs: performance.now(),
     }).then(() => {});
     this.events.set(key, pending);

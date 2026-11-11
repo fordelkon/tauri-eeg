@@ -1,4 +1,5 @@
 import { finishRun } from '../experiment/api';
+import { videoOnsetEventSource, type VideoOnsetInfo } from '../ui/videoFrameOnset';
 import { evaluateParadigmAcceptance } from './paradigmAcceptance';
 import { describeParadigmQueueProgress } from './paradigmBlockQueue';
 import { ParadigmExperiment } from './paradigmExperiment';
@@ -189,16 +190,22 @@ export class ParadigmExecution {
     }
   }
 
-  private mark(event: string, source?: string) {
-    return this.experiment.event(event, source).catch((error: unknown) => this.fail(error));
+  private mark(event: string, source?: string, details?: unknown) {
+    return this.experiment
+      .event(event, source, details)
+      .catch((error: unknown) => this.fail(error));
   }
 
-  videoFirstPlay(token: TrialCallbackToken) {
+  videoFirstPlay(token: TrialCallbackToken, onset?: VideoOnsetInfo) {
     if (!this.current(token) || token.trialPhase !== 'video' || this.videoStarted) return;
     const plan = this.snapshot.state.queue[token.currentTrialIndex];
     if (!plan) return;
     this.videoStarted = true;
-    return this.mark(`${plan.emotion}_video_start`, 'html_video_playing');
+    return this.mark(
+      `${plan.emotion}_video_start`,
+      videoOnsetEventSource(onset),
+      onset ? { onset } : undefined,
+    );
   }
 
   videoEnded(token: TrialCallbackToken) {

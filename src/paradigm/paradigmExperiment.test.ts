@@ -80,6 +80,22 @@ describe('independent trial recording', () => {
     ).toHaveLength(1);
   });
 
+  it('forwards the frame onset observation into the event payload', async () => {
+    const run = new ParadigmExperiment('run-onset');
+    await run.begin(plan);
+    await run.event('calm_video_start', 'html_video_frame', {
+      onset: { source: 'video_frame', deltaMs: 12 },
+    });
+    const onsetCall = ipc.emitEvent.mock.calls.find(
+      ([input]) => input.eventName === 'calm_video_start',
+    );
+    expect(onsetCall?.[0]).toMatchObject({
+      eventName: 'calm_video_start',
+      source: 'html_video_frame',
+      details: { onset: { source: 'video_frame', deltaMs: 12 } },
+    });
+  });
+
   it('persists an interrupted active trial without inventing SAM', async () => {
     const run = new ParadigmExperiment('run-3');
     await run.begin(plan);

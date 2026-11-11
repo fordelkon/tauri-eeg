@@ -3,6 +3,7 @@ import type { ExperimentPreferences } from '../../experiment/settings';
 import type { BatteryAnswers } from '../../mentalScale/instruments/battery';
 import type { ScalePhase } from '../../mentalScale/scaleRecordsApi';
 import { describeFriendlyError } from '../../ui/friendlyError';
+import { videoOnsetEventSource, type VideoOnsetInfo } from '../../ui/videoFrameOnset';
 import {
   createEffectEvaluationFlowState,
   regulationFinishModeFromRemaining,
@@ -17,6 +18,16 @@ type Draft = Pick<
   EffectEvaluationFlowState,
   'subjectId' | 'emotion' | 'method' | 'condition' | 'durationMinutes'
 >;
+
+/**
+ * §7.1: an onset payload in the event details overrides the default source so
+ * the log records whether the start mark came from the presented frame or the
+ * annotated `playing` fallback.
+ */
+function onsetSourceFromDetails(details: unknown): string | null {
+  const onset = (details as { onset?: VideoOnsetInfo } | undefined)?.onset;
+  return onset && typeof onset === 'object' ? videoOnsetEventSource(onset) : null;
+}
 type Snapshot = {
   state: EffectEvaluationFlowState;
   actionError: string | null;
@@ -84,8 +95,8 @@ export class EffectEvaluationExecution {
   bindPlayback = () => {
     const generation = this.generation;
     return {
-      inductionOnset: (mediaId: string) =>
-        generation === this.generation ? this.inductionOnset(mediaId) : Promise.resolve(),
+      inductionOnset: (mediaId: string, onset?: VideoOnsetInfo) =>
+        generation === this.generation ? this.inductionOnset(mediaId, onset) : Promise.resolve(),
       completeInduction: () =>
         generation === this.generation ? this.completeInduction() : Promise.resolve(false),
       beginRegulation: (mediaId?: string, details?: unknown) =>
@@ -143,11 +154,12 @@ export class EffectEvaluationExecution {
       .then(async () => {
         if (this.snapshot.state.interrupted) throw new Error('本次实验已中断。');
         const source =
-          eventName === 'music_regulation_start'
+          onsetSourceFromDetails(details) ??
+          (eventName === 'music_regulation_start'
             ? 'html_audio_playing'
             : eventName.endsWith('video_start') || eventName === 'video_regulation_start'
               ? 'html_video_playing'
-              : 'phase_transition';
+              : 'phase_transition');
         await this.dependencies.emitEvent({
           runId,
           eventId,
@@ -265,11 +277,14 @@ export class EffectEvaluationExecution {
     });
   };
 
-  inductionOnset = (mediaId: string): Promise<void> => {
+  inductionOnset = (mediaId: string, onset?: VideoOnsetInfo): Promise<void> => {
     if (!this.allowed(1) || !this.snapshot.state.runId) return Promise.resolve();
-    return this.event(`${this.snapshot.state.emotion}_video_start`, 'induction', mediaId).catch(
-      () => {},
-    );
+    return this.event(
+      `${this.snapshot.state.emotion}_video_start`,
+      'induction',
+      mediaId,
+      onset ? { onset } : undefined,
+    ).catch(() => {});
   };
 
   completeInduction = (): Promise<boolean> => {

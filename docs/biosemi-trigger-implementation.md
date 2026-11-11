@@ -34,7 +34,7 @@
 - `src/pages/home/ExperimentSettings.tsx` 提供串口连接、测试、素材库和模式设置。
 - `src/experiment/ExperimentRunHistory.tsx` 提供 BDF 关联与日志导出。
 - `src-tauri/src/experiment/` 提供单线程串口输出、实验持久化和事件校验。
-- `src/pages/home/useEffectEvaluationFlow.ts` 接入效果评价，播放器首次 `playing` 事件启动条件计时和打标。
+- `src/pages/home/effectEvaluationExecution.ts` 接入效果评价；`src/ui/videoFrameOnset.ts` 在播放器首次 `playing` 时经 `requestVideoFrameCallback` 检测首次呈现帧，以首帧（`html_video_frame`）或标注后备（`html_video_playing`）打标并启动条件计时。
 - `src/paradigm/paradigmExperiment.ts` 与 `useIndependentParadigmRun.ts` 接入逐试次流程。
 - 旧采集页面与前后端设备通信运行代码已删除，旧 `/eeg-acquisition` 路由已移除。
 
@@ -201,7 +201,7 @@ Trigger 设置显示 COM 端口、刷新、连接、断开、测试与最近发�
 
 ### 7.1 视频
 
-先加载素材并进入准备状态。首次有效播放事件报告 `software_video_onset`，发送对应 trigger，并启动同一阶段的计时。能够检测到首次呈现帧时记录检测来源；后备播放事件必须标注来源差异。
+先加载素材并进入准备状态。首次有效播放事件报告 `software_video_onset`，发送对应 trigger，并启动同一阶段的计时。打标以首次呈现帧为目标：`playing` 时通过 `requestVideoFrameCallback` 注册首帧回调，检测到首帧后以 `html_video_frame` 来源发送，`details.onset` 记录 `source: video_frame` 与 `playing→首帧` 的 `deltaMs`；WebView2 不支持该回调或 500 ms 内未呈现首帧时降级为 `playing` 后备，来源标注 `html_video_playing`（`source: playing_fallback`）。同一次播放只发送一个开始事件，帧检测与后备不产生第二个码。
 
 该检测是软件时点，不等于显示器真实亮起。不得承诺首帧与脉冲严格同时，日志保存呈现检测与串口写入两个时间。
 

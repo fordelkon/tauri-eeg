@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
+import { useFirstVideoFrameOnset } from '../../ui/videoFrameOnset';
 import type { ParadigmVideoEntry } from '../../paradigm/types';
 import type { EffectEvaluationFlowState, RegulationFinishMode } from './effectEvaluationFlow';
 import { ConditionCountdown } from './EffectConditionCountdown';
@@ -56,10 +57,17 @@ export function EffectFullscreenVideoRegulation({
   windowNoun,
 }: EffectFullscreenVideoRegulationProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const onsetRef = useRef(false);
   const [loadFailed, setLoadFailed] = useState(false);
   const [isMediaReady, setIsMediaReady] = useState(false);
   const activeAsset = assets[selectDefaultVideoIndex(assets)] ?? null;
+  const handleFirstPlaying = useFirstVideoFrameOnset((onset) => {
+    if (!activeAsset) return;
+    onPlaying(activeAsset.videoId, {
+      path: activeAsset.absolutePath,
+      fileName: activeAsset.fileName,
+      onset,
+    });
+  });
   const shouldPause = shouldPauseAt(isPlaying && finishMode.mode === 'finish' ? 0 : null);
   const { enterFullscreen } = useParticipantFullscreen();
 
@@ -122,14 +130,8 @@ export function EffectFullscreenVideoRegulation({
             preload="auto"
             onCanPlay={() => setIsMediaReady(true)}
             onCanPlayThrough={() => setIsMediaReady(true)}
-            onPlaying={() => {
-              if (!onsetRef.current && !interrupted) {
-                onsetRef.current = true;
-                onPlaying(activeAsset.videoId, {
-                  path: activeAsset.absolutePath,
-                  fileName: activeAsset.fileName,
-                });
-              }
+            onPlaying={(event) => {
+              if (!interrupted) handleFirstPlaying(event.currentTarget);
             }}
             onError={() => {
               setLoadFailed(true);

@@ -1,6 +1,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useFirstVideoFrameOnset, type VideoOnsetInfo } from '../ui/videoFrameOnset';
 import { toPlayableVideoUrl } from '../video/videoRegulationCatalog';
 import {
   VIDEO_LOAD_WATCHDOG_MS,
@@ -50,8 +51,8 @@ type Props = {
   onRequestEarlyEnd: () => void;
   /** Fired when a countdown-driven phase reaches zero. */
   onCountdownComplete: () => void;
-  /** Fired once per trial when the video actually starts playing. */
-  onVideoFirstPlay: () => void;
+  /** Fired once per trial at the first presented frame (or its annotated fallback). */
+  onVideoFirstPlay: (onset: VideoOnsetInfo) => void;
   onVideoError: () => void;
   onVideoEnded: () => void;
   onVideoDurationLoaded: (durationSeconds: number | null) => void;
@@ -252,7 +253,7 @@ function PreheatVideo({ plan }: { plan: ParadigmTrialPlanItem }) {
 
 type VideoStageProps = {
   plan: ParadigmTrialPlanItem;
-  onVideoFirstPlay: () => void;
+  onVideoFirstPlay: (onset: VideoOnsetInfo) => void;
   onVideoError: () => void;
   onVideoEnded: () => void;
   onVideoDurationLoaded: (durationSeconds: number | null) => void;
@@ -269,7 +270,7 @@ function VideoStage({
 }: VideoStageProps) {
   const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
-  const firstPlayRef = useRef(false);
+  const handleFirstPlaying = useFirstVideoFrameOnset(onVideoFirstPlay);
   // Set once the video demonstrably advances; disarms the watchdog.
   const playbackAdvancedRef = useRef(false);
 
@@ -322,12 +323,7 @@ function VideoStage({
         src={toPlayableVideoUrl(plan.videoPath, convertFileSrc)}
         autoPlay
         playsInline
-        onPlaying={() => {
-          if (!firstPlayRef.current) {
-            firstPlayRef.current = true;
-            onVideoFirstPlay();
-          }
-        }}
+        onPlaying={(event) => handleFirstPlaying(event.currentTarget)}
         onTimeUpdate={() => {
           playbackAdvancedRef.current = true;
         }}

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { ParadigmVideoEntry } from '../../paradigm/types';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
+import { useFirstVideoFrameOnset, type VideoOnsetInfo } from '../../ui/videoFrameOnset';
 import { useParticipantFullscreen } from './useParticipantFullscreen';
 import styles from './EffectEvaluation.module.css';
 
@@ -10,7 +11,8 @@ type EffectFullscreenInductionProps = {
   entry: ParadigmVideoEntry;
   isPlaying: boolean;
   onError: () => void;
-  onPlaying: () => void;
+  /** Fired once at the first presented frame (or its annotated fallback). */
+  onPlaying: (onset: VideoOnsetInfo) => void;
   interrupted: boolean;
   startError: string | null;
   isStarting: boolean;
@@ -45,7 +47,7 @@ export function EffectFullscreenInduction({
   subjectId,
 }: EffectFullscreenInductionProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const onsetRef = useRef(false);
+  const handleFirstPlaying = useFirstVideoFrameOnset(onPlaying);
   const [isMediaReady, setIsMediaReady] = useState(false);
   const { enterFullscreen } = useParticipantFullscreen();
 
@@ -112,11 +114,8 @@ export function EffectFullscreenInduction({
               handleMediaReady();
             }
           }}
-          onPlaying={() => {
-            if (!onsetRef.current && !interrupted) {
-              onsetRef.current = true;
-              onPlaying();
-            }
+          onPlaying={(event) => {
+            if (!interrupted) handleFirstPlaying(event.currentTarget);
           }}
           onEnded={onFinished}
           onError={onError}
