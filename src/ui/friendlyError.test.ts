@@ -84,6 +84,18 @@ describe('describeFriendlyError', () => {
     }
   });
 
+  it('maps an untested trigger to the operator action instead of the generic retry line', () => {
+    const errorSpy = spyOnConsoleError();
+
+    try {
+      expect(describeFriendlyError('Trigger test has not passed since the last connection.')).toBe(
+        '正式实验开始前,请先发送测试 Trigger(254)并在 ActiView/BDF 中确认收到标记。',
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('passes through backend text that is already localized Chinese', () => {
     const errorSpy = spyOnConsoleError();
     const localized = '视频库文件夹中缺少 JSON 索引文件。';

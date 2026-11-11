@@ -1,8 +1,16 @@
 import { invoke } from '@tauri-apps/api/core';
 
 export type ExperimentMode = 'formal' | 'rehearsal';
+export type TriggerPortKind = 'bluetooth' | 'usb' | 'pci' | 'unknown';
+export type TriggerPort = {
+  portName: string;
+  description: string;
+  kind: TriggerPortKind;
+};
 export type TriggerStatus = {
   connected: boolean;
+  /** True once a test pulse (254) has succeeded since the last connect. */
+  tested: boolean;
   portName: string | null;
   activeRunId: string | null;
   lastError: string | null;
@@ -60,8 +68,7 @@ export type EmitEventInput = {
   details?: unknown;
 };
 
-export const listTriggerPorts = () =>
-  invoke<{ portName: string; description: string }[]>('trigger_list_ports');
+export const listTriggerPorts = () => invoke<TriggerPort[]>('trigger_list_ports');
 export const getTriggerStatus = () => invoke<TriggerStatus>('trigger_status');
 export const connectTrigger = (portName: string) =>
   invoke<TriggerStatus>('trigger_connect', { portName });

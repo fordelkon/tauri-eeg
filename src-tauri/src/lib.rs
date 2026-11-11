@@ -558,7 +558,11 @@ async fn delete_subject(
     let (target_id, target_user_id) = match (id, user_id, input) {
         (_, _, Some(inp)) => (inp.id, inp.user_id),
         (Some(i), Some(u), _) => (i, u),
-        _ => return Err("Both subject ID and user ID are required.".to_string().into()),
+        _ => {
+            return Err("Both subject ID and user ID are required."
+                .to_string()
+                .into())
+        }
     };
 
     let db = db.inner().clone();

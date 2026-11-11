@@ -5,6 +5,7 @@ const prepared: PreparationInput = {
   mode: 'formal',
   desktop: true,
   connected: true,
+  triggerTested: true,
   libraryValidated: true,
   externalRecordingConfirmed: true,
   activeRunId: null,
@@ -21,9 +22,17 @@ describe('experiment preparation readiness', () => {
         ...prepared,
         mode: 'rehearsal',
         connected: false,
+        triggerTested: false,
         externalRecordingConfirmed: false,
       }),
     ).toEqual({ canEnter: true, blockers: [] });
+  });
+
+  it('prevents formal entry until the trigger test has passed since the last connect', () => {
+    expect(getPreparationReadiness({ ...prepared, triggerTested: false })).toEqual({
+      canEnter: false,
+      blockers: ['请先发送测试 Trigger（254），并在 ActiView/BDF 中确认收到标记。'],
+    });
   });
 
   it('prevents formal entry when BDF saving has not been confirmed', () => {
@@ -63,6 +72,7 @@ describe('experiment preparation readiness', () => {
       getPreparationReadiness({
         ...prepared,
         connected: false,
+        triggerTested: false,
         libraryValidated: false,
         externalRecordingConfirmed: false,
       }),
@@ -71,6 +81,7 @@ describe('experiment preparation readiness', () => {
       blockers: [
         '请先选择素材库并完成验证。',
         '请先连接触发盒。',
+        '请先发送测试 Trigger（254），并在 ActiView/BDF 中确认收到标记。',
         '请先在 ActiView 开始保存 BDF，并确认保存秒数正在增加。',
       ],
     });

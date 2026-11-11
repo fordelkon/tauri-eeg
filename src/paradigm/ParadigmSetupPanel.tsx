@@ -53,16 +53,23 @@ type Props = {
 
 export default function ParadigmSetupPanel({ onStartSession, startPending, startError }: Props) {
   const [triggerConnected, setTriggerConnected] = useState(false);
+  const [triggerTested, setTriggerTested] = useState(false);
   const preferences = readExperimentPreferences();
   useEffect(() => {
     let disposed = false;
     const refresh = () =>
       void getTriggerStatus()
         .then((status) => {
-          if (!disposed) setTriggerConnected(status.connected);
+          if (!disposed) {
+            setTriggerConnected(status.connected);
+            setTriggerTested(status.tested);
+          }
         })
         .catch(() => {
-          if (!disposed) setTriggerConnected(false);
+          if (!disposed) {
+            setTriggerConnected(false);
+            setTriggerTested(false);
+          }
         });
     refresh();
     window.addEventListener('focus', refresh);
@@ -146,7 +153,10 @@ export default function ParadigmSetupPanel({ onStartSession, startPending, start
     [sessionKind, updateSessionKind],
   );
 
-  const devicesReady = triggerConnected && preferences.externalRecordingConfirmed;
+  // "Connected" alone is not proof the port can carry triggers — a Bluetooth
+  // virtual port opens just as happily and fails every write — so a passed
+  // test pulse (254) since the last connect is part of device readiness.
+  const devicesReady = triggerConnected && triggerTested && preferences.externalRecordingConfirmed;
   const subjectIdTrimmed = subjectId.trim();
   const sessionRunIdTrimmed = sessionRunId.trim();
   const libraryValid = library?.valid ?? false;
@@ -162,7 +172,7 @@ export default function ParadigmSetupPanel({ onStartSession, startPending, start
   const notReadyReason = dryRun
     ? '排练模式：保存实验日志，不发送硬件 Trigger。'
     : !devicesReady
-      ? '请到实验设置连接 Trigger，并确认 ActiView 已开始保存 BDF。'
+      ? '请到实验设置连接触发盒，发送测试 Trigger（254），并确认 ActiView 已开始保存 BDF。'
       : !libraryValid
         ? '等待有效的视频根目录…'
         : subjectIdTrimmed.length === 0
@@ -431,7 +441,7 @@ export default function ParadigmSetupPanel({ onStartSession, startPending, start
               className={`${styles.deviceLightDot} ${styles.miniLightDot} ${triggerConnected ? styles.connectedLightDot : ''}`}
               aria-hidden="true"
             />
-            Trigger {triggerConnected ? '已连接' : '未连接'}
+            Trigger {triggerConnected ? (triggerTested ? '已连接 · 测试通过' : '已连接 · 未测试') : '未连接'}
           </span>
 
           <button

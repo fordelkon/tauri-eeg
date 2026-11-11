@@ -129,6 +129,11 @@ impl Worker {
     pub fn set_active_mode_for_test(&mut self) {
         self.active.as_mut().unwrap().0.input.mode = "formal".into();
     }
+    #[cfg(test)]
+    pub fn set_trigger_state_for_test(&mut self, connected: bool, tested: bool) {
+        self.status.connected = connected;
+        self.status.tested = tested;
+    }
     pub fn connect(&mut self, name: String) -> Result<Value, String> {
         self.idle()?;
         if name.trim().is_empty() {
@@ -190,6 +195,9 @@ impl Worker {
     pub fn test(&mut self) -> Result<Value, String> {
         self.idle()?;
         self.pulse(254)?;
+        // A successful test pulse is the only proof that the opened port can
+        // actually carry trigger bytes; formal start depends on it.
+        self.status.tested = true;
         value(self.status.clone())
     }
     pub fn start(&mut self, input: StartInput) -> Result<Value, String> {
@@ -214,6 +222,12 @@ impl Worker {
             return Err(
                 "Connect the trigger interface and confirm external BDF recording first.".into(),
             );
+        }
+        // "Connected" only means the port handle opened. Requiring a test
+        // pulse since the last connect turns a wrong or unwritable port into
+        // a blocked start instead of an interrupted formal run.
+        if input.mode == "formal" && !self.status.tested {
+            return Err("Trigger test has not passed since the last connection.".into());
         }
         if input
             .duration_minutes
@@ -352,13 +366,20 @@ impl Worker {
             };
             if let Err(error) = persisted {
                 self.interrupt()?;
-                return Err(format!("Pulse outcome is unknown: {error}"));
+                return Err(format!(
+                    "触发盒标记发送结果未知（{error}），本次实验已中断。请重启应用后重试；若持续失败请反馈开发者。"
+                ));
             }
             if event.result == "failed" {
                 self.interrupt()?;
+                // Operator-facing copy: the raw driver error stays in the event
+                // record for data provenance, while the error that reaches the
+                // UI must say which hardware action to take — an English string
+                // would otherwise be flattened to a generic "稍后重试" line by
+                // describeFriendlyError and read as a media failure.
                 return Err(format!(
-                    "Trigger send failed: {}",
-                    event.error.as_deref().unwrap_or("unknown")
+                    "触发盒标记发送失败（{}）。本次实验已自动中断；请检查触发盒供电与 USB 连接（需要时可重新插拔），在设备页重新连接并测试通过后，重置流程重新开始。",
+                    event.error.as_deref().unwrap_or("未知错误")
                 ));
             }
         }

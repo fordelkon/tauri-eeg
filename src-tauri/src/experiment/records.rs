@@ -176,4 +176,3 @@ pub fn delete(conn: &Connection, run_id: &str, user_id: Option<&str>) -> Result<
 
     Ok(run)
 }
-

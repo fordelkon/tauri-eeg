@@ -45,6 +45,41 @@ fn formal_requires_confirmation_and_connection() {
 }
 
 #[test]
+fn formal_requires_trigger_test_since_last_connect() {
+    let (_, service) = setup();
+    let mut confirmed = input("formal");
+    confirmed.external_recording_confirmed = true;
+    service
+        .call::<serde_json::Value>(Box::new(|w| {
+            w.set_trigger_state_for_test(true, false);
+            Ok(serde_json::Value::Null)
+        }))
+        .unwrap();
+    // The call() closures are 'static, so each start gets its own owned input.
+    let first = confirmed.clone();
+    assert_eq!(
+        service
+            .call::<Run>(Box::new(move |w| w.start(first)))
+            .unwrap_err(),
+        "Trigger test has not passed since the last connection."
+    );
+    service
+        .call::<serde_json::Value>(Box::new(|w| {
+            w.set_trigger_state_for_test(true, true);
+            Ok(serde_json::Value::Null)
+        }))
+        .unwrap();
+    // The gate now passes: start proceeds to the run_start pulse, which fails
+    // in tests only because no real serial port exists.
+    assert_ne!(
+        service
+            .call::<Run>(Box::new(move |w| w.start(confirmed)))
+            .unwrap_err(),
+        "Trigger test has not passed since the last connection."
+    );
+}
+
+#[test]
 fn stale_run_and_end_before_onset_never_create_send_intentions() {
     let (db, service) = setup();
     let run: Run = service

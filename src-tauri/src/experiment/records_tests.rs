@@ -333,7 +333,12 @@ fn delete_experiment_run_cascades_and_removes_all_associated_data() {
     let (db, service, run) = setup();
     let id = save_scale(&db, &scale_input());
     link(&service, &run.run_id, &id, "baseline").unwrap();
-    trial(&service, &run.run_id, json!({"trialId": format!("{}:trial:1", run.run_id), "status": "ok"})).unwrap();
+    trial(
+        &service,
+        &run.run_id,
+        json!({"trialId": format!("{}:trial:1", run.run_id), "status": "ok"}),
+    )
+    .unwrap();
 
     // Abort the run so it's not active/running
     let _: Run = service
@@ -345,17 +350,29 @@ fn delete_experiment_run_cascades_and_removes_all_associated_data() {
 
     let conn = db.lock().unwrap();
     let events_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM experiment_events WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM experiment_events WHERE run_id=?1",
+            [&run.run_id],
+            |r| r.get(0),
+        )
         .unwrap();
     assert!(events_count > 0);
 
     let trials_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM experiment_trials WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM experiment_trials WHERE run_id=?1",
+            [&run.run_id],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(trials_count, 1);
 
     let scales_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM experiment_scales WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM experiment_scales WHERE run_id=?1",
+            [&run.run_id],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(scales_count, 1);
     drop(conn);
@@ -371,22 +388,38 @@ fn delete_experiment_run_cascades_and_removes_all_associated_data() {
 
     let conn = db.lock().unwrap();
     let runs_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM experiment_runs WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM experiment_runs WHERE run_id=?1",
+            [&run.run_id],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(runs_count, 0);
 
     let events_count_after: i64 = conn
-        .query_row("SELECT COUNT(*) FROM experiment_events WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM experiment_events WHERE run_id=?1",
+            [&run.run_id],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(events_count_after, 0);
 
     let trials_count_after: i64 = conn
-        .query_row("SELECT COUNT(*) FROM experiment_trials WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM experiment_trials WHERE run_id=?1",
+            [&run.run_id],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(trials_count_after, 0);
 
     let scales_count_after: i64 = conn
-        .query_row("SELECT COUNT(*) FROM experiment_scales WHERE run_id=?1", [&run.run_id], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM experiment_scales WHERE run_id=?1",
+            [&run.run_id],
+            |r| r.get(0),
+        )
         .unwrap();
     assert_eq!(scales_count_after, 0);
 }

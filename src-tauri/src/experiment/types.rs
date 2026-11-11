@@ -106,6 +106,11 @@ pub struct Event {
 #[serde(rename_all = "camelCase")]
 pub struct Status {
     pub connected: bool,
+    /// True once a test pulse (254) has succeeded since the last connect.
+    /// Opening a port only proves the handle exists: a Bluetooth virtual port
+    /// for a paired phone or headset opens just as happily and then fails
+    /// every write, so formal start requires this flag instead.
+    pub tested: bool,
     pub port_name: Option<String>,
     pub active_run_id: Option<String>,
     pub last_error: Option<String>,

@@ -81,7 +81,7 @@ pub fn list_subjects(conn: &Connection, user_id: &str) -> Result<Vec<Subject>, S
         .map_err(|e| format!("Database error: {}", e))?;
 
     let rows = stmt
-        .query_map(params![user_id], |row| map_subject_row(row))
+        .query_map(params![user_id], map_subject_row)
         .map_err(|e| format!("Database error: {}", e))?;
 
     rows.collect::<Result<Vec<_>, _>>()
@@ -98,7 +98,7 @@ pub fn get_subject(conn: &Connection, id: &str, user_id: &str) -> Result<Option<
         )
         .map_err(|e| format!("Database error: {}", e))?;
 
-    stmt.query_row(params![id, user_id], |row| map_subject_row(row))
+    stmt.query_row(params![id, user_id], map_subject_row)
         .optional()
         .map_err(|e| format!("Database error: {}", e))
 }
@@ -118,7 +118,7 @@ pub fn get_subject_by_code(
         )
         .map_err(|e| format!("Database error: {}", e))?;
 
-    stmt.query_row(params![user_id, subject_code], |row| map_subject_row(row))
+    stmt.query_row(params![user_id, subject_code], map_subject_row)
         .optional()
         .map_err(|e| format!("Database error: {}", e))
 }
@@ -149,7 +149,7 @@ pub fn save_subject(conn: &Connection, input: &SaveSubjectInput) -> Result<Subje
     }
 
     if let Some(year) = input.birth_year {
-        if year < 1900 || year > 2100 {
+        if !(1900..=2100).contains(&year) {
             return Err("Birth year must be between 1900 and 2100.".to_string());
         }
     }
@@ -194,7 +194,10 @@ pub fn save_subject(conn: &Connection, input: &SaveSubjectInput) -> Result<Subje
         if let Some((found_id, found_user_id)) = by_id {
             // Multi-tenant check: user must own this subject
             if found_user_id != user_id {
-                return Err("Permission denied: cannot modify subject belonging to another user.".to_string());
+                return Err(
+                    "Permission denied: cannot modify subject belonging to another user."
+                        .to_string(),
+                );
             }
             Some(found_id)
         } else {
@@ -318,17 +321,18 @@ pub fn delete_subject(conn: &Connection, id: &str, user_id: &str) -> Result<Subj
         None => {
             // Check if it exists for another user to report multi-tenant permission violation
             let exists_for_other: bool = conn
-                .query_row(
-                    "SELECT 1 FROM subjects WHERE id = ?1",
-                    params![id],
-                    |_| Ok(true),
-                )
+                .query_row("SELECT 1 FROM subjects WHERE id = ?1", params![id], |_| {
+                    Ok(true)
+                })
                 .optional()
                 .map_err(|e| format!("Database error: {}", e))?
                 .unwrap_or(false);
 
             if exists_for_other {
-                Err("Permission denied: cannot delete subject belonging to another user.".to_string())
+                Err(
+                    "Permission denied: cannot delete subject belonging to another user."
+                        .to_string(),
+                )
             } else {
                 Err("Subject not found.".to_string())
             }
@@ -753,9 +757,11 @@ mod tests {
             .expect("delete user alice");
 
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM subjects WHERE user_id = 'user-alice'", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE user_id = 'user-alice'",
+                [],
+                |row| row.get(0),
+            )
             .expect("count subjects");
 
         assert_eq!(count, 0);

@@ -7,6 +7,7 @@ import {
   getTriggerStatus,
   listTriggerPorts,
   testTrigger,
+  type TriggerPort,
   type TriggerStatus,
 } from '../../experiment/api';
 import { readExperimentPreferences, writeExperimentPreferences } from '../../experiment/settings';
@@ -31,6 +32,7 @@ import guide from './ExperimentPreparation.module.css';
 
 const emptyStatus: TriggerStatus = {
   connected: false,
+  tested: false,
   portName: null,
   activeRunId: null,
   lastError: null,
@@ -94,7 +96,7 @@ export default function ExperimentSettings() {
   const [step, setStep] = useState(0);
   const [destination, setDestination] = useState<ExperimentDestination>('effect');
   const [status, setStatus] = useState(emptyStatus);
-  const [ports, setPorts] = useState<{ portName: string; description: string }[]>([]);
+  const [ports, setPorts] = useState<TriggerPort[]>([]);
   const [port, setPort] = useState('');
   const [preferences, setPreferences] = useState(readExperimentPreferences);
   const [library, setLibrary] = useState(readStoredLibraryRootPath);
@@ -112,11 +114,15 @@ export default function ExperimentSettings() {
     mode: preferences.mode,
     desktop,
     connected: status.connected,
+    triggerTested: status.tested,
     libraryValidated: validatedLibrary !== '' && validatedLibrary === library.trim(),
     externalRecordingConfirmed: preferences.externalRecordingConfirmed,
     activeRunId: status.activeRunId,
   });
   const current = steps[step];
+  const selectedTriggerPort = ports.find(
+    (item) => item.portName === (status.connected ? status.portName : port),
+  );
 
   const perform = async (key: string, context: string, action: () => Promise<void>) => {
     setBusyKey(key);
@@ -139,7 +145,9 @@ export default function ExperimentSettings() {
         nextStatus.portName ||
         (nextPorts.some((item) => item.portName === currentPort)
           ? currentPort
-          : nextPorts[0]?.portName || ''),
+          : // Never auto-pick a Bluetooth virtual port: on this lab machine COM3/COM4
+            // are paired-earphone SPP ports that open but reject every write.
+            nextPorts.find((item) => item.kind !== 'bluetooth')?.portName || ''),
     );
   };
   useEffect(() => {
@@ -150,7 +158,7 @@ export default function ExperimentSettings() {
         if (!mounted) return;
         setStatus(nextStatus);
         setPorts(nextPorts);
-        setPort(nextStatus.portName || nextPorts[0]?.portName || '');
+        setPort(nextStatus.portName || nextPorts.find((item) => item.kind !== 'bluetooth')?.portName || '');
       })
       .catch((failure) => {
         if (mounted) setError(describeFriendlyError(failure, '读取触发盒状态'));
@@ -239,7 +247,11 @@ export default function ExperimentSettings() {
           <span className={formal ? guide.formalMode : guide.rehearsalMode}>
             {formal ? '正式实验 · 发送 Trigger' : '排练 · 不发送流程标记'}
           </span>
-          <span>{status.connected ? `触发盒已连接 · ${status.portName}` : '触发盒未连接'}</span>
+          <span>
+            {status.connected
+              ? `触发盒已连接 · ${status.portName}${status.tested ? ' · 测试通过' : ' · 未测试'}`
+              : '触发盒未连接'}
+          </span>
         </div>
       </header>
       <p className={styles.lede}>按步骤准备。tauri-eeg 呈现刺激并打标，ActiView 单独保存脑电。</p>
@@ -394,6 +406,18 @@ export default function ExperimentSettings() {
                     {status.connected ? '断开触发盒' : '连接触发盒'}
                   </button>
                 </div>
+                {selectedTriggerPort?.kind === 'bluetooth' && (
+                  <p className={styles.errorMessage} role="alert">
+                    {selectedTriggerPort.portName} 是蓝牙虚拟串口（手机、耳机等配对设备），不是触发盒；
+                    它可能显示「已连接」，但标记写入会失败。请插入 USB 触发盒后点击「刷新端口」，
+                    并选择 USB Serial Port（FTDI）。
+                  </p>
+                )}
+                {status.connected && !status.tested && (
+                  <p className={styles.muted}>
+                    已连接但尚未测试：正式实验前必须先发送测试 Trigger（254），并在 ActiView/BDF 中确认收到标记。
+                  </p>
+                )}
                 <button
                   type="button"
                   disabled={locked || !status.connected}
@@ -610,7 +634,7 @@ export default function ExperimentSettings() {
                     <dt>触发盒</dt>
                     <dd>
                       {status.connected
-                        ? `已连接 · ${status.portName}`
+                        ? `已连接 · ${status.portName}${status.tested ? ' · 测试通过' : ' · 未测试'}`
                         : formal
                           ? '尚未连接'
                           : '排练无需连接'}

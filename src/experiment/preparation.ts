@@ -7,6 +7,8 @@ export type PreparationInput = {
   mode: ExperimentMode;
   desktop: boolean;
   connected: boolean;
+  /** A test pulse (254) has succeeded since the last trigger connect. */
+  triggerTested: boolean;
   libraryValidated: boolean;
   externalRecordingConfirmed: boolean;
   activeRunId: string | null;
@@ -22,6 +24,8 @@ export function getPreparationReadiness(input: PreparationInput): {
   if (!input.libraryValidated) blockers.push('请先选择素材库并完成验证。');
   if (input.mode === 'formal') {
     if (!input.connected) blockers.push('请先连接触发盒。');
+    if (!input.triggerTested)
+      blockers.push('请先发送测试 Trigger（254），并在 ActiView/BDF 中确认收到标记。');
     if (!input.externalRecordingConfirmed)
       blockers.push('请先在 ActiView 开始保存 BDF，并确认保存秒数正在增加。');
   }

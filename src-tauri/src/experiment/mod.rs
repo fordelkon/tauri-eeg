@@ -36,6 +36,7 @@ async fn call<T: serde::de::DeserializeOwned + Send + 'static>(
 pub struct Port {
     port_name: String,
     description: String,
+    kind: String,
 }
 #[tauri::command]
 pub async fn trigger_list_ports() -> Result<Vec<Port>, String> {
@@ -47,14 +48,26 @@ pub async fn trigger_list_ports() -> Result<Vec<Port>, String> {
 
     Ok(ports
         .into_iter()
-        .map(|p| Port {
-            description: match p.port_type {
-                serialport::SerialPortType::UsbPort(info) => info
-                    .product
-                    .unwrap_or_else(|| "USB serial interface".into()),
-                _ => "Serial port".into(),
-            },
-            port_name: p.port_name,
+        .map(|p| {
+            // kind lets the UI keep Bluetooth virtual ports (paired earphones,
+            // phones…) out of the default trigger selection: they open
+            // successfully but every write returns zero bytes, which reads as
+            // a dead trigger box mid-experiment.
+            let (kind, description) = match p.port_type {
+                serialport::SerialPortType::UsbPort(info) => (
+                    "usb",
+                    info.product
+                        .unwrap_or_else(|| "USB serial interface".into()),
+                ),
+                serialport::SerialPortType::BluetoothPort => ("bluetooth", "蓝牙虚拟串口".into()),
+                serialport::SerialPortType::PciPort => ("pci", "PCI 串口".into()),
+                serialport::SerialPortType::Unknown => ("unknown", "串口设备".into()),
+            };
+            Port {
+                description,
+                kind: kind.into(),
+                port_name: p.port_name,
+            }
         })
         .collect())
 }
