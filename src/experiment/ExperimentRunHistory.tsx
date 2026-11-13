@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useAuth } from '../auth/AuthContext';
-import { associateBdf, deleteRun, exportRun, listRuns, type ExperimentRun } from './api';
+import { BdfAttachment } from './BdfAttachment';
+import { deleteRun, exportRun, listRuns, type ExperimentRun } from './api';
 import { isTauriAvailable } from '../ui/tauriEnvironment';
 import { describeFriendlyError } from '../ui/friendlyError';
 import { useConfirmDialog } from '../ui/useConfirmDialog';
@@ -89,28 +90,22 @@ export default function ExperimentRunHistory() {
             <br />
             {run.runId}
           </summary>
-          <p>{[run.emotion, run.condition, run.method].filter(Boolean).join(' · ')}</p>
-          <p>BDF：{run.bdfFiles.length ? run.bdfFiles.join('、') : '尚未关联'}</p>
+          <p>
+            {[run.emotion, run.condition, run.condition === 'regulation' ? run.method : null]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
+          {userId && (
+            <BdfAttachment
+              run={run}
+              userId={userId}
+              disabled={busy}
+              onSaved={(saved) =>
+                setRuns((items) => items.map((item) => (item.runId === saved.runId ? saved : item)))
+              }
+            />
+          )}
           <div className={styles.row}>
-            <button
-              disabled={
-                busy || run.mode !== 'formal' || run.status === 'running' || run.status === 'active'
-              }
-              className={busy ? styles.isBusy : undefined}
-              onClick={() =>
-                void perform(async () => {
-                  const files = await open({
-                    multiple: true,
-                    filters: [{ name: 'BioSemi BDF', extensions: ['bdf'] }],
-                  });
-                  if (!files) return;
-                  await associateBdf(run.runId, typeof files === 'string' ? [files] : files);
-                  await refresh();
-                })
-              }
-            >
-              关联 BDF 文件
-            </button>
             <button
               disabled={busy}
               className={busy ? styles.isBusy : undefined}

@@ -103,8 +103,8 @@ export function finishRun(
 export const listRuns = (userId?: string) => invoke<ExperimentRun[]>('experiment_list', { userId });
 export const deleteRun = (runId: string, userId?: string) =>
   invoke<ExperimentRun>('experiment_delete', { runId, userId });
-export const associateBdf = (runId: string, bdfFiles: string[]) =>
-  invoke<ExperimentRun>('experiment_associate_bdf', { runId, bdfFiles });
+export const associateBdf = (runId: string, userId: string, bdfFiles: string[]) =>
+  invoke<ExperimentRun>('experiment_associate_bdf', { runId, userId, bdfFiles });
 export const exportRun = (runId: string, path: string) =>
   invoke<{ path: string }>('experiment_export', { runId, path });
 export const linkScale = (runId: string, recordId: string, phase: 'baseline' | 'post') =>

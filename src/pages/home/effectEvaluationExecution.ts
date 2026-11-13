@@ -1,5 +1,6 @@
 import type { CreateRunInput, EmitEventInput } from '../../experiment/api';
 import type { ExperimentPreferences } from '../../experiment/settings';
+import { requirePreparedRecording } from '../../experiment/recordingPath';
 import type { BatteryAnswers } from '../../mentalScale/instruments/battery';
 import type { SamScore } from '../../mentalScale/instruments/sam';
 import type { ScalePhase } from '../../mentalScale/scaleRecordsApi';
@@ -249,6 +250,14 @@ export class EffectEvaluationExecution {
         if (this.dependencies.paradigmActive()) throw new Error('请先结束当前实验范式。');
         const current = this.snapshot.state;
         const preferences = this.dependencies.preferences();
+        if (preferences.mode === 'formal')
+          requirePreparedRecording(preferences, {
+            userId: this.dependencies.userId() ?? '',
+            subjectId: current.subjectId,
+            kind: 'effect_evaluation',
+            condition: current.condition,
+            method: current.method,
+          });
         const run = await this.dependencies.createRun({
           ...preferences,
           subjectId: current.subjectId.trim(),

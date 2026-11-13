@@ -17,18 +17,6 @@ type Props = {
 export function EffectResearchControls({ state, onChange, disabled }: Props) {
   return (
     <fieldset className={styles.fields} disabled={disabled} aria-label="本次效果评价">
-      <div className={form.fieldGrid}>
-        <label className={form.fieldLabel}>
-          <span className={form.fieldLabelText}>被试 ID</span>
-          <input
-            className={form.textInput}
-            value={state.subjectId}
-            onChange={(event) => onChange({ subjectId: event.currentTarget.value })}
-            placeholder="例如 subj-001"
-            autoComplete="off"
-          />
-        </label>
-      </div>
       <details className={styles.disclosure}>
         <summary>
           研究者配置<span>按需调整</span>

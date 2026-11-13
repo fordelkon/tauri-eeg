@@ -100,9 +100,14 @@ impl Worker {
         let conn = self.db.lock().map_err(|_| "Database unavailable")?;
         value(records::delete(&conn, &run_id, user_id.as_deref())?)
     }
-    pub fn associate_bdf(&self, run_id: String, bdf_files: Vec<String>) -> Result<Value, String> {
+    pub fn associate_bdf(
+        &self,
+        run_id: String,
+        user_id: String,
+        bdf_files: Vec<String>,
+    ) -> Result<Value, String> {
         let conn = self.db.lock().map_err(|_| "Database unavailable")?;
-        value(records::associate_bdf(&conn, &run_id, bdf_files)?)
+        value(records::associate_bdf(&conn, &run_id, &user_id, bdf_files)?)
     }
     pub fn save_trial(&self, run_id: String, trial: Value) -> Result<Value, String> {
         records::save_trial(

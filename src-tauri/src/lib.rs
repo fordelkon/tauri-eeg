@@ -1,4 +1,5 @@
 mod auth;
+mod bdf_destination;
 mod config;
 mod db;
 mod effect_reports;
@@ -616,6 +617,7 @@ pub fn run() {
             register_user,
             login_user,
             reset_user_password,
+            bdf_destination::reserve_bdf_destination,
             load_paradigm_video_library,
             build_paradigm_queue,
             experiment::trigger_list_ports,

@@ -241,7 +241,7 @@ export function isNodeActionable(node: EffectPipelineNode): boolean {
 const EVENT_LOG_STATUS_COPY: Record<EffectEventLogStatus, string> = {
   'not-started': '实验尚未开始',
   active: '实验事件记录中，BDF 由 ActiView 保存',
-  saved: '实验日志已保存，BDF 请在实验设置中关联',
+  saved: '实验日志已保存',
   interrupted: '实验已中断，请重新开始',
 };
 

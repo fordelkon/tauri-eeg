@@ -11,6 +11,7 @@ describe('page Chinese copy', () => {
       readText(new URL('./NotFound.tsx', import.meta.url)),
       readText(new URL('./home/HomeOverview.tsx', import.meta.url)),
       readText(new URL('./home/ExperimentSettings.tsx', import.meta.url)),
+      readText(new URL('./home/PreparationConnection.tsx', import.meta.url)),
       readText(new URL('./home/GameRegulation.tsx', import.meta.url)),
       readText(new URL('./home/MusicRegulation.tsx', import.meta.url)),
       // The music page's prompt builder / tag editor / history drawer /

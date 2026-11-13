@@ -1,3 +1,4 @@
+import { ResultBdfAttachment } from '../experiment/BdfAttachment';
 import { useNavigate } from 'react-router-dom';
 import { paradigmEmotionLabels, trialQualityLabels } from './types';
 import type { ParadigmSessionSummary } from './types';
@@ -88,7 +89,6 @@ export default function ParadigmFinishedScreen({
               唤醒度均值 {summary.arousalMean === null ? '—' : summary.arousalMean.toFixed(2)}
             </span>
           </div>
-          `r`n
           {summary.warnings.length > 0 ? (
             <ul className={styles.summaryWarnings}>
               {summary.warnings.map((warning) => (
@@ -100,6 +100,8 @@ export default function ParadigmFinishedScreen({
       ) : (
         <p className={styles.sectionHint}>正在加载训练前统计…</p>
       )}
+
+      {!dryRun && sessionId && <ResultBdfAttachment runId={sessionId} />}
 
       <div className={styles.actionRow}>
         <button type="button" className={styles.primaryButton} onClick={onReturnToSetup}>

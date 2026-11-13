@@ -56,17 +56,79 @@ pub fn detail(conn: &Connection, id: &str) -> Result<Value, String> {
 pub fn associate_bdf(
     conn: &Connection,
     run_id: &str,
+    user_id: &str,
     bdf_files: Vec<String>,
 ) -> Result<Run, String> {
-    if bdf_files
-        .iter()
-        .any(|p| p.trim().is_empty() || !p.to_lowercase().ends_with(".bdf"))
-    {
-        return Err("Provide BDF file names or absolute paths.".into());
-    }
     let mut run = store::run(conn, run_id)?;
-    if run.status == "running" {
+    if run.input.user_id != user_id {
+        return Err("该实验不属于当前账号。".into());
+    }
+    if run.status == "running" || run.status == "active" {
         return Err("Associate BDF files after the experiment.".into());
+    }
+    if run.input.mode != "formal" || bdf_files.is_empty() {
+        return Err("请选择已结束的正式实验及其 BDF。".into());
+    }
+    let mut seen = std::collections::HashSet::new();
+    for file in &bdf_files {
+        let path = std::path::Path::new(file);
+        if path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .is_some_and(|name| {
+                name.split('_').any(|part| {
+                    ["task-triggercheck", "acq-triggercheck"]
+                        .iter()
+                        .any(|p| part.eq_ignore_ascii_case(p))
+                })
+            })
+        {
+            return Err("这是触发测试文件，请选择正式实验 BDF。".into());
+        }
+        super::bdf_verify::verify(path)?;
+        let canonical = path.canonicalize().map_err(|_| "无法定位所选 BDF。")?;
+        // Windows canonicalize returns a verbatim path; reservation names use
+        // ordinary absolute paths. Match the resolved destination as well as
+        // the supplied spelling (e.g. aliases, slash variants or a junction).
+        let resolved = canonical.to_string_lossy();
+        let ordinary = resolved.strip_prefix(r"\\?\").unwrap_or(&resolved);
+        let reservation: Option<(String, String)> = conn
+            .query_row(
+                "SELECT user_id, subject_id FROM bdf_reservations
+                 WHERE path=?1 COLLATE NOCASE OR path=?2 COLLATE NOCASE",
+                params![file, ordinary],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        if let Some((owner, subject)) = reservation {
+            let expected = run
+                .input
+                .expected_recording_name
+                .as_deref()
+                .map(std::path::Path::new);
+            if owner != user_id
+                || subject != run.input.subject_id
+                || !expected.is_some_and(|p| p.canonicalize().ok().as_ref() == Some(&canonical))
+            {
+                return Err("所选文件已预留给其他实验。".into());
+            }
+        }
+        if !seen.insert(canonical) {
+            return Err("请勿重复选择同一文件。".into());
+        }
+    }
+    // A manual selection must not silently reassign another run's recording.
+    for other in list(conn, None)? {
+        if other.run_id != run.run_id
+            && other.bdf_files.iter().any(|f| {
+                std::path::Path::new(f)
+                    .canonicalize()
+                    .is_ok_and(|p| seen.contains(&p))
+            })
+        {
+            return Err("所选 BDF 已关联其他实验。".into());
+        }
     }
     run.bdf_files = bdf_files;
     store::save_run(conn, &run)?;

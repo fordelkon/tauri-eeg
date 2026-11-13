@@ -46,12 +46,20 @@ export type ParadigmStartRequest = {
 export type StartedParadigmRequest = ParadigmStartRequest & { runId: string };
 
 type Props = {
+  preparedKind?: ParadigmSessionKind;
+  preparedSubjectId?: string;
   onStartSession: (request: ParadigmStartRequest) => void;
   startPending: boolean;
   startError: string | null;
 };
 
-export default function ParadigmSetupPanel({ onStartSession, startPending, startError }: Props) {
+export default function ParadigmSetupPanel({
+  onStartSession,
+  startPending,
+  startError,
+  preparedKind,
+  preparedSubjectId,
+}: Props) {
   const [triggerConnected, setTriggerConnected] = useState(false);
   const [triggerTested, setTriggerTested] = useState(false);
   const preferences = readExperimentPreferences();
@@ -78,8 +86,10 @@ export default function ParadigmSetupPanel({ onStartSession, startPending, start
       window.removeEventListener('focus', refresh);
     };
   }, []);
-  const [sessionKind, setSessionKind] = useState<ParadigmSessionKind>('personal_calibration');
-  const [subjectId, setSubjectId] = useState(readStoredSubjectId);
+  const [sessionKind, setSessionKind] = useState<ParadigmSessionKind>(
+    preparedKind ?? 'personal_calibration',
+  );
+  const [subjectId, setSubjectId] = useState(() => preparedSubjectId ?? readStoredSubjectId());
   const [sessionRunId, setSessionRunId] = useState(() => defaultSessionRunId(new Date()));
   // Field errors stay hidden until a field is left blank on blur or a start
   // attempt, so first entry isn't greeted by two red "请填写…" lines.
@@ -302,6 +312,7 @@ export default function ParadigmSetupPanel({ onStartSession, startPending, start
             <span>被试 ID</span>
             <input
               className={styles.textInput}
+              readOnly={preparedSubjectId !== undefined}
               value={subjectId}
               onChange={(event) => updateSubjectId(event.currentTarget.value)}
               onBlur={() => markFieldTouched('subjectId')}
@@ -328,34 +339,38 @@ export default function ParadigmSetupPanel({ onStartSession, startPending, start
           </label>
         </div>
 
-        <div
-          ref={sessionKindGroupRef}
-          className={styles.pillRadioRow}
-          role="radiogroup"
-          aria-label="实验类型"
-          onKeyDown={handleSessionKindKeyDown}
-        >
-          <span className={styles.pillRadioLabel}>实验类型:</span>
-          {sessionKinds.map((kind) => {
-            const isSelected = sessionKind === kind;
+        {preparedKind ? (
+          <p>{sessionKindShortLabels[preparedKind]}</p>
+        ) : (
+          <div
+            ref={sessionKindGroupRef}
+            className={styles.pillRadioRow}
+            role="radiogroup"
+            aria-label="实验类型"
+            onKeyDown={handleSessionKindKeyDown}
+          >
+            <span className={styles.pillRadioLabel}>实验类型:</span>
+            {sessionKinds.map((kind) => {
+              const isSelected = sessionKind === kind;
 
-            return (
-              <button
-                key={kind}
-                type="button"
-                role="radio"
-                data-session-kind={kind}
-                aria-checked={isSelected}
-                tabIndex={isSelected ? 0 : -1}
-                title={sessionKindDescriptions[kind]}
-                className={`${styles.pillRadio} ${isSelected ? styles.selectedPillRadio : ''}`}
-                onClick={() => updateSessionKind(kind)}
-              >
-                {sessionKindShortLabels[kind]}
-              </button>
-            );
-          })}
-        </div>
+              return (
+                <button
+                  key={kind}
+                  type="button"
+                  role="radio"
+                  data-session-kind={kind}
+                  aria-checked={isSelected}
+                  tabIndex={isSelected ? 0 : -1}
+                  title={sessionKindDescriptions[kind]}
+                  className={`${styles.pillRadio} ${isSelected ? styles.selectedPillRadio : ''}`}
+                  onClick={() => updateSessionKind(kind)}
+                >
+                  {sessionKindShortLabels[kind]}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         <div className={styles.subSectionRow} aria-hidden="true">
           视频素材
@@ -426,6 +441,7 @@ export default function ParadigmSetupPanel({ onStartSession, startPending, start
         <div className={styles.readinessRow}>
           <button
             type="button"
+            disabled={preparedKind !== undefined}
             role="switch"
             aria-checked={dryRun}
             title="切换排练模式。排练不发送硬件 Trigger，仍保存实验事件与 SAM"
@@ -441,7 +457,12 @@ export default function ParadigmSetupPanel({ onStartSession, startPending, start
               className={`${styles.deviceLightDot} ${styles.miniLightDot} ${triggerConnected ? styles.connectedLightDot : ''}`}
               aria-hidden="true"
             />
-            Trigger {triggerConnected ? (triggerTested ? '已连接 · 测试通过' : '已连接 · 未测试') : '未连接'}
+            Trigger{' '}
+            {triggerConnected
+              ? triggerTested
+                ? '已连接 · 测试通过'
+                : '已连接 · 未测试'
+              : '未连接'}
           </span>
 
           <button

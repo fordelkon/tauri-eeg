@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { createRun } from '../experiment/api';
+import { requirePreparedRecording } from '../experiment/recordingPath';
 import { consumeRecordingConfirmation, readExperimentPreferences } from '../experiment/settings';
 import ParadigmRunner from './ParadigmRunner';
 import ParadigmSetupPanel, {
@@ -9,7 +10,12 @@ import ParadigmSetupPanel, {
 } from './ParadigmSetupPanel';
 import { toLibraryErrorMessage } from './paradigmSessionKinds';
 
-export default function ParadigmSessionPanel() {
+export type PreparedParadigm = {
+  preparedKind?: ParadigmStartRequest['sessionKind'];
+  preparedSubjectId?: string;
+};
+
+export default function ParadigmSessionPanel(props: PreparedParadigm) {
   const { currentUser } = useAuth();
   const [run, setRun] = useState<StartedParadigmRequest | null>(null);
   const [pending, setPending] = useState(false);
@@ -22,6 +28,12 @@ export default function ParadigmSessionPanel() {
     setError(null);
     try {
       const preferences = readExperimentPreferences();
+      if (!request.dryRun)
+        requirePreparedRecording(preferences, {
+          userId: currentUser?.id ?? '',
+          subjectId: request.subjectId,
+          kind: request.sessionKind,
+        });
       const started = await createRun({
         userId: currentUser?.id ?? null,
         subjectId: request.subjectId,
@@ -44,6 +56,7 @@ export default function ParadigmSessionPanel() {
     <ParadigmRunner key={run.runId} request={run} onExitToSetup={() => setRun(null)} />
   ) : (
     <ParadigmSetupPanel
+      {...props}
       onStartSession={(request) => void handleStartSession(request)}
       startPending={pending}
       startError={error}

@@ -77,7 +77,9 @@ fn link(service: &Service, run_id: &str, record_id: &str, phase: &str) -> Result
 fn associate(service: &Service, run_id: &str, files: Vec<&str>) -> Result<Run, String> {
     let run_id = run_id.to_owned();
     let files = files.into_iter().map(str::to_owned).collect();
-    service.call(Box::new(move |w| w.associate_bdf(run_id, files)))
+    service.call(Box::new(move |w| {
+        w.associate_bdf(run_id, "operator".into(), files)
+    }))
 }
 
 fn other_run(db: &Arc<Mutex<Connection>>, run: &Run) -> Run {
@@ -237,44 +239,73 @@ fn scale_rejects_closed_and_non_effect_runs_and_supports_interrupted_post_measur
 }
 
 #[test]
-fn bdf_association_requires_closed_run_and_valid_names_and_persists_replacements() {
-    let (_, service, run) = setup();
+fn bdf_association_validates_complete_data_and_preserves_previous_files_on_failure() {
+    let (db, service, run) = setup();
     assert_eq!(
         associate(&service, &run.run_id, vec!["recording.bdf"]).unwrap_err(),
         "Associate BDF files after the experiment."
     );
-    assert_eq!(detail(&service, &run.run_id)["run"]["bdfFiles"], json!([]));
-    let id = run.run_id.clone();
-    service
-        .call::<Run>(Box::new(move |w| w.finish(id, Some("stop".into()))))
-        .unwrap();
-    let saved = associate(
+    let mut closed = run.clone();
+    closed.status = "completed".into();
+    closed.input.mode = "formal".into();
+    store::save_run(&db.lock().unwrap(), &closed).unwrap();
+
+    crate::bdf_destination::init(&db.lock().unwrap()).unwrap();
+    let dir = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("formal.bdf");
+    let text = path.to_str().unwrap();
+    // One 24-bit sample, one channel, one record.
+    let mut bdf = vec![b' '; 515];
+    bdf[..8].copy_from_slice(b"\xffBIOSEMI");
+    bdf[184..187].copy_from_slice(b"512");
+    bdf[236] = b'1';
+    bdf[252] = b'1';
+    bdf[472] = b'1';
+    std::fs::write(&path, &bdf).unwrap();
+    assert_eq!(
+        associate(&service, &closed.run_id, vec![text])
+            .unwrap()
+            .bdf_files,
+        vec![text]
+    );
+    assert!(associate(&service, &closed.run_id, vec![text, text]).is_err());
+    let triggercheck = dir.join("sub-01_task-effectbaseline_acq-triggercheck_run-01_eeg.bdf");
+    std::fs::write(&triggercheck, &bdf).unwrap();
+    assert!(associate(
         &service,
-        &run.run_id,
-        vec!["recording.BDF", "C:\\recordings\\segment.bdf"],
+        &closed.run_id,
+        vec![triggercheck.to_str().unwrap()]
     )
-    .unwrap();
+    .is_err());
+    std::fs::remove_file(triggercheck).unwrap();
+    let other = other_run(&db, &closed);
+    assert!(associate(&service, &other.run_id, vec![text]).is_err());
+    let id = closed.run_id.clone();
+    let unauthorized = service.call::<Run>(Box::new(move |w| {
+        w.associate_bdf(id, "other".into(), vec![])
+    }));
+    assert_eq!(unauthorized.unwrap_err(), "该实验不属于当前账号。");
+
+    let reserved = dir.join("reserved.bdf");
+    std::fs::write(&reserved, &bdf).unwrap();
+    db.lock().unwrap().execute("INSERT INTO bdf_reservations(user_id,subject_id,session,task,run_index,path) VALUES ('other','subject',1,'effect',1,?1)", [reserved.to_str().unwrap()]).unwrap();
+    assert!(associate(&service, &closed.run_id, vec![reserved.to_str().unwrap()]).is_err());
+    std::fs::remove_file(reserved).unwrap();
+    let unfinished = dir.join("unfinished.bdf");
+    bdf[236..238].copy_from_slice(b"-1");
+    std::fs::write(&unfinished, &bdf).unwrap();
+    assert!(associate(&service, &closed.run_id, vec![unfinished.to_str().unwrap()]).is_err());
+    bdf[236..238].copy_from_slice(b"2 ");
+    std::fs::write(&unfinished, &bdf).unwrap();
+    assert!(associate(&service, &closed.run_id, vec![unfinished.to_str().unwrap()]).is_err());
     assert_eq!(
-        saved.bdf_files,
-        vec!["recording.BDF", "C:\\recordings\\segment.bdf"]
+        detail(&service, &closed.run_id)["run"]["bdfFiles"],
+        json!([text])
     );
-    for invalid in ["", " ", "recording.txt", "recording.bdf.txt"] {
-        assert_eq!(
-            associate(&service, &run.run_id, vec![invalid]).unwrap_err(),
-            "Provide BDF file names or absolute paths."
-        );
-        assert_eq!(
-            detail(&service, &run.run_id)["run"]["bdfFiles"],
-            json!(saved.bdf_files)
-        );
-    }
-    associate(&service, &run.run_id, vec!["replacement.bdf"]).unwrap();
-    assert_eq!(
-        detail(&service, &run.run_id)["run"]["bdfFiles"],
-        json!(["replacement.bdf"])
-    );
-    associate(&service, &run.run_id, vec![]).unwrap();
-    assert_eq!(detail(&service, &run.run_id)["run"]["bdfFiles"], json!([]));
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_file(unfinished).unwrap();
+    std::fs::remove_dir(dir).unwrap();
 }
 
 #[test]

@@ -3,6 +3,7 @@ import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import { useNavigate } from 'react-router-dom';
+import { ResultBdfAttachment } from '../../experiment/BdfAttachment';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import { getParadigmSessionStatus } from '../../paradigm/paradigmSessionStatus';
@@ -49,7 +50,11 @@ export default function EffectEvaluation() {
   const flow = useEffectEvaluationFlow();
   const { state } = flow;
   const { confirm, confirmDialogElement } = useConfirmDialog();
-  const [isScaleDialogOpen, setIsScaleDialogOpen] = useState(false);
+  const [dismissedMeasurement, setDismissedMeasurement] = useState<string | null>(null);
+  const measurementKey =
+    state.runId && (state.step === 2 || state.step === 4) ? `${state.runId}:${state.step}` : null;
+  const isScaleDialogOpen =
+    measurementKey !== null && !state.interrupted && dismissedMeasurement !== measurementKey;
   const {
     inductionRetryCount,
     inductionVideoFailed,
@@ -78,9 +83,6 @@ export default function EffectEvaluation() {
   const stageRef = useRef<HTMLElement | null>(null);
   const [isResumeNoticeDismissed, setIsResumeNoticeDismissed] = useState(false);
   const { isWindowElapsed } = flow;
-  useEffect(() => {
-    if (state.runId === null) setIsScaleDialogOpen(false);
-  }, [state.runId]);
   const handleWindowElapsed = flow.conditionElapsed;
   const methodLabel =
     EFFECT_METHOD_OPTIONS.find((option) => option.value === state.method)?.label ?? state.method;
@@ -237,8 +239,8 @@ export default function EffectEvaluation() {
       phase={phase}
       skippedCopy={skippedCopy}
       isDialogOpen={isScaleDialogOpen}
-      onOpenDialog={() => setIsScaleDialogOpen(true)}
-      onCloseDialog={() => setIsScaleDialogOpen(false)}
+      onOpenDialog={() => setDismissedMeasurement(null)}
+      onCloseDialog={() => setDismissedMeasurement(measurementKey)}
     />
   );
 
@@ -473,6 +475,9 @@ export default function EffectEvaluation() {
             ) : null}
 
             {renderStageBody(state.step)}
+            {isResultStep && state.runMode === 'formal' && state.runId && (
+              <ResultBdfAttachment key={state.runId} runId={state.runId} />
+            )}
           </div>
 
           {/* Destructive reset lives in the quiet footer row, visually

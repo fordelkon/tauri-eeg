@@ -1,110 +1,51 @@
 import { useEffect, useState } from 'react';
-import { open } from '@tauri-apps/plugin-dialog';
 import { useNavigate } from 'react-router-dom';
-import {
-  connectTrigger,
-  disconnectTrigger,
-  getTriggerStatus,
-  listTriggerPorts,
-  testTrigger,
-  type TriggerPort,
-  type TriggerStatus,
-} from '../../experiment/api';
+import { getTriggerStatus, listTriggerPorts, type TriggerPort } from '../../experiment/api';
 import { readExperimentPreferences, writeExperimentPreferences } from '../../experiment/settings';
-import {
-  getPreparationReadiness,
-  type ExperimentDestination,
-  type PreparationStep,
-} from '../../experiment/preparation';
+import { getPreparationReadiness, type ExperimentDestination } from '../../experiment/preparation';
 import { loadParadigmVideoLibrary } from '../../paradigm/paradigmApi';
+import { readStoredLibraryRootPath } from '../../paradigm/paradigmStorage';
+import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject';
+import { useAuth } from '../../auth/AuthContext';
 import {
-  readStoredLibraryRootPath,
-  writeStoredLibraryRootPath,
-} from '../../paradigm/paradigmStorage';
-import { readStoredSubjectId } from '../../storage/currentSubject';
-import { buildStandardBdfFileName } from '../../experiment/bdfNaming';
+  recordingPlanKey,
+  reserveRecordingPath,
+  triggerCheckPath,
+} from '../../experiment/recordingPath';
+import type { ParadigmSessionKind } from '../../paradigm/types';
+import PreparationReview from './PreparationReview';
+import PreparationMaterials from './PreparationMaterials';
+import PreparationConnection from './PreparationConnection';
+import RecordingPathControl from './RecordingPathControl';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import ExperimentRunHistory from '../../experiment/ExperimentRunHistory';
 import ParadigmSessionPanel from '../../paradigm/ParadigmSessionPanel';
 import { createEffectEvaluationFlowState, readFlowStateFromStorage } from './effectEvaluationFlow';
 import { prepareEffectHandoff, type EffectPreparationDraft } from './effectPreparationHandoff';
-import { EffectResearchControls } from './EffectResearchControls';
+import PreparationPlan from './PreparationPlan';
 import styles from './ExperimentSettings.module.css';
 import guide from './ExperimentPreparation.module.css';
 
-const emptyStatus: TriggerStatus = {
-  connected: false,
-  tested: false,
-  portName: null,
-  activeRunId: null,
-  lastError: null,
-};
-const steps = [
-  {
-    id: 'plan',
-    title: '选择实验',
-    software: 'tauri-eeg',
-    instructions: [
-      '先选择要运行的流程。效果评价与个人校准是不同实验。',
-      '正式实验自动发送阶段标记；排练保留日志，但不发送流程标记。',
-      '在同一个应用窗口完成准备和实验。新窗口默认排练。',
-    ],
-  },
-  {
-    id: 'connection',
-    title: '连接与测试',
-    software: '两个软件配合',
-    instructions: [
-      'ActiView：点击 Start，确认采样率非零。点击 Start File 保存短测试 BDF。',
-      'tauri-eeg：连接触发盒，发送测试码 254。',
-      'ActiView / ActiRead：核对 254 确实进入文件。发送提示不能代替 BDF 检查。',
-    ],
-  },
-  {
-    id: 'materials',
-    title: '准备素材',
-    software: 'tauri-eeg',
-    instructions: [
-      '选择包含诱发视频的素材库，验证后再继续。',
-      '音乐效果评价：实验前先到音乐调控页生成曲目。',
-      '个人校准使用平静视频；独立诱发使用焦虑、抑郁和恐惧视频。',
-    ],
-  },
-  {
-    id: 'recording',
-    title: '保存脑电',
-    software: 'ActiView → tauri-eeg',
-    instructions: [
-      'ActiView：结束短测试，新建本次实验 BDF；每次使用不同文件名。',
-      '确认绿色 Saving，并观察 Total Saved 秒数持续增加。',
-      '切回这里填写相同的文件名，再确认本次保存。',
-    ],
-  },
-  {
-    id: 'review',
-    title: '核对并进入',
-    software: 'tauri-eeg',
-    instructions: [
-      '核对运行模式与本次配置，准备就绪后进入所选流程。',
-      '实验运行时，tauri-eeg 自动打标，ActiView 持续保存。',
-      '实验结束后在 ActiView 正常停止保存，再关联 BDF、导出日志。',
-    ],
-  },
-] satisfies { id: PreparationStep; title: string; software: string; instructions: string[] }[];
+import { emptyStatus, steps } from './experimentPreparationSteps';
 
 export default function ExperimentSettings() {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const [paradigmKind, setParadigmKind] = useState<ParadigmSessionKind>('personal_calibration');
   const [stage, setStage] = useState<'settings' | 'paradigm'>('settings');
   const [step, setStep] = useState(0);
   const [destination, setDestination] = useState<ExperimentDestination>('effect');
   const [effectDraft, setEffectDraft] = useState<EffectPreparationDraft>(() => {
     const saved = readFlowStateFromStorage(window.sessionStorage);
-    return saved && !saved.runId && saved.step <= 1
+    return saved && saved.subjectId.trim() && !saved.runId && saved.step <= 1
       ? saved
       : {
           ...createEffectEvaluationFlowState(),
-          subjectId: readStoredSubjectId(),
+          subjectId:
+            currentUser && /^sub-[a-z0-9]+$/i.test(currentUser.username)
+              ? currentUser.username
+              : readStoredSubjectId(),
         };
   });
   const [status, setStatus] = useState(emptyStatus);
@@ -122,23 +63,31 @@ export default function ExperimentSettings() {
   const locked = busy || Boolean(status.activeRunId);
   const formal = preferences.mode === 'formal';
   const destinationLabel = destination === 'effect' ? '效果评价' : '逐试次范式';
+  const plan = {
+    userId: currentUser?.id ?? '',
+    subjectId: effectDraft.subjectId.trim(),
+    kind: destination === 'paradigm' ? paradigmKind : ('effect_evaluation' as const),
+    ...(destination === 'effect' && {
+      condition: effectDraft.condition,
+      method: effectDraft.condition === 'regulation' ? effectDraft.method : undefined,
+    }),
+  };
+  const planKey = recordingPlanKey(plan);
+  const preparedPath =
+    preferences.recordingPlanKey === planKey ? preferences.expectedRecordingName : '';
+  const confirmed = Boolean(preparedPath && preferences.externalRecordingConfirmed);
   const readiness = getPreparationReadiness({
     mode: preferences.mode,
     desktop,
     connected: status.connected,
     triggerTested: status.tested,
     libraryValidated: validatedLibrary !== '' && validatedLibrary === library.trim(),
-    externalRecordingConfirmed: preferences.externalRecordingConfirmed,
+    externalRecordingConfirmed: confirmed,
     activeRunId: status.activeRunId,
   });
-  const subjectMissing = destination === 'effect' && !effectDraft.subjectId.trim();
+  const subjectMissing = !plan.subjectId;
   const canEnter = readiness.canEnter && !subjectMissing;
-  const recordingSubject =
-    destination === 'effect' ? effectDraft.subjectId.trim() : readStoredSubjectId();
   const current = steps[step];
-  const selectedTriggerPort = ports.find(
-    (item) => item.portName === (status.connected ? status.portName : port),
-  );
 
   const perform = async (key: string, context: string, action: () => Promise<void>) => {
     setBusyKey(key);
@@ -207,16 +156,46 @@ export default function ExperimentSettings() {
       setError(describeFriendlyError(failure, '写入实验偏好'));
     }
   };
+  const invalidateRecording = (mode = preferences.mode) => {
+    savePreferences({
+      ...preferences,
+      mode,
+      recordingPlanKey: undefined,
+      expectedRecordingName: '',
+      externalRecordingConfirmed: false,
+    });
+  };
   const updateEffectDraft = (patch: Partial<EffectPreparationDraft>) => {
     if (
-      patch.subjectId !== undefined &&
-      patch.subjectId.trim() !== effectDraft.subjectId.trim() &&
-      preferences.externalRecordingConfirmed
-    ) {
-      savePreferences({ ...preferences, externalRecordingConfirmed: false });
-    }
+      Object.entries(patch).some(
+        ([key, value]) => effectDraft[key as keyof EffectPreparationDraft] !== value,
+      )
+    )
+      invalidateRecording();
     setEffectDraft((current) => ({ ...current, ...patch }));
   };
+  const copyPath = (test: boolean) =>
+    perform('recordingPath', '准备保存路径', async () => {
+      if (!plan.subjectId || !plan.userId) throw new Error('请先填写被试 ID。');
+      const path = preparedPath || (await reserveRecordingPath(plan)).path;
+      if (!preparedPath) {
+        const next = {
+          ...preferences,
+          expectedRecordingName: path,
+          recordingPlanKey: planKey,
+          externalRecordingConfirmed: false,
+        };
+        writeExperimentPreferences(next);
+        setPreferences(next);
+      }
+      const target = test ? triggerCheckPath(path) : path;
+      try {
+        await navigator.clipboard.writeText(target);
+        setNotice('完整路径已复制。请在 ActiView 的 Start File 文件名栏中粘贴。');
+      } catch {
+        setNotice('请从上方路径框中复制完整路径，粘贴到 ActiView 的 Start File 文件名栏。');
+      }
+    });
   const busyClass = (key: string) => (busyKey === key ? styles.isBusy : '');
   const goToStep = (index: number) => {
     setStep(index);
@@ -231,7 +210,10 @@ export default function ExperimentSettings() {
         return;
       }
       navigate('/effect-evaluation');
-    } else setStage('paradigm');
+    } else {
+      writeStoredSubjectId(plan.subjectId);
+      setStage('paradigm');
+    }
   };
 
   if (stage === 'paradigm')
@@ -253,7 +235,7 @@ export default function ExperimentSettings() {
           开始前核对下方运行模式，以“正式 · 发送 Trigger”或“排练 · 不发送
           Trigger”为准。正式实验需保持 ActiView 的 Saving。
         </p>
-        <ParadigmSessionPanel />
+        <ParadigmSessionPanel preparedSubjectId={plan.subjectId} preparedKind={paradigmKind} />
         <button
           type="button"
           className={`${styles.backButton} ${styles.ghostButton}`}
@@ -342,303 +324,77 @@ export default function ExperimentSettings() {
               )}
             </div>
             {step === 0 && (
-              <>
-                <p className={guide.introduction}>
-                  这次要运行哪个流程？选择后，最后一步会进入对应页面。
-                </p>
-                <div className={guide.choices} role="group" aria-label="实验流程">
-                  <button
-                    type="button"
-                    aria-pressed={destination === 'effect'}
-                    disabled={locked}
-                    className={guide.choice}
-                    onClick={() => setDestination('effect')}
-                  >
-                    <strong>效果评价</strong>
-                    <span>诱发 → 前测 → 音乐、视频调控或自然恢复 → 后测</span>
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={destination === 'paradigm'}
-                    disabled={locked}
-                    className={guide.choice}
-                    onClick={() => setDestination('paradigm')}
-                  >
-                    <strong>逐试次范式</strong>
-                    <span>个人校准或独立诱发：静息 → 提示 → 视频 → SAM</span>
-                  </button>
-                </div>
-                {destination === 'effect' && (
-                  <EffectResearchControls
-                    state={effectDraft}
-                    disabled={locked}
-                    onChange={updateEffectDraft}
-                  />
-                )}
-                <label className={guide.modeField}>
-                  模式
-                  <select
-                    aria-label="模式"
-                    disabled={locked}
-                    value={preferences.mode}
-                    onChange={(event) =>
-                      savePreferences({
-                        ...preferences,
-                        mode: event.target.value === 'formal' ? 'formal' : 'rehearsal',
-                        externalRecordingConfirmed: false,
-                      })
-                    }
-                  >
-                    <option value="rehearsal">排练 · 不发送硬件 Trigger</option>
-                    <option value="formal">正式实验 · 发送 Trigger</option>
-                  </select>
-                </label>
-                <p className={styles.muted}>
-                  {formal
-                    ? '将实际发送事件到 BioSemi，开始前需要连接触发盒并确认 BDF 保存。'
-                    : '用于熟悉操作。保存实验日志和量表，不发送流程 Trigger。'}
-                </p>
-              </>
+              <PreparationPlan
+                {...{ destination, paradigmKind, effectDraft, updateEffectDraft, locked }}
+                mode={preferences.mode}
+                onMode={invalidateRecording}
+                onKind={(kind) => {
+                  invalidateRecording();
+                  setParadigmKind(kind);
+                }}
+                onDestination={(next) => {
+                  if (next !== destination) {
+                    invalidateRecording();
+                    setDestination(next);
+                  }
+                }}
+              />
             )}
             {step === 1 && (
-              <>
-                <h3 className={guide.subheading}>Trigger 接口</h3>
-                <p className={guide.introduction}>
-                  {formal
-                    ? '先连接触发盒，再用短 BDF 检查测试码。'
-                    : '排练可跳过设备连接。需要测试硬件时，仍可连接并发送 254。'}
-                </p>
-                <div className={styles.row}>
-                  <label>
-                    COM 端口
-                    <select
-                      aria-label="COM 端口"
-                      value={port}
-                      disabled={locked || status.connected}
-                      onChange={(event) => setPort(event.target.value)}
-                    >
-                      <option value="">选择端口</option>
-                      {ports.map((item) => (
-                        <option key={item.portName} value={item.portName}>
-                          {item.portName} {item.description}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    disabled={locked || !desktop}
-                    className={`${styles.ghostButton} ${busyClass('refresh')}`}
-                    onClick={() => void perform('refresh', '读取触发盒状态', refresh)}
-                  >
-                    刷新端口
-                  </button>
-                  <button
-                    type="button"
-                    disabled={locked || !desktop || (!status.connected && !port)}
-                    className={busyClass('connect')}
-                    onClick={() =>
-                      void perform('connect', '连接触发盒', async () => {
-                        setStatus(
-                          status.connected ? await disconnectTrigger() : await connectTrigger(port),
-                        );
-                      })
-                    }
-                  >
-                    {status.connected ? '断开触发盒' : '连接触发盒'}
-                  </button>
-                </div>
-                {selectedTriggerPort?.kind === 'bluetooth' && (
-                  <p className={styles.errorMessage} role="alert">
-                    {selectedTriggerPort.portName}{' '}
-                    是蓝牙虚拟串口（手机、耳机等配对设备），不是触发盒；
-                    它可能显示「已连接」，但标记写入会失败。请插入 USB 触发盒后点击「刷新端口」，
-                    并选择 USB Serial Port（FTDI）。
-                  </p>
-                )}
-                {status.connected && !status.tested && (
-                  <p className={styles.muted}>
-                    已连接但尚未测试：正式实验前必须先发送测试 Trigger（254），并在 ActiView/BDF
-                    中确认收到标记。
-                  </p>
-                )}
-                <button
-                  type="button"
-                  disabled={locked || !status.connected}
-                  className={`${styles.ghostButton} ${busyClass('test')}`}
-                  onClick={() =>
-                    void perform('test', '发送测试 Trigger', async () => {
-                      setStatus(await testTrigger());
-                      setNotice('测试码 254 已写入串口。请在 ActiView 和短 BDF 中确认标记。');
-                    })
-                  }
-                >
-                  发送测试 Trigger
-                </button>
-                <p className={styles.muted}>
-                  只保留一个 tauri-eeg 窗口。串口写入成功不代表 BDF 已收到标记。
-                </p>
-                {status.lastError && <p className={styles.errorMessage}>{status.lastError}</p>}
-              </>
+              <PreparationConnection
+                {...{
+                  formal,
+                  locked,
+                  desktop,
+                  ports,
+                  port,
+                  status,
+                  setPort,
+                  setStatus,
+                  refresh,
+                  perform,
+                  setNotice,
+                  busyClass,
+                  preparedPath,
+                  subjectMissing,
+                  copyPath,
+                }}
+              />
             )}
             {step === 2 && (
-              <>
-                <p className={guide.introduction}>
-                  选择诱发与视频调控素材库。已有素材库会自动检查，无需每次重新选择。
-                </p>
-                <label>
-                  素材库根目录
-                  <input
-                    disabled={locked}
-                    value={library}
-                    onChange={(event) => {
-                      setLibrary(event.target.value);
-                      setValidatedLibrary('');
-                      setLibrarySummary('');
-                    }}
-                  />
-                </label>
-                <div className={styles.row}>
-                  <button
-                    type="button"
-                    disabled={locked || !desktop}
-                    className={`${styles.ghostButton} ${busyClass('pickFolder')}`}
-                    onClick={() =>
-                      void perform('pickFolder', '选择素材库目录', async () => {
-                        const chosen = await open({
-                          directory: true,
-                          multiple: false,
-                          title: '选择范式素材库',
-                        });
-                        if (typeof chosen === 'string') {
-                          setLibrary(chosen);
-                          setValidatedLibrary('');
-                          setLibrarySummary('');
-                        }
-                      })
-                    }
-                  >
-                    选择文件夹
-                  </button>
-                  <button
-                    type="button"
-                    disabled={locked || !desktop || !library.trim()}
-                    className={busyClass('validateLibrary')}
-                    onClick={() =>
-                      void perform('validateLibrary', '验证素材库', async () => {
-                        const loaded = await loadParadigmVideoLibrary(library.trim());
-                        if (!loaded.valid) {
-                          setValidatedLibrary('');
-                          setLibrarySummary('');
-                          throw new Error(loaded.problems.join('；') || '素材库未通过验证。');
-                        }
-                        writeStoredLibraryRootPath(library.trim());
-                        setValidatedLibrary(library.trim());
-                        setLibrarySummary(
-                          `素材库已验证：焦虑 ${loaded.anxiety.length}、抑郁 ${loaded.depression.length}、恐惧 ${loaded.fear.length}、平静 ${loaded.calm.length}。`,
-                        );
-                      })
-                    }
-                  >
-                    验证并保存素材库
-                  </button>
-                </div>
-                {librarySummary && (
-                  <p className={styles.muted} role="status">
-                    {librarySummary}
-                  </p>
-                )}
-                {destination === 'effect' && (
-                  <p className={styles.muted}>
-                    音乐曲目需提前在音乐调控页准备；本页验证的是视频素材。
-                  </p>
-                )}
-              </>
+              <PreparationMaterials
+                {...{
+                  locked,
+                  desktop,
+                  library,
+                  setLibrary,
+                  librarySummary,
+                  setLibrarySummary,
+                  setValidatedLibrary,
+                  destination,
+                  perform,
+                  busyClass,
+                }}
+              />
             )}
             {step === 3 && (
               <>
                 {formal ? (
                   <>
+                    <RecordingPathControl
+                      path={preparedPath}
+                      disabled={locked || !desktop || subjectMissing}
+                      onCopy={() => void copyPath(false)}
+                    />
                     <p className={guide.introduction}>
-                      现在切换到 ActiView：选择 Save Subset，点击 Start File，新建本次实验文件。
-                    </p>
-                    <ol className={guide.instructions}>
-                      <li>确认右上角为绿色 Saving。</li>
-                      <li>确认 Total Saved [sec] 持续增加。</li>
-                      <li>切回这里填写记录名并确认保存。</li>
-                    </ol>
-                    <label>
-                      BDF 记录名
-                      <input
-                        disabled={locked}
-                        value={preferences.expectedRecordingName}
-                        placeholder={`例如 ${buildStandardBdfFileName({ subjectId: recordingSubject, task: destination })}`}
-                        onChange={(event) => {
-                          const nextName = event.target.value;
-                          savePreferences({
-                            ...preferences,
-                            expectedRecordingName: nextName,
-                            externalRecordingConfirmed:
-                              nextName.trim() === ''
-                                ? false
-                                : preferences.externalRecordingConfirmed,
-                          });
-                        }}
-                      />
-                    </label>
-                    <div className={styles.row}>
-                      <button
-                        type="button"
-                        disabled={locked}
-                        className={styles.ghostButton}
-                        onClick={() => {
-                          const standardName = buildStandardBdfFileName({
-                            subjectId: recordingSubject,
-                            task: destination,
-                          });
-                          savePreferences({
-                            ...preferences,
-                            expectedRecordingName: standardName,
-                            externalRecordingConfirmed: false,
-                          });
-                          setNotice(`已生成规范 BDF 记录名：${standardName}`);
-                        }}
-                      >
-                        基于当前被试生成规范 BDF 命名
-                      </button>
-                      <button
-                        type="button"
-                        disabled={locked || !preferences.expectedRecordingName.trim()}
-                        className={styles.ghostButton}
-                        onClick={async () => {
-                          const nameToCopy = preferences.expectedRecordingName.trim();
-                          if (!nameToCopy) return;
-                          try {
-                            if (navigator?.clipboard?.writeText) {
-                              await navigator.clipboard.writeText(nameToCopy);
-                              setNotice(
-                                `已复制「${nameToCopy}」到剪贴板，可直接在 ActiView 保存对话框中粘贴。`,
-                              );
-                            } else {
-                              setNotice(`当前环境不支持自动剪贴板，请手动复制：${nameToCopy}`);
-                            }
-                          } catch {
-                            setNotice(`复制失败，请手动复制：${nameToCopy}`);
-                          }
-                        }}
-                      >
-                        复制文件名到剪贴板
-                      </button>
-                    </div>
-                    <p className={styles.muted}>
-                      命名建议遵循 BIDS 脑电规范（例如 <code>sub-001_ses-01_task-effect.bdf</code>
-                      ），避免在文件名中出现空格或特殊符号。
+                      在 ActiView 使用此路径开始保存。确认绿色 Saving，且 Total Saved [sec]
+                      持续增加。
                     </p>
                     <label className={`${styles.check} ${guide.recordingCheck}`}>
                       <input
                         type="checkbox"
-                        disabled={locked}
-                        checked={preferences.externalRecordingConfirmed}
+                        disabled={locked || !preparedPath}
+                        checked={confirmed}
                         onChange={(event) =>
                           savePreferences({
                             ...preferences,
@@ -649,7 +405,7 @@ export default function ExperimentSettings() {
                       我已在 ActiView 启动本次 BDF 保存
                     </label>
                     <p className={styles.muted}>
-                      这由你确认，应用无法读取 ActiView 的保存状态。修改记录名后需重新确认。
+                      更换被试或实验配置后，请使用新路径并重新确认保存。
                     </p>
                   </>
                 ) : (
@@ -665,91 +421,24 @@ export default function ExperimentSettings() {
               </>
             )}
             {step === 4 && (
-              <>
-                <p className={guide.introduction}>
-                  即将进入的是 <strong>{destinationLabel}</strong>
-                  。请核对，避免把个人校准当作效果评价。
-                </p>
-                <dl className={guide.review}>
-                  {destination === 'effect' && (
-                    <>
-                      <div>
-                        <dt>被试 ID</dt>
-                        <dd>{effectDraft.subjectId.trim() || '尚未填写'}</dd>
-                      </div>
-                      <div>
-                        <dt>测量方案</dt>
-                        <dd>
-                          {effectDraft.protocol === 'brief' ? '简版 · 前后各 3 题' : '完整量表'} ·{' '}
-                          {effectDraft.durationMinutes} 分钟
-                        </dd>
-                      </div>
-                    </>
-                  )}
-                  <div>
-                    <dt>实验流程</dt>
-                    <dd>{destinationLabel}</dd>
-                  </div>
-                  <div>
-                    <dt>运行模式</dt>
-                    <dd>{formal ? '正式实验 · 发送 Trigger' : '排练 · 不发送流程标记'}</dd>
-                  </div>
-                  <div>
-                    <dt>触发盒</dt>
-                    <dd>
-                      {status.connected
-                        ? `已连接 · ${status.portName}${status.tested ? ' · 测试通过' : ' · 未测试'}`
-                        : formal
-                          ? '尚未连接'
-                          : '排练无需连接'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>视频素材</dt>
-                    <dd>
-                      {validatedLibrary === library.trim() && validatedLibrary
-                        ? '已验证'
-                        : '需要验证'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>BDF 保存</dt>
-                    <dd>
-                      {formal
-                        ? preferences.externalRecordingConfirmed
-                          ? `操作者已确认 · ${preferences.expectedRecordingName || '未填写记录名'}`
-                          : '尚未确认'
-                        : '排练无需保存'}
-                    </dd>
-                  </div>
-                </dl>
-                {!canEnter && (
-                  <div className={guide.blockers} role="status">
-                    <strong>还需要完成</strong>
-                    <ul>
-                      {subjectMissing && (
-                        <li>
-                          <button
-                            type="button"
-                            className={styles.ghostButton}
-                            onClick={() => goToStep(0)}
-                          >
-                            返回第一步填写被试 ID
-                          </button>
-                        </li>
-                      )}
-                      {readiness.blockers.map((reason) => (
-                        <li key={reason}>{reason}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                <p className={styles.muted}>
-                  {destination === 'effect'
-                    ? '进入后请将界面交给参与者，准备好后点击播放。'
-                    : '进入后填写范式参数，点击开始才创建实验记录。'}
-                </p>
-              </>
+              <PreparationReview
+                {...{
+                  destinationLabel,
+                  destination,
+                  paradigmKind,
+                  effectDraft,
+                  formal,
+                  status,
+                  validatedLibrary,
+                  library,
+                  confirmed,
+                  preferences,
+                  canEnter,
+                  subjectMissing,
+                  readiness,
+                  goToStep,
+                }}
+              />
             )}
             {error && (
               <p className={styles.errorMessage} role="alert">

@@ -11,7 +11,7 @@ async function main() {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => {
-    localStorage.setItem('tauri-eeg.currentUser', JSON.stringify({ id: 'smoke-user', username: 'smoke' }));
+    localStorage.setItem('tauri-eeg.currentUser', JSON.stringify({ id: 'smoke-user', username: 'sub-001' }));
     localStorage.setItem('tauri-eeg.homeIntroPlayed.smoke-user', 'true');
     const calls = [];
     let connected = false;
@@ -21,6 +21,13 @@ async function main() {
       invoke: async (command, args) => {
         calls.push({ command, args });
         const status = () => ({ connected, tested, portName: connected ? 'COM7' : null, activeRunId: null, lastError: null });
+        if (command === 'reserve_bdf_destination') {
+          const plan = args.input;
+          const task = plan.kind === 'effect_evaluation' ? (plan.condition === 'natural_recovery' ? 'rest' : plan.method) : plan.kind;
+          const runIndex = calls.filter(c => c.command === command).length;
+          const fileName = 'sub-' + plan.subjectId.replace(/^sub-/, '') + '_ses-01_task-' + task + '_run-' + String(runIndex).padStart(2,'0') + '_eeg.bdf';
+          return {runIndex, fileName, path: 'C:/smoke/account/' + fileName};
+        }
         if (command === 'trigger_list_ports') return [{ portName: 'COM7', description: 'BioSemi USB Trigger Interface' }];
         if (command === 'trigger_status') return status();
         if (command === 'trigger_test') {
@@ -55,6 +62,8 @@ async function main() {
   const step = title => page.getByRole('navigation', { name: '实验准备步骤' }).getByRole('button', { name: new RegExp(title) }).click();
   try {
     await go();
+    assert.equal(await page.getByLabel('被试 ID', {exact:true}).inputValue(),'sub-001');
+    await page.getByLabel('被试 ID', {exact:true}).fill('');
     await screenshot('preparation-wide.png');
     await page.setViewportSize({ width: 800, height: 600 });
     assert.equal(await page.getByRole('button', { name: '继续：连接与测试', exact: true }).isVisible(), true);
@@ -86,6 +95,10 @@ async function main() {
     await step('连接与测试');
     await page.getByRole('button', { name: '连接触发盒', exact: true }).click();
     await page.getByText('触发盒已连接 · COM7 · 未测试', { exact: true }).waitFor();
+    const reservedCount = () => page.evaluate(() => window.__BIOSEMI_CALLS__.filter(c => c.command === 'reserve_bdf_destination').length);
+    await page.getByRole('button', {name:'准备并复制短测试 BDF 路径'}).click();
+    const testPath = await page.getByLabel('短测试 BDF 路径',{exact:true}).inputValue();
+    assert.match(testPath, /acq-triggercheck_run-01_eeg.bdf$/);
     const test = page.getByRole('button', { name: '发送测试 Trigger', exact: true });
     const textBox = () => test.evaluate(element => {
       const text = [...element.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
@@ -106,7 +119,21 @@ async function main() {
     assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
     await screenshot('preparation-missing-recording.png');
     await step('保存脑电');
-    await page.getByLabel('BDF 记录名', { exact: true }).fill('sub01_effect_run01.bdf');
+    await page.getByRole('button',{name:'复制正式 BDF 路径',exact:true}).click();
+    const firstPath = await page.getByLabel('正式 BDF 路径',{exact:true}).inputValue();
+    assert.equal(firstPath,testPath.replace('_acq-triggercheck',''));
+    assert.equal(await reservedCount(),1);
+    await page.getByRole('checkbox', {name:'我已在 ActiView 启动本次 BDF 保存'}).check();
+    await step('选择实验');
+    await page.getByLabel('被试 ID',{exact:true}).fill('smoke-subject-2');
+    await step('保存脑电');
+    assert.equal(await page.getByLabel('正式 BDF 路径',{exact:true}).count(),0);
+    assert.equal(await page.getByRole('checkbox', {name:'我已在 ActiView 启动本次 BDF 保存'}).isDisabled(),true);
+    await step('选择实验');
+    await page.getByLabel('被试 ID',{exact:true}).fill('smoke-subject');
+    await step('保存脑电');
+    await page.getByRole('button',{name:'准备并复制正式 BDF 路径'}).click();
+    assert.equal(await reservedCount(),2);
     await page.getByRole('checkbox', { name: '我已在 ActiView 启动本次 BDF 保存' }).check();
     await step('核对并进入');
     assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isEnabled(), true);
@@ -129,6 +156,7 @@ async function main() {
     await page.getByText('触发盒已连接 · COM7 · 未测试', { exact: true }).waitFor();
     await step('选择实验');
     await page.getByRole('button', { name: /^逐试次范式/ }).click();
+    await page.getByLabel('范式类型',{exact:true}).selectOption('held_out_generation');
     await page.getByLabel('模式', { exact: true }).selectOption('rehearsal');
     await step('核对并进入');
     assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).count(), 0);

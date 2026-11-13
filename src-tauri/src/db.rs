@@ -98,6 +98,7 @@ fn init_schema(conn: &Connection) -> Result<(), String> {
     .map_err(|_| "Failed to initialize subjects table schema.".to_string())?;
 
     crate::music_history::init_music_history_schema(conn)?;
+    crate::bdf_destination::init(conn)?;
     crate::scale_records::init_scale_records_schema(conn)?;
     crate::experiment::init(conn)?;
 

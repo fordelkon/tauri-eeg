@@ -171,7 +171,7 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
 describe('six-step flow & condition split (R6 contract)', () => {
   test('keeps researcher choices in preparation and gates induction on the media pool', () => {
     const panelsSource = readText(panelsUrl);
-    const preparationSource = readText(new URL('./ExperimentSettings.tsx', import.meta.url));
+    const preparationSource = readText(new URL('./PreparationPlan.tsx', import.meta.url));
     const controlsSource = readText(new URL('./EffectResearchControls.tsx', import.meta.url));
     expect(preparationSource).toContain('<EffectResearchControls');
     expect(controlsSource).toContain('EFFECT_CONDITION_OPTIONS');

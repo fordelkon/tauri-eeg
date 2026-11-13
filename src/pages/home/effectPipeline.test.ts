@@ -211,7 +211,7 @@ describe('describeEventLogStatus', () => {
   test('maps all four association states to operator-facing copy', () => {
     expect(describeEventLogStatus('not-started')).toBe('实验尚未开始');
     expect(describeEventLogStatus('active')).toBe('实验事件记录中，BDF 由 ActiView 保存');
-    expect(describeEventLogStatus('saved')).toBe('实验日志已保存，BDF 请在实验设置中关联');
+    expect(describeEventLogStatus('saved')).toBe('实验日志已保存');
     // Documented trial-run badge copy (docs/paradigm-protocol.md, 无设备模式).
     expect(describeEventLogStatus('interrupted')).toBe('实验已中断，请重新开始');
   });

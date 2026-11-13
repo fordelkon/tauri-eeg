@@ -4,6 +4,7 @@ export type ExperimentPreferences = {
   mode: ExperimentMode;
   externalRecordingConfirmed: boolean;
   expectedRecordingName: string;
+  recordingPlanKey?: string;
 };
 export const EXPERIMENT_PREFERENCES_KEY = 'biosemi.experimentPreferences.v1';
 const defaults: ExperimentPreferences = {
@@ -25,6 +26,9 @@ export function parseExperimentPreferences(raw: string | null): ExperimentPrefer
       return { ...defaults };
     return {
       mode: value.mode === 'formal' ? 'formal' : 'rehearsal',
+      ...('recordingPlanKey' in value && typeof value.recordingPlanKey === 'string'
+        ? { recordingPlanKey: value.recordingPlanKey }
+        : {}),
       expectedRecordingName:
         typeof value.expectedRecordingName === 'string' ? value.expectedRecordingName : '',
       externalRecordingConfirmed:
@@ -49,5 +53,9 @@ export function writeExperimentPreferences(preferences: ExperimentPreferences) {
 
 export function consumeRecordingConfirmation() {
   const preferences = readExperimentPreferences();
-  writeExperimentPreferences({ ...preferences, externalRecordingConfirmed: false });
+  writeExperimentPreferences({
+    mode: preferences.mode,
+    externalRecordingConfirmed: false,
+    expectedRecordingName: '',
+  });
 }

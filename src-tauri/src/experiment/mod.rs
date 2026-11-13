@@ -1,3 +1,4 @@
+mod bdf_verify;
 mod records;
 #[cfg(test)]
 mod records_tests;
@@ -142,11 +143,12 @@ pub async fn experiment_delete(
 pub async fn experiment_associate_bdf(
     service: State<'_, Service>,
     run_id: String,
+    user_id: String,
     bdf_files: Vec<String>,
 ) -> Result<Run, String> {
     call(
         service,
-        Box::new(move |w| w.associate_bdf(run_id, bdf_files)),
+        Box::new(move |w| w.associate_bdf(run_id, user_id, bdf_files)),
     )
     .await
 }
