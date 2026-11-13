@@ -27,7 +27,7 @@
 
 ## 🌟 核心特性
 
-- ⚡ **微秒级硬件同步打标**：专为 **BioSemi ActiveTwo** 系统量身定制，Rust 后端独占串口发送 8 位并行 TTL 脉冲，具备 8ms 硬件锁存与 $\ge 12\text{ms}$ 防粘包保护窗口。
+- ⚡ **硬件事件打标**：专为 **BioSemi ActiveTwo** 系统量身定制，Rust 后端独占串口发送 8 位并行 TTL 脉冲，具备 8ms 硬件锁存与 $\ge 12\text{ms}$ 防粘包保护窗口。
 - 🎬 **多模态实验范式管理**：标准化情绪诱发视频库（抑郁 / 焦虑 / 恐惧 / 平静），支持自然恢复、音乐调控与视频调控实验闭环。
 - 📋 **心理测量全流程自动化**：无缝集成 SAM（情感自评九点量表）、STAI-S（状态焦虑）、state-PANAS 与 GEMS-9，基线/后测自动比对与改善率计算。
 - 🧬 **BIDS 规范数据导出**：自动生成符合国际标准的 BIDS 文件命名（`sub-*_ses-*_task-*.bdf`），实验日志一键导出为标准的 `events.tsv` 与 `manifest.json`。
@@ -149,26 +149,68 @@ pnpm tauri build
 
 ## 📊 离线数据分析
 
-ActiveTwo 的 `Status` 轨道为 24 位复合通道。在 MNE-Python 中提取低 8 位 Trigger 时，**必须使用 `mask=0x0000FF` 屏蔽高位状态字**：
+### Trigger 链路测试与正式 EEG 采集
+
+Trigger 链路测试验证“应用 → 触发盒 → BioSemi → BDF Status”的事件是否保存。可按 [BioSemi 操作说明](docs/biosemi-operation.md)进行空载测试，也可运行完整流程测试。测试时使用发送 Trigger 的模式，排练模式不发送流程硬件事件。测试记录应注明用途，与正式被试数据分开保存。
+
+打标验收检查以下内容：
+
+- BDF 能正常读取，包含 Status 通道。
+- Status 低 8 位事件码的次数、顺序与测试计划一致，无缺失或重复；完整核对时再与导出的 `events.tsv` 逐条匹配。
+- 事件时间点、阶段时长与计划一致；脉冲之间恢复为 0。以 BDF 样本位置为准，脉冲宽度允许采样量化差异。
+- 完整流程包含运行开始 `60` 与正常结束 `61`。单独测试码 `254` 只验证测试脉冲，不能代替完整流程验收；另存短测试 BDF 时，流程 BDF 无需包含 `254`。
+
+测试采集中的大幅 EEG 偏置、跳变或未连接通道，不作为 Trigger 打标失败的依据。正式 EEG 分析仍需单独完成电极状态、参考、坏导联与伪迹检查。成功读取或打标通过，也不能证明情绪诱发有效。
+
+BDF 事件时间只表示硬件标记在采样时间轴上的位置。屏幕亮起或声音实际输出相对 Trigger 的延迟，需要另外测量，不能据此宣称微秒级刺激同步精度。
+
+### 用 MNE 读取 BDF 并核对事件
+
+ActiveTwo 的 `Status` 轨道为 24 位复合通道。在 MNE-Python 中提取低 8 位 Trigger 时，使用 `mask=0x0000FF` 屏蔽高位状态字。时间换算读取文件中的实际采样率，不固定假设为 1024 Hz 或 2048 Hz。
+
+在已安装 MNE 的 Python 环境中运行，将文件名换为实际 BDF 路径：
 
 ```python
 import mne
 
 # 1. 加载原始 BDF 文件
-raw = mne.io.read_raw_bdf("sub-001_ses-01_task-effect.bdf", preload=True)
+raw = mne.io.read_raw_bdf("recording.bdf", preload=True)
 
-# 2. 提取事件：必须过滤掩码，仅保留低 8 位 (Bit 0 ~ Bit 7)
+# 2. 仅提取 Status 低 8 位事件
 events = mne.find_events(
     raw,
     stim_channel="Status",
     mask=0x0000FF,  # 十进制 255
     mask_type="and",
-    shortest_event=1,  # 确保 8ms 脉冲在 2048Hz 下被完整捕获
+    shortest_event=1,  # 按 1 个样本检查最短事件长度
     consecutive=False,
 )
 
-print(f"成功提取事件数: {len(events)}")
+# 3. 输出码值与相对 BDF 起点的时间，核对次数、顺序和阶段时长
+sfreq = raw.info["sfreq"]
+print(f"采样率: {sfreq:g} Hz，事件数: {len(events)}")
+for sample, _, code in events:
+    seconds = (sample - raw.first_samp) / sfreq
+    print(f"{seconds:.3f} s\tcode={code}")
+
+raw.close()
 ```
+
+MNE 内部 EEG 数据以 V 表示。检查幅值时，可用 `raw.get_data(picks=["A1", "A2"], units="uV")` 明确转换成 µV，在关闭 `raw` 前执行。幅值检查与 Trigger 码值提取是两项独立检查。
+
+### 按实验条件核对事件序列
+
+效果评价 run 的正常事件序列如下。`E` 为目标情绪的诱发码，抑郁为 `1`、焦虑为 `2`、恐惧为 `5`。
+
+| 条件 | 正常事件码顺序 |
+|---|---|
+| 自然恢复 | `60 → E → 10 → 70 → 71 → 51 → 52 → 72 → 73 → 61` |
+| 音乐调控 | `60 → E → 10 → 70 → 71 → 31 → 32 → 72 → 73 → 61` |
+| 视频调控 | `60 → E → 10 → 70 → 71 → 41 → 42 → 72 → 73 → 61` |
+
+根据各阶段开始和结束事件的样本位置计算时长，再与本次 run 的配置、素材时长和日志核对。逐试次范式使用不同序列，见 [正式 Session 流程](docs/formal-session-protocol.md)。发生暂停、中止或播放故障时，按实际事件与日志核对，不能强行匹配正常完成序列。
+
+“基线条件”指自然恢复对照，前测 `baseline` 指诱发后、条件执行前的量表。若研究需要刺激前静息基线，应按对应范式采集并核对其独立标记。
 
 ---
 
