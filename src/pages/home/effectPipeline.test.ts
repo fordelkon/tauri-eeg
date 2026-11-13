@@ -141,7 +141,9 @@ describe('deriveEffectPipelineNodes', () => {
 
   test('the condition station renames with the run condition and branches the stage copy', () => {
     // 调控条件: media relaxation with the set duration advertised.
-    const regulation = deriveEffectPipelineNodes(stateAtStep(3, { condition: 'regulation' }));
+    const regulation = deriveEffectPipelineNodes(
+      stateAtStep(3, { condition: 'regulation', durationMinutes: 5 }),
+    );
     expect(regulation[3].shortLabel).toBe('调控');
     expect(regulation[3].stageTitle).toBe('体验所选素材');
     expect(regulation[3].stageHint).toBe('接下来 5 分钟请跟随播放内容，到点会有提醒');
@@ -150,7 +152,7 @@ describe('deriveEffectPipelineNodes', () => {
     const natural = deriveEffectPipelineNodes(stateAtStep(3, { condition: 'natural_recovery' }));
     expect(natural[3].shortLabel).toBe('静息');
     expect(natural[3].stageTitle).toBe('静息恢复');
-    expect(natural[3].stageHint).toBe('接下来 5 分钟请安静坐好，到点会有提醒');
+    expect(natural[3].stageHint).toBe('接下来 1 分钟请安静坐好，到点会有提醒');
 
     // The duration rides the configured minutes.
     const longer = deriveEffectPipelineNodes(

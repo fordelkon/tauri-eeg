@@ -2,6 +2,8 @@ import {
   EFFECT_CONDITION_OPTIONS,
   EFFECT_EMOTION_OPTIONS,
   EFFECT_METHOD_OPTIONS,
+  DEFAULT_REST_MINUTES,
+  DEFAULT_REGULATION_MINUTES,
 } from './effectEvaluationFlow';
 import { PillGroup } from './EffectResultCards';
 import type { EffectPreparationDraft } from './effectPreparationHandoff';
@@ -60,7 +62,16 @@ export function EffectResearchControls({ state, onChange, disabled }: Props) {
               label="实验条件:"
               options={EFFECT_CONDITION_OPTIONS.map(({ value, label }) => ({ value, label }))}
               selectedValue={state.condition}
-              onSelect={(value) => onChange({ condition: value })}
+              onSelect={(value) => {
+                if (value !== state.condition)
+                  onChange({
+                    condition: value,
+                    durationMinutes:
+                      value === 'natural_recovery'
+                        ? DEFAULT_REST_MINUTES
+                        : DEFAULT_REGULATION_MINUTES,
+                  });
+              }}
             />
             {state.condition === 'regulation' ? (
               <PillGroup

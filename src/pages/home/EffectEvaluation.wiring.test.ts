@@ -196,7 +196,8 @@ describe('six-step flow & condition split (R6 contract)', () => {
     const flowSource = readText(new URL('./effectEvaluationFlow/regulation.ts', import.meta.url));
     expect(pageSource).toContain("state.condition === 'natural_recovery'");
     expect(panelsSource).toContain("'开始静息'");
-    expect(panelsSource).toContain("'结束静息，进行复测'");
+    expect(panelsSource).toContain('<EffectRestFixation');
+    expect(panelsSource).toContain('onElapsed={() => void flow.finishRegulation()}');
     expect(panelsSource).toContain('flow.openRegulationPage');
     expect(panelsSource).toMatch(/isNaturalRecovery \? null : \(\s*<button/);
     expect(flowSource).toContain("state.condition !== 'regulation'");
@@ -306,7 +307,8 @@ describe('embedded regulation player (condition node contract)', () => {
     expect(panelsSource).toContain("state.method === 'video' && !isNaturalRecovery");
     expect(panelsSource).toContain("!isNaturalRecovery && state.method === 'music'");
     expect(panelsSource).toContain('remainingSeconds={isWindowElapsed ? 0 : null}');
-    expect(fullscreenSource).toContain('createPortal(');
+    expect(fullscreenSource).toContain('<ParticipantVideoStage');
+    expect(fullscreenSource).toContain('silent');
     const fullscreenHookSource = readText(
       new URL('./useParticipantFullscreen.ts', import.meta.url),
     );

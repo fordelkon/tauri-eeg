@@ -492,6 +492,11 @@
   z-index: 30;
 }
 
+.stimulusHost {
+  composes: stageHost;
+  cursor: none;
+}
+
 .stageTrialLabel {
   color: rgba(245, 240, 235, 0.55);
   font-size: var(--text-sm);
@@ -618,24 +623,10 @@
   width: 1px;
 }
 
-.stageVideoBadge {
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(194, 121, 20, 0.5);
-  border-radius: 6px;
-  bottom: 12px;
-  color: #e3a22c;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  left: 50%;
-  padding: 6px 10px;
-  position: absolute;
-  transform: translateX(-50%);
-  z-index: 2;
-}
-
 /* Load-failure escape hatch on the video stage: keeps the operator out of the
    dead black screen without ending the whole session. */
 .stageVideoErrorBar {
+  cursor: auto;
   align-items: center;
   background: rgba(20, 8, 8, 0.82);
   border: 1px solid rgba(214, 84, 66, 0.6);
@@ -996,7 +987,8 @@
 /* Paradigm-style fullscreen video preview from the setup lists. */
 
 .previewOverlay {
-  background: rgba(0, 0, 0, 0.96);
+  background: #000;
+  cursor: none;
   display: grid;
   inset: 0;
   place-items: center;
@@ -1004,65 +996,10 @@
   z-index: var(--z50);
 }
 
-.previewTopBar {
-  align-items: center;
-  color: rgba(245, 240, 235, 0.85);
-  display: flex;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  gap: 16px;
-  justify-content: space-between;
-  left: 0;
-  padding: 14px 20px;
-  position: absolute;
-  right: 0;
-  top: 0;
-}
-
-.previewTitle {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.previewCloseButton {
-  background: transparent;
-  border: 1px solid rgba(245, 240, 235, 0.3);
-  border-radius: var(--button-radius-sm);
-  color: rgba(245, 240, 235, 0.8);
-  cursor: pointer;
-  box-sizing: border-box;
-  line-height: 1.2;
-  flex: none;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  min-height: var(--button-height-sm);
-  padding: 0 var(--button-padding-inline-sm);
-  transition:
-    border-color var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
-}
-
-.previewCloseButton:hover {
-  border-color: rgba(245, 240, 235, 0.55);
-  color: #f5f0eb;
-}
-
-.previewCloseButton:focus-visible {
-  /* Dark preview chrome keeps the light-outline ring family. */
-  outline: 2px solid rgba(245, 240, 235, 0.72);
-  outline-offset: 2px;
-}
-
-.previewCloseButton:active {
-  transform: translateY(1px);
-}
-
 .previewVideo {
   background: #000;
-  max-height: calc(100vh - 96px);
-  max-width: calc(100vw - 64px);
+  height: 100%;
+  object-fit: contain;
   width: 100%;
 }
 
@@ -1171,13 +1108,11 @@
   }
 
   .videoListRow,
-  .videoListSummary,
-  .previewCloseButton {
+  .videoListSummary {
     transition: none;
   }
 
-  .videoListRow:active,
-  .previewCloseButton:active {
+  .videoListRow:active {
     transform: none;
   }
 }

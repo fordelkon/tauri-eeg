@@ -1,4 +1,4 @@
-import { createPortal } from 'react-dom';
+import { ParticipantVideoStage } from './ParticipantVideoStage';
 import { useEffect, useRef, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
@@ -8,6 +8,7 @@ import type { EffectEvaluationFlowState, RegulationFinishMode } from './effectEv
 import { ConditionCountdown } from './EffectConditionCountdown';
 import { selectDefaultVideoIndex, shouldPauseAt } from './effectRegulationPlayerModel';
 import { usePauseMediaOnChange } from './useRegulationMedia';
+import { TEST_SKIP_LABEL, useTestSkip } from './useTestSkip';
 import { useParticipantFullscreen } from './useParticipantFullscreen';
 import styles from './EffectEvaluation.module.css';
 
@@ -17,6 +18,7 @@ type EffectFullscreenVideoRegulationProps = {
   onFinish: () => void;
   interrupted: boolean;
   onReset: () => void;
+  onExit: () => void;
   onPlaying: (mediaId: string, details?: unknown) => void;
   onError: () => void;
   onSkip: () => void;
@@ -47,6 +49,7 @@ export function EffectFullscreenVideoRegulation({
   onFinish,
   interrupted,
   onReset,
+  onExit,
   onPlaying,
   onError,
   onSkip,
@@ -69,6 +72,15 @@ export function EffectFullscreenVideoRegulation({
     });
   });
   const shouldPause = shouldPauseAt(isPlaying && finishMode.mode === 'finish' ? 0 : null);
+  const finishRequested = useRef(false);
+  useTestSkip(
+    state.runMode === 'rehearsal' &&
+      isPlaying &&
+      !interrupted &&
+      state.regulationStartedAtMs !== null &&
+      finishMode.mode === 'requires-skip',
+    onSkip,
+  );
   const { enterFullscreen } = useParticipantFullscreen();
 
   usePauseMediaOnChange(videoRef, activeAsset?.videoId);
@@ -80,6 +92,18 @@ export function EffectFullscreenVideoRegulation({
       setIsMediaReady(true);
     }
   }, [activeAsset?.videoId]);
+
+  useEffect(() => {
+    if (
+      shouldPause &&
+      !interrupted &&
+      state.regulationStartedAtMs !== null &&
+      !finishRequested.current
+    ) {
+      finishRequested.current = true;
+      onFinish();
+    }
+  }, [shouldPause, interrupted, state.regulationStartedAtMs, onFinish]);
 
   useEffect(() => {
     if (shouldPause || interrupted) {
@@ -101,8 +125,8 @@ export function EffectFullscreenVideoRegulation({
     onStartPlayback();
   };
 
-  return createPortal(
-    <section className={styles.fullscreenRegulationStage} aria-label="视频调控进行中">
+  return (
+    <ParticipantVideoStage playing={isPlaying && !interrupted && !loadFailed} onExit={onExit}>
       {interrupted ? (
         <div className={styles.fullscreenStageNotice} role="alert">
           <strong>本次实验已中断</strong>
@@ -112,9 +136,6 @@ export function EffectFullscreenVideoRegulation({
           </button>
         </div>
       ) : null}
-      <header className={styles.fullscreenStageHeader}>
-        <span>{isPlaying ? '视频调控进行中' : '准备观看视频'}</span>
-      </header>
 
       <div className={styles.fullscreenVideoFrame}>
         {activeAsset ? (
@@ -127,6 +148,9 @@ export function EffectFullscreenVideoRegulation({
             src={toPlayableParadigmVideoUrl(activeAsset.absolutePath)}
             autoPlay={isPlaying}
             loop
+            disablePictureInPicture
+            disableRemotePlayback
+            onContextMenu={(event) => event.preventDefault()}
             playsInline
             preload="auto"
             onCanPlay={() => setIsMediaReady(true)}
@@ -141,11 +165,12 @@ export function EffectFullscreenVideoRegulation({
           />
         ) : null}
 
-        {!isPlaying && activeAsset ? (
+        {!isPlaying && activeAsset && !loadFailed && !interrupted ? (
           <div className={styles.fullscreenReadyCue} role="status">
             <span>{isMediaReady ? '视频已就绪' : '正在加载视频…'}</span>
             <h2>准备观看视频</h2>
-            <p>准备好后点击播放，计时将随播放开始。</p>
+            <p>计时将随播放开始。按 Esc 可中止本次实验。</p>
+            {state.runMode === 'rehearsal' && <p>排练中按 {TEST_SKIP_LABEL} 可跳过视频。</p>}
             <button
               type="button"
               className={styles.fullscreenStagePrimaryAction}
@@ -165,41 +190,14 @@ export function EffectFullscreenVideoRegulation({
         ) : null}
       </div>
 
-      <footer className={styles.fullscreenStageFooter}>
-        {isPlaying ? (
-          <ConditionCountdown
-            state={state}
-            windowNoun={windowNoun}
-            onElapsed={onWindowElapsed}
-            compact
-          />
-        ) : (
-          <span className={styles.fullscreenPlaybackHint}>播放前不会开始调控计时。</span>
-        )}
-        {isPlaying ? (
-          <div className={styles.fullscreenStageActions}>
-            {finishMode.mode === 'finish' ? (
-              <button
-                type="button"
-                className={styles.fullscreenStagePrimaryAction}
-                onClick={onFinish}
-              >
-                结束调控，进行复测
-              </button>
-            ) : null}
-            {finishMode.mode === 'requires-skip' ? (
-              <button
-                type="button"
-                className={styles.fullscreenStageSecondaryAction}
-                onClick={onSkip}
-              >
-                跳过剩余时长…
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-      </footer>
-    </section>,
-    document.body,
+      {state.regulationStartedAtMs !== null && !interrupted && (
+        <ConditionCountdown
+          state={state}
+          windowNoun={windowNoun}
+          onElapsed={onWindowElapsed}
+          silent
+        />
+      )}
+    </ParticipantVideoStage>
   );
 }

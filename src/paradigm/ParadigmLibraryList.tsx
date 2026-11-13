@@ -24,6 +24,7 @@ export const ParadigmLibraryList = memo(function ParadigmLibraryList({
   return (
     <details className={styles.videoListDetails}>
       <summary className={styles.videoListSummary}>素材清单(点击文件名全屏预览)</summary>
+      <p className={styles.sectionHint}>按 Esc 或点击画面关闭预览。</p>
       <div className={styles.videoListGrid} aria-label="素材清单">
         {PARADIGM_EMOTION_DISPLAY_ORDER.map((emotion) => {
           const entries = library[libraryClassKeys[emotion]];

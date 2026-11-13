@@ -66,5 +66,6 @@ export const EFFECT_FLOW_STEP_COUNT = EFFECT_FLOW_STEPS.length;
 export type EffectFlowStep = 0 | 1 | 2 | 3 | 4 | 5;
 
 export const DEFAULT_REGULATION_MINUTES = 5;
+export const DEFAULT_REST_MINUTES = 1;
 export const MIN_REGULATION_MINUTES = 1;
 export const MAX_REGULATION_MINUTES = 30;

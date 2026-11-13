@@ -1,5 +1,6 @@
 import {
   DEFAULT_REGULATION_MINUTES,
+  DEFAULT_REST_MINUTES,
   EFFECT_CONDITION_OPTIONS,
   EFFECT_EMOTION_OPTIONS,
   EFFECT_FLOW_STEP_COUNT,
@@ -70,7 +71,7 @@ export function createEffectEvaluationFlowState(): EffectEvaluationFlowState {
     method: 'music',
     protocol: 'brief',
     condition: 'natural_recovery',
-    durationMinutes: DEFAULT_REGULATION_MINUTES,
+    durationMinutes: DEFAULT_REST_MINUTES,
     baselineRecordId: null,
     postRecordId: null,
     regulationStartedAtMs: null,

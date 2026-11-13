@@ -5,11 +5,8 @@ import { useFirstVideoFrameOnset, type VideoOnsetInfo } from '../ui/videoFrameOn
 import { toPlayableVideoUrl } from '../video/videoRegulationCatalog';
 import {
   VIDEO_LOAD_WATCHDOG_MS,
-  VIDEO_MAX_SECONDS,
-  VIDEO_MIN_SECONDS,
   coalesceCountdownTickMs,
   getTimedPhaseDurationMs,
-  isVideoDurationOutOfRange,
 } from './paradigmTimeline';
 import { PARADIGM_TRIALS_PER_CLASS } from './types';
 import type { ParadigmTrialPlanItem } from './types';
@@ -34,20 +31,12 @@ export type TrialStageNotice = {
   actions?: readonly TrialStageNoticeAction[];
 };
 
-/**
- * Simulated (or, later, real) decoder scores shown on the intermittent
- * feedback stage: the gray bar is the target proximity during the induction
- * video, the green bar the proximity reached during the regulation window.
- */
 type Props = {
   phase: TrialStagePhase;
   plan: ParadigmTrialPlanItem;
-  /** Corner progress, e.g. "视频 3 / 5"; never names the emotion class. */
-  trialLabel: string;
   /** 1-based position of the upcoming/playing video inside its block. */
   videoNumber?: number;
-  /** Decoder scores shown only on the regulation feedback stage. */
-  /** Operator escape hatch rendered as a subtle fullscreen corner button. */
+  /** Also expose an exit button on the operator-facing playback error panel. */
   onRequestEarlyEnd: () => void;
   /** Fired when a countdown-driven phase reaches zero. */
   onCountdownComplete: () => void;
@@ -85,7 +74,6 @@ const stageCopy: Record<Exclude<TrialStagePhase, 'video'>, { title: string; hint
 export default function TrialStageRenderer({
   phase,
   plan,
-  trialLabel,
   videoNumber,
   onRequestEarlyEnd,
   onCountdownComplete,
@@ -138,8 +126,7 @@ export default function TrialStageRenderer({
 
   if (phase === 'video') {
     return createPortal(
-      <div className={styles.stageHost} aria-label="情绪诱发视频播放区">
-        <StageCorners trialLabel={trialLabel} onRequestEarlyEnd={onRequestEarlyEnd} />
+      <div className={styles.stimulusHost} aria-label="观看视频">
         {stageNotice ? <StageNoticeBar notice={stageNotice} /> : null}
         <VideoStage
           key={plan.videoId}
@@ -148,6 +135,7 @@ export default function TrialStageRenderer({
           onVideoError={onVideoError}
           onVideoEnded={onVideoEnded}
           onVideoDurationLoaded={onVideoDurationLoaded}
+          onRequestEarlyEnd={onRequestEarlyEnd}
           onSkipTrial={onSkipTrial}
         />
       </div>,
@@ -168,18 +156,23 @@ export default function TrialStageRenderer({
       : copy.hint;
 
   return createPortal(
-    <div className={styles.stageHost} aria-label={copy.title}>
-      <StageCorners trialLabel={trialLabel} onRequestEarlyEnd={onRequestEarlyEnd} />
+    <div
+      className={phase === 'hint' ? styles.stageHost : styles.stimulusHost}
+      aria-label={copy.title}
+    >
       {stageNotice ? <StageNoticeBar notice={stageNotice} /> : null}
       {phase === 'baseline' || phase === 'hint' ? <PreheatVideo plan={plan} /> : null}
-      <div className={styles.stageMessage}>
-        {phase === 'baseline' ? <span className={styles.fixationCross} aria-hidden="true" /> : null}
-        <span className={styles.stageTitle}>{copy.title}</span>
-        <span className={styles.stageHintText}>{hintText}</span>
-        <span className={styles.stageCountdown} aria-label="剩余秒数">
-          {remainingSeconds}
-        </span>
-      </div>
+      {phase === 'hint' ? (
+        <div className={styles.stageMessage}>
+          <span className={styles.stageTitle}>{copy.title}</span>
+          <span className={styles.stageHintText}>{hintText}</span>
+          <span className={styles.stageCountdown} aria-label="剩余秒数">
+            {remainingSeconds}
+          </span>
+        </div>
+      ) : (
+        <span className={styles.fixationCross} aria-hidden="true" />
+      )}
     </div>,
     document.body,
   );
@@ -205,23 +198,6 @@ export function StageNoticeBar({ notice }: { notice: TrialStageNotice }) {
         </button>
       ))}
     </div>
-  );
-}
-
-function StageCorners({
-  trialLabel,
-  onRequestEarlyEnd,
-}: {
-  trialLabel: string;
-  onRequestEarlyEnd: () => void;
-}) {
-  return (
-    <>
-      <span className={styles.stageTrialLabel}>{trialLabel}</span>
-      <button type="button" className={styles.stageEndButton} onClick={onRequestEarlyEnd}>
-        结束
-      </button>
-    </>
   );
 }
 
@@ -252,6 +228,7 @@ function PreheatVideo({ plan }: { plan: ParadigmTrialPlanItem }) {
 }
 
 type VideoStageProps = {
+  onRequestEarlyEnd: () => void;
   plan: ParadigmTrialPlanItem;
   onVideoFirstPlay: (onset: VideoOnsetInfo) => void;
   onVideoError: () => void;
@@ -261,6 +238,7 @@ type VideoStageProps = {
 };
 
 function VideoStage({
+  onRequestEarlyEnd,
   plan,
   onVideoFirstPlay,
   onVideoError,
@@ -268,7 +246,6 @@ function VideoStage({
   onVideoDurationLoaded,
   onSkipTrial,
 }: VideoStageProps) {
-  const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const handleFirstPlaying = useFirstVideoFrameOnset(onVideoFirstPlay);
   // Set once the video demonstrably advances; disarms the watchdog.
@@ -323,6 +300,9 @@ function VideoStage({
         src={toPlayableVideoUrl(plan.videoPath, convertFileSrc)}
         autoPlay
         playsInline
+        controls={false}
+        disablePictureInPicture
+        onContextMenu={(event) => event.preventDefault()}
         onPlaying={(event) => handleFirstPlaying(event.currentTarget)}
         onTimeUpdate={() => {
           playbackAdvancedRef.current = true;
@@ -331,19 +311,15 @@ function VideoStage({
         onLoadedMetadata={(event) => {
           const seconds = event.currentTarget.duration;
           const safeSeconds = Number.isFinite(seconds) ? seconds : null;
-          setDurationSeconds(safeSeconds);
           onVideoDurationLoaded(safeSeconds);
         }}
         onEnded={() => onVideoEnded()}
       />
-      {durationSeconds !== null && isVideoDurationOutOfRange(durationSeconds) ? (
-        <span className={styles.stageVideoBadge}>
-          视频时长超出 {VIDEO_MIN_SECONDS}-{VIDEO_MAX_SECONDS} 秒范围(实际{' '}
-          {Math.round(durationSeconds)} 秒)
-        </span>
-      ) : null}
       {loadFailed ? (
         <div className={styles.stageVideoErrorBar} role="alert">
+          <button type="button" className={styles.stageActionButton} onClick={onRequestEarlyEnd}>
+            结束实验
+          </button>
           <span>视频加载失败,无法播放(文件缺失或格式不受支持)。</span>
 
           <button

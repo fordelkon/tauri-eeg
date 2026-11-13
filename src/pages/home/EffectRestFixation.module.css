@@ -1,0 +1,32 @@
+.screen {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #000;
+  cursor: none;
+  outline: none;
+}
+
+.cross {
+  width: 48px;
+  height: 48px;
+  position: relative;
+}
+
+.cross::before,
+.cross::after {
+  content: '';
+  position: absolute;
+  background: #f5f0eb;
+  inset: 0;
+  margin: auto;
+}
+
+.cross::before {
+  height: 2px;
+}
+.cross::after {
+  width: 2px;
+}

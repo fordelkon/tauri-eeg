@@ -2,12 +2,10 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { toPlayableVideoUrl } from '../video/videoRegulationCatalog';
-import { paradigmEmotionLabels } from './types';
-import type { ParadigmEmotion, ParadigmVideoEntry } from './types';
+import type { ParadigmVideoEntry } from './types';
 import styles from './ParadigmSession.module.css';
 
 type Props = {
-  emotion: ParadigmEmotion;
   entry: ParadigmVideoEntry;
   onClose: () => void;
 };
@@ -18,7 +16,7 @@ type Props = {
  * floating nav rail (z3) and the agent panel column. Every other fullscreen
  * surface in the app (ParadigmRunner, scale dialogs, fullscreen regulation
  * stages) portals for the same reason. */
-export default function ParadigmVideoPreview({ emotion, entry, onClose }: Props) {
+export default function ParadigmVideoPreview({ entry, onClose }: Props) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -32,18 +30,13 @@ export default function ParadigmVideoPreview({ emotion, entry, onClose }: Props)
 
   return createPortal(
     <div className={styles.previewOverlay} role="dialog" aria-label="素材预览" onClick={onClose}>
-      <div className={styles.previewTopBar} onClick={(event) => event.stopPropagation()}>
-        <span className={styles.previewTitle}>
-          {paradigmEmotionLabels[emotion]} · {entry.fileName}
-        </span>
-        <button type="button" className={styles.previewCloseButton} onClick={onClose}>
-          关闭预览(ESC)
-        </button>
-      </div>
       <video
         className={styles.previewVideo}
         src={toPlayableVideoUrl(entry.absolutePath, convertFileSrc)}
-        controls
+        controls={false}
+        disablePictureInPicture
+        onContextMenu={(event) => event.preventDefault()}
+        onEnded={onClose}
         autoPlay
         playsInline
         ref={(node) => {
@@ -51,7 +44,6 @@ export default function ParadigmVideoPreview({ emotion, entry, onClose }: Props)
             node.volume = 1;
           }
         }}
-        onClick={(event) => event.stopPropagation()}
       />
     </div>,
     document.body,

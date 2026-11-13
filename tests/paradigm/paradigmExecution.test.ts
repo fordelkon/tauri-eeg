@@ -62,6 +62,27 @@ describe('independent paradigm execution', () => {
     expect(ipc.finishRun.mock.calls).toEqual([['run-1', 'completed']]);
   });
 
+  it('only records a rehearsal shortcut as a rejected trial, without a playback failure', async () => {
+    const formal = await start();
+    await formal.skipRehearsalTrial(token(formal));
+    expect(token(formal).trialPhase).toBe('baseline');
+    expect(events()).not.toContain('trial_skip');
+
+    const run = new ParadigmExecution({ runId: 'test', dryRun: true, queue: [plan], sessionKind: 'personal_calibration' });
+    run.start();
+    await idle(run);
+    await run.skipRehearsalTrial(token(run));
+    await idle(run);
+    expect(events().filter(name => name === 'trial_skip')).toHaveLength(1);
+    expect(events()).not.toContain('playback_error');
+    expect(ipc.emitEvent.mock.calls.find(([e]) => e.eventName === 'trial_skip')?.[0]).toMatchObject({
+      source: 'rehearsal_shortcut', details: { phase: 'baseline' },
+    });
+    expect(ipc.saveTrial.mock.lastCall?.[1]).toMatchObject({
+      presentationStatus: 'skipped', quality: 'rejected', artifactFlags: ['rehearsal_shortcut'], selfReport: null,
+    });
+  });
+
   it('keeps duration rejection ahead of the SAM acceptance result', async () => {
     const run = await start();
     await video(run);

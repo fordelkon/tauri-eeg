@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useParticipantFullscreen } from '../pages/home/useParticipantFullscreen';
+import { useTestSkip } from '../pages/home/useTestSkip';
 import { createPortal } from 'react-dom';
 import { defaultParadigmSessionStatus, setParadigmSessionStatus } from './paradigmSessionStatus';
 import { useConfirmDialog } from '../ui/useConfirmDialog';
@@ -43,6 +44,7 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     handleCountdownComplete,
     handleSelfReportSubmit,
     handleSkipTrial,
+    handleRehearsalSkip,
     handleVideoDurationLoaded,
     handleVideoEnded,
     handleVideoError,
@@ -106,32 +108,16 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [state.phase]);
 
-  // Fullscreen exactly while a video is playing: enter when the video stage
-  // begins, leave when it ends — baseline/hint/SAM/stage breaks stay windowed.
-  // Regulation sessions additionally fullscreen the reappraisal window and the
-  // feedback bar so the subject sees nothing but the stage after the video.
-  // The native window API resizes the real OS window (WebView2's element
-  // fullscreen only fills the webview) and needs no user activation.
-  const isVideoStage = state.phase === 'running' && state.trialPhase === 'video';
+  const presenting = stagePhase !== null;
+  const cleanStage = presenting && stagePhase !== 'hint';
+  useTestSkip(dryRun && cleanStage && !confirmDialogElement, handleRehearsalSkip);
 
+  const { enterFullscreen, leaveFullscreen } = useParticipantFullscreen();
   useEffect(() => {
-    if (!isVideoStage) {
-      return undefined;
-    }
-
-    void getCurrentWindow()
-      .setFullscreen(true)
-      .catch((error) => {
-        // Most often a stale build without the set-fullscreen capability.
-        console.warn('[paradigm] 进入视频全屏失败', error);
-      });
-
-    return () => {
-      void getCurrentWindow()
-        .setFullscreen(false)
-        .catch(() => {});
-    };
-  }, [isVideoStage]);
+    if (!presenting) return;
+    void enterFullscreen();
+    return leaveFullscreen;
+  }, [presenting, enterFullscreen, leaveFullscreen]);
 
   // --- Session exits -----------------------------------------------------
 
@@ -147,6 +133,17 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
     exitSession();
     onExitToSetup();
   }, [confirm, exitSession, abortRun, onExitToSetup]);
+
+  useEffect(() => {
+    if (!presenting || confirmDialogElement) return;
+    const exitOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.repeat || event.isComposing) return;
+      event.preventDefault();
+      void handleEarlyEnd();
+    };
+    window.addEventListener('keydown', exitOnEscape);
+    return () => window.removeEventListener('keydown', exitOnEscape);
+  }, [presenting, confirmDialogElement, handleEarlyEnd]);
 
   const handleReturnToSetup = useCallback(() => {
     exitSession();
@@ -209,7 +206,6 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
           <TrialStageRenderer
             phase={stagePhase}
             plan={currentPlan}
-            trialLabel={`视频 ${progress.currentVideoNumber} / ${PARADIGM_TRIALS_PER_CLASS}`}
             videoNumber={progress.currentVideoNumber}
             onRequestEarlyEnd={handleEarlyEnd}
             onCountdownComplete={handleCountdownComplete}

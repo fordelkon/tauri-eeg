@@ -44,7 +44,7 @@ describe('effectEvaluationFlow stepper', () => {
     const state = createEffectEvaluationFlowState();
 
     expect(state.step).toBe(0);
-    expect(state.durationMinutes).toBe(5);
+    expect(state.durationMinutes).toBe(1);
     expect(state.subjectId).toBe('');
     expect(state.baselineRecordId).toBeNull();
     expect(state.postRecordId).toBeNull();
@@ -87,7 +87,11 @@ describe('regulation countdown', () => {
   });
 
   it('counts down from the full window and clamps at zero afterwards', () => {
-    const started = { ...createEffectEvaluationFlowState(), regulationStartedAtMs: 0 };
+    const started = {
+      ...createEffectEvaluationFlowState(),
+      durationMinutes: 5,
+      regulationStartedAtMs: 0,
+    };
 
     expect(remainingRegulationSeconds(started, 0)).toBe(300);
     // Halfway through a 5-minute window: 150s left (ceil keeps whole seconds).
@@ -321,6 +325,7 @@ function runningWindowState(startedAtMs = 1_000_000) {
   return {
     ...createEffectEvaluationFlowState(),
     step: 3 as const,
+    durationMinutes: 5,
     subjectId: 'subj-042',
     emotion: 'anxiety' as const,
     method: 'music' as const,
@@ -644,6 +649,7 @@ describe('BioSemi effect run timing and persistence', () => {
   it('uses elapsed monotonic time even when the wall clock changes', () => {
     const state = {
       ...createEffectEvaluationFlowState(),
+      durationMinutes: 5,
       regulationStartedAtMs: 100000,
       regulationStartedAtMonotonicMs: 1000,
     };

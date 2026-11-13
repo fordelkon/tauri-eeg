@@ -53,6 +53,7 @@ export class ParadigmExecution {
   constructor(
     private request: {
       runId: string;
+      dryRun?: boolean;
       queue: ParadigmTrialPlanItem[];
       sessionKind: ParadigmSessionKind;
     },
@@ -197,7 +198,13 @@ export class ParadigmExecution {
   }
 
   videoFirstPlay(token: TrialCallbackToken, onset?: VideoOnsetInfo) {
-    if (!this.current(token) || token.trialPhase !== 'video' || this.videoStarted) return;
+    if (
+      !this.current(token) ||
+      this.snapshot.operation !== 'idle' ||
+      token.trialPhase !== 'video' ||
+      this.videoStarted
+    )
+      return;
     const plan = this.snapshot.state.queue[token.currentTrialIndex];
     if (!plan) return;
     this.videoStarted = true;
@@ -209,7 +216,13 @@ export class ParadigmExecution {
   }
 
   videoEnded(token: TrialCallbackToken) {
-    if (!this.current(token) || token.trialPhase !== 'video' || this.videoEndMarked) return;
+    if (
+      !this.current(token) ||
+      this.snapshot.operation !== 'idle' ||
+      token.trialPhase !== 'video' ||
+      this.videoEndMarked
+    )
+      return;
     this.videoEndMarked = true;
     return this.mark('induction_video_end', 'html_video_ended').then(() => {
       if (this.current(token) && this.snapshot.operation === 'idle') this.advance();
@@ -220,7 +233,7 @@ export class ParadigmExecution {
     // Defense in depth against duplicate callers: `playback_error` is a
     // research-data event, so it must be recorded at most once per video
     // phase (VideoStage already reports one-shot).
-    if (!this.current(token) || this.videoErrorMarked) return;
+    if (!this.current(token) || this.snapshot.operation !== 'idle' || this.videoErrorMarked) return;
     this.videoErrorMarked = true;
     return this.mark('playback_error', 'video_error');
   }
@@ -265,15 +278,33 @@ export class ParadigmExecution {
     this.reconcile();
   }
 
+  skipRehearsalTrial(token: TrialCallbackToken) {
+    if (!this.request.dryRun || !this.current(token) || this.snapshot.operation !== 'idle') return;
+    if (!['baseline', 'video', 'postRest'].includes(token.trialPhase)) return;
+    return this.finishSkippedTrial(token, true);
+  }
+
   async skip(token: TrialCallbackToken, confirm: () => Promise<boolean>) {
     if (!this.current(token) || this.snapshot.operation !== 'idle') return;
     if (!(await confirm()) || !this.current(token) || this.snapshot.operation !== 'idle') return;
+    return this.finishSkippedTrial(token, false);
+  }
+
+  private finishSkippedTrial(token: TrialCallbackToken, rehearsal: boolean) {
     return this.execute('skip', async () => {
-      await this.experiment.event('playback_error', 'video_error');
-      await this.experiment.event('trial_skip');
+      if (rehearsal) {
+        await this.experiment.event('trial_skip', 'rehearsal_shortcut', {
+          phase: token.trialPhase,
+        });
+      } else {
+        await this.experiment.event('playback_error', 'video_error');
+        await this.experiment.event('trial_skip');
+      }
       await this.experiment.event('trial_end');
       if (this.stopped) return;
-      await this.experiment.finalize(null, 'rejected', ['video_playback_failure']);
+      await this.experiment.finalize(null, 'rejected', [
+        rehearsal ? 'rehearsal_shortcut' : 'video_playback_failure',
+      ]);
       if (this.current(token)) this.transition({ type: 'trial_skipped' });
     });
   }

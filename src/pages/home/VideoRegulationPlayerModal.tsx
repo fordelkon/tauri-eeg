@@ -1,15 +1,9 @@
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { convertFileSrc } from '@tauri-apps/api/core';
-import type { Ref } from 'react';
+import { useState, type Ref } from 'react';
+import Modal from '@mui/material/Modal';
 import type { RegulationVideo } from '../../video/paradigmRegulationCatalog';
 import { toPlayableVideoUrl } from '../../video/videoRegulationCatalog';
 import playerStyles from './VideoRegulationPlayer.module.css';
-
-/**
- * The fullscreen video player modal of the video regulation page. Presentational:
- * the active asset and the close handler come from the page (Escape key and
- * overlay dismissal live there too).
- */
 
 type VideoRegulationPlayerModalProps = {
   activeVideo: RegulationVideo;
@@ -22,47 +16,44 @@ export function VideoRegulationPlayerModal({
   videoRef,
   onClose,
 }: VideoRegulationPlayerModalProps) {
+  const [failed, setFailed] = useState(false);
   return (
-    <div
-      className={`${playerStyles.videoOverlay} fixed inset-0 z-30 flex items-center justify-center`}
-      role="presentation"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
+    <Modal open hideBackdrop onClose={onClose}>
       <section
-        className={`${playerStyles.videoModal} grid w-full`}
+        className={playerStyles.player}
+        role="dialog"
+        aria-modal="true"
         aria-label="视频调节播放器"
-        onClick={(event) => event.stopPropagation()}
       >
-        <header className={`${playerStyles.videoModalHeader} flex items-center justify-between`}>
-          <div className="min-w-0">
-            <span>视频播放</span>
-            <strong>{activeVideo.title}</strong>
-            <code>{activeVideo.sourcePath}</code>
-          </div>
-          <button
-            type="button"
-            className={playerStyles.closeButton}
-            aria-label="关闭调节视频"
-            onClick={onClose}
-          >
-            <CloseRoundedIcon />
-          </button>
-        </header>
-        <div className={playerStyles.videoFrame}>
+        <button
+          type="button"
+          className={playerStyles.surface}
+          autoFocus
+          aria-label="关闭调节视频"
+          onClick={onClose}
+        >
           <video
-            key={activeVideo.id}
             ref={videoRef}
             autoPlay
-            controls
-            preload="metadata"
+            playsInline
+            disablePictureInPicture
+            disableRemotePlayback
+            onContextMenu={(event) => event.preventDefault()}
+            preload="auto"
             src={toPlayableVideoUrl(activeVideo.sourcePath, convertFileSrc)}
+            onEnded={onClose}
+            onError={() => setFailed(true)}
           />
-        </div>
+        </button>
+        {failed && (
+          <div className={playerStyles.error} role="alert">
+            <p>视频无法播放，请检查素材后重试。</p>
+            <button type="button" onClick={onClose}>
+              返回素材列表
+            </button>
+          </div>
+        )}
       </section>
-    </div>
+    </Modal>
   );
 }

@@ -274,6 +274,7 @@ export default function EffectEvaluation() {
             methodLabel={methodLabel}
             skippedCopy={skippedCopy}
             isWindowElapsed={isWindowElapsed}
+            onResetFlow={handleResetFlow}
             onWindowElapsed={handleWindowElapsed}
             onFinishRegulation={handleFinishRegulation}
             onSkipRemaining={handleSkipRemaining}

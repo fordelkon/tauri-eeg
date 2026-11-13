@@ -475,17 +475,17 @@ export default function ParadigmSetupPanel({
           </button>
         </div>
 
+        <p className={styles.sectionHint}>
+          视频与静息阶段按 Esc 可申请结束实验。
+          {dryRun && '排练时，Ctrl + Shift + S 跳过当前试次并记录跳过原因。'}
+        </p>
         {notReadyReason ? <p className={styles.sectionHint}>{notReadyReason}</p> : null}
 
         {startError ? <div className={styles.errorBanner}>{startError}</div> : null}
       </section>
 
       {previewVideo ? (
-        <ParadigmVideoPreview
-          emotion={previewVideo.emotion}
-          entry={previewVideo.entry}
-          onClose={() => setPreviewVideo(null)}
-        />
+        <ParadigmVideoPreview entry={previewVideo.entry} onClose={() => setPreviewVideo(null)} />
       ) : null}
     </div>
   );

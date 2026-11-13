@@ -101,6 +101,8 @@ export class EffectEvaluationExecution {
         generation === this.generation ? this.inductionOnset(mediaId, onset) : Promise.resolve(),
       completeInduction: () =>
         generation === this.generation ? this.completeInduction() : Promise.resolve(false),
+      skipInduction: () =>
+        generation === this.generation ? this.skipInduction() : Promise.resolve(false),
       beginRegulation: (mediaId?: string, details?: unknown) =>
         generation === this.generation ? this.beginRegulation(mediaId, details) : Promise.resolve(),
       playbackError: () =>
@@ -298,10 +300,23 @@ export class EffectEvaluationExecution {
     ).catch(() => {});
   };
 
-  completeInduction = (): Promise<boolean> => {
+  completeInduction = (): Promise<boolean> => this.leaveInduction(false);
+
+  skipInduction = (): Promise<boolean> => {
+    const { runMode, runId, emotion } = this.snapshot.state;
+    if (runMode !== 'rehearsal' || !this.events.has(`${runId}:induction:${emotion}_video_start`))
+      return Promise.resolve(false);
+    return this.leaveInduction(true);
+  };
+
+  private leaveInduction(skipped: boolean): Promise<boolean> {
     if (!this.allowed(1) || !this.snapshot.state.runId) return Promise.resolve(false);
     return this.perform('complete-induction', async () => {
       try {
+        if (skipped)
+          await this.event('trial_skip', 'induction_skip', undefined, {
+            reason: 'rehearsal_shortcut',
+          });
         await this.event('induction_video_end', 'induction');
         await this.event('pre_scale_start', 'pre_scale');
         this.changeState({ step: 2 });
@@ -310,7 +325,7 @@ export class EffectEvaluationExecution {
         return false;
       }
     });
-  };
+  }
 
   playbackError = (): Promise<void> => {
     if (![1, 3].includes(this.snapshot.state.step) || this.snapshot.state.interrupted)

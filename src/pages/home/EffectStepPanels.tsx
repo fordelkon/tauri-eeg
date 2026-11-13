@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
@@ -7,6 +7,9 @@ import BriefRatingDialog from '../../mentalScale/BriefRatingDialog';
 import EffectRegulationPlayer from './EffectRegulationPlayer';
 import { EffectFullscreenInduction } from './EffectFullscreenInduction';
 import { EffectFullscreenVideoRegulation } from './EffectFullscreenVideoRegulation';
+import { EffectRestFixation } from './EffectRestFixation';
+import { TEST_SKIP_LABEL } from './useTestSkip';
+import { useParticipantFullscreen } from './useParticipantFullscreen';
 import { ConditionCountdown } from './EffectConditionCountdown';
 import type { RegulationFinishMode } from './effectEvaluationFlow';
 import type { EffectEvaluationFlow } from './useEffectEvaluationFlow';
@@ -111,11 +114,14 @@ export function InductionStepPanel({
           entry={status.entry}
           isPlaying={isInductionPlaying}
           onError={onVideoError}
+          rehearsal={state.runMode === 'rehearsal'}
+          onTestSkip={() => void flow.skipInduction()}
           onFinished={() => void flow.completeInduction()}
           onPlaying={(onset) => flow.inductionOnset(status.entry.videoId, onset)}
           startError={flow.actionError}
           isStarting={flow.isStartingRun}
           interrupted={state.interrupted}
+          onExit={onResetFlow}
           onReset={() => void flow.resetFlow()}
           onStartPlayback={onBeginInduction}
           retryCount={inductionRetryCount}
@@ -198,6 +204,7 @@ export type ConditionStepPanelProps = {
   skippedCopy: string | null;
   isWindowElapsed: boolean;
   onWindowElapsed: () => void;
+  onResetFlow: () => void;
   onFinishRegulation: () => void;
   onSkipRemaining: () => void;
   eventLogUnavailableHint: ReactNode;
@@ -212,6 +219,7 @@ export function ConditionStepPanel({
   skippedCopy,
   isWindowElapsed,
   onWindowElapsed,
+  onResetFlow,
   onFinishRegulation,
   onSkipRemaining,
   eventLogUnavailableHint,
@@ -224,6 +232,30 @@ export function ConditionStepPanel({
   const isMusic = !isNaturalRecovery && state.method === 'music';
   const requiresVideoPool = state.method === 'video' && !isNaturalRecovery;
   const isVideoPresentationActive = requiresVideoPool && (isVideoRegulationPrepared || isStarted);
+  const { enterFullscreen, leaveFullscreen } = useParticipantFullscreen();
+  useEffect(() => {
+    if (isNaturalRecovery && state.interrupted) leaveFullscreen();
+  }, [isNaturalRecovery, state.interrupted, leaveFullscreen]);
+
+  if (isNaturalRecovery && isStarted && !state.interrupted) {
+    return (
+      <EffectRestFixation
+        state={state}
+        onElapsed={() => void flow.finishRegulation()}
+        onSkip={() => void flow.skipRemainingRegulation()}
+        onExit={onResetFlow}
+      />
+    );
+  }
+
+  const beginCondition = () => {
+    if (requiresVideoPool) {
+      setIsVideoRegulationPrepared(true);
+      return;
+    }
+    if (isNaturalRecovery) void enterFullscreen();
+    void flow.beginRegulation();
+  };
 
   return (
     <section className={styles.stageBody} aria-label="条件执行">
@@ -252,11 +284,12 @@ export function ConditionStepPanel({
           finishMode={finishMode}
           isPlaying={isVideoPlaybackRequested || isStarted}
           interrupted={state.interrupted}
+          onExit={onResetFlow}
           onReset={() => void flow.resetFlow()}
           onPlaying={flow.beginRegulation}
           onError={flow.playbackError}
           onFinish={onFinishRegulation}
-          onSkip={onSkipRemaining}
+          onSkip={() => void flow.skipRemainingRegulation()}
           onStartPlayback={() => setIsVideoPlaybackRequested(true)}
           onWindowElapsed={onWindowElapsed}
           state={state}
@@ -286,22 +319,23 @@ export function ConditionStepPanel({
                   className={styles.primaryCta}
                   variant="contained"
                   disabled={state.interrupted || isMusic}
-                  onClick={
-                    requiresVideoPool
-                      ? () => setIsVideoRegulationPrepared(true)
-                      : () => flow.beginRegulation()
-                  }
+                  onClick={beginCondition}
                 >
                   {requiresVideoPool ? '进入全屏准备' : isNaturalRecovery ? '开始静息' : '开始调控'}
                 </Button>
               </div>
               <p className={styles.panelHint}>
-                {isNaturalRecovery ? '点击开始后，请安静坐好。' : '素材开始播放后计时。'}
+                {isNaturalRecovery
+                  ? '开始后请注视十字，到时自动进入复测。按 Esc 可中止实验。'
+                  : '素材开始播放后计时。'}
+                {isNaturalRecovery && state.runMode === 'rehearsal'
+                  ? ` 排练可按 ${TEST_SKIP_LABEL} 跳过静息。`
+                  : null}
               </p>
             </>
           )}
         </>
-      ) : (
+      ) : !state.interrupted ? (
         <>
           <ConditionCountdown state={state} windowNoun={windowNoun} onElapsed={onWindowElapsed} />
           {skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
@@ -322,7 +356,7 @@ export function ConditionStepPanel({
               }
               onClick={onFinishRegulation}
             >
-              {isNaturalRecovery ? '结束静息，进行复测' : '结束调控，进行复测'}
+              结束调控，进行复测
             </Button>
           </div>
 
@@ -356,7 +390,7 @@ export function ConditionStepPanel({
             ) : null}
           </div>
         </>
-      )}
+      ) : null}
     </section>
   );
 }

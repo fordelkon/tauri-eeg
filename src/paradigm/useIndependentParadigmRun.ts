@@ -50,6 +50,9 @@ export function useIndependentParadigmRun({
       execution.selfReportSubmit(state, selfReport),
     handleVideoDurationLoaded: (seconds: number | null) =>
       execution.videoDurationLoaded(state, seconds),
+    handleRehearsalSkip: () => {
+      void execution.skipRehearsalTrial(state);
+    },
     handleSkipTrial: () =>
       execution.skip(state, () =>
         confirm({

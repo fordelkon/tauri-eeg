@@ -14,6 +14,8 @@ type ConditionCountdownProps = {
   onElapsed: () => void;
   /** Subject-facing video stage only shows the time and state, not the long operator hint. */
   compact?: boolean;
+  /** Keep timing active without drawing anything in a participant stimulus. */
+  silent?: boolean;
 };
 
 /**
@@ -32,6 +34,7 @@ type ConditionCountdownProps = {
  */
 export const ConditionCountdown = memo(function ConditionCountdown({
   compact = false,
+  silent = false,
   state,
   windowNoun,
   onElapsed,
@@ -82,71 +85,13 @@ export const ConditionCountdown = memo(function ConditionCountdown({
     state.regulationStartedAtMonotonicMs,
   ]);
 
+  if (silent) return null;
+
   const totalSeconds = state.durationMinutes * 60;
   const progressPercent =
     totalSeconds > 0
       ? Math.min(100, Math.max(0, 100 - (remainingSeconds / totalSeconds) * 100))
       : 100;
-
-  const isNaturalRecovery = state.condition === 'natural_recovery';
-
-  if (isNaturalRecovery) {
-    return (
-      <div
-        className={
-          compact
-            ? styles.fullscreenCountdown
-            : `${styles.countdownWrap} ${styles.restingCountdownWrap}`
-        }
-        data-testid="resting-state-countdown"
-      >
-        <div className={styles.restingHeader}>
-          <span
-            role="status"
-            className={`${styles.statusPill} ${hasElapsed ? styles.statusDone : styles.statusActive}`}
-          >
-            {hasElapsed ? `✓ ${windowNoun}时长已达成` : `● ${windowNoun}静息记录中`}
-          </span>
-          <span
-            className={`${styles.restingCountdownCorner} ${hasElapsed ? styles.countdownDone : ''}`}
-            aria-label={`剩余时间 ${formatCountdown(remainingSeconds)}`}
-          >
-            {hasElapsed ? '已达成' : `剩余 ${formatCountdown(remainingSeconds)}`}
-          </span>
-        </div>
-
-        <div className={styles.fixationStage} aria-label="静息态注视中央十字">
-          <div className={styles.fixationCross} aria-hidden="true">
-            +
-          </div>
-          <p className={styles.fixationInstruction}>请注视中央十字，身心放松，减少眨眼与头动</p>
-        </div>
-
-        {!compact ? (
-          <>
-            <div
-              className={styles.progressTrack}
-              role="progressbar"
-              aria-label={`${windowNoun}计时进度`}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={progressPercent}
-            >
-              <div
-                className={styles.progressBar}
-                style={{ transform: `scaleX(${progressPercent / 100})` }}
-              />
-            </div>
-            <p className={styles.panelHint} id="regulation-countdown-hint">
-              {hasElapsed
-                ? `${windowNoun}时长已达成，可结束${windowNoun}进入复测。`
-                : `未达最短时长：还剩 ${formatCountdown(remainingSeconds)}。计时结束后才能进入复测；确有特殊情况可跳过剩余时长（二次确认后记录标记）。`}
-            </p>
-          </>
-        ) : null}
-      </div>
-    );
-  }
 
   return (
     <div className={compact ? styles.fullscreenCountdown : styles.countdownWrap}>

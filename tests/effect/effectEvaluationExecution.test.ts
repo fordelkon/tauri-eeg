@@ -33,6 +33,17 @@ function fixture(patch: Partial<EffectEvaluationFlowState> = {}) {
 }
 
 describe('effect evaluation execution', () => {
+  test('skips a playing rehearsal induction once and rejects the same shortcut during acquisition', async () => {
+    for (const runMode of ['rehearsal', 'formal'] as const) {
+      const { execution, markers } = fixture({ runId: 'run', step: 1, runMode });
+      expect(await execution.skipInduction()).toBe(false);
+      await execution.inductionOnset('clip');
+      expect(await execution.skipInduction()).toBe(runMode === 'rehearsal');
+      expect(await execution.skipInduction()).toBe(false);
+      expect(markers.map(m => m.eventName)).toEqual(runMode === 'formal' ? ['anxiety_video_start'] :
+        ['anxiety_video_start', 'trial_skip', 'induction_video_end', 'pre_scale_start']);
+    }
+  });
   test('preserves the normal marker and persistence sequence through completion', async () => {
     const { execution, dependencies, markers, advance } = fixture();
     execution.startBaselineMeasurement();

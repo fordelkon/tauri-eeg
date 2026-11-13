@@ -58,5 +58,5 @@ export function useParticipantFullscreen() {
 
   useEffect(() => leaveFullscreen, [leaveFullscreen]);
 
-  return { enterFullscreen };
+  return { enterFullscreen, leaveFullscreen };
 }

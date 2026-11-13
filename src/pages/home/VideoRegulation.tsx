@@ -20,12 +20,14 @@ import { describeFriendlyError } from '../../ui/friendlyError';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
 import { RegulationSessionBanner } from './regulationSessionBanner';
 import { VideoRegulationPlayerModal } from './VideoRegulationPlayerModal';
+import { useParticipantFullscreen } from './useParticipantFullscreen';
 import { usePauseMediaOnChange } from './useRegulationMedia';
 import { useEffectRegulationContext } from './useEffectRegulationContext';
 import styles from './VideoRegulation.module.css';
 import browserStyles from './VideoRegulationBrowser.module.css';
 
 export default function VideoRegulation() {
+  const { enterFullscreen, leaveFullscreen } = useParticipantFullscreen();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const filterScrollRef = useRef<HTMLDivElement | null>(null);
   const [initialRootPath] = useState(readStoredParadigmLibraryRootPath);
@@ -79,13 +81,8 @@ export default function VideoRegulation() {
   usePauseMediaOnChange(videoRef, activeVideo?.id);
 
   useEffect(() => {
-    if (!activeVideo) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setActiveVideo(null);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeVideo]);
+    if (!activeVideo) leaveFullscreen();
+  }, [activeVideo, leaveFullscreen]);
 
   useEffect(() => {
     const handleAgentPlayVideo = (event: Event) => {
@@ -129,14 +126,17 @@ export default function VideoRegulation() {
     }
   };
 
-  const currentEmotionLabel = emotionSummary.find((item) => item.value === emotion)?.label ?? '平静';
+  const currentEmotionLabel =
+    emotionSummary.find((item) => item.value === emotion)?.label ?? '平静';
 
   return (
     <section
       className={`${styles.workspace} mx-auto flex w-full flex-col`}
       aria-label="视频调控工作区"
     >
-      <header className={`${styles.header} flex flex-col justify-between gap-3 md:flex-row md:items-end`}>
+      <header
+        className={`${styles.header} flex flex-col justify-between gap-3 md:flex-row md:items-end`}
+      >
         <div>
           <span className={styles.eyebrow}>多模态实验 · 视频库浏览器</span>
           <h1 className={styles.title}>视频素材多维分层选择</h1>
@@ -165,7 +165,8 @@ export default function VideoRegulation() {
       <RegulationSessionBanner context={regulationContext} className={styles.effectSessionBanner} />
       <div className={`${styles.libraryNotice} grid`}>
         <span>
-          当前素材库 · {currentEmotionLabel}素材 (共 {visibleVideos.length} / {emotionVideos.length} 部)
+          当前素材库 · {currentEmotionLabel}素材 (共 {visibleVideos.length} / {emotionVideos.length}{' '}
+          部)
         </span>
         <code>{libraryRoot}</code>
         {!isTauriAvailable() ? (
@@ -185,7 +186,9 @@ export default function VideoRegulation() {
         >
           <div className={`${styles.panelHeader} grid`}>
             <span>分层筛选器</span>
-            <strong>{visibleVideos.length} / {videos.length} 个视频</strong>
+            <strong>
+              {visibleVideos.length} / {videos.length} 个视频
+            </strong>
           </div>
 
           <div ref={filterScrollRef} className={browserStyles.filterScrollArea}>
@@ -307,10 +310,10 @@ export default function VideoRegulation() {
                             video.emotion === 'calm'
                               ? browserStyles.badgeCalm
                               : video.emotion === 'anxiety'
-                              ? browserStyles.badgeAnxiety
-                              : video.emotion === 'depression'
-                              ? browserStyles.badgeDepression
-                              : browserStyles.badgeFear
+                                ? browserStyles.badgeAnxiety
+                                : video.emotion === 'depression'
+                                  ? browserStyles.badgeDepression
+                                  : browserStyles.badgeFear
                           }`}
                         >
                           {video.emotionLabel}
@@ -320,9 +323,7 @@ export default function VideoRegulation() {
                       {video.sceneLabel && video.sceneLabel !== video.categoryLabel && (
                         <span className={browserStyles.sceneBadge}>{video.sceneLabel}</span>
                       )}
-                      {video.hasWater && (
-                        <span className={browserStyles.waterBadge}>含水景</span>
-                      )}
+                      {video.hasWater && <span className={browserStyles.waterBadge}>含水景</span>}
                     </div>
                     <code>{video.relativePath}</code>
                   </div>
@@ -331,7 +332,11 @@ export default function VideoRegulation() {
                     type="button"
                     data-agent-action="play_video"
                     data-agent-payload={video.id}
-                    onClick={() => setActiveVideo(video)}
+                    title="播放视频。按 Esc 或点击画面退出。"
+                    onClick={() => {
+                      void enterFullscreen();
+                      setActiveVideo(video);
+                    }}
                   >
                     播放
                   </button>
@@ -349,6 +354,7 @@ export default function VideoRegulation() {
       </div>
       {activeVideo && (
         <VideoRegulationPlayerModal
+          key={activeVideo.id}
           activeVideo={activeVideo}
           videoRef={videoRef}
           onClose={() => setActiveVideo(null)}
