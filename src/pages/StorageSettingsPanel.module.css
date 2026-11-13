@@ -1,0 +1,66 @@
+.header,
+.actions {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+}
+.header h2 {
+  color: var(--ink);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  margin: 0;
+  padding: 0;
+}
+.body {
+  display: grid;
+  gap: 8px;
+  padding: 0 22px 22px;
+}
+.body label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.inputRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+.inputRow input {
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-base);
+  min-width: 0;
+  padding-inline: 10px;
+}
+.pathPreview {
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px 12px;
+  margin-top: 8px;
+  padding: 12px;
+}
+.pathPreview span {
+  font-size: var(--text-xs);
+  color: #665f58;
+}
+.pathPreview code {
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.error {
+  margin: 6px 0 0;
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+.actions {
+  border-top: 1px solid var(--line-soft);
+  padding-block: 14px;
+}

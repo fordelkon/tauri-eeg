@@ -10,6 +10,7 @@ import {
   IconButton,
 } from '@mui/material';
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -156,13 +157,13 @@ export default function InstrumentScaleDialog({
   // keep tabbing the page behind the modal.
   const dialogRef = useRef<HTMLElement | null>(null);
   const openerElementRef = useRef<Element | null>(null);
-  const dialogRefCallback = (node: HTMLElement | null) => {
+  const dialogRefCallback = useCallback((node: HTMLElement | null) => {
     if (node && dialogRef.current === null) {
       openerElementRef.current = document.activeElement;
       node.focus();
     }
     dialogRef.current = node;
-  };
+  }, []);
 
   useEffect(
     () => () => {
@@ -281,7 +282,7 @@ export default function InstrumentScaleDialog({
     const isInside = active instanceof Node && dialog.contains(active);
 
     if (event.shiftKey) {
-      if (!isInside || active === first) {
+      if (!isInside || active === dialog || active === first) {
         event.preventDefault();
         last.focus();
       }
@@ -391,8 +392,12 @@ export default function InstrumentScaleDialog({
               </div>
 
               <div className={sectionStyles.itemList}>
-                {section.questions.map((question) => (
-                  <ScaleItemRow badge={question.id} prompt={question.textZh} key={question.id}>
+                {section.questions.map((question, questionIndex) => (
+                  <ScaleItemRow
+                    badge={String(questionIndex + 1)}
+                    prompt={question.textZh}
+                    key={question.id}
+                  >
                     <ScaleAnchorGroup
                       layout={section.layout === 'bipolar' ? 'bipolar' : 'discrete'}
                       minValue={section.minValue}

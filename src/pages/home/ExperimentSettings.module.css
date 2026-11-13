@@ -171,8 +171,7 @@
   min-width: 180px;
 }
 
-.workspace input,
-.workspace select {
+.workspace input {
   background: #fff;
   border: 1px solid var(--line-cool-strong);
   border-radius: var(--radius-control);
@@ -187,8 +186,7 @@
   width: 100%;
 }
 
-.workspace input:hover:enabled,
-.workspace select:hover:enabled {
+.workspace input:hover:enabled {
   border-color: rgba(23, 32, 38, 0.34);
 }
 
@@ -252,7 +250,6 @@
 
 .workspace button:focus-visible,
 .workspace input:focus-visible,
-.workspace select:focus-visible,
 .workspace a:focus-visible {
   box-shadow: var(--ring);
   outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
@@ -488,7 +485,6 @@
 
   .workspace button,
   .workspace input,
-  .workspace select,
   .workspace a {
     transition: none;
   }

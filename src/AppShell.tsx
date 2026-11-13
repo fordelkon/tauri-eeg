@@ -1,7 +1,7 @@
 import CssBaseline from '@mui/material/CssBaseline';
 import Grow from '@mui/material/Grow';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import type { ComponentProps, ReactNode } from 'react';
+import { forwardRef, type ComponentProps, type ReactNode } from 'react';
 
 /**
  * Dialog/Popover motion rides the calm dialect curve (--ease-out) instead
@@ -9,14 +9,19 @@ import type { ComponentProps, ReactNode } from 'react';
  * way the hand-rolled 220ms dialogs do. Exit is slightly quicker than
  * enter — the response snaps, the dismissal leaves sooner.
  */
-const CalmGrow = (props: ComponentProps<typeof Grow>) => (
-  <Grow
-    {...props}
-    easing={{
-      enter: 'cubic-bezier(0.16, 1, 0.3, 1)',
-      exit: 'cubic-bezier(0.7, 0, 0.84, 0)',
-    }}
-  />
+const CalmGrow = forwardRef<HTMLElement, ComponentProps<typeof Grow>>(
+  function CalmGrow(props, ref) {
+    return (
+      <Grow
+        {...props}
+        ref={ref}
+        easing={{
+          enter: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          exit: 'cubic-bezier(0.7, 0, 0.84, 0)',
+        }}
+      />
+    );
+  },
 );
 
 // Theme mirrors the hand-rolled tokens in src/styles/tokens.css so MUI
@@ -82,8 +87,8 @@ const theme = createTheme({
             transitionDuration: 'var(--dur-press)',
           },
           '&:focus-visible': {
-            boxShadow: '0 0 0 3px rgba(196, 103, 87, 0.16)',
-            outline: '2px solid rgba(196, 103, 87, 0.55)',
+            boxShadow: 'var(--ring)',
+            outline: '2px solid var(--focus-color)',
             outlineOffset: 1,
           },
         },
@@ -152,7 +157,7 @@ const theme = createTheme({
             transform: 'scale(0.96)',
             transitionDuration: 'var(--dur-press)',
           },
-          '&:focus-visible': { outline: '2px solid var(--calm-primary)', outlineOffset: 3 },
+          '&:focus-visible': { outline: '2px solid var(--focus-color)', outlineOffset: 3 },
         },
         sizeSmall: { width: 'var(--button-height-sm)', height: 'var(--button-height-sm)' },
         sizeLarge: { width: 'var(--button-height-lg)', height: 'var(--button-height-lg)' },

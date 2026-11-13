@@ -1,14 +1,14 @@
 .overview {
   margin: auto;
-  max-width: 640px;
+  max-width: 650px;
   width: 100%;
 }
 .header {
-  margin-bottom: 36px;
+  margin-bottom: 30px;
 }
 .wordmark {
   align-items: center;
-  color: var(--calm-primary);
+  color: var(--calm-primary-hover);
   display: inline-flex;
   font-size: var(--text-sm);
   font-weight: 500;
@@ -17,11 +17,12 @@
 }
 .header h1 {
   color: var(--ink);
-  font-size: clamp(30px, 3.1vw, 44px);
+  font-family: 'Noto Serif CJK SC', 'Songti SC', SimSun, serif;
+  font-size: clamp(36px, 3.6vw, 54px);
   font-weight: 500;
-  letter-spacing: -0.04em;
+  letter-spacing: 0.015em;
   line-height: 1.45;
-  margin: 22px 0 14px;
+  margin: 14px 0 10px;
 }
 .header p,
 .footer p {
@@ -31,31 +32,17 @@
   margin: 0;
 }
 .workspace {
-  border-top: 1px solid var(--line-soft);
-  padding-top: 23px;
-}
-.sectionHeading {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-.sectionHeading h2 {
-  font-size: var(--text-base);
-  font-weight: 500;
-  margin: 0;
-}
-.sectionHeading > span {
-  color: color-mix(in srgb, var(--ink) 55%, transparent);
-  font-size: var(--text-xs);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 5px;
 }
 .featuredAction,
 .secondaryAction {
   align-items: center;
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius-card);
+  border: 0;
+  border-radius: calc(var(--radius-card) - 5px);
   color: var(--ink);
   cursor: pointer;
   display: flex;
@@ -73,8 +60,24 @@
 }
 .secondaryAction {
   background: transparent;
-  margin-top: 10px;
-  padding-block: 16px;
+  position: relative;
+  padding-block: 18px;
+}
+.secondaryAction::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 84px;
+  right: 22px;
+  border-top: 1px solid var(--line-soft);
+}
+.featuredAction .arrow {
+  background: var(--calm-primary-hover);
+  color: white;
+  border-radius: 50%;
+  padding: 6px;
+  width: 32px;
+  height: 32px;
 }
 .featuredIcon {
   align-items: center;
@@ -98,7 +101,7 @@
 }
 .actionCopy strong {
   font-size: var(--text-lg);
-  font-weight: 500;
+  font-weight: 600;
 }
 .actionCopy > span {
   color: color-mix(in srgb, var(--ink) 62%, transparent);
@@ -122,11 +125,15 @@
 .featuredAction:focus-visible,
 .secondaryAction:focus-visible,
 .evaluationLink:focus-visible {
-  outline: 2px solid var(--calm-primary);
+  outline: 2px solid var(--focus-color);
   outline-offset: 4px;
 }
 .footer {
-  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 20px;
 }
 .footer p {
   font-size: var(--text-xs);
@@ -142,7 +149,7 @@
   font: inherit;
   font-size: var(--text-sm);
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 0;
   min-height: 40px;
   padding: 0 4px;
 }

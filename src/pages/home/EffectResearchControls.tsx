@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import {
   EFFECT_CONDITION_OPTIONS,
   EFFECT_EMOTION_OPTIONS,
@@ -5,7 +6,7 @@ import {
   DEFAULT_REST_MINUTES,
   DEFAULT_REGULATION_MINUTES,
 } from './effectEvaluationFlow';
-import { PillGroup } from './EffectResultCards';
+import { labelForEmotion } from './effectHistoryView';
 import type { EffectPreparationDraft } from './effectPreparationHandoff';
 import form from './EffectEvaluation.module.css';
 import styles from './EffectSetupDisclosure.module.css';
@@ -16,17 +17,58 @@ type Props = {
   disabled: boolean;
 };
 
+function OptionGroup<T extends string>({
+  label,
+  options,
+  selectedValue,
+  onSelect,
+}: {
+  label: string;
+  options: readonly { value: T; label: string }[];
+  selectedValue: T;
+  onSelect: (value: T) => void;
+}) {
+  const name = useId();
+  return (
+    <fieldset className={styles.optionGroup}>
+      <legend>{label}</legend>
+      <div className={styles.options}>
+        {options.map((option) => (
+          <label key={option.value} className={styles.option}>
+            <input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={selectedValue === option.value}
+              onChange={() => onSelect(option.value)}
+            />
+            {option.label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 export function EffectResearchControls({ state, onChange, disabled }: Props) {
+  const conditionLabel =
+    state.condition === 'natural_recovery'
+      ? '自然恢复'
+      : EFFECT_METHOD_OPTIONS.find(({ value }) => value === state.method)?.label;
   return (
     <fieldset className={styles.fields} disabled={disabled} aria-label="本次效果评价">
       <details className={styles.disclosure}>
         <summary>
-          研究者配置<span>按需调整</span>
+          研究者配置
+          <span>
+            {state.protocol === 'brief' ? '简版' : '完整量表'} · {labelForEmotion(state.emotion)} ·{' '}
+            {conditionLabel} · {state.durationMinutes} 分钟
+          </span>
         </summary>
         <div className={styles.content}>
           <p className={form.noteCallout}>开始播放后，本次评价的方案和时长锁定。</p>
-          <PillGroup
-            label="测量方案:"
+          <OptionGroup
+            label="测量方案"
             options={[
               { value: 'brief', label: '简版 · 前后各 3 题' },
               { value: 'full', label: '完整量表' },
@@ -40,7 +82,6 @@ export function EffectResearchControls({ state, onChange, disabled }: Props) {
           <label className={form.fieldLabel}>
             <span className={form.fieldLabelText}>条件时长（分钟）</span>
             <select
-              className={form.selectInput}
               value={state.durationMinutes}
               onChange={(event) => onChange({ durationMinutes: Number(event.currentTarget.value) })}
             >
@@ -51,16 +92,16 @@ export function EffectResearchControls({ state, onChange, disabled }: Props) {
               ))}
             </select>
           </label>
-          <PillGroup
-            label="目标情绪:"
-            options={[...EFFECT_EMOTION_OPTIONS]}
+          <OptionGroup
+            label="目标情绪"
+            options={EFFECT_EMOTION_OPTIONS}
             selectedValue={state.emotion}
             onSelect={(value) => onChange({ emotion: value })}
           />
           <div className={form.setupSection}>
-            <PillGroup
-              label="实验条件:"
-              options={EFFECT_CONDITION_OPTIONS.map(({ value, label }) => ({ value, label }))}
+            <OptionGroup
+              label="实验条件"
+              options={EFFECT_CONDITION_OPTIONS}
               selectedValue={state.condition}
               onSelect={(value) => {
                 if (value !== state.condition)
@@ -74,9 +115,9 @@ export function EffectResearchControls({ state, onChange, disabled }: Props) {
               }}
             />
             {state.condition === 'regulation' ? (
-              <PillGroup
-                label="调控手段:"
-                options={EFFECT_METHOD_OPTIONS.map(({ value, label }) => ({ value, label }))}
+              <OptionGroup
+                label="调控手段"
+                options={EFFECT_METHOD_OPTIONS}
                 selectedValue={state.method}
                 onSelect={(value) => onChange({ method: value })}
               />

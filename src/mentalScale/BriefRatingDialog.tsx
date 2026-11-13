@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { samDimensions, scoreSam, type SamScore } from './instruments/sam';
 import type { ScalePhase } from './scaleRecordsApi';
 import { clearBriefDraft, readBriefDraft, writeBriefDraft } from './briefRatingDraft';
+import ScaleProgressBar from './scaleUi/ScaleProgressBar';
 import styles from './BriefRatingDialog.module.css';
 
 type Props = {
@@ -39,18 +40,23 @@ export default function BriefRatingDialog({
       fullWidth
       maxWidth="sm"
       aria-labelledby="vad-title"
+      aria-describedby="vad-instruction"
+      slotProps={{ paper: { className: styles.paper } }}
       onClose={isSubmitting ? undefined : onClose}
     >
-      <DialogTitle id="vad-title">此刻感受</DialogTitle>
-      <DialogContent>
-        <p className={styles.instruction}>请按此刻的感受，每行选一个数字。</p>
+      <header className={styles.heading}>
+        <p className={styles.phase}>{phase === 'baseline' ? '前测' : '后测'}</p>
+        <DialogTitle className={styles.title} id="vad-title">
+          此刻感受
+        </DialogTitle>
+        <p id="vad-instruction" className={styles.instruction}>
+          请按此刻的感受，每行选一个数字。
+        </p>
+      </header>
+      <DialogContent className={styles.content}>
         {samDimensions.map(({ id, lowLabel, highLabel }) => (
           <fieldset key={id} className={styles.row} disabled={isSubmitting}>
             <legend>{names[id]}</legend>
-            <div className={styles.poles} id={`poles-${id}`}>
-              <span>1 · {lowLabel}</span>
-              <span>9 · {highLabel}</span>
-            </div>
             <div className={styles.choices}>
               {values.map((n) => (
                 <label key={n} className={styles.choice}>
@@ -71,14 +77,22 @@ export default function BriefRatingDialog({
                 </label>
               ))}
             </div>
+            <div className={styles.poles} id={`poles-${id}`}>
+              <span>1 · {lowLabel}</span>
+              <span>9 · {highLabel}</span>
+            </div>
           </fieldset>
         ))}
         {submitError && <Alert severity="error">{submitError}</Alert>}
       </DialogContent>
-      <DialogActions>
-        <span className={styles.progress} role="status">
-          {count} / 3 已填
-        </span>
+      <DialogActions className={styles.actions}>
+        <div className={styles.progress} role="status">
+          <ScaleProgressBar
+            answered={count}
+            total={samDimensions.length}
+            label={`${count} / ${samDimensions.length} 已填`}
+          />
+        </div>
         <Button onClick={onClose} disabled={isSubmitting}>
           返回
         </Button>

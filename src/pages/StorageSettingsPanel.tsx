@@ -1,8 +1,10 @@
+import { Button, Dialog, DialogTitle, IconButton } from '@mui/material';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { useEffect, useState } from 'react';
 import { chooseStorageRoot } from '../storage/storageDirectoryPicker';
 import { getStorageLocation, setStorageRoot, type StorageLocation } from '../storage/storageApi';
 import { describeFriendlyError } from '../ui/friendlyError';
-import styles from './Home.module.css';
+import styles from './StorageSettingsPanel.module.css';
 
 /**
  * Storage-path settings panel of the home shell's sidebar: shows the active
@@ -93,47 +95,69 @@ export default function StorageSettingsPanel({ onClose, username }: StorageSetti
   };
 
   return (
-    <section className={styles.storagePanel} aria-label="存储路径设置">
-      <label className={styles.storageField}>
-        <span>存储根目录</span>
-        <input
-          value={storageInput}
-          onChange={(event) => setStorageInput(event.currentTarget.value)}
-          placeholder="D:\\ExperimentData"
-        />
-      </label>
-      <div className={styles.storagePreview}>
-        <span>{storageLocation?.root ?? '默认应用数据目录'}</span>
-        <strong>
-          {username
-            ? `${username}\\eeg_recordings | ${username}\\music`
-            : 'username\\eeg_recordings | username\\music'}
-        </strong>
+    <Dialog open fullWidth maxWidth="xs" onClose={onClose} aria-labelledby="storage-title">
+      <div className={styles.header}>
+        <DialogTitle id="storage-title">存储路径设置</DialogTitle>
+        <IconButton aria-label="关闭存储设置" onClick={onClose}>
+          <CloseRoundedIcon />
+        </IconButton>
       </div>
-      {storageError ? <div className={styles.storageError}>{storageError}</div> : null}
-      <div className={styles.storageActions}>
-        <button
-          type="button"
-          disabled={isStoragePending}
-          onClick={() => void runStorageAction(handleChooseStorageRoot)}
-        >
-          浏览
-        </button>
-        <button
-          type="button"
+      <div className={styles.body}>
+        <label htmlFor="storage-root">存储根目录</label>
+        <div className={styles.inputRow}>
+          <input
+            id="storage-root"
+            value={storageInput}
+            onChange={(event) => setStorageInput(event.currentTarget.value)}
+            placeholder="D:\ExperimentData"
+            spellCheck={false}
+          />
+          <Button
+            variant="outlined"
+            disabled={isStoragePending}
+            onClick={() => void runStorageAction(handleChooseStorageRoot)}
+          >
+            浏览
+          </Button>
+        </div>
+        {storageLocation && (
+          <div className={styles.pathPreview}>
+            <span>当前目录</span>
+            <code>{storageLocation.root}</code>
+            {username && (
+              <>
+                <span>账号子目录</span>
+                <code>
+                  {username}\eeg_recordings
+                  <br />
+                  {username}\music
+                </code>
+              </>
+            )}
+          </div>
+        )}
+        {storageError && (
+          <p className={styles.error} role="alert">
+            {storageError}
+          </p>
+        )}
+      </div>
+      <footer className={styles.actions}>
+        <Button
+          color="inherit"
           disabled={isStoragePending}
           onClick={() => void runStorageAction(handleResetStorageRoot)}
         >
-          默认
-        </button>
-        <button
-          type="button"
+          恢复默认
+        </Button>
+        <Button
+          variant="contained"
           disabled={isStoragePending}
           onClick={() => void runStorageAction(handleSaveStorageRoot)}
         >
           保存
-        </button>
-      </div>
-    </section>
+        </Button>
+      </footer>
+    </Dialog>
   );
 }

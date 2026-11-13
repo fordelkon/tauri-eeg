@@ -1,45 +1,31 @@
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import { useEffect, useRef, useState } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { preloadMusicServiceForUser } from '../music/musicServicePreload';
 import type { AgentTimelineEntry } from './agentContext';
-import type { AgentPhase } from './agentFlow';
+import { agentActions } from './agentActions';
 import { useExperimentAgent, type PendingAgentConfirmation } from './useExperimentAgent';
 import styles from './ExperimentAgentPanel.module.css';
 
 const formatThinkingSeconds = (durationMs: number) => `${(durationMs / 1000).toFixed(1)} s`;
 
-/**
- * Idle-state guidance so the empty activity area reads as orientation rather
- * than dead space (R2-7): the input stays anchored to the panel bottom, and
- * this card fills the void until the first conversation entry replaces it.
- */
-/** Phase ids are internal route slugs; the header shows the Chinese label. */
-const phaseLabels: Record<AgentPhase, string> = {
-  intro: '流程引导',
-  baseline: '实验范式',
-  video_regulation: '视频调控',
-  game_regulation: 'VR调控',
-  music_regulation: '音乐调控',
-  recovery: '恢复阶段',
-  finish: '流程完成',
+const entryLabels: Record<AgentTimelineEntry['type'], string> = {
+  action: '操作',
+  confirmation: '确认',
+  planner: '助手',
+  message: '你',
 };
 
-const phaseGuideItems: Record<AgentPhase, readonly string[]> = {
-  intro: ['点击上方推荐操作，或直接输入“开始实验”', '助手可打开实验范式、准备素材和查看实验设置'],
-  baseline: ['先连接 Trigger，并在 ActiView 启动 BDF 保存', '个人校准与独立诱发在实验范式页运行'],
-  video_regulation: ['让我播放一段放松视频', '也可以指定场景，例如“播放森林放松视频”'],
-  game_regulation: ['游戏调控暂未接入设备联动', '可以让我跳过本环节，继续后续流程'],
-  music_regulation: [
-    '让我按当前状态生成一段调控音乐',
-    '可以指定乐器与风格，例如“生成钢琴舒缓音乐”',
-  ],
-  recovery: ['实验结束后，在 ActiView 手动停止 BDF 保存', '可在实验设置页关联 BDF 并导出实验日志'],
-  finish: ['本次实验流程已完成', '可前往各功能页查看生成的记录'],
-};
+function displayEntry(entry: AgentTimelineEntry): string {
+  if (entry.type !== 'action' && entry.type !== 'confirmation') return entry.text;
+  const [id, ...details] = entry.text.split(':');
+  const label = agentActions.find((action) => action.id === id)?.label;
+  return label ? [label, ...details].join('：') : entry.text;
+}
 
 /**
  * Owns the 250 ms "thinking elapsed" ticker: while the planner streams this
@@ -88,7 +74,6 @@ type Props = {
   thinkingSteps: readonly string[];
   message: string;
   pendingConfirmation: PendingAgentConfirmation | null;
-  phase: AgentPhase;
   quickPrompts: readonly string[];
   recentTimeline: readonly AgentTimelineEntry[];
   onConfirm: () => void;
@@ -109,7 +94,6 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
   thinkingSteps,
   message,
   pendingConfirmation,
-  phase,
   quickPrompts,
   recentTimeline,
   onConfirm,
@@ -118,6 +102,7 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
   onCancel,
 }: Props) {
   const [input, setInput] = useState('');
+  const [showPrompts, setShowPrompts] = useState(false);
   const activityRef = useRef<HTMLDivElement | null>(null);
   // The live elapsed time is owned by the ThinkingTimer leaf below; the panel
   // itself no longer re-renders on its 250 ms tick.
@@ -126,6 +111,8 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
     ? `${styles.thinking} ${styles.thinkingActive}`
     : styles.thinking;
   const visibleThinkingSteps = thinkingSteps.length > 0 ? thinkingSteps : ['等待规划器响应。'];
+  const hasThinkingDetails =
+    isPlanning || thinkingSteps.length > 0 || (thinkingDurationMs ?? 0) >= 250;
 
   const submit = (value: string) => {
     const nextValue = value.trim();
@@ -135,6 +122,7 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
 
     onSubmitPrompt(nextValue);
     setInput('');
+    setShowPrompts(false);
   };
 
   useEffect(() => {
@@ -149,24 +137,53 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
   }, [message, pendingConfirmation, recentTimeline]);
 
   return (
-    <section className={styles.panel} aria-busy={isPlanning} aria-label="实验助手聊天">
+    <section
+      className={styles.panel}
+      data-idle={
+        !recentTimeline.length &&
+        !message &&
+        !pendingConfirmation &&
+        !isPlanning &&
+        thinkingDurationMs === null
+      }
+      aria-busy={isPlanning}
+      aria-label="实验助手聊天"
+    >
       <div className={styles.header}>
-        <div>
-          <span>{isPlannerAvailable ? '智能可用' : '智能不可用'}</span>
-          <strong>{phaseLabels[phase] ?? phase}</strong>
-        </div>
+        <h2>
+          <SmartToyRoundedIcon fontSize="small" aria-hidden="true" />
+          实验助手
+        </h2>
         <div className={styles.headerActions}>
           {isPlanning ? (
             <button type="button" className={styles.cancelButton} onClick={onCancel}>
               取消
             </button>
-          ) : null}
-          <SmartToyRoundedIcon fontSize="small" aria-hidden="true" />
+          ) : (
+            <span className={styles.availability} data-available={isPlannerAvailable}>
+              {isPlannerAvailable ? '可用' : '本地指令'}
+            </span>
+          )}
         </div>
       </div>
 
       <div className={styles.content}>
-        <div className={styles.promptGrid} aria-label="快捷指令示例">
+        <button
+          type="button"
+          className={styles.promptToggle}
+          aria-expanded={showPrompts}
+          aria-controls="assistant-examples"
+          onClick={() => setShowPrompts(!showPrompts)}
+        >
+          快捷指令
+          <ExpandMoreRoundedIcon fontSize="small" aria-hidden="true" />
+        </button>
+        <div
+          id="assistant-examples"
+          className={styles.promptGrid}
+          aria-label="快捷指令示例"
+          hidden={!showPrompts}
+        >
           {Array.from(new Set(quickPrompts))
             .slice(0, 4)
             .map((example) => (
@@ -181,7 +198,7 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
             ))}
         </div>
 
-        {isPlanning || thinkingDurationMs !== null || thinkingSteps.length > 0 ? (
+        {hasThinkingDetails ? (
           <details className={styles.thinkingPanel}>
             <summary className={thinkingClassName} role="status" aria-live="polite">
               <span aria-hidden="true" />
@@ -196,36 +213,19 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
         ) : null}
 
         <div className={styles.activity} ref={activityRef}>
-          <p className={styles.message} aria-live="polite">
-            {message}
-          </p>
-
-          {/* Empty-state guidance: only while nothing has happened yet, so the
-          first timeline entry / thinking panel takes over the space. */}
-          {recentTimeline.length === 0 &&
-          !isPlanning &&
-          thinkingDurationMs === null &&
-          !pendingConfirmation ? (
-            <div className={styles.idleGuide} aria-label="助手使用指引">
-              {phaseGuideItems[phase].map((item) => (
-                <div key={item} className={styles.idleGuideItem}>
-                  <span aria-hidden="true" />
-                  {item}
-                </div>
-              ))}
-            </div>
-          ) : null}
-
           {recentTimeline.length > 0 ? (
             <ol className={styles.timeline} aria-label="最近助手记录">
               {recentTimeline.map((entry) => (
-                <li key={`${entry.at}-${entry.type}`}>
-                  <span>{entry.type}</span>
-                  <strong>{entry.text}</strong>
+                <li key={`${entry.at}-${entry.type}`} data-kind={entry.type}>
+                  <span>{entryLabels[entry.type]}</span>
+                  <strong>{displayEntry(entry)}</strong>
                 </li>
               ))}
             </ol>
           ) : null}
+          <p className={styles.message} aria-live="polite">
+            {recentTimeline[recentTimeline.length - 1]?.text === message ? '' : message}
+          </p>
 
           {pendingConfirmation ? (
             <div
@@ -258,11 +258,11 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
           value={input}
           disabled={isPlanning}
           maxLength={100}
-          placeholder="输入：下一步"
+          placeholder="输入实验指令…"
           aria-label="助手指令"
           onChange={(event) => setInput(event.currentTarget.value)}
         />
-        <button type="submit" disabled={isPlanning} aria-label="发送助手指令">
+        <button type="submit" disabled={isPlanning || !input.trim()} aria-label="发送助手指令">
           <SendRoundedIcon fontSize="small" />
         </button>
       </form>
@@ -327,7 +327,6 @@ export default function ExperimentAgentPanel({ navigateTo }: ContainerProps) {
       thinkingSteps={agent.thinkingSteps}
       message={agent.message}
       pendingConfirmation={agent.pendingConfirmation}
-      phase={agent.phase}
       quickPrompts={agent.quickPrompts}
       recentTimeline={recentTimeline}
       onConfirm={handleConfirm}

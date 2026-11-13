@@ -2,6 +2,8 @@ import type { ExperimentDestination } from '../../experiment/preparation';
 import type { ExperimentPreferences } from '../../experiment/settings';
 import type { TriggerStatus } from '../../experiment/api';
 import type { EffectPreparationDraft } from './effectPreparationHandoff';
+import { EFFECT_METHOD_OPTIONS } from './effectEvaluationFlow';
+import { labelForEmotion } from './effectHistoryView';
 import type { ParadigmSessionKind } from '../../paradigm/types';
 import { sessionKindShortLabels } from '../../paradigm/paradigmSessionKinds';
 import styles from './ExperimentSettings.module.css';
@@ -51,6 +53,15 @@ export default function PreparationReview({
         </div>
         {destination === 'effect' && (
           <>
+            <div>
+              <dt>目标与条件</dt>
+              <dd>
+                {labelForEmotion(effectDraft.emotion)} ·{' '}
+                {effectDraft.condition === 'natural_recovery'
+                  ? '自然恢复'
+                  : EFFECT_METHOD_OPTIONS.find(({ value }) => value === effectDraft.method)?.label}
+              </dd>
+            </div>
             <div>
               <dt>测量方案</dt>
               <dd>

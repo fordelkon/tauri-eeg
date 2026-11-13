@@ -1,7 +1,6 @@
 .panel {
-  background: rgba(255, 255, 255, 0.36);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  background: transparent;
+  border-top: 1px solid var(--line-soft);
   box-sizing: border-box;
   color: #2c2218;
   display: flex;
@@ -10,7 +9,7 @@
   gap: 8px;
   min-height: 0;
   overflow: hidden;
-  padding: 12px;
+  padding: 18px 1px 2px;
   width: 100%;
 }
 
@@ -22,31 +21,78 @@
   gap: 10px;
 }
 
-.header div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.header span,
-.timeline span {
-  color: rgba(44, 34, 24, 0.62);
-  font-size: var(--text-2xs);
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.header strong {
-  font-size: var(--text-base);
-  line-height: 1.1;
-}
-
-.headerActions {
+.header h2 {
+  display: inline-flex;
   align-items: center;
-  display: flex;
-  flex: 0 0 auto;
   gap: 8px;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.header h2 svg {
+  color: var(--calm-primary-hover);
+}
+.headerActions,
+.availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.availability {
+  font-size: var(--text-xs);
+  color: #69635b;
+  white-space: nowrap;
+}
+.availability::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #90897f;
+  border-radius: 50%;
+}
+.availability[data-available='true']::before {
+  background: var(--success);
+}
+.promptToggle {
+  align-items: center;
+  align-self: flex-start;
+  margin-left: -6px;
+  display: inline-flex;
+  gap: 4px;
+  background: transparent;
+  color: #615a53;
+  border: 0;
+  padding: 4px 6px;
+  border-radius: var(--radius-control-sm);
+  font: inherit;
+  font-size: var(--text-sm);
+  min-height: 32px;
+  cursor: pointer;
+}
+.promptToggle:hover {
+  background: var(--line-soft);
+  color: var(--ink);
+}
+.promptToggle:focus-visible {
+  outline: 2px solid var(--focus-color);
+  outline-offset: -2px;
+}
+.promptToggle svg {
+  font-size: var(--text-lg);
+}
+.promptToggle[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+.promptGrid[hidden] {
+  display: none;
+}
+.panel[data-idle='true'] {
+  flex: 0 1 auto;
+}
+.panel[data-idle='true'] .activity {
+  display: none;
 }
 
 .cancelButton {
@@ -80,7 +126,7 @@
 
 .cancelButton:focus-visible {
   box-shadow: var(--ring);
-  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline: 2px solid var(--focus-color);
   outline-offset: 2px;
 }
 
@@ -146,15 +192,17 @@
   transform: scale(0.98);
 }
 
+.message:empty {
+  display: none;
+}
 .message {
-  background: rgba(245, 240, 235, 0.56);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
+  color: var(--ink);
+  overflow-wrap: anywhere;
   flex: 0 0 auto;
-  font-size: var(--text-xs);
-  line-height: 1.45;
+  font-size: var(--text-sm);
+  line-height: 1.6;
   margin: 0;
-  padding: 8px;
+  padding: 6px 2px;
 }
 
 .thinking {
@@ -195,7 +243,7 @@
 
 .thinkingPanel .thinking:focus-visible {
   box-shadow: var(--ring);
-  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline: 2px solid var(--focus-color);
   outline-offset: -2px;
 }
 
@@ -251,45 +299,27 @@
   padding: 0;
 }
 
-/* Idle-state guidance card: fills the empty activity area with phase-aware
-   orientation instead of leaving the input stranded on a blank panel. */
-.idleGuide {
-  border: 1px dashed rgba(44, 34, 24, 0.16);
-  border-radius: 8px;
-  display: grid;
-  flex: 0 0 auto;
-  gap: 8px;
-  padding: 10px;
-}
-
-.idleGuideItem {
-  color: rgba(44, 34, 24, 0.72);
-  display: flex;
-  font-size: var(--text-2xs);
-  gap: 8px;
-  line-height: 1.5;
-}
-
-.idleGuideItem span {
-  background: rgba(44, 34, 24, 0.24);
-  border-radius: 999px;
-  flex: 0 0 auto;
-  height: 5px;
-  margin-top: 6px;
-  width: 5px;
-}
-
 .timeline li {
   display: grid;
-  gap: 2px;
+  gap: 3px;
+  overflow-wrap: anywhere;
+  padding: 3px 2px;
 }
-
-.timeline strong {
+.timeline li[data-kind='message'] {
+  justify-self: end;
+  padding: 6px 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+}
+.timeline li span {
   font-size: var(--text-2xs);
-  font-weight: 500;
-  line-height: 1.35;
+  color: #70675e;
 }
-
+.timeline strong {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1.55;
+}
 /* Amber caution card in the app's shared warning-tint family (same recipe as
    the paradigm/EEG warning banners), not its own one-off orange. */
 .confirmation {
@@ -320,16 +350,22 @@
 }
 
 .form {
+  align-items: center;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 5px;
   display: grid;
   flex: 0 0 auto;
   gap: 6px;
-  grid-template-columns: minmax(0, 1fr) var(--button-height);
+  grid-template-columns: minmax(0, 1fr) var(--button-height-sm);
   margin-top: auto;
 }
 
 .form input {
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid var(--line);
+  background: transparent;
+  border: 0;
   border-radius: 8px;
   box-sizing: border-box;
   color: #2c2218;
@@ -337,12 +373,14 @@
   font-size: var(--text-xs);
   height: var(--button-height);
   min-width: 0;
-  padding: 0 10px;
+  padding: 0 8px;
 }
 
+.form:has(input:focus-visible) {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+}
 .form input:focus-visible {
-  border-color: rgba(var(--calm-primary-rgb), 0.5);
-  box-shadow: var(--ring);
   outline: none;
 }
 
@@ -356,8 +394,8 @@
   color: #f5f0eb;
   cursor: pointer;
   display: inline-flex;
-  height: var(--button-height);
-  width: var(--button-height);
+  height: var(--button-height-sm);
+  width: var(--button-height-sm);
   padding: 0;
   justify-content: center;
   transition:
@@ -365,7 +403,11 @@
     transform var(--dur-fast) var(--ease-out);
 }
 
-.form button:hover {
+.form button:disabled {
+  background: var(--surface-2);
+  color: #746f68;
+}
+.form button:hover:not(:disabled) {
   background: var(--calm-primary-hover);
 }
 
@@ -378,7 +420,7 @@
 .form button:focus-visible {
   /* Same sage ring family as .cancelButton. */
   box-shadow: var(--ring);
-  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
+  outline: 2px solid var(--focus-color);
   outline-offset: 2px;
 }
 
@@ -402,6 +444,17 @@
   50% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@media (max-height: 700px) {
+  .panel,
+  .content {
+    flex: 0 0 auto;
+  }
+  .activity {
+    flex: 0 1 auto;
+    max-height: 38dvh;
   }
 }
 

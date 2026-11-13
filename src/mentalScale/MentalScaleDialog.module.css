@@ -6,7 +6,7 @@
 .scaleOverlay {
   animation: scaleOverlayEnter 180ms var(--ease-out) backwards;
   background: var(--scrim-form);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(3px);
   /* Local overlay tier, kept raw on purpose: raising it to the --z40 modal
      tier would change stacking against ParadigmSession's fullscreen stage
      (--z30) should the two ever coexist (taste-skill §6.F mapping pass). */
@@ -23,20 +23,25 @@
   }
 }
 
-.scaleDialog {
-  /* Sticky offsets derive from the top bar height (32px control + padding). */
-  --scale-sticky-offset: 48px;
-
-  animation: scaleDialogEnter 220ms var(--ease-out) backwards;
-  background: var(--surface);
+.scaleDialog,
+.gatePaper:global(.MuiDialog-paper) {
+  --scale-sticky-offset: calc(var(--button-icon-size) + 17px);
+  --scale-inset: clamp(16px, 4vw, 28px);
+  background: var(--surface-raised);
   border: 1px solid var(--line);
   /* Dialog step: matches the MUI dialog paper in AppShell. */
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-overlay);
-  color: var(--ink-cool);
+  color: var(--ink);
   display: flex;
   flex-direction: column;
-  max-height: 82vh;
+  max-height: min(86dvh, 860px);
+  overscroll-behavior: contain;
+  scroll-padding-block: var(--scale-sticky-offset) 76px;
+}
+
+.scaleDialog {
+  animation: scaleDialogEnter var(--dur-med) var(--ease-out) backwards;
   max-width: 720px;
   overflow-y: auto;
   width: 100%;
@@ -58,14 +63,14 @@
    question list scrolls cleanly underneath. */
 .scaleStickyBar {
   align-items: center;
-  background: var(--surface);
-  border-bottom: 1px solid rgba(23, 32, 38, 0.1);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--line-soft);
   border-radius: var(--radius-card) var(--radius-card) 0 0;
   display: flex;
   flex: 0 0 auto;
   gap: 12px;
   justify-content: space-between;
-  padding: 8px 20px;
+  padding: 8px var(--scale-inset);
   position: sticky;
   top: 0;
   z-index: var(--z3);
@@ -95,11 +100,11 @@
 
 /* Title block scrolls away under the sticky bar. */
 .scaleHeading {
-  padding: 16px 20px 4px;
+  padding: 20px var(--scale-inset) 6px;
 }
 
 .scaleHeading h2 {
-  color: var(--ink-cool);
+  color: var(--ink);
   font-size: clamp(20px, 3vw, 26px);
   font-weight: 600;
   line-height: 1.15;
@@ -132,11 +137,11 @@
   align-items: center;
   background: var(--surface);
   border-radius: 0 0 var(--radius-card) var(--radius-card);
-  border-top: 1px solid rgba(23, 32, 38, 0.1);
+  border-top: 1px solid var(--line-soft);
   display: flex;
   gap: 12px;
   justify-content: space-between;
-  padding: 12px 20px;
+  padding: 12px var(--scale-inset);
   position: sticky;
   bottom: 0;
   z-index: var(--z3);
@@ -171,7 +176,8 @@
 .scaleFooterActions {
   align-items: center;
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  margin-inline-start: auto;
   gap: 10px;
 }
 
@@ -210,9 +216,8 @@
 
 .scaleSkipButton:focus-visible,
 .scalePrimaryButton:focus-visible {
-  box-shadow: var(--ring);
-  outline: 2px solid rgba(var(--calm-primary-rgb), 0.5);
-  outline-offset: 1px;
+  outline: 2px solid var(--focus-color, var(--info));
+  outline-offset: 2px;
 }
 
 .scalePrimaryButton {
@@ -254,6 +259,34 @@
   border-color: rgba(23, 32, 38, 0.1);
   color: rgba(23, 32, 38, 0.38);
   cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .scaleOverlay {
+    padding: 12px;
+  }
+  .gatePaper:global(.MuiDialog-paper) {
+    width: calc(100% - 24px);
+    margin: 12px;
+  }
+  .scaleDialog,
+  .gatePaper:global(.MuiDialog-paper) {
+    max-height: calc(100dvh - 24px);
+  }
+  .scaleFooter {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .scaleFooterActions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-height: 540px) {
+  .scaleFooter {
+    position: static;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

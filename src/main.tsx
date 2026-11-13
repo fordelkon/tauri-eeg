@@ -6,6 +6,7 @@ import App from './App';
 // entry chunk carries no MUI code.
 import './styles/tokens.css';
 import './styles/global.css';
+import './styles/select.css';
 import 'virtual:uno.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);

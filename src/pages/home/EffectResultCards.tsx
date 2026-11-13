@@ -20,7 +20,7 @@ import { EffectResultChart } from './EffectResultChartView';
 import styles from './EffectEvaluation.module.css';
 
 /**
- * Result-step presentation components (VerdictBanner, ScoreCell, PillGroup,
+ * Result-step presentation components (VerdictBanner, ScoreCell,
  * ResultCard, ConditionComparisonCard) moved verbatim out of the wizard page
  * so the pipeline page stays under the 500-line budget. Props are unchanged;
  * both cards stay memoized — every prop must remain referentially stable
@@ -91,39 +91,6 @@ function ScoreCell({ value, barClass }: { value: number; barClass?: string }) {
         />
       </span>
     </span>
-  );
-}
-
-type PillGroupProps<T extends string> = {
-  label: string;
-  options: ReadonlyArray<{ value: T; label: string }>;
-  selectedValue: T;
-  onSelect: (value: T) => void;
-};
-
-/** Shared pill-radio row; the setup panel reuses it for its option groups. */
-export function PillGroup<T extends string>({
-  label,
-  options,
-  selectedValue,
-  onSelect,
-}: PillGroupProps<T>) {
-  return (
-    <div className={styles.pillRow} role="radiogroup" aria-label={label}>
-      <span className={styles.pillLabel}>{label}</span>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          role="radio"
-          aria-checked={selectedValue === option.value}
-          className={`${styles.pillRadio} ${selectedValue === option.value ? styles.isSelected : ''}`}
-          onClick={() => onSelect(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
   );
 }
 

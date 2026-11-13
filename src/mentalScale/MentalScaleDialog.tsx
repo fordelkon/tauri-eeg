@@ -9,7 +9,6 @@ import {
   IconButton,
 } from '@mui/material';
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import {
   isMentalScaleComplete,
   mentalScaleAnswerOptions,
@@ -82,20 +81,17 @@ export default function MentalScaleDialog({
     onComplete(scaleAnswers);
   };
 
-  // Portal to <body>: the overlay must not be trapped by an ancestor
-  // stacking context or reparented by a retained transform (a fixed
-  // overlay inside an animated panel lands mispositioned and UNDER
-  // sticky chrome, e.g. the wizard's progress bar).
-  return createPortal(
-    <div
-      className={`${styles.scaleOverlay} fixed inset-0 flex items-center justify-center p-22px`}
-      role="presentation"
-    >
-      <section
-        className={`${styles.scaleDialog} w-full max-w-720px`}
-        role="dialog"
-        aria-modal="true"
+  return (
+    <>
+      <Dialog
+        open
+        fullWidth
+        maxWidth="sm"
         aria-labelledby="mental-scale-title"
+        onClose={(_event, reason) => {
+          if (reason === 'escapeKeyDown') handleCloseRequest();
+        }}
+        slotProps={{ paper: { className: styles.gatePaper } }}
       >
         <div className={styles.scaleStickyBar}>
           <ScaleProgressBar answered={answeredCount} total={scale.questions.length} />
@@ -161,7 +157,7 @@ export default function MentalScaleDialog({
             </button>
           </div>
         </div>
-      </section>
+      </Dialog>
 
       {/* Portals to <body>, so nesting inside the overlay costs nothing. */}
       <Dialog
@@ -180,7 +176,6 @@ export default function MentalScaleDialog({
           </Button>
         </DialogActions>
       </Dialog>
-    </div>,
-    document.body,
+    </>
   );
 }

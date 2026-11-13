@@ -187,9 +187,7 @@
 }
 
 .promptField input,
-.promptField select,
-.promptField textarea,
-.durationField select {
+.promptField textarea {
   background: #fff;
   /* 0.14: the page's cool-ink hairline tier (0.15 was a one-off). */
   border: 1px solid var(--line-cool);
@@ -201,9 +199,11 @@
   outline: none;
 }
 
-.promptField input,
-.promptField select,
-.durationField select {
+.durationField {
+  --select-height: 34px;
+}
+
+.promptField input {
   min-height: 34px;
   padding: 0 10px;
 }
@@ -603,9 +603,7 @@
 }
 
 .promptField input:focus,
-.promptField select:focus,
-.promptField textarea:focus,
-.durationField select:focus {
+.promptField textarea:focus {
   border-color: rgba(23, 32, 38, 0.42);
   box-shadow: 0 0 0 3px rgba(23, 32, 38, 0.08);
 }

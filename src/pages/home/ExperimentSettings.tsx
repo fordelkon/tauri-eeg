@@ -20,6 +20,8 @@ import RecordingPathControl from './RecordingPathControl';
 import { isTauriAvailable } from '../../ui/tauriEnvironment';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import ExperimentRunHistory from '../../experiment/ExperimentRunHistory';
+import FolderOpenRoundedIcon from '@mui/icons-material/FolderOpenRounded';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import ParadigmSessionPanel from '../../paradigm/ParadigmSessionPanel';
 import { createEffectEvaluationFlowState, readFlowStateFromStorage } from './effectEvaluationFlow';
 import { prepareEffectHandoff, type EffectPreparationDraft } from './effectPreparationHandoff';
@@ -264,7 +266,7 @@ export default function ExperimentSettings() {
           <span className={formal ? guide.formalMode : guide.rehearsalMode}>
             {formal ? '正式实验 · 发送 Trigger' : '排练 · 不发送流程标记'}
           </span>
-          <span>
+          <span className={guide.deviceStatus} data-tested={status.connected && status.tested}>
             {status.connected
               ? `触发盒已连接 · ${status.portName}${status.tested ? ' · 测试通过' : ' · 未测试'}`
               : '触发盒未连接'}
@@ -482,12 +484,29 @@ export default function ExperimentSettings() {
           </aside>
         </div>
       </div>
-      <details className={guide.afterExperiment}>
-        <summary>实验结束后：关联 BDF 与导出日志</summary>
-        <p>
-          先在 ActiView 正常结束保存，再在对应记录中关联 BDF。中止码 91 不代表正常完成；正常结束码为
-          61。
-        </p>
+      <details
+        className={guide.afterExperiment}
+        onToggle={(event) => {
+          const archive = event.currentTarget;
+          const workspace = archive.closest('#workspace-content');
+          if (
+            event.target === archive &&
+            archive.open &&
+            workspace &&
+            archive.getBoundingClientRect().bottom > workspace.getBoundingClientRect().bottom
+          ) {
+            archive.scrollIntoView({ block: 'start' });
+          }
+        }}
+      >
+        <summary>
+          <FolderOpenRoundedIcon aria-hidden="true" fontSize="small" />
+          <span>
+            <strong>实验归档</strong>
+            <span>关联 BDF 与导出日志</span>
+          </span>
+          <ExpandMoreRoundedIcon aria-hidden="true" fontSize="small" />
+        </summary>
         <ExperimentRunHistory />
       </details>
     </section>

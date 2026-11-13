@@ -1,0 +1,122 @@
+/* Form selects keep their label, value and platform keyboard behaviour. */
+select:not([multiple], [size]) {
+  background-color: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  min-block-size: var(--select-height, var(--button-height));
+  min-inline-size: 0;
+  padding: 6px 10px;
+  width: 100%;
+}
+
+@media (hover: hover) {
+  select:not([multiple], [size]):enabled:hover {
+    background-color: var(--surface);
+    border-color: color-mix(in srgb, var(--ink) 35%, transparent);
+  }
+}
+
+select:not([multiple], [size]):focus-visible {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+}
+
+select:not([multiple], [size]):disabled {
+  background-color: var(--surface-2);
+  color: color-mix(in srgb, var(--ink) 65%, var(--surface-2));
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+/* Supporting WebViews paint their native listbox in the top layer. Older
+   WebViews retain the OS picker and arrow. */
+@supports (appearance: base-select) and selector(::picker(select)) {
+  select:not([multiple], [size]),
+  select:not([multiple], [size])::picker(select) {
+    appearance: base-select;
+  }
+
+  select:not([multiple], [size]) {
+    align-items: center;
+    gap: 10px;
+    justify-content: space-between;
+    overflow-wrap: anywhere;
+    text-align: start;
+  }
+
+  select:not([multiple], [size])::picker-icon {
+    border-block-end: 1.5px solid currentColor;
+    border-inline-end: 1.5px solid currentColor;
+    color: inherit;
+    content: '';
+    flex: none;
+    height: 7px;
+    margin: -3px 3px 0;
+    rotate: 45deg;
+    width: 7px;
+  }
+
+  select:not([multiple], [size]):open {
+    border-color: var(--focus-color);
+  }
+
+  select:not([multiple], [size]):open::picker-icon {
+    margin-block: 3px 0;
+    rotate: 225deg;
+  }
+
+  select:not([multiple], [size])::picker(select) {
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: calc(var(--radius-control) + 4px);
+    box-shadow: var(--shadow-popover);
+    color: var(--ink);
+    margin-block: 4px;
+    max-block-size: min(17rem, 48vh);
+    max-inline-size: calc(100vw - 16px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px;
+    width: anchor-size(width);
+  }
+
+  select:not([multiple], [size]) option {
+    align-items: center;
+    border-radius: var(--radius-control);
+    cursor: pointer;
+    display: flex;
+    gap: 8px;
+    min-block-size: 34px;
+    overflow-wrap: anywhere;
+    padding: 6px 8px;
+    white-space: normal;
+  }
+
+  select:not([multiple], [size]) option:checked {
+    background: var(--surface-2);
+    font-weight: 600;
+  }
+
+  select:not([multiple], [size]) option::checkmark {
+    color: var(--focus-color);
+    margin-inline-start: auto;
+    order: 1;
+  }
+
+  @media (hover: hover) {
+    select:not([multiple], [size]) option:enabled:hover {
+      background: var(--info-tint);
+    }
+  }
+
+  select:not([multiple], [size]) option:focus-visible {
+    outline: 2px solid var(--focus-color);
+    outline-offset: -2px;
+  }
+}

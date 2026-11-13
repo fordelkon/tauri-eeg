@@ -9,9 +9,8 @@ import NorthEastRoundedIcon from '@mui/icons-material/NorthEastRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
 import SportsEsportsRoundedIcon from '@mui/icons-material/SportsEsportsRounded';
 import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded';
-import { IconButton, List, ListItemButton, ListItemIcon } from '@mui/material';
+import { Drawer, useMediaQuery } from '@mui/material';
 import {
-  type CSSProperties,
   type ElementType,
   type MouseEvent,
   Suspense,
@@ -25,9 +24,6 @@ import ExperimentAgentPanel from '../agent/ExperimentAgentPanel';
 import { useAuth } from '../auth/AuthContext';
 import { getTriggerStatus } from '../experiment/api';
 import { isTauriAvailable } from '../ui/tauriEnvironment';
-// Lazy: MatterScene pulls in the matter-js vendor chunk and HomeIntroLogo the
-// lottie player; neither is needed until the menu opens or the intro plays.
-const MatterScene = lazy(() => import('../components/MatterScene'));
 const HomeIntroLogo = lazy(() => import('../homeIntro/HomeIntroLogo'));
 import { homeIntroPlayback } from '../homeIntro/homeIntroPlayback';
 import GlobalMentalScalePanel from '../mentalScale/GlobalMentalScalePanel';
@@ -67,26 +63,14 @@ const navigationItems: NavigationItem[] = [
   { icon: MusicNoteRoundedIcon, label: '音乐调控', path: '/music-regulation' },
 ];
 
-const renderRollingText = (text: string, className?: string) => (
-  <span className={`${styles.rollingText} ${className ?? ''}`} aria-label={text}>
-    {[...text].map((letter, index) => (
-      <span
-        key={`${letter}-${index}`}
-        aria-hidden="true"
-        style={{ '--letter-index': index } as CSSProperties}
-      >
-        {letter === ' ' ? '\u00a0' : letter}
-      </span>
-    ))}
-  </span>
-);
-
 export default function Home() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, signOut } = useAuth();
   const paradigmStatus = useParadigmSessionStatus();
   const { confirm, confirmDialogElement } = useConfirmDialog();
+  const wideWindow = useMediaQuery('(min-width: 981px)');
+  const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
   const [pendingScale, setPendingScale] = useState<MentalScaleDefinition | null>(null);
@@ -168,12 +152,8 @@ export default function Home() {
   );
 
   const handleNavClick = (item: NavigationItem) => {
-    requestNavigation(item.path);
+    void requestNavigation(item.path);
     setIsSidebarOpen(false);
-  };
-
-  const handleMenuOpen = () => {
-    setIsSidebarOpen(true);
   };
 
   const handleAgentActionClick = (event: MouseEvent<HTMLElement>) => {
@@ -252,61 +232,65 @@ export default function Home() {
     navigate(nextPath);
   };
 
-  return (
-    <main
-      className={`${styles.page} box-border flex min-h-screen overflow-hidden relative`}
-      onClick={handleAgentActionClick}
-    >
-      {/* The 760px coral hero disc is the /home brand stage; on monitor
-          pages it reads as a stain behind dense UI, so it stays home-only. */}
-      {activeItem.path === '/home' ? (
-        <div className={styles.heroBloom} aria-hidden="true">
-          <span className={styles.heroCore} />
-        </div>
-      ) : null}
-
-      <IconButton
-        className={`${styles.mobileMenuButton} ${isSidebarOpen ? styles.isHidden : ''}`}
-        aria-label="打开导航"
-        aria-controls="primary-navigation"
-        aria-expanded={isSidebarOpen}
-        aria-hidden={isSidebarOpen}
-        size="small"
-        tabIndex={isSidebarOpen ? -1 : 0}
-        onClick={handleMenuOpen}
-      >
-        <MenuRoundedIcon fontSize="small" />
-      </IconButton>
-
-      {/* Persistent desktop rail: one-click navigation on wide screens. The
-          hamburger + overlay menu remains the narrow-screen flow. */}
-      <nav className={styles.desktopRail} aria-label="主导航">
-        <span className={`${styles.logoMark} ${styles.railLogo}`} aria-hidden="true" />
-        <div className={styles.railNav}>
-          {navigationItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeItem.path === item.path;
-
-            return (
-              <button
-                key={item.label}
-                type="button"
-                className={`${styles.railItem} ${isActive ? styles.isRailActive : ''}`}
-                aria-current={isActive ? 'page' : undefined}
-                title={item.label}
-                onClick={() => void requestNavigation(item.path)}
-              >
-                <Icon fontSize="small" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className={styles.railFooter}>
+  const navigation = (
+    <>
+      <div className={styles.brandRow}>
+        <img src="/logo.svg" alt="" width="27" height="27" />
+        <strong>EEG</strong>
+        {!wideWindow && (
           <button
-            type="button"
-            className={styles.railSignOut}
-            title={paradigmStatus.active ? '范式 Session 进行中,无法退出登录' : '退出登录'}
+            className={styles.iconButton}
+            aria-label="关闭导航"
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            <CloseRoundedIcon fontSize="small" />
+          </button>
+        )}
+      </div>
+      <div className={styles.railNav}>
+        {navigationItems.map((item) => {
+          const Icon = item.icon;
+          const active = activeItem.path === item.path;
+          return (
+            <button
+              key={item.path}
+              type="button"
+              className={styles.navItem}
+              aria-current={active ? 'page' : undefined}
+              title={item.label}
+              aria-label={item.label}
+              onClick={() => handleNavClick(item)}
+            >
+              <Icon fontSize="small" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className={styles.railFooter}>
+        <button
+          type="button"
+          className={styles.navItem}
+          title="存储路径设置"
+          aria-label="存储路径设置"
+          aria-haspopup="dialog"
+          disabled={paradigmStatus.active}
+          onClick={() => setIsStorageOpen(true)}
+        >
+          <FolderRoundedIcon fontSize="small" />
+          <span>存储路径设置</span>
+        </button>
+        <div className={styles.accountRow}>
+          <span className={styles.userAvatar} aria-hidden="true">
+            {currentUser?.username.charAt(0).toUpperCase() ?? 'U'}
+          </span>
+          <div className={styles.userMeta}>
+            <span>已登录</span>
+            <strong title={currentUser?.username}>{currentUser?.username ?? '用户'}</strong>
+          </div>
+          <button
+            className={styles.iconButton}
+            title="退出登录"
             aria-label="退出登录"
             disabled={paradigmStatus.active}
             onClick={() => void handleSignOut()}
@@ -314,121 +298,52 @@ export default function Home() {
             <LogoutRoundedIcon fontSize="small" />
           </button>
         </div>
-      </nav>
-
-      <button
-        className={`${styles.sidebarOverlay} ${isSidebarOpen ? styles.isOpen : ''}`}
-        type="button"
-        aria-label="关闭导航"
-        aria-hidden={!isSidebarOpen}
-        tabIndex={isSidebarOpen ? 0 : -1}
-        onClick={() => setIsSidebarOpen(false)}
-      />
-
-      <div
-        className={`${styles.menuLayer} ${isSidebarOpen ? styles.isOpen : ''}`}
-        aria-hidden={!isSidebarOpen}
-      >
-        <aside
-          id="primary-navigation"
-          className={`${styles.sidebar} box-border flex flex-col`}
-          aria-label="主导航"
-        >
-          <div className={`${styles.sidebarHeader} flex items-center justify-between`}>
-            <div className={`${styles.logoGroup} flex items-center`}>
-              <span className={styles.logoMark} aria-hidden="true" />
-              <span className={styles.logoText}>EEG</span>
-            </div>
-            <IconButton
-              className={styles.menuButton}
-              aria-label="关闭导航"
-              aria-expanded={isSidebarOpen}
-              size="small"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              <CloseRoundedIcon fontSize="small" />
-            </IconButton>
-          </div>
-
-          <List className={`${styles.navList} flex flex-col gap-8px`} disablePadding>
-            {navigationItems.map((item, index) => {
-              const Icon = item.icon;
-              const isActive = activeItem.path === item.path;
-
-              return (
-                <ListItemButton
-                  key={item.label}
-                  className={`${styles.navItem} ${isActive ? styles.isActive : ''}`}
-                  onClick={() => handleNavClick(item)}
-                  selected={isActive}
-                  style={{ '--item-index': index } as CSSProperties}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <ListItemIcon className={styles.navIcon}>
-                    <Icon fontSize="small" />
-                  </ListItemIcon>
-                  <span className={styles.navLabel}>{renderRollingText(item.label)}</span>
-                </ListItemButton>
-              );
-            })}
-          </List>
-
-          <div className={styles.userFooter}>
-            <div className={styles.userAvatar} aria-hidden="true">
-              {currentUser?.username.charAt(0).toUpperCase() ?? 'U'}
-            </div>
-            <div className={styles.userMeta}>
-              <span className={styles.userLabel}>已登录</span>
-              <span className={styles.userName}>{currentUser?.username ?? '用户'}</span>
-            </div>
-            <IconButton
-              className={styles.storageButton}
-              aria-label="存储路径设置"
-              aria-expanded={isStorageOpen}
-              size="small"
-              disabled={paradigmStatus.active}
-              onClick={() => setIsStorageOpen((isOpen) => !isOpen)}
-            >
-              <FolderRoundedIcon fontSize="small" />
-            </IconButton>
-            <IconButton
-              className={styles.signOutButton}
-              aria-label="退出登录"
-              size="small"
-              disabled={paradigmStatus.active}
-              onClick={handleSignOut}
-            >
-              <LogoutRoundedIcon fontSize="small" />
-            </IconButton>
-          </div>
-
-          {isStorageOpen ? (
-            <StorageSettingsPanel
-              onClose={() => setIsStorageOpen(false)}
-              username={currentUser?.username}
-            />
-          ) : null}
-        </aside>
-
-        <section className={styles.menuVisual} aria-hidden="true">
-          {isSidebarOpen ? (
-            <Suspense fallback={null}>
-              <MatterScene
-                className="absolute inset-0"
-                initialBallCount={10}
-                maxBallCount={18}
-                scale={1}
-                title={activeItem.label}
-              />
-            </Suspense>
-          ) : null}
-        </section>
       </div>
+    </>
+  );
+
+  return (
+    <main className={styles.page} onClick={handleAgentActionClick}>
+      {wideWindow ? (
+        <nav className={styles.desktopRail} aria-label="主导航">
+          {navigation}
+        </nav>
+      ) : (
+        <>
+          <button
+            type="button"
+            className={styles.mobileMenuButton}
+            aria-label="打开导航"
+            aria-expanded={isSidebarOpen}
+            aria-controls={isSidebarOpen ? 'primary-navigation' : undefined}
+            onClick={() => setIsSidebarOpen(true)}
+          >
+            <MenuRoundedIcon fontSize="small" />
+            <span>{activeItem.label}</span>
+          </button>
+          <Drawer
+            open={isSidebarOpen}
+            onClose={() => setIsSidebarOpen(false)}
+            transitionDuration={reducedMotion ? 0 : 180}
+            slotProps={{ paper: { className: styles.drawerPaper, 'aria-label': '导航菜单' } }}
+          >
+            <nav id="primary-navigation" className={styles.drawerNav} aria-label="主导航">
+              {navigation}
+            </nav>
+          </Drawer>
+        </>
+      )}
+      {isStorageOpen && (
+        <StorageSettingsPanel
+          onClose={() => setIsStorageOpen(false)}
+          username={currentUser?.username}
+        />
+      )}
 
       <div className={styles.shell}>
         <section
           id="workspace-content"
-          className={`${styles.content} ${styles.isVisible} ${isWorkspaceRoute ? styles.isWorkspace : ''} box-border flex flex-col`}
+          className={`${styles.content} ${isWorkspaceRoute ? styles.isWorkspace : ''} box-border flex flex-col`}
         >
           <Outlet context={{ requestNavigation }} />
 
@@ -440,11 +355,7 @@ export default function Home() {
               onClick={() => void requestNavigation('/home')}
             >
               <span>返回首页</span>
-              <NorthEastRoundedIcon
-                className={styles.nextPageIcon}
-                fontSize="small"
-                aria-hidden="true"
-              />
+              <NorthEastRoundedIcon fontSize="small" aria-hidden="true" />
             </button>
           ) : null}
         </section>

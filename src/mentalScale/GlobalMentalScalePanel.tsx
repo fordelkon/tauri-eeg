@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { EChartsType } from 'echarts/core';
 import type { ReactNode } from 'react';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import { chartAnimationDuration } from '../pages/home/effectResultChartOption';
 import { getMentalScaleStatusSnapshot, subscribeMentalScaleStatus } from './mentalScaleStatus';
 import styles from './GlobalMentalScalePanel.module.css';
@@ -234,23 +236,25 @@ export default function GlobalMentalScalePanel({ children }: Props) {
   return (
     <aside className={styles.panel} aria-label="全局心理量表状态">
       <div className={styles.header}>
-        <span className={styles.eyebrow}>心理量表</span>
-        <h2 className={styles.headline}>状态记录</h2>
-        <p className={styles.summary}>
-          {status.updatedAt ? '最近填写 · ' + updatedLabel : '暂无本次记录'}
-        </p>
+        <h2 className={styles.headline}>
+          <AssessmentOutlinedIcon fontSize="small" aria-hidden="true" />
+          量表记录
+        </h2>
+        {status.updatedAt ? (
+          <button
+            type="button"
+            className={styles.detailsButton}
+            aria-expanded={showDetails}
+            aria-label={showDetails ? '收起量表记录' : '查看量表记录'}
+            onClick={() => setShowDetails((open) => !open)}
+          >
+            {updatedLabel}
+            <ExpandMoreRoundedIcon fontSize="small" aria-hidden="true" />
+          </button>
+        ) : (
+          <p className={styles.summary}>暂无本次记录</p>
+        )}
       </div>
-
-      {status.updatedAt && (
-        <button
-          type="button"
-          className={styles.detailsButton}
-          aria-expanded={showDetails}
-          onClick={() => setShowDetails((open) => !open)}
-        >
-          {showDetails ? '收起记录' : '查看记录'}
-        </button>
-      )}
       {showDetails && status.updatedAt && !hasChart && (
         <dl className={styles.checkValues}>
           {status.dimensions

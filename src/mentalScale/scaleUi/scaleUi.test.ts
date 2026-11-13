@@ -133,7 +133,7 @@ describe('ScaleAnchorGroup', () => {
     ).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
-  test('discrete layout (0-3) renders numbered buttons and the selected label below the row', () => {
+  test('discrete choices show and announce every response and mark the selected score', () => {
     const markup = render(
       createElement(ScaleAnchorGroup, {
         layout: 'discrete',
@@ -146,18 +146,14 @@ describe('ScaleAnchorGroup', () => {
     );
 
     for (const value of [0, 1, 2, 3]) {
-      expect(markup).toContain(`>${value}</button>`);
+      expect(markup).toContain(`aria-label="${value}(${PHQ4_LABELS[value]})"`);
+      expect(markup).toContain(`>${PHQ4_LABELS[value]}</span>`);
     }
     // Exactly one pressed anchor: the selected value.
     expect((markup.match(/aria-pressed="true"/g) ?? []).length).toBe(1);
-    // Only the SELECTED Chinese label renders below the row (5-column labels
-    // must never squeeze into the buttons).
-    expect(markup).toContain('一半以上的天数');
-    expect(markup).not.toContain('完全不会');
-    expect(markup).not.toContain('几乎每天');
   });
 
-  test('discrete layout without a selection shows no anchor label', () => {
+  test('unanswered rows already show the response labels', () => {
     const markup = render(
       createElement(ScaleAnchorGroup, {
         layout: 'discrete',
@@ -169,7 +165,7 @@ describe('ScaleAnchorGroup', () => {
     );
 
     expect((markup.match(/aria-pressed="true"/g) ?? []).length).toBe(0);
-    expect(markup).not.toContain('完全没有');
+    expect(markup).toContain('>完全没有</span>');
   });
 
   test('bipolar layout renders the 1-9 boundaries and both pole labels (SAM)', () => {

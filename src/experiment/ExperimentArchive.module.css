@@ -1,0 +1,261 @@
+.history {
+  min-width: 0;
+  padding: 4px 16px 14px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--ink);
+}
+.listHeader,
+.actions,
+.fileActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.listHeader {
+  justify-content: space-between;
+  padding: 10px 0;
+}
+.listHeader h2,
+.attachment h3 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.listHeader h2 {
+  color: #625e58;
+}
+.record {
+  border-top: 1px solid var(--line-soft);
+}
+.record > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  padding: 10px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: var(--radius-control);
+}
+.record > summary::-webkit-details-marker {
+  display: none;
+}
+.record > summary:hover,
+.record[open] > summary {
+  background: var(--surface-2);
+}
+.record > summary > svg {
+  color: #665f58;
+}
+.record[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.identity {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  overflow-wrap: anywhere;
+}
+.identity strong {
+  font-weight: 600;
+  font-size: var(--text-base);
+}
+.identity time,
+.meta {
+  color: #615c55;
+  font-size: var(--text-xs);
+}
+.identity time {
+  flex-basis: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+}
+.status::before {
+  content: '';
+  background: currentColor;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+}
+.status[data-status='completed'] {
+  color: var(--success);
+}
+.status:is([data-status='aborted'], [data-status='interrupted'], [data-status='failed']) {
+  color: var(--warning-ink);
+}
+.detail {
+  padding: 14px 10px;
+  display: grid;
+  gap: 14px;
+}
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 5px 14px;
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.facts dt,
+.attachment p,
+.markerNote,
+.empty {
+  color: #625e58;
+}
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.facts:empty {
+  display: none;
+}
+.runId {
+  margin: 0;
+  color: #665f58;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+.runId code {
+  padding-inline-start: 4px;
+  font-size: inherit;
+}
+.expected {
+  display: block;
+  font-size: var(--text-xs);
+  color: #625e58;
+  margin-bottom: 2px;
+}
+.facts code,
+.fileList code {
+  font-family: Consolas, monospace;
+  font-size: var(--text-xs);
+}
+.attachment {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+}
+.attachment p,
+.markerNote,
+.empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+.markerNote {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 10px;
+  font-size: var(--text-xs);
+}
+.markerNote b {
+  font-weight: 600;
+}
+.fileList {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fileList li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.filePath summary {
+  font-size: var(--text-sm);
+  cursor: pointer;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.filePath code {
+  display: block;
+  padding: 4px 0;
+  color: #625e58;
+}
+.fileActions {
+  margin-top: 4px;
+}
+.history .tool,
+.history .remove,
+.attachment .tool,
+.attachment .primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--button-height-sm);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  padding: 4px 10px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  gap: 5px;
+  cursor: pointer;
+}
+.listHeader .tool,
+.history .remove {
+  border-color: transparent;
+  background: transparent;
+}
+.history .remove {
+  margin-left: auto;
+  color: var(--danger-ink);
+}
+.attachment .primary {
+  border-color: var(--calm-primary-hover);
+  background: var(--calm-primary-hover);
+  color: white;
+}
+.history .tool:hover:enabled,
+.attachment .tool:hover:enabled {
+  background: var(--surface-2);
+}
+.history .remove:hover:enabled {
+  background: #faefec;
+}
+.attachment .primary:hover:enabled {
+  background: #984635;
+}
+.history .tool:disabled,
+.attachment button:disabled,
+.history .remove:disabled {
+  cursor: default;
+  opacity: var(--disabled-opacity);
+}
+.history :is(summary, .tool, .remove):focus-visible,
+.attachment :is(summary, .tool, .primary):focus-visible {
+  outline: 2px solid var(--focus-color);
+  outline-offset: 2px;
+}
+.history .error,
+.attachment .error {
+  color: var(--danger-ink);
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+}
+.notice {
+  color: var(--success);
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+}
+@container preparation (max-width: 440px) {
+  .history {
+    padding-inline: 10px;
+  }
+  .record > summary,
+  .detail {
+    padding-inline: 6px;
+  }
+}

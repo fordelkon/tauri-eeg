@@ -1,18 +1,25 @@
 import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
+import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import { useAuth } from '../auth/AuthContext';
 import { BdfAttachment } from './BdfAttachment';
 import { deleteRun, exportRun, listRuns, type ExperimentRun } from './api';
 import { isTauriAvailable } from '../ui/tauriEnvironment';
 import { describeFriendlyError } from '../ui/friendlyError';
 import { useConfirmDialog } from '../ui/useConfirmDialog';
-import styles from '../pages/home/ExperimentSettings.module.css';
+import { formatRunTimestamp, labelForEmotion } from '../pages/home/effectHistoryView';
+import {
+  EFFECT_METHOD_OPTIONS,
+  labelForCondition,
+} from '../pages/home/effectEvaluationFlow/constants';
+import styles from './ExperimentArchive.module.css';
 
 const statusLabels: Record<string, string> = {
   active: '进行中',
   running: '进行中',
-  completed: '完成',
-  aborted: '中止',
+  completed: '已完成',
+  aborted: '已中止',
   interrupted: '中断',
   failed: '失败',
 };
@@ -59,95 +66,137 @@ export default function ExperimentRunHistory() {
     }
   };
   return (
-    <section className={styles.section}>
-      <h2>实验记录</h2>
-      <button
-        disabled={busy || !isTauriAvailable()}
-        className={busy ? styles.isBusy : undefined}
-        onClick={() => void perform(refresh)}
-      >
-        刷新记录
-      </button>
+    <section className={styles.history} aria-label="实验记录">
+      <header className={styles.listHeader}>
+        <h2>实验记录</h2>
+        <button
+          type="button"
+          className={styles.tool}
+          disabled={busy || !isTauriAvailable()}
+          onClick={() => void perform(refresh)}
+        >
+          <RefreshRoundedIcon fontSize="inherit" />
+          刷新记录
+        </button>
+      </header>
       {error && (
-        <p role="alert" className={styles.errorMessage}>
+        <p role="alert" className={styles.error}>
           {error}
         </p>
       )}
       {notice && (
-        <p role="status" className={styles.resultBanner}>
+        <p role="status" className={styles.notice}>
           {notice}
         </p>
       )}
       {!runs.length && (
-        <p className={styles.muted}>完成排练或正式实验后，在此关联 BDF 并导出日志。</p>
+        <p className={styles.empty}>暂无实验记录。完成排练或正式实验后，可在这里查看。</p>
       )}
       {runs.map((run) => (
-        <details className={styles.history} key={run.runId}>
+        <details className={styles.record} key={run.runId}>
           <summary>
-            {run.subjectId} · {flowLabels[run.kind] ?? run.kind} ·{' '}
-            {run.mode === 'formal' ? '正式' : '排练'} · {statusLabels[run.status] ?? run.status} ·{' '}
-            {new Date(run.startedAt).toLocaleString()}
-            <br />
-            {run.runId}
+            <span className={styles.identity}>
+              <strong>{run.subjectId || '未登记被试'}</strong>
+              <span className={styles.meta}>
+                {flowLabels[run.kind] ?? run.kind} · {run.mode === 'formal' ? '正式' : '排练'}
+                {run.mode === 'formal' &&
+                  !['running', 'active'].includes(run.status) &&
+                  (run.bdfFiles.length ? ' · BDF 已关联' : ' · BDF 待关联')}
+              </span>
+              <time dateTime={run.startedAt} title={new Date(run.startedAt).toLocaleString()}>
+                {formatRunTimestamp(run.startedAt)}
+              </time>
+            </span>
+            <span className={styles.status} data-status={run.status}>
+              {statusLabels[run.status] ?? run.status}
+            </span>
+            <ExpandMoreRoundedIcon aria-hidden="true" fontSize="small" />
           </summary>
-          <p>
-            {[run.emotion, run.condition, run.condition === 'regulation' ? run.method : null]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-          {userId && (
-            <BdfAttachment
-              run={run}
-              userId={userId}
-              disabled={busy}
-              onSaved={(saved) =>
-                setRuns((items) => items.map((item) => (item.runId === saved.runId ? saved : item)))
-              }
-            />
-          )}
-          <div className={styles.row}>
-            <button
-              disabled={busy}
-              className={busy ? styles.isBusy : undefined}
-              onClick={() =>
-                void perform(async () => {
-                  const folder = await open({
-                    directory: true,
-                    multiple: false,
-                    title: '选择实验日志导出目录',
-                  });
-                  if (typeof folder !== 'string') return;
-                  const result = await exportRun(run.runId, folder);
-                  setNotice(`实验日志已导出到 ${result.path}`);
-                })
-              }
-            >
-              导出实验日志
-            </button>
-            <button
-              disabled={busy || run.status === 'running' || run.status === 'active'}
-              className={`${styles.deleteBtn} ${busy ? styles.isBusy : ''}`}
-              onClick={() =>
-                void perform(async () => {
-                  const ok = await confirm({
-                    title: '删除实验记录',
-                    description: `确定要删除被试 ${run.subjectId} 的本次实验记录（${run.runId}）吗？关联的事件记录和试次数据将被彻底删除，此操作不可逆。`,
-                    confirmText: '删除',
-                    cancelText: '取消',
-                    destructive: true,
-                  });
-                  if (!ok) return;
-                  await deleteRun(run.runId, userId ?? undefined);
-                  setNotice(`已删除实验记录：${run.runId}`);
-                  await refresh();
-                })
-              }
-            >
-              删除记录
-            </button>
+          <div className={styles.detail}>
+            <dl className={styles.facts}>
+              {(run.emotion || run.condition) && (
+                <>
+                  <dt>实验条件</dt>
+                  <dd>
+                    {[
+                      run.emotion && labelForEmotion(run.emotion),
+                      run.condition && labelForCondition(run.condition),
+                      run.condition === 'regulation' &&
+                        run.method &&
+                        (EFFECT_METHOD_OPTIONS.find((option) => option.value === run.method)
+                          ?.label ??
+                          run.method),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </dd>
+                </>
+              )}
+            </dl>
+            {userId && (
+              <BdfAttachment
+                run={run}
+                userId={userId}
+                disabled={busy}
+                onSaved={(saved) =>
+                  setRuns((items) =>
+                    items.map((item) => (item.runId === saved.runId ? saved : item)),
+                  )
+                }
+              />
+            )}
+            <div className={styles.actions}>
+              <button
+                disabled={busy}
+                className={styles.tool}
+                onClick={() =>
+                  void perform(async () => {
+                    const folder = await open({
+                      directory: true,
+                      multiple: false,
+                      title: '选择实验日志导出目录',
+                    });
+                    if (typeof folder !== 'string') return;
+                    const result = await exportRun(run.runId, folder);
+                    setNotice(`实验日志已导出到 ${result.path}`);
+                  })
+                }
+              >
+                导出实验日志
+              </button>
+              <button
+                disabled={busy || run.status === 'running' || run.status === 'active'}
+                className={styles.remove}
+                onClick={() =>
+                  void perform(async () => {
+                    const ok = await confirm({
+                      title: '删除实验记录',
+                      description: `确定要删除被试 ${run.subjectId} 的本次实验记录（${run.runId}）吗？关联的事件记录和试次数据将被彻底删除，此操作不可逆。`,
+                      confirmText: '删除',
+                      cancelText: '取消',
+                      destructive: true,
+                    });
+                    if (!ok) return;
+                    await deleteRun(run.runId, userId ?? undefined);
+                    setNotice(`已删除实验记录：${run.runId}`);
+                    await refresh();
+                  })
+                }
+              >
+                删除记录
+              </button>
+            </div>
+            <p className={styles.runId}>
+              记录编号 <code>{run.runId}</code>
+            </p>
           </div>
         </details>
       ))}
+      {runs.length > 0 && (
+        <p className={styles.markerNote}>
+          核对结束标记时，<b>61</b> 表示正常结束，<b>91</b> 表示中止。
+        </p>
+      )}
       {confirmDialogElement}
     </section>
   );

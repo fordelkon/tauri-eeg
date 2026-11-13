@@ -70,7 +70,7 @@ function isLocalFirstAction(actionId: AgentActionId | 'unknown'): actionId is Ag
 export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentOptions) {
   const { currentUser } = useAuth();
   const [phase, setPhase] = useState<AgentPhase>(() => getAgentPhaseForRoute(pathname));
-  const [message, setMessage] = useState('可以输入“开始实验”或点击推荐操作。');
+  const [message, setMessage] = useState('');
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingAgentConfirmation | null>(
     null,
   );

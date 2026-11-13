@@ -350,17 +350,22 @@ export default function EffectHistoryPanel() {
           {isLoading ? '正在加载历史评价…' : ''}
         </p>
       ) : filteredEntries.length === 0 ? (
-        <div className={styles.emptyState}>
-          {entries.length === 0
-            ? '还没有完成的评价：完整走完一次 诱发 → 诱发后量表 → 条件执行 → 条件后量表 流程后，这里会列出每次的结果。'
-            : '没有匹配该被试 ID 的评价记录。'}
+        <div className={styles.emptyState} role="status">
+          {entries.length === 0 ? (
+            <>
+              <strong>还没有完成的评价</strong>
+              <span>完成一次诱发、前测、条件执行与后测后，可在这里回看结果。</span>
+            </>
+          ) : (
+            '没有匹配该被试 ID 的评价记录。'
+          )}
         </div>
       ) : (
         <div className={styles.historyGroups}>
           {groups.map((group) => (
             <div key={group.subjectId || '__unbound__'} className={styles.historyGroup}>
               <div className={styles.historyGroupHead}>
-                被试 {group.subjectId || '未绑定'}
+                <span>被试 {group.subjectId || '未绑定'}</span>
                 <span className={styles.historyGroupCount}>{group.entries.length} 次评价</span>
               </div>
 

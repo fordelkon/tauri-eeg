@@ -103,10 +103,10 @@
   --scrim-form: rgba(44, 34, 24, 0.38);
   --scrim-media: rgba(6, 10, 12, 0.66);
 
-  /* Focus: rings ride the calm primary hue like every other control accent
-     (the old brand-red halos fought the terracotta action color). */
-  --focus-ring: 0 0 0 2px #f5f0eb, 0 0 0 4px rgba(var(--calm-primary-rgb), 0.55);
-  --ring: 0 0 0 3px rgba(var(--calm-primary-rgb), 0.14);
+  --focus-color: #2868a2;
+  --focus-ring: 0 0 0 2px var(--surface-raised), 0 0 0 4px var(--focus-color);
+  --ring: 0 0 0 3px rgb(40 104 162 / 14%);
+  --shadow-popover: 0 8px 24px rgb(44 34 24 / 12%), 0 2px 6px rgb(44 34 24 / 8%);
 
   /* Motion */
   --dur-fast: 150ms;

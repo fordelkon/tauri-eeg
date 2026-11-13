@@ -70,10 +70,8 @@ export type ScaleAnchorGroupProps = {
 };
 
 /**
- * The shared anchor control of the scale dialogs. Discrete rows show only
- * numbers inside the buttons and render the selected value's Chinese label
- * BELOW the row (long 4-5 column labels would squeeze); bipolar rows bracket
- * a subtle gradient rail with the two Chinese pole labels.
+ * The shared anchor control of the scale dialogs. Each discrete choice shows
+ * its original response label before selection. Bipolar rows show both poles.
  */
 export default function ScaleAnchorGroup({
   layout,
@@ -90,7 +88,6 @@ export default function ScaleAnchorGroup({
 }: ScaleAnchorGroupProps) {
   const options = buildAnchorOptions({ layout, minValue, maxValue, anchorLabels });
   const isBipolar = layout === 'bipolar';
-  const selected = options.find((option) => option.value === value);
 
   // Arrow-key navigation (audit 3): every anchor is a tabbable button, which
   // makes a 9-point bipolar row nine Tab stops. Arrows/Home/End move focus
@@ -102,7 +99,8 @@ export default function ScaleAnchorGroup({
       return;
     }
 
-    const currentIndex = options.findIndex((option) => option.value === value);
+    const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button'));
+    const currentIndex = buttons.findIndex((button) => button === event.target);
     let nextIndex: number;
 
     switch (event.key) {
@@ -131,7 +129,6 @@ export default function ScaleAnchorGroup({
       return;
     }
 
-    const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>('button');
     buttons[nextIndex]?.focus();
     selectAnchorValue(onSelect, next);
   };
@@ -141,7 +138,8 @@ export default function ScaleAnchorGroup({
     const hint = valueHints?.[option.value];
     // Bipolar buttons name themselves after the hint copy when one exists
     // (paradigm rows), otherwise after the question text.
-    const aria = isBipolar && hint ? `${option.value}(${hint})` : `${ariaLabel} ${option.value}`;
+    const description = hint ?? option.label;
+    const aria = description ? `${option.value}(${description})` : `${ariaLabel} ${option.value}`;
 
     return (
       <button
@@ -154,6 +152,7 @@ export default function ScaleAnchorGroup({
         onClick={() => selectAnchorValue(onSelect, option)}
       >
         {option.value}
+        {option.label && <span className={styles.optionLabel}>{option.label}</span>}
       </button>
     );
   });
@@ -174,15 +173,6 @@ export default function ScaleAnchorGroup({
       ) : (
         <div className={styles.anchorRow}>{buttons}</div>
       )}
-      {!isBipolar && selected ? (
-        // Redundant for assistive tech (the pressed button already carries the
-        // value), so the live label stays visual-only. Rendered only once a
-        // value exists — the muted "—" placeholder read as stray debris
-        // under every unanswered question.
-        <p className={styles.anchorValueLabel} aria-hidden="true">
-          {selected.label}
-        </p>
-      ) : null}
     </div>
   );
 }
