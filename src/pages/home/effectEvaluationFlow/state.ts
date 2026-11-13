@@ -9,6 +9,7 @@ import {
   type EffectCondition,
   type EffectFlowStep,
   type EffectRegulationMethod,
+  type EffectScaleProtocol,
   type EffectTargetEmotion,
 } from './constants';
 
@@ -31,7 +32,7 @@ const EVENT_LOG_STATUS_VALUES: EffectEventLogStatus[] = [
   'interrupted',
 ];
 
-const FLOW_STATE_VERSION = 4;
+const FLOW_STATE_VERSION = 5;
 
 export type EffectEvaluationFlowState = {
   version: typeof FLOW_STATE_VERSION;
@@ -39,6 +40,7 @@ export type EffectEvaluationFlowState = {
   subjectId: string;
   emotion: EffectTargetEmotion;
   method: EffectRegulationMethod;
+  protocol: EffectScaleProtocol;
   /**
    * Wizard condition of this run (R6): 基线条件（自然恢复） or 调控条件. The
    * 大纲-aligned flow runs the natural-recovery condition first, so it is the
@@ -66,6 +68,7 @@ export function createEffectEvaluationFlowState(): EffectEvaluationFlowState {
     subjectId: '',
     emotion: 'anxiety',
     method: 'music',
+    protocol: 'brief',
     condition: 'natural_recovery',
     durationMinutes: DEFAULT_REGULATION_MINUTES,
     baselineRecordId: null,
@@ -109,7 +112,7 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
 
   const candidate = parsed as Record<string, unknown>;
 
-  if (candidate.version !== FLOW_STATE_VERSION) {
+  if (candidate.version !== FLOW_STATE_VERSION && candidate.version !== 4) {
     return null;
   }
 
@@ -124,6 +127,9 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
   }
 
   const subjectId = candidate.subjectId;
+  // A version 4 session already under way used the full battery at baseline.
+  const protocol = candidate.version === 4 ? (step === 0 ? 'brief' : 'full') : candidate.protocol;
+  if (protocol !== 'brief' && protocol !== 'full') return null;
   if (typeof subjectId !== 'string') {
     return null;
   }
@@ -201,6 +207,7 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
     subjectId,
     emotion,
     method,
+    protocol,
     condition,
     durationMinutes,
     baselineRecordId,

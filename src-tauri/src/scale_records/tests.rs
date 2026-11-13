@@ -1155,6 +1155,7 @@ fn single_report_rejects_mismatched_phases() {
 #[test]
 fn single_report_csv_escapes_fields_and_repeats_meta_columns() {
     let report = SingleEffectReport {
+        rating_changes: Vec::new(),
         exported_at: "2026-08-26T12:00:00+00:00".to_string(),
         subject_id: Some("subj, \"quoted\"".to_string()),
         emotion: Some("anxiety".to_string()),
@@ -1198,6 +1199,7 @@ fn single_report_csv_escapes_fields_and_repeats_meta_columns() {
 #[test]
 fn single_report_csv_marks_legacy_rows_without_a_condition() {
     let report = SingleEffectReport {
+        rating_changes: Vec::new(),
         exported_at: "2026-08-26T12:00:00+00:00".to_string(),
         subject_id: Some("subj-old".to_string()),
         emotion: Some("fear".to_string()),
@@ -1236,6 +1238,7 @@ fn single_report_csv_marks_legacy_rows_without_a_condition() {
 fn batch_csv_lists_one_row_per_subject_emotion_with_latest_results() {
     let entries = vec![
         EffectHistoryEntry {
+            rating_changes: Vec::new(),
             experiment_run_id: None,
             subject_id: "s1".to_string(),
             baseline_record_id: "b1".to_string(),
@@ -1249,7 +1252,7 @@ fn batch_csv_lists_one_row_per_subject_emotion_with_latest_results() {
             regulation_skipped: false,
             measured_only: true,
             mean_improvement_rate: Some(0.4),
-            meets_threshold: true,
+            meets_threshold: Some(true),
             dimensions: vec![RegulationDimensionImprovement {
                 dimension: "anxiety".to_string(),
                 baseline: 80.0,
@@ -1258,6 +1261,7 @@ fn batch_csv_lists_one_row_per_subject_emotion_with_latest_results() {
             }],
         },
         EffectHistoryEntry {
+            rating_changes: Vec::new(),
             experiment_run_id: None,
             subject_id: "s2".to_string(),
             baseline_record_id: "b2".to_string(),
@@ -1271,7 +1275,7 @@ fn batch_csv_lists_one_row_per_subject_emotion_with_latest_results() {
             regulation_skipped: true,
             measured_only: false,
             mean_improvement_rate: None,
-            meets_threshold: false,
+            meets_threshold: Some(false),
             dimensions: Vec::new(),
         },
     ];
@@ -2148,4 +2152,39 @@ fn comparison_report_csv_repeats_leg_columns_and_the_formula() {
     // The formula statement rides along as a (quoted) column value.
     assert!(lines[1].contains("大纲 B-1 冻结项"));
     assert!(lines[1].ends_with(",2026-08-28T12:30:00+00:00"));
+}
+
+#[test]
+fn brief_ratings_preserve_signed_changes_and_separate_instruments() {
+    let conn = setup_conn();
+    let mut input = sample_input("user-1", Some("s1"), PHASE_BASELINE);
+    let full = save_scale_record(&conn, &input).unwrap();
+    input.scale_id = BRIEF_SCALE_ID.into();
+    assert!(save_scale_record(&conn, &input).is_err());
+    input.dimension_scores = BTreeMap::from([
+        ("valence".into(), 3.0),
+        ("arousal".into(), 8.0),
+        ("dominance".into(), 6.0),
+    ]);
+    let before = save_scale_record(&conn, &input).unwrap();
+    input.phase = PHASE_POST.into();
+    input.dimension_scores.insert("valence".into(), 7.0);
+    input.dimension_scores.insert("arousal".into(), 4.0);
+    let after = save_scale_record(&conn, &input).unwrap();
+    assert!(compute_regulation_effect_summary(&full, &after).is_err());
+    let entries = build_effect_history(&[before.clone(), full, after.clone()]);
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].mean_improvement_rate, None);
+    assert_eq!(entries[0].meets_threshold, None);
+    assert!(entries[0].dimensions.is_empty());
+    let changes: Vec<_> = entries[0].rating_changes.iter().map(|v| v.change).collect();
+    assert_eq!(changes, vec![4.0, -4.0, 0.0]);
+    let csv = build_single_effect_report_csv(&build_single_effect_report(&before, &after).unwrap());
+    assert!(csv.contains("arousal,唤醒度,8,4,-4"));
+    assert!(!csv.contains("threshold"));
+    assert!(build_batch_effect_report_csv(&entries).ends_with(",momentary_vad_3_v1,4,-4,0"));
+    input.dimension_scores.insert("valence".into(), 0.0);
+    assert!(save_scale_record(&conn, &input).is_err());
+    input.dimension_scores.insert("valence".into(), 1.5);
+    assert!(save_scale_record(&conn, &input).is_err());
 }

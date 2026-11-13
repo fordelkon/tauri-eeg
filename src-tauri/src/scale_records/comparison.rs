@@ -114,6 +114,9 @@ pub fn build_condition_comparison(
     if natural_recovery.condition.is_none() {
         return Err(legacy_leg_rejection("基线条件腿"));
     }
+    if regulation.scale_id == BRIEF_SCALE_ID || natural_recovery.scale_id == BRIEF_SCALE_ID {
+        return Err("简短评价仅描述各维度前后变化。".into());
+    }
     if natural_recovery.scale_id != regulation.scale_id {
         return Err(format!(
             "两条件 run 使用的量表不一致（基线条件 {} 与 调控条件 {}），维度含义不同，无法跨条件对比。请确保两条件使用同一量表。",
@@ -205,7 +208,7 @@ pub fn compute_condition_effect_comparison(
     let mut legacy_regulation: Option<&EffectHistoryEntry> = None;
 
     for entry in &entries {
-        if entry.subject_id.trim() != subject_id {
+        if entry.scale_id == BRIEF_SCALE_ID || entry.subject_id.trim() != subject_id {
             continue;
         }
         // Emotion travels post-first; runs without an emotion never match.

@@ -1,6 +1,7 @@
 import type { CreateRunInput, EmitEventInput } from '../../experiment/api';
 import type { ExperimentPreferences } from '../../experiment/settings';
 import type { BatteryAnswers } from '../../mentalScale/instruments/battery';
+import type { SamScore } from '../../mentalScale/instruments/sam';
 import type { ScalePhase } from '../../mentalScale/scaleRecordsApi';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import { videoOnsetEventSource, type VideoOnsetInfo } from '../../ui/videoFrameOnset';
@@ -16,7 +17,7 @@ import type { InductionPoolStatus } from './effectInductionPool';
 
 type Draft = Pick<
   EffectEvaluationFlowState,
-  'subjectId' | 'emotion' | 'method' | 'condition' | 'durationMinutes'
+  'subjectId' | 'emotion' | 'method' | 'condition' | 'durationMinutes' | 'protocol'
 >;
 
 /**
@@ -44,9 +45,9 @@ export type EffectExecutionDependencies = {
   saveScale(
     state: EffectEvaluationFlowState,
     phase: ScalePhase,
-    answers: BatteryAnswers,
+    answers: BatteryAnswers | SamScore,
   ): Promise<{ id: string }>;
-  scaleSaved(state: EffectEvaluationFlowState, answers: BatteryAnswers): void;
+  scaleSaved(state: EffectEvaluationFlowState, answers: BatteryAnswers | SamScore): void;
   preferences(): ExperimentPreferences;
   consumeRecordingConfirmation(): void;
   userId(): string | null;
@@ -218,7 +219,8 @@ export class EffectEvaluationExecution {
   };
 
   updateDraft = (patch: Partial<Draft>) => {
-    if (!this.snapshot.state.runId && !this.operation) this.changeState(patch);
+    if (this.snapshot.state.step === 0 && !this.snapshot.state.runId && !this.operation)
+      this.changeState(patch);
   };
 
   startBaselineMeasurement = () => {
@@ -309,7 +311,10 @@ export class EffectEvaluationExecution {
       .catch(() => {});
   };
 
-  completeScaleMeasurement = (phase: ScalePhase, answers: BatteryAnswers): Promise<boolean> => {
+  completeScaleMeasurement = (
+    phase: ScalePhase,
+    answers: BatteryAnswers | SamScore,
+  ): Promise<boolean> => {
     if (!this.allowed(phase === 'baseline' ? 2 : 4) || !this.snapshot.state.runId)
       return Promise.resolve(false);
     return this.perform(`scale-${phase}`, async () => {

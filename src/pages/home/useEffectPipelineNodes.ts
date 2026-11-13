@@ -26,6 +26,7 @@ export function useEffectPipelineNodes(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       state.step,
+      state.protocol,
       state.subjectId,
       state.condition,
       state.durationMinutes,

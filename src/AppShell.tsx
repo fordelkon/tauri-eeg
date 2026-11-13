@@ -43,7 +43,7 @@ const theme = createTheme({
     // Keep the shell's warm paper + ink: the themed CssBaseline injected at
     // runtime would otherwise paint MUI's neutral gray defaults over the
     // body values declared in src/styles/global.css.
-    background: { default: '#f5f0eb' },
+    background: { default: '#faf9f6' },
     text: { primary: '#2c2218' },
   },
   typography: {

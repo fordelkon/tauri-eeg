@@ -15,7 +15,7 @@ type ReportState<T> =
 type ReportContext = Pick<
   EffectEvaluationFlowState,
   'subjectId' | 'emotion' | 'baselineRecordId' | 'postRecordId'
->;
+> & { protocol?: 'brief' | 'full' };
 type Snapshot = {
   summary: ReportState<RegulationEffectSummaryView>;
   comparison: ReportState<ConditionEffectComparisonView>;
@@ -58,7 +58,8 @@ export class EffectResultReports {
   start = () => {
     this.active = true;
     if (this.snapshot.summary.kind === 'idle') void this.loadSummary();
-    if (this.snapshot.comparison.kind === 'idle') void this.loadConditionComparison();
+    if (this.context.protocol !== 'brief' && this.snapshot.comparison.kind === 'idle')
+      void this.loadConditionComparison();
   };
 
   clearResults = () => {

@@ -1,5 +1,4 @@
 import { invoke } from '@tauri-apps/api/core';
-import { PHQ4_TIMEFRAME } from './instruments/phq4';
 import type { MentalScaleAnswers, MentalScaleDefinition } from './mentalScaleGate';
 import {
   buildMentalScaleStatus,
@@ -66,6 +65,13 @@ export type ScaleRecordView = {
   measuredDimensions: string[] | null;
 };
 
+export type StateRatingChange = {
+  dimension: 'valence' | 'arousal' | 'dominance';
+  baseline: number;
+  post: number;
+  change: number;
+};
+
 export type RegulationDimensionImprovementView = {
   dimension: string;
   baseline: number;
@@ -75,10 +81,11 @@ export type RegulationDimensionImprovementView = {
 
 /** Backend summary plus the meets-threshold verdict (compute_regulation_effect). */
 export type RegulationEffectSummaryView = {
+  ratingChanges?: StateRatingChange[];
   subjectId: string | null;
   dimensions: RegulationDimensionImprovementView[];
   meanImprovementRate: number | null;
-  meetsThreshold: boolean;
+  meetsThreshold: boolean | null;
   /** True when the mean covered only dimensions marked as measured on both sides (R4/F1). */
   measuredOnly: boolean;
 };
@@ -162,16 +169,7 @@ type PersistSubmissionOptions = {
  * memory-cache behavior is untouched; a persistence failure must never block
  * navigation, so it only lands in the console.
  *
- * Stored as the PHQ-4 screening instrument (doc scale-instruments.md §3.3):
- * scale_id 'phq4_screen_v1' and the trait-style 'past_2_weeks' timeframe ride
- * inside raw_answers. The record keeps phase 'baseline' and no condition —
- * the backend only accepts 'baseline'/'post' (scale_records.rs validate_phase
- * rejects a literal 'screen' phase), and leaving condition NULL keeps the
- * screening row out of every explicit-condition pairing pool of the wizard
- * (build_effect_history pairs baseline/post only within the same condition
- * key; wizard legs always carry an explicit condition). Gate rows can
- * therefore only ever pair with pre-R6 legacy NULL rows, a pre-existing
- * vector that predates the instrument swap.
+ * The instrument ID and current-state timeframe distinguish new entries from historical screening.
  */
 export function persistMentalScaleSubmission(
   scale: MentalScaleDefinition,
@@ -190,7 +188,7 @@ export function persistMentalScaleSubmission(
     scaleId: scale.scaleId,
     phase: options.phase ?? 'baseline',
     dimensionScores: buildScaleDimensionScores(scale, answers),
-    rawAnswers: { ...answers, timeframe: PHQ4_TIMEFRAME },
+    rawAnswers: { ...answers, timeframe: 'now' },
     // Gate submissions carry the same measured markers so a gate baseline
     // paired with a wizard post keeps the marker-based comparison (R4/F1).
     measuredDimensions: measuredDimensionKeys(scale, answers),
@@ -280,6 +278,7 @@ export function computeConditionEffect(
 
 /** One completed evaluation run in the history review (list_effect_history). */
 export type EffectHistoryEntryView = {
+  ratingChanges?: StateRatingChange[];
   experimentRunId?: string | null;
   subjectId: string;
   baselineRecordId: string;
@@ -295,7 +294,7 @@ export type EffectHistoryEntryView = {
   /** False when the mean was computed over unmarked legacy records. */
   measuredOnly: boolean;
   meanImprovementRate: number | null;
-  meetsThreshold: boolean;
+  meetsThreshold: boolean | null;
   dimensions: RegulationDimensionImprovementView[];
 };
 

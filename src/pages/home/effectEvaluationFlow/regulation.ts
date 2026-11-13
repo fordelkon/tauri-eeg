@@ -70,7 +70,7 @@ export function describeRegulationSkipped(state: EffectEvaluationFlowState): str
     return null;
   }
 
-  return '本次条件执行跳过了剩余时长（已二次确认），改善率可能低估实际效果。';
+  return '本次体验提前结束，已记录跳过剩余时长。';
 }
 
 /** mm:ss countdown text; negative or non-finite input clamps to 00:00. */

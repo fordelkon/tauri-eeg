@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import { useNavigate } from 'react-router-dom';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import { getParadigmSessionStatus } from '../../paradigm/paradigmSessionStatus';
@@ -11,11 +12,9 @@ import {
   buildEffectVerdictCopy,
   describeMeasuredBasis,
   describeRegulationSkipped,
-  EFFECT_EMOTION_OPTIONS,
   EFFECT_FLOW_STEP_COUNT,
   EFFECT_METHOD_OPTIONS,
   formatCountdown,
-  labelForCondition,
   remainingRegulationSeconds,
   type EffectFlowStep,
 } from './effectEvaluationFlow';
@@ -32,7 +31,6 @@ import {
   ScaleStepPanel,
   SetupStepPanel,
 } from './EffectStepPanels';
-import EffectDeviceQuickStart from './EffectDeviceQuickStart';
 import EffectHistoryPanel from './EffectHistoryPanel';
 import { EffectReviewPopover } from './EffectReviewPopover';
 import type { EffectReviewTarget, EffectStationClick } from './EffectTimeline';
@@ -41,11 +39,13 @@ import { useEffectEvaluationFlow } from './useEffectEvaluationFlow';
 import { useEffectPipelineNodes } from './useEffectPipelineNodes';
 import { useEffectReportExports } from './useEffectReportExports';
 import { useInductionPlayback } from './useInductionPlayback';
+import { StateRatingTable } from './StateRatingTable';
 import styles from './EffectEvaluation.module.css';
 
 type PageTab = 'wizard' | 'history';
 
 export default function EffectEvaluation() {
+  const navigate = useNavigate();
   const flow = useEffectEvaluationFlow();
   const { state } = flow;
   const { confirm, confirmDialogElement } = useConfirmDialog();
@@ -82,8 +82,6 @@ export default function EffectEvaluation() {
     if (state.runId === null) setIsScaleDialogOpen(false);
   }, [state.runId]);
   const handleWindowElapsed = flow.conditionElapsed;
-  const emotionLabel =
-    EFFECT_EMOTION_OPTIONS.find((option) => option.value === state.emotion)?.label ?? state.emotion;
   const methodLabel =
     EFFECT_METHOD_OPTIONS.find((option) => option.value === state.method)?.label ?? state.method;
   const isNaturalRecovery = state.condition === 'natural_recovery';
@@ -103,6 +101,7 @@ export default function EffectEvaluation() {
     stage.focus({ preventScroll: true });
     stage.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [state.step]);
+  const participantStage = state.step > 0 && state.step < 5;
   const isResultStep = state.step === 5;
   const handleResetFlow = async () => {
     const confirmed = await confirm({
@@ -117,7 +116,7 @@ export default function EffectEvaluation() {
     if (confirmed) {
       setReview(null);
       setIsResumeNoticeDismissed(true);
-      flow.resetFlow();
+      if (await flow.resetFlow()) navigate('/experiment-settings');
     }
   };
   const finishMode = flow.regulationFinishMode();
@@ -126,7 +125,7 @@ export default function EffectEvaluation() {
   const isWindowRunning = state.step === 3 && state.regulationStartedAtMs !== null;
   const verdictCopy = useMemo(
     () =>
-      flow.summary
+      flow.summary && !flow.summary.ratingChanges
         ? verdictCopyForCondition(buildEffectVerdictCopy(flow.summary), state.condition)
         : null,
     [flow.summary, state.condition],
@@ -171,7 +170,7 @@ export default function EffectEvaluation() {
 
     void confirm({
       title: `跳过剩余${windowNoun}时长？`,
-      description: `${windowNoun}计时还剩 ${formatCountdown(remainingAtConfirm)}，未达设定的最短时长。跳过后本次评价会记录“已跳过”标记，改善率可能低估实际效果。确定跳过并进入复测吗？`,
+      description: `${windowNoun}计时还剩 ${formatCountdown(remainingAtConfirm)}，未达设定的最短时长。跳过后本次评价会记录“已跳过”标记。确定跳过并进入复测吗？`,
       confirmText: '确认跳过并进入复测',
       destructive: true,
     }).then((confirmed) => {
@@ -246,7 +245,7 @@ export default function EffectEvaluation() {
   const renderStageBody = (step: EffectFlowStep): ReactNode => {
     switch (step) {
       case 0:
-        return <SetupStepPanel flow={flow} />;
+        return <SetupStepPanel />;
       case 1:
         return (
           <InductionStepPanel
@@ -282,6 +281,33 @@ export default function EffectEvaluation() {
       case 4:
         return renderScalePanel('post');
       case 5:
+        if (state.protocol === 'brief') {
+          return (
+            <div className={styles.resultStep}>
+              {flow.summaryError ? (
+                <Alert severity="error" action={<Button onClick={handleRetrySummary}>重试</Button>}>
+                  {flow.summaryError}
+                </Alert>
+              ) : flow.summary?.ratingChanges ? (
+                <>
+                  <StateRatingTable changes={flow.summary.ratingChanges} />
+                  <p>各项变化单独呈现。分数升降描述感受变化。</p>
+                  {skippedCopy && <Alert severity="info">{skippedCopy}</Alert>}
+                  <div className={styles.headerActions}>
+                    <Button disabled={isExporting} onClick={handleExportSingleCsv}>
+                      导出 CSV
+                    </Button>
+                    <Button disabled={isExporting} onClick={handleExportSingleJson}>
+                      导出 JSON
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p role="status">正在读取感受记录…</p>
+              )}
+            </div>
+          );
+        }
         return (
           <div className={styles.resultStep}>
             <ResultCard
@@ -319,55 +345,57 @@ export default function EffectEvaluation() {
   };
 
   return (
-    <Box className={styles.workspace} aria-label="情绪调控效果评价">
-      <header className={styles.header}>
-        <div className={styles.headerMain}>
-          <div>
-            <div className={styles.eyebrow}>效果评价闭环</div>
-            <h1 className={styles.title}>情绪调控效果评价</h1>
+    <Box
+      data-participant-stage={participantStage || undefined}
+      className={styles.workspace}
+      aria-label="情绪调控效果评价"
+    >
+      {!participantStage && (
+        <header className={styles.header}>
+          <div className={styles.headerMain}>
+            <div>
+              <div className={styles.eyebrow}>效果评价闭环</div>
+              <h1 className={styles.title}>情绪调控效果评价</h1>
+            </div>
+            {activeTab === 'history' && (
+              <div className={styles.headerActions}>
+                <Button
+                  variant="outlined"
+                  disabled={isExporting}
+                  onClick={() => void runBatchExport()}
+                >
+                  批量汇总导出（CSV）
+                </Button>
+              </div>
+            )}
           </div>
-          <div className={styles.headerActions}>
-            <Button variant="outlined" disabled={isExporting} onClick={() => void runBatchExport()}>
-              批量汇总导出（CSV）
-            </Button>
-          </div>
-        </div>
 
-        {/* Experiment banner: run facts + experiment event log badge, so the
-            trial-run state is visible before any node is entered. No forms
-            here — configuration happens in the stage's first node. The
-            regulation-method chip only renders for the regulation condition:
-            on a natural-recovery run the method is unused, and showing it
-            next to 基线条件（自然恢复） reads as a misconfiguration. */}
-        <div className={styles.contextBar} aria-label="实验上下文">
-          <span className={styles.configChip}>被试 {state.subjectId.trim() || '未填写'}</span>
-          <span className={styles.configChip}>目标情绪 {emotionLabel}</span>
-          {state.condition !== 'natural_recovery' ? (
-            <span className={styles.configChip}>{methodLabel}</span>
-          ) : null}
-          <span className={styles.configChip}>{labelForCondition(state.condition)}</span>
-          <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
-          <EffectDeviceQuickStart />
-          <span className={styles.configChip}>
-            {state.runMode === 'formal' ? '正式实验' : '排练，不发送硬件标记'}
-            {state.runId ? ` · ${state.runId.slice(0, 8)}` : ''}
-          </span>
-          {state.eventLogStatus !== 'not-started' ? (
-            <span
-              role="status"
-              className={`${styles.eventLogChip} ${
-                state.eventLogStatus === 'saved'
-                  ? styles.eventLogSaved
-                  : state.eventLogStatus === 'active'
-                    ? styles.eventLogRecording
-                    : styles.eventLogUnavailable
-              }${state.eventLogStatus === 'interrupted' ? ` ${styles.eventLogBadgeProminent}` : ''}`}
-            >
-              {describeEventLogStatus(state.eventLogStatus)}
-            </span>
-          ) : null}
-        </div>
-      </header>
+          {isResultStep && (
+            <div className={styles.contextBar} aria-label="实验上下文">
+              <span className={styles.configChip}>被试 {state.subjectId.trim() || '未填写'}</span>
+              <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
+              <span className={styles.configChip}>
+                {state.runMode === 'formal' ? '正式实验' : '排练，不发送硬件标记'}
+                {state.runId ? ` · ${state.runId.slice(0, 8)}` : ''}
+              </span>
+              {state.eventLogStatus !== 'not-started' ? (
+                <span
+                  role="status"
+                  className={`${styles.eventLogChip} ${
+                    state.eventLogStatus === 'saved'
+                      ? styles.eventLogSaved
+                      : state.eventLogStatus === 'active'
+                        ? styles.eventLogRecording
+                        : styles.eventLogUnavailable
+                  }${state.eventLogStatus === 'interrupted' ? ` ${styles.eventLogBadgeProminent}` : ''}`}
+                >
+                  {describeEventLogStatus(state.eventLogStatus)}
+                </span>
+              ) : null}
+            </div>
+          )}
+        </header>
+      )}
 
       {exportNotice ? (
         <Alert severity={exportNotice.severity} onClose={() => setExportNotice(null)}>
@@ -375,30 +403,30 @@ export default function EffectEvaluation() {
         </Alert>
       ) : null}
 
-      <Tabs
-        value={activeTab}
-        onChange={(_event, next: PageTab) => setActiveTab(next)}
-        aria-label="效果评价视图切换"
-        className={styles.tabBar}
-      >
-        <Tab value="wizard" label="评价向导" />
-        <Tab value="history" label="历史记录" />
-      </Tabs>
+      {!participantStage && (
+        <Tabs
+          value={activeTab}
+          onChange={(_event, next: PageTab) => setActiveTab(next)}
+          aria-label="效果评价视图切换"
+          className={styles.tabBar}
+        >
+          <Tab value="wizard" label="评价向导" />
+          <Tab value="history" label="历史记录" />
+        </Tabs>
+      )}
 
       {/* The wizard pane stays MOUNTED on both tabs (hidden, not unmounted):
           unmounting it on the history tab would silently stop the induction
           video / the embedded regulation media mid-window while the
           wall-clock countdown kept running — and the music branch would lose
           its selection on return (component state dies with the mount). */}
-      <div className={styles.wizardPane} hidden={activeTab !== 'wizard'}>
+      <div className={styles.wizardPane} hidden={!participantStage && activeTab !== 'wizard'}>
         {/* Resumed-run banner (audit 1): names the restored step, the subject
             binding, and the one fact a reload could plausibly hide — that a
             live condition window kept running on wall-clock time. */}
-        {flow.isResumedRun && !isResumeNoticeDismissed ? (
+        {isResultStep && flow.isResumedRun && !isResumeNoticeDismissed ? (
           <Alert severity="info" onClose={() => setIsResumeNoticeDismissed(true)}>
-            {`已恢复上次进行中的评价：当前在第 ${state.step + 1}/${EFFECT_FLOW_STEP_COUNT} 步（${currentNode.title}）· 被试 ${
-              state.subjectId.trim() || '未填写'
-            }。${isWindowRunning ? '条件计时按真实时间继续计算，请留意剩余时长。' : '可从当前步骤继续；如需重新开始，请使用舞台下方的「重置流程」。'}`}
+            已恢复上次完成的评价，可以查看结果或开始下一次实验。
           </Alert>
         ) : null}
 
@@ -408,14 +436,16 @@ export default function EffectEvaluation() {
             changes, stays while pinned open, and force-collapses whenever
             the scale dialog opens (scaleDialogOpen). Station/chip clicks
             keep their review/scroll semantics inside the panel. */}
-        <EffectProgressDisclosure
-          nodes={pipelineNodes}
-          doneNodes={doneNodes}
-          onStationClick={handleStationClick}
-          onChipClick={openReview}
-          scaleDialogOpen={isScaleDialogOpen}
-          step={state.step}
-        />
+        {isResultStep && (
+          <EffectProgressDisclosure
+            nodes={pipelineNodes}
+            doneNodes={doneNodes}
+            onStationClick={handleStationClick}
+            onChipClick={openReview}
+            scaleDialogOpen={isScaleDialogOpen}
+            step={state.step}
+          />
+        )}
 
         {/* Main stage: exactly one task at a time. The kicker orients
             (步骤 X / 6), the title/hint say what to do, the panel's single
@@ -431,7 +461,7 @@ export default function EffectEvaluation() {
               its own appearing/disappearing never re-triggers the entrance. */}
           <div key={state.step} className={styles.stageSwap}>
             <p className={styles.stageKicker}>
-              步骤 {state.step + 1} / {EFFECT_FLOW_STEP_COUNT} · {currentNode.title}
+              步骤 {state.step + 1} / {EFFECT_FLOW_STEP_COUNT}
             </p>
             {/* While the condition window runs the countdown digits are the
                 headline — the title/hint step aside. */}
@@ -460,12 +490,11 @@ export default function EffectEvaluation() {
         </section>
       </div>
 
-      {activeTab === 'history' ? <EffectHistoryPanel /> : null}
+      {!participantStage && activeTab === 'history' ? <EffectHistoryPanel /> : null}
 
       <EffectReviewPopover
         review={review}
         state={state}
-        emotionLabel={emotionLabel}
         methodLabel={methodLabel}
         skippedCopy={skippedCopy}
         onClose={closeReview}

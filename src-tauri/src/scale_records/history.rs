@@ -12,6 +12,8 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EffectHistoryEntry {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rating_changes: Vec<StateRatingChange>,
     pub experiment_run_id: Option<String>,
     pub subject_id: String,
     pub baseline_record_id: String,
@@ -29,7 +31,7 @@ pub struct EffectHistoryEntry {
     /// False when the mean was computed over unmarked legacy records.
     pub measured_only: bool,
     pub mean_improvement_rate: Option<f64>,
-    pub meets_threshold: bool,
+    pub meets_threshold: Option<bool>,
     pub dimensions: Vec<RegulationDimensionImprovement>,
 }
 
@@ -42,8 +44,7 @@ pub struct EffectHistoryEntry {
 /// (`""` for legacy NULL rows), so a post never consumes a baseline saved
 /// under another condition and legacy rows only pair among themselves.
 pub fn build_effect_history(records: &[ScaleRecord]) -> Vec<EffectHistoryEntry> {
-    let mut pending_baselines: BTreeMap<(String, String, Option<String>), ScaleRecord> =
-        BTreeMap::new();
+    let mut pending_baselines: BTreeMap<_, ScaleRecord> = BTreeMap::new();
     let mut entries = Vec::new();
 
     for record in records {
@@ -52,6 +53,7 @@ pub fn build_effect_history(records: &[ScaleRecord]) -> Vec<EffectHistoryEntry> 
         let pair_key = (
             subject_key.clone(),
             condition_key,
+            record.scale_id.clone(),
             record.experiment_run_id.clone(),
         );
 
@@ -85,7 +87,8 @@ pub fn build_effect_history(records: &[ScaleRecord]) -> Vec<EffectHistoryEntry> 
                             || baseline.regulation_skipped,
                         measured_only: summary.measured_only,
                         mean_improvement_rate: summary.mean_improvement_rate,
-                        meets_threshold: summary.meets_threshold(),
+                        meets_threshold: summary.rating_changes.is_empty().then(|| summary.meets_threshold()),
+                        rating_changes: summary.rating_changes,
                         dimensions: summary.dimensions,
                     });
                 }
@@ -117,8 +120,7 @@ pub fn effective_condition(condition: Option<&str>) -> &'static str {
 pub fn latest_entry_per_subject_emotion_condition(
     entries: &[EffectHistoryEntry],
 ) -> Vec<EffectHistoryEntry> {
-    let mut latest: BTreeMap<(String, Option<String>, String), EffectHistoryEntry> =
-        BTreeMap::new();
+    let mut latest: BTreeMap<_, EffectHistoryEntry> = BTreeMap::new();
 
     for entry in entries {
         // Entries arrive chronologically, so later ones overwrite earlier
@@ -127,6 +129,7 @@ pub fn latest_entry_per_subject_emotion_condition(
             (
                 entry.subject_id.clone(),
                 entry.emotion.clone(),
+                entry.scale_id.clone(),
                 effective_condition(entry.condition.as_deref()).to_string(),
             ),
             entry.clone(),

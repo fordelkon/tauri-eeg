@@ -113,8 +113,7 @@ export function EffectFullscreenVideoRegulation({
         </div>
       ) : null}
       <header className={styles.fullscreenStageHeader}>
-        <span>{isPlaying ? '视频调控进行中' : '准备播放调控视频'}</span>
-        <span aria-label={`被试 ${state.subjectId}`}>被试 {state.subjectId}</span>
+        <span>{isPlaying ? '视频调控进行中' : '准备观看视频'}</span>
       </header>
 
       <div className={styles.fullscreenVideoFrame}>
@@ -122,7 +121,9 @@ export function EffectFullscreenVideoRegulation({
           <video
             key={activeAsset.videoId}
             ref={videoRef}
-            className={isPlaying ? styles.fullscreenRegulationVideo : styles.fullscreenPreloadedVideo}
+            className={
+              isPlaying ? styles.fullscreenRegulationVideo : styles.fullscreenPreloadedVideo
+            }
             src={toPlayableParadigmVideoUrl(activeAsset.absolutePath)}
             autoPlay={isPlaying}
             loop
@@ -142,16 +143,16 @@ export function EffectFullscreenVideoRegulation({
 
         {!isPlaying && activeAsset ? (
           <div className={styles.fullscreenReadyCue} role="status">
-            <span>{isMediaReady ? '平静调控素材已就绪' : '正在预载平静调控素材…'}</span>
-            <h2>准备播放调控视频</h2>
-            <p>确认受试者准备完成后开始。开始播放时同步开始调控计时。</p>
+            <span>{isMediaReady ? '视频已就绪' : '正在加载视频…'}</span>
+            <h2>准备观看视频</h2>
+            <p>准备好后点击播放，计时将随播放开始。</p>
             <button
               type="button"
               className={styles.fullscreenStagePrimaryAction}
               disabled={!isMediaReady || interrupted}
               onClick={handleStartPlayback}
             >
-              开始播放调控视频
+              开始播放视频
             </button>
           </div>
         ) : null}

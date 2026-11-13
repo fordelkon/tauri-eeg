@@ -21,8 +21,9 @@
   --calm-primary-rgb: 196, 103, 87;
 
   /* Surfaces */
-  --surface: #f5f0eb;
-  --surface-2: #fffaf3;
+  --surface: #faf9f6;
+  --surface-2: #f4f2ee;
+  --surface-sidebar: #f0eee9;
   --surface-raised: #fff;
 
   /* Brand */
@@ -92,8 +93,8 @@
   --shadow-control-active: 0 1px 2px rgba(44, 34, 24, 0.06);
 
   /* Elevation (two-layer recipes from EffectEvaluation) */
-  --shadow-card: 0 1px 2px rgba(28, 22, 14, 0.06), 0 12px 32px rgba(28, 22, 14, 0.1);
-  --shadow-lift: 0 2px 4px rgba(28, 22, 14, 0.08), 0 18px 44px rgba(28, 22, 14, 0.14);
+  --shadow-card: 0 1px 3px rgba(28, 22, 14, 0.04), 0 4px 16px rgba(28, 22, 14, 0.035);
+  --shadow-lift: 0 2px 6px rgba(28, 22, 14, 0.05), 0 8px 24px rgba(28, 22, 14, 0.06);
   /* Calm depth: warm-tinted and diffuse, same recipe as the MUI dialog paper
      in AppShell — heavy cool-ink drops are out of the dialect. */
   --shadow-overlay: 0 24px 56px rgba(44, 34, 24, 0.16);
@@ -113,7 +114,7 @@
   --dur-med: 220ms;
   /* Route/workspace entrance: at the top edge of the UI budget — the page
      must feel ready, not staged. */
-  --dur-enter: 300ms;
+  --dur-enter: 180ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   /* Oscillating/breathing motion (pulses, equalizers): the strong in-out
      curve; the built-in keyword is too weak for deliberate morphs. */
@@ -121,7 +122,7 @@
   /* Drawer choreography: iOS-like curve; every drawer surface (sidebar,
      layer fade, scrim, visual) shares one duration so close never
      truncates slide. */
-  --dur-drawer: 360ms;
+  --dur-drawer: 220ms;
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* Misc */

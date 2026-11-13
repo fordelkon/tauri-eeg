@@ -19,19 +19,16 @@ describe('mentalScaleStatus', () => {
     );
   });
 
-  it('maps completed PHQ-4 answers into dynamic radar dimension values', () => {
+  it('maps momentary check-in answers into dynamic radar dimension values', () => {
     const scale = mentalScaleDefinitions['/video-regulation'];
     const answers: MentalScaleAnswers = {
-      phq4_1: 3,
-      phq4_2: 1,
-      phq4_3: 0,
+      unpleasant_now: 2,
+      tension_now: 0,
     };
 
     const status = buildMentalScaleStatus(scale, answers);
 
-    expect(status.lastScaleTitle).toBe('心理健康筛查（PHQ-4）');
-    // Percent-of-max scaling per dimension (answer/3*100): q1=100 + q2=33
-    // average to 67 for mood; q3=0 for anxiety.
+    expect(status.lastScaleTitle).toBe('此刻感受');
     expect(status.dimensions.find((dimension) => dimension.key === 'anxiety')?.value).toBe(0);
     expect(status.dimensions.find((dimension) => dimension.key === 'mood')?.value).toBe(67);
     expect(status.dimensions.find((dimension) => dimension.key === 'worry')?.value).toBe(50);
@@ -41,9 +38,8 @@ describe('mentalScaleStatus', () => {
   it('marks only the dimensions that received at least one answer (R4/F1)', () => {
     const scale = mentalScaleDefinitions['/video-regulation'];
     const answers: MentalScaleAnswers = {
-      phq4_1: 3,
-      phq4_2: 1,
-      phq4_3: 0,
+      unpleasant_now: 2,
+      tension_now: 0,
     };
 
     // worry (item 4) and energy have no answer here, so they stay unmeasured
@@ -56,13 +52,11 @@ describe('mentalScaleStatus', () => {
 
     expect(measuredDimensionKeys(scale, {})).toEqual([]);
 
-    // All four PHQ-4 items answered → mood (items 1+2), anxiety (item 3),
-    // worry (item 4) measured, in canonical dimension order.
     const allAnswered: MentalScaleAnswers = {};
     for (const question of scale.questions) {
       allAnswered[question.id] = 2;
     }
-    expect(measuredDimensionKeys(scale, allAnswered)).toEqual(['anxiety', 'worry', 'mood']);
+    expect(measuredDimensionKeys(scale, allAnswered)).toEqual(['anxiety', 'mood']);
   });
 });
 

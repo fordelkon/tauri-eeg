@@ -19,8 +19,8 @@ type EffectFullscreenInductionProps = {
   onReset: () => void;
   onFinished: () => void;
   onStartPlayback: () => void;
+  onReturnToSettings?: () => void;
   retryCount: number;
-  subjectId: string;
 };
 
 function toPlayableInductionUrl(sourcePath: string) {
@@ -43,8 +43,8 @@ export function EffectFullscreenInduction({
   isStarting,
   onReset,
   onStartPlayback,
+  onReturnToSettings,
   retryCount,
-  subjectId,
 }: EffectFullscreenInductionProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const handleFirstPlaying = useFirstVideoFrameOnset(onPlaying);
@@ -90,8 +90,7 @@ export function EffectFullscreenInduction({
         </div>
       ) : null}
       <header className={styles.fullscreenStageHeader}>
-        <span>{isPlaying ? '诱发视频进行中' : '准备播放诱发视频'}</span>
-        <span aria-label={`被试 ${subjectId}`}>被试 {subjectId}</span>
+        <span>{isPlaying ? '正在观看视频' : '准备观看视频'}</span>
       </header>
 
       <div className={styles.fullscreenVideoFrame}>
@@ -122,16 +121,16 @@ export function EffectFullscreenInduction({
         />
         {!isPlaying ? (
           <div className={styles.fullscreenReadyCue} role="status">
-            <span>{isMediaReady ? '诱发素材已就绪' : '正在预载诱发素材…'}</span>
-            <h2>准备播放诱发视频</h2>
-            <p>确认受试者状态稳定后开始。播放结束将自动进入诱发后测量。</p>
+            <span>{isMediaReady ? '视频已就绪' : '正在加载视频…'}</span>
+            <h2>准备观看视频</h2>
+            <p>准备好后点击播放。看完后请记录此刻的感受。</p>
             <button
               type="button"
               className={styles.fullscreenStagePrimaryAction}
               disabled={!isMediaReady || interrupted || isStarting}
               onClick={handleStartPlayback}
             >
-              {isStarting ? '正在创建实验并发送开始标记…' : '开始播放诱发视频'}
+              {isStarting ? '正在准备播放…' : '开始播放视频'}
             </button>
           </div>
         ) : null}
@@ -143,8 +142,17 @@ export function EffectFullscreenInduction({
         </p>
       ) : null}
       <footer className={styles.fullscreenStageFooter}>
+        {!isPlaying && !isStarting && onReturnToSettings && (
+          <button
+            type="button"
+            className={styles.fullscreenStageSecondaryAction}
+            onClick={onReturnToSettings}
+          >
+            返回实验设置
+          </button>
+        )}
         <span className={styles.fullscreenPlaybackHint}>
-          {isPlaying ? `正在播放：${entry.fileName}` : '首次播放时发送诱发开始标记。'}
+          {isPlaying ? '正在播放视频' : '准备好后开始。'}
         </span>
       </footer>
     </section>,

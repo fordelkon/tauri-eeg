@@ -26,6 +26,7 @@ import {
   type HistoryOutcome,
 } from './effectHistoryView';
 import { labelForDimension, readFlowStateFromStorage } from './effectEvaluationFlow';
+import { StateRatingTable } from './StateRatingTable';
 import styles from './EffectEvaluation.module.css';
 
 const OUTCOME_CLASS: Record<HistoryOutcome, string> = {
@@ -62,7 +63,9 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
         ) : null}
       </div>
 
-      {entry.dimensions.length > 0 ? (
+      {entry.ratingChanges?.length ? (
+        <StateRatingTable changes={entry.ratingChanges} />
+      ) : entry.dimensions.length > 0 ? (
         <div className={styles.tableFrame}>
           <table className={styles.dimensionTable}>
             <thead>
@@ -143,10 +146,16 @@ const HistoryRow = memo(function HistoryRow({
             natural-recovery / regulation / legacy runs distinguishable at a
             glance while checking that both conditions were completed. */}
           <span className={styles.configChip}>{labelForHistoryCondition(entry.condition)}</span>
-          <span className={styles.historyRowRate}>
-            改善率 {formatMeanImprovementRate(entry.meanImprovementRate)}
-          </span>
-          <span className={`${styles.outcomeChip} ${OUTCOME_CLASS[outcome]}`}>{outcome}</span>
+          {entry.ratingChanges?.length ? (
+            <span className={styles.configChip}>三项感受记录</span>
+          ) : (
+            <>
+              <span className={styles.historyRowRate}>
+                改善率 {formatMeanImprovementRate(entry.meanImprovementRate)}
+              </span>
+              <span className={`${styles.outcomeChip} ${OUTCOME_CLASS[outcome]}`}>{outcome}</span>
+            </>
+          )}
         </button>
 
         <IconButton

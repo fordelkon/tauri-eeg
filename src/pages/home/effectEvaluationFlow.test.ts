@@ -136,9 +136,11 @@ describe('strong duration constraint (R3)', () => {
     expect(describeRegulationSkipped(skippedNotStarted)).toBeNull();
 
     const skippedStarted = { ...skippedNotStarted, regulationStartedAtMs: 1_000 };
-    const copy = describeRegulationSkipped(skippedStarted);
-    expect(copy).toContain('跳过');
-    expect(copy).toContain('二次确认');
+    for (const protocol of ['brief', 'full'] as const) {
+      expect(describeRegulationSkipped({ ...skippedStarted, protocol })).toBe(
+        '本次体验提前结束，已记录跳过剩余时长。',
+      );
+    }
   });
 
   it('round-trips the skip marker and rejects corrupt stored values', () => {

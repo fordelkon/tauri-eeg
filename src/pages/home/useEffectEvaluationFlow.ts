@@ -8,13 +8,11 @@ import {
   updateMentalScaleStatus,
 } from '../../mentalScale/mentalScaleStatus';
 import {
-  STAI_PANAS_BATTERY_SCALE_ID,
-  batteryDimensionKeys,
   buildBatteryDefinition,
-  buildBatteryRawAnswers,
   computeBatteryDimensions,
 } from '../../mentalScale/instruments/battery';
 import { recordScaleCompletion } from '../../mentalScale/scaleCompletion';
+import { buildPhaseMeasurement } from '../../mentalScale/instruments/phaseMeasurement';
 import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject';
 import { savePhaseInstrumentRecord, type ScalePhase } from '../../mentalScale/scaleRecordsApi';
 import {
@@ -64,15 +62,11 @@ export function useEffectEvaluationFlow() {
           wallNow: Date.now,
           monotonicNow: () => performance.now(),
           saveScale: async (current, phase, answers) => {
-            const dimensionScores = computeBatteryDimensions(answers.stai, answers.panas);
             return await savePhaseInstrumentRecord({
               userId: userIdRef.current,
               subjectId: current.subjectId.trim(),
-              scaleId: STAI_PANAS_BATTERY_SCALE_ID,
               phase,
-              dimensionScores,
-              rawAnswers: buildBatteryRawAnswers(answers),
-              measuredDimensions: [...batteryDimensionKeys],
+              ...buildPhaseMeasurement(current.protocol, answers),
               emotion: current.emotion,
               condition: current.condition,
               durationMinutes: current.durationMinutes,
@@ -80,9 +74,13 @@ export function useEffectEvaluationFlow() {
             });
           },
           scaleSaved: (current, answers) => {
-            updateMentalScaleStatus(
-              buildBatteryMentalScaleStatus(computeBatteryDimensions(answers.stai, answers.panas)),
-            );
+            if (current.protocol === 'full' && 'stai' in answers) {
+              updateMentalScaleStatus(
+                buildBatteryMentalScaleStatus(
+                  computeBatteryDimensions(answers.stai, answers.panas),
+                ),
+              );
+            }
             recordScaleCompletion(regulationPathForMethod(current.method));
           },
         },
@@ -122,8 +120,11 @@ export function useEffectEvaluationFlow() {
     [state.method, state.condition],
   );
   const scaleDefinitionFor = useCallback(
-    (phase: ScalePhase) => (phase === 'baseline' ? BASELINE_SCALE_DEFINITION : postScaleDefinition),
-    [postScaleDefinition],
+    (phase: ScalePhase) => {
+      const definition = phase === 'baseline' ? BASELINE_SCALE_DEFINITION : postScaleDefinition;
+      return { ...definition, id: `${definition.scaleId}:${state.runId}:${phase}` };
+    },
+    [postScaleDefinition, state.runId],
   );
   const beginInduction = useCallback(
     () => execution.beginInduction(inductionStatus),
@@ -133,7 +134,9 @@ export function useEffectEvaluationFlow() {
     if (await execution.resetFlow()) {
       resultReports.clearResults();
       clearFlowStateFromStorage(window.sessionStorage);
+      return true;
     }
+    return false;
   }, [execution, resultReports]);
 
   return {
@@ -146,7 +149,7 @@ export function useEffectEvaluationFlow() {
     isInductionPoolLoading,
     isRegulationPoolLoading,
     regulationPoolStatus,
-    isResumedRun: storedInitialState !== null,
+    isResumedRun: storedInitialState !== null && storedInitialState.runId !== null,
     ...playback,
     completeScaleMeasurement: execution.completeScaleMeasurement,
     finishRegulation: execution.finishRegulation,

@@ -26,6 +26,33 @@ pub fn compute_regulation_effect_summary(
     let baseline_scores = parse_dimension_scores(&baseline.dimension_scores)?;
     let post_scores = parse_dimension_scores(&post.dimension_scores)?;
 
+    if baseline.scale_id != post.scale_id {
+        return Err("Baseline and post must use the same instrument.".into());
+    }
+    if baseline.scale_id == BRIEF_SCALE_ID {
+        validate_vad(&baseline_scores)?;
+        validate_vad(&post_scores)?;
+        let rating_changes = VAD_KEYS
+            .iter()
+            .map(|key| {
+                let baseline = baseline_scores[*key];
+                let post = post_scores[*key];
+                StateRatingChange {
+                    dimension: key.to_string(),
+                    baseline,
+                    post,
+                    change: post - baseline,
+                }
+            })
+            .collect();
+        return Ok(RegulationEffectSummary {
+            subject_id: baseline.subject_id.clone(),
+            dimensions: Vec::new(),
+            mean_improvement_rate: None,
+            measured_only: true,
+            rating_changes,
+        });
+    }
     // R4 (F1): when both records mark which dimensions were actually
     // measured, restrict the comparison to keys marked on both sides so a
     // placeholder-filled dimension cannot dilute the mean. With any unmarked
@@ -77,6 +104,7 @@ pub fn compute_regulation_effect_summary(
     };
 
     Ok(RegulationEffectSummary {
+        rating_changes: Vec::new(),
         subject_id: baseline.subject_id.clone(),
         dimensions,
         mean_improvement_rate,

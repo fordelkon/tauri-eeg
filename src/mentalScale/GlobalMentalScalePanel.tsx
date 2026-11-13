@@ -16,18 +16,7 @@ const dimensionLabels: Record<string, string> = {
   worry: '担忧',
 };
 
-const scaleTitleLabels: Record<string, string> = {
-  'Average Baseline': '平均基线',
-  'Game Regulation Scale': '游戏调控量表',
-  'Music Regulation Scale': '音乐调控量表',
-  'Video Regulation Scale': '视频调控量表',
-  游戏调控量表: '游戏调控量表',
-  音乐调控量表: '音乐调控量表',
-  视频调控量表: '视频调控量表',
-};
-
 const getDimensionLabel = (key: string, fallback: string) => dimensionLabels[key] ?? fallback;
-const getScaleTitleLabel = (title: string) => scaleTitleLabels[title] ?? title;
 
 /*
  * Radar palette rides the global design tokens (src/styles/tokens.css) so the
@@ -74,6 +63,7 @@ const radarSplitAreas = [
 ] as const;
 
 export default function GlobalMentalScalePanel({ children }: Props) {
+  const [showDetails, setShowDetails] = useState(false);
   const chartRef = useRef<HTMLDivElement | null>(null);
   const chartInstanceRef = useRef<EChartsType | null>(null);
   const [isChartReady, setIsChartReady] = useState(false);
@@ -82,6 +72,8 @@ export default function GlobalMentalScalePanel({ children }: Props) {
     getMentalScaleStatusSnapshot,
     getMentalScaleStatusSnapshot,
   );
+
+  const hasChart = Boolean(status.updatedAt) && status.lastScaleTitle !== '此刻感受';
 
   useEffect(() => {
     const host = chartRef.current;
@@ -149,8 +141,9 @@ export default function GlobalMentalScalePanel({ children }: Props) {
       resizeCleanup?.();
       chartInstanceRef.current?.dispose();
       chartInstanceRef.current = null;
+      setIsChartReady(false);
     };
-  }, []);
+  }, [showDetails, hasChart]);
 
   useEffect(() => {
     const chart = chartInstanceRef.current;
@@ -242,15 +235,39 @@ export default function GlobalMentalScalePanel({ children }: Props) {
     <aside className={styles.panel} aria-label="全局心理量表状态">
       <div className={styles.header}>
         <span className={styles.eyebrow}>心理量表</span>
-        <h2 className={styles.headline}>心理状态雷达图</h2>
+        <h2 className={styles.headline}>状态记录</h2>
         <p className={styles.summary}>
-          {getScaleTitleLabel(status.lastScaleTitle)} · {updatedLabel}
+          {status.updatedAt ? '最近填写 · ' + updatedLabel : '暂无本次记录'}
         </p>
       </div>
 
-      <div className={styles.chartWrap}>
-        <div ref={chartRef} className={styles.radar} role="img" aria-label="心理状态雷达图" />
-      </div>
+      {status.updatedAt && (
+        <button
+          type="button"
+          className={styles.detailsButton}
+          aria-expanded={showDetails}
+          onClick={() => setShowDetails((open) => !open)}
+        >
+          {showDetails ? '收起记录' : '查看记录'}
+        </button>
+      )}
+      {showDetails && status.updatedAt && !hasChart && (
+        <dl className={styles.checkValues}>
+          {status.dimensions
+            .filter((d) => d.key === 'anxiety' || d.key === 'mood')
+            .map((d) => (
+              <div key={d.key}>
+                <dt>{d.key === 'anxiety' ? '紧绷' : '不愉快'}</dt>
+                <dd>{Math.round((d.value * 3) / 100)} / 3</dd>
+              </div>
+            ))}
+        </dl>
+      )}
+      {showDetails && hasChart && (
+        <div className={styles.chartWrap}>
+          <div ref={chartRef} className={styles.radar} role="img" aria-label="心理状态雷达图" />
+        </div>
+      )}
 
       {children ? <div className={styles.assistantSlot}>{children}</div> : null}
     </aside>

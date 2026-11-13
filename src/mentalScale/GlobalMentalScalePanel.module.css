@@ -76,3 +76,23 @@
     display: none;
   }
 }
+
+.detailsButton {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 7px 12px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.checkValues {
+  margin: 0;
+}
+.checkValues div {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line-soft);
+  padding: 8px 0;
+}

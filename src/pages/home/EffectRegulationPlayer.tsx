@@ -69,7 +69,7 @@ export default function EffectRegulationPlayer({
         <p role="alert">暂无可播放音乐，请先在音乐调控页生成素材，再开始新的实验。</p>
       ) : null}
       <ul className={styles.musicHistoryList}>
-        {tracks.map((item) => (
+        {tracks.map((item, index) => (
           <li key={item.id}>
             <button
               type="button"
@@ -81,7 +81,7 @@ export default function EffectRegulationPlayer({
                 setActiveId(item.id);
               }}
             >
-              {item.prompt.trim() || item.filePath.split(/[\\/]/).pop()}
+              曲目 {index + 1}
             </button>
           </li>
         ))}

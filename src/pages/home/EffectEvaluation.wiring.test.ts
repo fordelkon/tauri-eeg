@@ -43,18 +43,16 @@ describe('EffectEvaluation wiring contract', () => {
     expect(pageSource).toContain('useConfirmDialog()');
   });
 
-  test('measures nodes 2/4 with the shared STAI-S + PANAS battery (doc scale-instruments §1/§3.3)', () => {
+  test('keeps the complete battery available for researcher-configured evaluations', () => {
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
     const panelsSource = readText(panelsUrl);
     expect(hookSource).toContain("from '../../mentalScale/instruments/battery'");
-    expect(hookSource).toContain('STAI_PANAS_BATTERY_SCALE_ID');
+    expect(hookSource).toContain('buildPhaseMeasurement(current.protocol, answers)');
     expect(hookSource).toContain('buildBatteryDefinition({ includeSam: true })');
     expect(hookSource).toContain(
       "includeGems: state.method === 'music' && state.condition === 'regulation'",
     );
     expect(hookSource).toContain('const BASELINE_SCALE_DEFINITION = buildBatteryDefinition');
-    expect(hookSource).toContain('buildBatteryRawAnswers(answers)');
-    expect(hookSource).toContain('[...batteryDimensionKeys]');
     expect(panelsSource).toContain('definition={flow.scaleDefinitionFor(phase)}');
     expect(panelsSource).not.toContain('scaleForMethod');
   });
@@ -171,12 +169,15 @@ describe('measured dimensions & eeg persistence (R4 contract)', () => {
 });
 
 describe('six-step flow & condition split (R6 contract)', () => {
-  test('the setup step selects the run condition and the induction step gates on the pool', () => {
+  test('keeps researcher choices in preparation and gates induction on the media pool', () => {
     const panelsSource = readText(panelsUrl);
-    expect(panelsSource).toContain('EFFECT_CONDITION_OPTIONS');
-    expect(panelsSource).toContain('实验条件');
-    expect(panelsSource).toContain('condition: value');
-    expect(panelsSource).toContain('基线条件（自然恢复）＝情绪诱发后不施加调控手段');
+    const preparationSource = readText(new URL('./ExperimentSettings.tsx', import.meta.url));
+    const controlsSource = readText(new URL('./EffectResearchControls.tsx', import.meta.url));
+    expect(preparationSource).toContain('<EffectResearchControls');
+    expect(controlsSource).toContain('EFFECT_CONDITION_OPTIONS');
+    expect(controlsSource).toContain('EFFECT_EMOTION_OPTIONS');
+    expect(panelsSource).not.toContain('EFFECT_EMOTION_OPTIONS');
+    expect(panelsSource).not.toContain('flow.updateDraft');
     expect(readText(new URL('./useEffectInductionPool.ts', import.meta.url))).toContain(
       'describeInductionPoolStatus',
     );
@@ -282,12 +283,12 @@ describe('embedded regulation player (condition node contract)', () => {
     );
     expect(panelsSource).toContain('<EffectFullscreenInduction');
     expect(panelsSource).not.toContain('className={styles.inductionVideo}');
-    expect(inductionStageSource).toContain('准备播放诱发视频');
-    expect(inductionStageSource).toContain('开始播放诱发视频');
-    expect(regulationStageSource).toContain('准备播放调控视频');
-    expect(regulationStageSource).toContain('开始播放调控视频');
-    expect(inductionStageSource).toContain('正在预载诱发素材');
-    expect(regulationStageSource).toContain('正在预载平静调控素材');
+    expect(inductionStageSource).toContain('准备观看视频');
+    expect(inductionStageSource).toContain('开始播放视频');
+    expect(regulationStageSource).toContain('准备观看视频');
+    expect(regulationStageSource).toContain('开始播放视频');
+    expect(inductionStageSource).toContain('正在加载视频');
+    expect(regulationStageSource).toContain('正在加载视频');
     expect(fullscreenHookSource).toContain('document.documentElement.requestFullscreen');
   });
 
@@ -378,14 +379,12 @@ describe('timeline / stage / review layout contract', () => {
   test('the main stage presents one task with a kicker, plain-language copy, and one primary CTA per step', () => {
     const pageSource = readText(pageUrl);
     const panelsSource = readText(panelsUrl);
-    const modelSource = readText(new URL('./effectPipeline.ts', import.meta.url));
     expect(pageSource).toContain('步骤 {state.step + 1} / {EFFECT_FLOW_STEP_COUNT}');
     expect(pageSource).toContain('currentNode.stageTitle');
     expect(pageSource).toContain('currentNode.stageHint');
-    expect(modelSource).toContain("stageTitle: '设置本次实验'");
-    expect(panelsSource).toContain('确认配置，开始诱发');
+    expect(panelsSource).toContain('前往实验设置');
     expect(readText(new URL('./EffectFullscreenInduction.tsx', import.meta.url))).toContain(
-      '开始播放诱发视频',
+      '开始播放视频',
     );
     expect(panelsSource).toContain('开始填写');
     expect(panelsSource).toContain("'开始调控'");
@@ -399,13 +398,13 @@ describe('timeline / stage / review layout contract', () => {
 });
 
 describe('usability/operability fixes (audit contract)', () => {
-  test('a resumed mid-run state announces itself instead of restoring silently', () => {
+  test('a restored result identifies the completed evaluation', () => {
     const pageSource = readText(pageUrl);
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
     expect(hookSource).toContain('isResumedRun: storedInitialState !== null');
     expect(pageSource).toContain('flow.isResumedRun && !isResumeNoticeDismissed');
-    expect(pageSource).toContain('已恢复上次进行中的评价');
-    expect(pageSource).toContain('条件计时按真实时间继续计算');
+    expect(pageSource).toContain('已恢复上次完成的评价');
+    expect(pageSource).toContain('可以查看结果或开始下一次实验');
     expect(pageSource).toContain('setIsResumeNoticeDismissed(true)');
   });
 

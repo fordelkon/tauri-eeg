@@ -92,29 +92,38 @@ function stageCopyFor(
 ): { stageTitle: string; stageHint: string } {
   switch (step) {
     case 0:
-      return { stageTitle: '设置本次实验', stageHint: '选择被试与调控条件' };
+      return {
+        stageTitle: '准备开始评价',
+        stageHint: '先在实验设置中确认被试、素材和测量方案，再开始本次评价。',
+      };
     case 1:
-      return { stageTitle: '观看诱发视频', stageHint: '视频将自动播放，结束后自动进入记录环节' };
+      return { stageTitle: '观看视频', stageHint: '准备好后开始播放，观看至结束' };
     case 2:
-      return { stageTitle: '记录此刻状态', stageHint: SCALE_STAGE_HINT };
+      return {
+        stageTitle: '记录此刻状态',
+        stageHint: state.protocol === 'brief' ? '按此刻的感受完成三项评分。' : SCALE_STAGE_HINT,
+      };
     // The condition node's noun follows the run condition: 调控 plays media,
     // 静息 (基线条件) just waits. Both advertise the set duration.
     case 3:
       return state.condition === 'natural_recovery'
         ? {
             stageTitle: '静息恢复',
-            stageHint: `接下来 ${state.durationMinutes} 分钟什么都不用做，让情绪自然回落`,
+            stageHint: `接下来 ${state.durationMinutes} 分钟请安静坐好，到点会有提醒`,
           }
         : {
-            stageTitle: '执行调控（音乐/视频）',
-            stageHint: `接下来 ${state.durationMinutes} 分钟请跟随媒体放松，到点自动提醒`,
+            stageTitle: '体验所选素材',
+            stageHint: `接下来 ${state.durationMinutes} 分钟请跟随播放内容，到点会有提醒`,
           };
     case 4:
-      return { stageTitle: '再次记录此刻状态', stageHint: SCALE_STAGE_HINT };
+      return {
+        stageTitle: '再次记录此刻状态',
+        stageHint: state.protocol === 'brief' ? '按此刻的感受完成三项评分。' : SCALE_STAGE_HINT,
+      };
     case 5:
       return {
-        stageTitle: '查看改善结果',
-        stageHint: '两次量表各维度的改善率与 10% 阈值判定，就地呈现并可导出报告',
+        stageTitle: '查看前后记录',
+        stageHint: '查看两次填写的分数和变化。',
       };
   }
 }

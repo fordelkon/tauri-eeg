@@ -51,7 +51,10 @@ describe('deriveEffectPipelineNodes', () => {
     expect(nodes[0].statusText).toBe('进行中');
     expect(nodes.every((node) => !node.skipped)).toBe(true);
     // Stage copy: the first task in plain language.
-    expect(nodes[0]).toMatchObject({ stageTitle: '设置本次实验', stageHint: '选择被试与调控条件' });
+    expect(nodes[0]).toMatchObject({
+      stageTitle: '准备开始评价',
+      stageHint: '先在实验设置中确认被试、素材和测量方案，再开始本次评价。',
+    });
   });
 
   test('advancing the flow marks earlier nodes done with state-derived summaries', () => {
@@ -140,14 +143,14 @@ describe('deriveEffectPipelineNodes', () => {
     // 调控条件: media relaxation with the set duration advertised.
     const regulation = deriveEffectPipelineNodes(stateAtStep(3, { condition: 'regulation' }));
     expect(regulation[3].shortLabel).toBe('调控');
-    expect(regulation[3].stageTitle).toBe('执行调控（音乐/视频）');
-    expect(regulation[3].stageHint).toBe('接下来 5 分钟请跟随媒体放松，到点自动提醒');
+    expect(regulation[3].stageTitle).toBe('体验所选素材');
+    expect(regulation[3].stageHint).toBe('接下来 5 分钟请跟随播放内容，到点会有提醒');
 
     // 基线条件（自然恢复）: rest, no media, same duration.
     const natural = deriveEffectPipelineNodes(stateAtStep(3, { condition: 'natural_recovery' }));
     expect(natural[3].shortLabel).toBe('静息');
     expect(natural[3].stageTitle).toBe('静息恢复');
-    expect(natural[3].stageHint).toBe('接下来 5 分钟什么都不用做，让情绪自然回落');
+    expect(natural[3].stageHint).toBe('接下来 5 分钟请安静坐好，到点会有提醒');
 
     // The duration rides the configured minutes.
     const longer = deriveEffectPipelineNodes(
@@ -178,7 +181,7 @@ describe('deriveEffectPipelineNodes', () => {
       step: 5,
       status: 'current',
       summary: null,
-      stageTitle: '查看改善结果',
+      stageTitle: '查看前后记录',
     });
 
     // The result-data existence input never flips the node's status/summary
@@ -192,12 +195,12 @@ describe('deriveEffectPipelineNodes', () => {
     const titles = nodes.map((node) => node.stageTitle);
 
     expect(titles).toEqual([
-      '设置本次实验',
-      '观看诱发视频',
+      '准备开始评价',
+      '观看视频',
       '记录此刻状态',
       '静息恢复',
       '再次记录此刻状态',
-      '查看改善结果',
+      '查看前后记录',
     ]);
     // Both scale steps advertise the same battery expectations.
     expect(nodes[2].stageHint).toBe(nodes[4].stageHint);

@@ -52,7 +52,7 @@ describe('page Chinese copy', () => {
       '生成记录',
       '视频调控',
       '视频调节播放器',
-      '心理健康筛查（PHQ-4）',
+      '此刻感受',
     ].forEach((copy) => {
       expect(sources).toContain(copy);
     });

@@ -146,7 +146,7 @@ struct ComputeRegulationEffectInput {
 struct RegulationEffectResult {
     #[serde(flatten)]
     summary: RegulationEffectSummary,
-    meets_threshold: bool,
+    meets_threshold: Option<bool>,
 }
 
 #[tauri::command]
@@ -210,7 +210,7 @@ async fn compute_regulation_effect(
             let post = scale_records::get_scale_record(conn, input.post_record_id.trim())?;
             experiment::report::require_same_run(conn, &baseline.id, &post.id)?;
             let summary = scale_records::compute_regulation_effect_summary(&baseline, &post)?;
-            let meets_threshold = summary.meets_threshold();
+            let meets_threshold = summary.rating_changes.is_empty().then(|| summary.meets_threshold());
 
             Ok(RegulationEffectResult {
                 summary,

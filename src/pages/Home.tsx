@@ -61,10 +61,10 @@ type NavigationItem = {
 const navigationItems: NavigationItem[] = [
   { icon: HomeRoundedIcon, label: '首页', path: '/home' },
   { icon: GraphicEqRoundedIcon, label: '实验设置', path: '/experiment-settings' },
+  { icon: InsightsRoundedIcon, label: '效果评价', path: '/effect-evaluation' },
   { icon: VideocamRoundedIcon, label: '视频调控', path: '/video-regulation' },
   { icon: SportsEsportsRoundedIcon, label: 'VR调控', path: '/game-regulation' },
   { icon: MusicNoteRoundedIcon, label: '音乐调控', path: '/music-regulation' },
-  { icon: InsightsRoundedIcon, label: '效果评价', path: '/effect-evaluation' },
 ];
 
 const renderRollingText = (text: string, className?: string) => (
@@ -98,9 +98,11 @@ export default function Home() {
         : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`),
     ) ?? navigationItems[0];
   const isWorkspaceRoute = location.pathname !== '/home';
-  const activeIndex = navigationItems.findIndex((item) => item.path === activeItem.path);
-  const nextItem = navigationItems[(activeIndex + 1) % navigationItems.length];
-  const nextLabel = nextItem.label.toUpperCase();
+  const isIndependentActivity = [
+    '/video-regulation',
+    '/game-regulation',
+    '/music-regulation',
+  ].includes(activeItem.path);
 
   useEffect(() => {
     if (homeIntroPlayback.shouldPlay(currentUser?.id)) {
@@ -172,10 +174,6 @@ export default function Home() {
 
   const handleMenuOpen = () => {
     setIsSidebarOpen(true);
-  };
-
-  const handleNextClick = () => {
-    requestNavigation(nextItem.path);
   };
 
   const handleAgentActionClick = (event: MouseEvent<HTMLElement>) => {
@@ -432,16 +430,16 @@ export default function Home() {
           id="workspace-content"
           className={`${styles.content} ${styles.isVisible} ${isWorkspaceRoute ? styles.isWorkspace : ''} box-border flex flex-col`}
         >
-          <Outlet />
+          <Outlet context={{ requestNavigation }} />
 
-          {location.pathname !== '/experiment-settings' ? (
+          {isIndependentActivity ? (
             <button
               type="button"
               className={styles.nextPageButton}
-              aria-label={`前往${nextItem.label}`}
-              onClick={handleNextClick}
+              aria-label="返回首页"
+              onClick={() => void requestNavigation('/home')}
             >
-              <span>{nextLabel}</span>
+              <span>返回首页</span>
               <NorthEastRoundedIcon
                 className={styles.nextPageIcon}
                 fontSize="small"

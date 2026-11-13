@@ -27,6 +27,9 @@ import { isTauriAvailable } from '../../ui/tauriEnvironment';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import ExperimentRunHistory from '../../experiment/ExperimentRunHistory';
 import ParadigmSessionPanel from '../../paradigm/ParadigmSessionPanel';
+import { createEffectEvaluationFlowState, readFlowStateFromStorage } from './effectEvaluationFlow';
+import { prepareEffectHandoff, type EffectPreparationDraft } from './effectPreparationHandoff';
+import { EffectResearchControls } from './EffectResearchControls';
 import styles from './ExperimentSettings.module.css';
 import guide from './ExperimentPreparation.module.css';
 
@@ -83,7 +86,7 @@ const steps = [
     title: '核对并进入',
     software: 'tauri-eeg',
     instructions: [
-      '核对下方的实验流程和模式，再进入实验页面填写被试与参数。',
+      '核对运行模式与本次配置，准备就绪后进入所选流程。',
       '实验运行时，tauri-eeg 自动打标，ActiView 持续保存。',
       '实验结束后在 ActiView 正常停止保存，再关联 BDF、导出日志。',
     ],
@@ -95,6 +98,15 @@ export default function ExperimentSettings() {
   const [stage, setStage] = useState<'settings' | 'paradigm'>('settings');
   const [step, setStep] = useState(0);
   const [destination, setDestination] = useState<ExperimentDestination>('effect');
+  const [effectDraft, setEffectDraft] = useState<EffectPreparationDraft>(() => {
+    const saved = readFlowStateFromStorage(window.sessionStorage);
+    return saved && !saved.runId && saved.step <= 1
+      ? saved
+      : {
+          ...createEffectEvaluationFlowState(),
+          subjectId: readStoredSubjectId(),
+        };
+  });
   const [status, setStatus] = useState(emptyStatus);
   const [ports, setPorts] = useState<TriggerPort[]>([]);
   const [port, setPort] = useState('');
@@ -119,6 +131,10 @@ export default function ExperimentSettings() {
     externalRecordingConfirmed: preferences.externalRecordingConfirmed,
     activeRunId: status.activeRunId,
   });
+  const subjectMissing = destination === 'effect' && !effectDraft.subjectId.trim();
+  const canEnter = readiness.canEnter && !subjectMissing;
+  const recordingSubject =
+    destination === 'effect' ? effectDraft.subjectId.trim() : readStoredSubjectId();
   const current = steps[step];
   const selectedTriggerPort = ports.find(
     (item) => item.portName === (status.connected ? status.portName : port),
@@ -158,7 +174,11 @@ export default function ExperimentSettings() {
         if (!mounted) return;
         setStatus(nextStatus);
         setPorts(nextPorts);
-        setPort(nextStatus.portName || nextPorts.find((item) => item.kind !== 'bluetooth')?.portName || '');
+        setPort(
+          nextStatus.portName ||
+            nextPorts.find((item) => item.kind !== 'bluetooth')?.portName ||
+            '',
+        );
       })
       .catch((failure) => {
         if (mounted) setError(describeFriendlyError(failure, '读取触发盒状态'));
@@ -166,10 +186,10 @@ export default function ExperimentSettings() {
     const storedLibrary = readStoredLibraryRootPath();
     if (storedLibrary)
       void loadParadigmVideoLibrary(storedLibrary)
-        .then(() => {
+        .then((loaded) => {
           if (mounted) {
-            setValidatedLibrary(storedLibrary);
-            setLibrarySummary('已检查保存的素材库。');
+            setValidatedLibrary(loaded.valid ? storedLibrary : '');
+            setLibrarySummary(loaded.valid ? '已检查保存的素材库。' : '素材库需要重新验证。');
           }
         })
         .catch(() => {
@@ -187,6 +207,16 @@ export default function ExperimentSettings() {
       setError(describeFriendlyError(failure, '写入实验偏好'));
     }
   };
+  const updateEffectDraft = (patch: Partial<EffectPreparationDraft>) => {
+    if (
+      patch.subjectId !== undefined &&
+      patch.subjectId.trim() !== effectDraft.subjectId.trim() &&
+      preferences.externalRecordingConfirmed
+    ) {
+      savePreferences({ ...preferences, externalRecordingConfirmed: false });
+    }
+    setEffectDraft((current) => ({ ...current, ...patch }));
+  };
   const busyClass = (key: string) => (busyKey === key ? styles.isBusy : '');
   const goToStep = (index: number) => {
     setStep(index);
@@ -194,9 +224,14 @@ export default function ExperimentSettings() {
     setError('');
   };
   const enterExperiment = () => {
-    if (!readiness.canEnter || busy) return;
-    if (destination === 'effect') navigate('/effect-evaluation');
-    else setStage('paradigm');
+    if (!canEnter || busy) return;
+    if (destination === 'effect') {
+      if (!prepareEffectHandoff(effectDraft)) {
+        setError('未能交接本次配置。请检查当前评价是否已结束，然后重试。');
+        return;
+      }
+      navigate('/effect-evaluation');
+    } else setStage('paradigm');
   };
 
   if (stage === 'paradigm')
@@ -333,6 +368,13 @@ export default function ExperimentSettings() {
                     <span>个人校准或独立诱发：静息 → 提示 → 视频 → SAM</span>
                   </button>
                 </div>
+                {destination === 'effect' && (
+                  <EffectResearchControls
+                    state={effectDraft}
+                    disabled={locked}
+                    onChange={updateEffectDraft}
+                  />
+                )}
                 <label className={guide.modeField}>
                   模式
                   <select
@@ -408,14 +450,16 @@ export default function ExperimentSettings() {
                 </div>
                 {selectedTriggerPort?.kind === 'bluetooth' && (
                   <p className={styles.errorMessage} role="alert">
-                    {selectedTriggerPort.portName} 是蓝牙虚拟串口（手机、耳机等配对设备），不是触发盒；
+                    {selectedTriggerPort.portName}{' '}
+                    是蓝牙虚拟串口（手机、耳机等配对设备），不是触发盒；
                     它可能显示「已连接」，但标记写入会失败。请插入 USB 触发盒后点击「刷新端口」，
                     并选择 USB Serial Port（FTDI）。
                   </p>
                 )}
                 {status.connected && !status.tested && (
                   <p className={styles.muted}>
-                    已连接但尚未测试：正式实验前必须先发送测试 Trigger（254），并在 ActiView/BDF 中确认收到标记。
+                    已连接但尚未测试：正式实验前必须先发送测试 Trigger（254），并在 ActiView/BDF
+                    中确认收到标记。
                   </p>
                 )}
                 <button
@@ -483,6 +527,11 @@ export default function ExperimentSettings() {
                     onClick={() =>
                       void perform('validateLibrary', '验证素材库', async () => {
                         const loaded = await loadParadigmVideoLibrary(library.trim());
+                        if (!loaded.valid) {
+                          setValidatedLibrary('');
+                          setLibrarySummary('');
+                          throw new Error(loaded.problems.join('；') || '素材库未通过验证。');
+                        }
                         writeStoredLibraryRootPath(library.trim());
                         setValidatedLibrary(library.trim());
                         setLibrarySummary(
@@ -523,7 +572,7 @@ export default function ExperimentSettings() {
                       <input
                         disabled={locked}
                         value={preferences.expectedRecordingName}
-                        placeholder={`例如 ${buildStandardBdfFileName({ subjectId: readStoredSubjectId(), task: destination })}`}
+                        placeholder={`例如 ${buildStandardBdfFileName({ subjectId: recordingSubject, task: destination })}`}
                         onChange={(event) => {
                           const nextName = event.target.value;
                           savePreferences({
@@ -544,7 +593,7 @@ export default function ExperimentSettings() {
                         className={styles.ghostButton}
                         onClick={() => {
                           const standardName = buildStandardBdfFileName({
-                            subjectId: readStoredSubjectId(),
+                            subjectId: recordingSubject,
                             task: destination,
                           });
                           savePreferences({
@@ -622,6 +671,21 @@ export default function ExperimentSettings() {
                   。请核对，避免把个人校准当作效果评价。
                 </p>
                 <dl className={guide.review}>
+                  {destination === 'effect' && (
+                    <>
+                      <div>
+                        <dt>被试 ID</dt>
+                        <dd>{effectDraft.subjectId.trim() || '尚未填写'}</dd>
+                      </div>
+                      <div>
+                        <dt>测量方案</dt>
+                        <dd>
+                          {effectDraft.protocol === 'brief' ? '简版 · 前后各 3 题' : '完整量表'} ·{' '}
+                          {effectDraft.durationMinutes} 分钟
+                        </dd>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <dt>实验流程</dt>
                     <dd>{destinationLabel}</dd>
@@ -659,17 +723,32 @@ export default function ExperimentSettings() {
                     </dd>
                   </div>
                 </dl>
-                {!readiness.canEnter && (
+                {!canEnter && (
                   <div className={guide.blockers} role="status">
                     <strong>还需要完成</strong>
                     <ul>
+                      {subjectMissing && (
+                        <li>
+                          <button
+                            type="button"
+                            className={styles.ghostButton}
+                            onClick={() => goToStep(0)}
+                          >
+                            返回第一步填写被试 ID
+                          </button>
+                        </li>
+                      )}
                       {readiness.blockers.map((reason) => (
                         <li key={reason}>{reason}</li>
                       ))}
                     </ul>
                   </div>
                 )}
-                <p className={styles.muted}>进入页面后再填写被试和参数，点击开始才创建实验记录。</p>
+                <p className={styles.muted}>
+                  {destination === 'effect'
+                    ? '进入后请将界面交给参与者，准备好后点击播放。'
+                    : '进入后填写范式参数，点击开始才创建实验记录。'}
+                </p>
               </>
             )}
             {error && (
@@ -696,11 +775,7 @@ export default function ExperimentSettings() {
                   下一步：{steps[step + 1].title}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  disabled={busy || !readiness.canEnter}
-                  onClick={enterExperiment}
-                >
+                <button type="button" disabled={busy || !canEnter} onClick={enterExperiment}>
                   {destination === 'effect' ? '进入效果评价' : '进入逐试次范式'}
                 </button>
               )}

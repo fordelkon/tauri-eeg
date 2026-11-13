@@ -38,9 +38,6 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(homeCss).toMatch(
       /\.shell\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*3fr\)\s+minmax\(260px,\s*1fr\);/s,
     );
-    expect(homeCss).toMatch(
-      /\.shell::before\s*{[^}]*left:\s*calc\(75%\s*\+\s*var\(--status-divider-offset\)\);/s,
-    );
     expect(shellBlock?.[0] ?? '').toContain('<GlobalMentalScalePanel>');
     expect(shellBlock?.[0] ?? '').toContain('<ExperimentAgentPanel');
     expect(readText(new URL('./ExperimentAgentPanel.tsx', import.meta.url))).toContain(

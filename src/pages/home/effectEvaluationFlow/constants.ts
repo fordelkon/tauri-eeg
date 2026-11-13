@@ -5,6 +5,7 @@ import type { MentalScalePath } from '../../../mentalScale/mentalScaleGate';
 export type EffectTargetEmotion = 'anxiety' | 'depression' | 'fear';
 
 export type EffectRegulationMethod = 'music' | 'video';
+export type EffectScaleProtocol = 'brief' | 'full';
 
 /**
  * Wizard condition of a run (R6, 大纲 6.2): `natural_recovery` is the 基线

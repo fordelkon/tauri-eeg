@@ -13,6 +13,8 @@ use serde::Serialize;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SingleEffectReport {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rating_changes: Vec<StateRatingChange>,
     pub exported_at: String,
     pub subject_id: Option<String>,
     pub emotion: Option<String>,
@@ -75,6 +77,7 @@ pub fn build_single_effect_report(
         threshold: DEFAULT_IMPROVEMENT_THRESHOLD,
         mean_improvement_rate: summary.mean_improvement_rate,
         meets_threshold,
+        rating_changes: summary.rating_changes,
         dimensions: summary.dimensions,
     })
 }
@@ -93,6 +96,9 @@ fn dimension_label(key: &str) -> String {
         "anxiety" => "焦虑".to_string(),
         "energy" => "精力".to_string(),
         "mood" => "情绪".to_string(),
+        "valence" => "愉悦度".into(),
+        "arousal" => "唤醒度".into(),
+        "dominance" => "控制感".into(),
         "worry" => "担忧".to_string(),
         other => other.to_string(),
     }
@@ -117,6 +123,27 @@ pub(crate) const CSV_BOM: &str = "\u{FEFF}";
 /// One row per comparable dimension with the run's meta columns repeated,
 /// so the file stays flat and importable without section parsing.
 pub fn build_single_effect_report_csv(report: &SingleEffectReport) -> String {
+    if !report.rating_changes.is_empty() {
+        let mut lines = vec!["subject_id,scale_id,condition,baseline_record_id,post_record_id,dimension,dimension_label,baseline,post,change".to_string()];
+        for d in &report.rating_changes {
+            lines.push(
+                [
+                    csv_field(report.subject_id.as_deref().unwrap_or("")),
+                    BRIEF_SCALE_ID.to_string(),
+                    csv_field(report.condition.as_deref().unwrap_or("")),
+                    csv_field(&report.baseline_record_id),
+                    csv_field(&report.post_record_id),
+                    csv_field(&d.dimension),
+                    dimension_label(&d.dimension),
+                    d.baseline.to_string(),
+                    d.post.to_string(),
+                    d.change.to_string(),
+                ]
+                .join(","),
+            );
+        }
+        return format!("{CSV_BOM}{}", lines.join("\r\n"));
+    }
     let header = [
         "subject_id",
         "emotion",
@@ -188,6 +215,10 @@ pub fn build_batch_effect_report_csv(entries: &[EffectHistoryEntry]) -> String {
         "baseline_created_at",
         "post_created_at",
         "exported_at",
+        "scale_id",
+        "valence_change",
+        "arousal_change",
+        "dominance_change",
     ]
     .join(",");
 
@@ -195,7 +226,8 @@ pub fn build_batch_effect_report_csv(entries: &[EffectHistoryEntry]) -> String {
     let rows = entries
         .iter()
         .map(|entry| {
-            [
+            let brief = entry.scale_id == BRIEF_SCALE_ID;
+            let mut fields = vec![
                 csv_field(&entry.subject_id),
                 csv_field(entry.emotion.as_deref().unwrap_or("")),
                 // NULL conditions are pre-R6 rows of the old regulation flow.
@@ -204,16 +236,39 @@ pub fn build_batch_effect_report_csv(entries: &[EffectHistoryEntry]) -> String {
                     .duration_minutes
                     .map_or(String::new(), |minutes| minutes.to_string()),
                 entry.regulation_skipped.to_string(),
-                format_optional_number(entry.mean_improvement_rate),
-                DEFAULT_IMPROVEMENT_THRESHOLD.to_string(),
-                entry.meets_threshold.to_string(),
-                entry.dimensions.len().to_string(),
+                if brief {
+                    String::new()
+                } else {
+                    format_optional_number(entry.mean_improvement_rate)
+                },
+                if brief {
+                    String::new()
+                } else {
+                    DEFAULT_IMPROVEMENT_THRESHOLD.to_string()
+                },
+                if brief {
+                    String::new()
+                } else {
+                    entry.meets_threshold.map(|value| value.to_string()).unwrap_or_default()
+                },
+                (entry.dimensions.len() + entry.rating_changes.len()).to_string(),
                 entry.measured_only.to_string(),
                 csv_field(&entry.baseline_created_at),
                 csv_field(&entry.post_created_at),
                 csv_field(&exported_at),
-            ]
-            .join(",")
+                csv_field(&entry.scale_id),
+            ];
+            for key in VAD_KEYS {
+                fields.push(
+                    entry
+                        .rating_changes
+                        .iter()
+                        .find(|d| d.dimension == key)
+                        .map(|d| d.change.to_string())
+                        .unwrap_or_default(),
+                );
+            }
+            fields.join(",")
         })
         .collect::<Vec<_>>();
 

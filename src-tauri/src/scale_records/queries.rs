@@ -19,6 +19,9 @@ pub fn save_scale_record(
     }
 
     validate_phase(input.phase.trim())?;
+    if scale_id == BRIEF_SCALE_ID {
+        validate_vad(&input.dimension_scores)?;
+    }
 
     let emotion = normalize_optional_text(input.emotion.as_deref());
     let condition = normalize_optional_text(input.condition.as_deref());

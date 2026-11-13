@@ -65,32 +65,22 @@ describe('scaleRecordsApi', () => {
     });
   });
 
-  it('persists a gate submission as the PHQ-4 screening record (doc §3.3)', () => {
+  it('persists a gate submission with the current-state instrument ID and timeframe', () => {
     const answers: MentalScaleAnswers = {
-      phq4_1: 3,
-      phq4_2: 1,
-      phq4_3: 0,
+      unpleasant_now: 2,
+      tension_now: 0,
     };
 
     persistMentalScaleSubmission(videoScale, answers, 'user-1');
 
     expect(invoke).toHaveBeenCalledTimes(1);
-    // The gate row carries the instrument scale_id (not the route path) and
-    // the trait-style timeframe inside raw_answers. Phase stays 'baseline' —
-    // the backend only accepts baseline/post (scale_records.rs validate_phase
-    // rejects a literal 'screen'), and the NULL condition keeps the row out
-    // of the wizard's explicit-condition pairing pools.
-    // Per-question scores: 3 -> 100, 1 -> 33, 0 -> 0; each dimension averages
-    // its own questions. All four keys are stored (unmeasured ones keep the
-    // neutral placeholder), but the R4/F1 marker list names only the
-    // dimensions that actually received answers.
     expect(lastSaveInput()).toEqual({
       userId: 'user-1',
       subjectId: null,
-      scaleId: PHQ4_SCALE_ID,
+      scaleId: 'momentary_checkin_2_v1',
       phase: 'baseline',
       dimensionScores: { anxiety: 0, worry: 50, mood: 67, energy: 50 },
-      rawAnswers: { ...answers, timeframe: 'past_2_weeks' },
+      rawAnswers: { ...answers, timeframe: 'now' },
       measuredDimensions: ['anxiety', 'mood'],
     });
   });
@@ -117,7 +107,9 @@ describe('scaleRecordsApi', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.mocked(invoke).mockRejectedValueOnce(new Error('db unavailable'));
 
-    expect(() => persistMentalScaleSubmission(videoScale, { phq4_1: 2 }, 'user-1')).not.toThrow();
+    expect(() =>
+      persistMentalScaleSubmission(videoScale, { tension_now: 2 }, 'user-1'),
+    ).not.toThrow();
 
     await new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -149,7 +141,7 @@ describe('subject_id passthrough (R2 效果闭环)', () => {
   it('falls back to the shared subject memory when no explicit binding is given', () => {
     stubSharedSubjectMemory('subj-paradigm');
 
-    persistMentalScaleSubmission(videoScale, { phq4_1: 1 }, 'user-1');
+    persistMentalScaleSubmission(videoScale, { tension_now: 1 }, 'user-1');
 
     // Gate submissions (no options) inherit the operator's last subject.
     expect(lastSaveInput().subjectId).toBe('subj-paradigm');

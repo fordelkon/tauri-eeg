@@ -92,6 +92,25 @@ pub fn build_report_content(
             if format == "csv" {
                 Ok(scale_records::build_single_effect_report_csv(&report))
             } else {
+                if !report.rating_changes.is_empty() {
+                    return serde_json::to_string_pretty(&serde_json::json!({
+                        "scaleId": baseline.scale_id,
+                        "subjectId": report.subject_id,
+                        "condition": report.condition,
+                        "emotion": report.emotion,
+                        "durationMinutes": report.duration_minutes,
+                        "regulationSkipped": report.regulation_skipped,
+                        "baselineRecordId": report.baseline_record_id,
+                        "postRecordId": report.post_record_id,
+                        "baselineCreatedAt": report.baseline_created_at,
+                        "postCreatedAt": report.post_created_at,
+                        "baselineRawAnswers": report.baseline_raw_answers,
+                        "postRawAnswers": report.post_raw_answers,
+                        "ratingChanges": report.rating_changes,
+                        "exportedAt": report.exported_at,
+                    }))
+                    .map_err(|e| e.to_string());
+                }
                 serde_json::to_string_pretty(&report)
                     .map_err(|_| "Failed to serialize the report.".to_string())
             }

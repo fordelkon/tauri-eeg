@@ -4,6 +4,32 @@ use std::collections::BTreeMap;
 /// Phases of the emotion-regulation evaluation loop: a scale answered before
 /// a regulation activity (`baseline`) and again afterwards (`post`).
 pub const PHASE_BASELINE: &str = "baseline";
+pub const BRIEF_SCALE_ID: &str = "momentary_vad_3_v1";
+pub const VAD_KEYS: [&str; 3] = ["valence", "arousal", "dominance"];
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StateRatingChange {
+    pub dimension: String,
+    pub baseline: f64,
+    pub post: f64,
+    pub change: f64,
+}
+
+pub fn validate_vad(scores: &BTreeMap<String, f64>) -> Result<(), String> {
+    if scores.len() == 3
+        && VAD_KEYS.iter().all(|key| {
+            scores
+                .get(*key)
+                .is_some_and(|v| (1.0..=9.0).contains(v) && v.fract() == 0.0)
+        })
+    {
+        Ok(())
+    } else {
+        Err("Three integer state ratings between 1 and 9 are required.".into())
+    }
+}
+
 pub const PHASE_POST: &str = "post";
 
 /// Wizard condition of the run that produced a record (R6): `natural_recovery`
@@ -134,6 +160,8 @@ pub struct RegulationDimensionImprovement {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RegulationEffectSummary {
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub rating_changes: Vec<StateRatingChange>,
     pub subject_id: Option<String>,
     pub dimensions: Vec<RegulationDimensionImprovement>,
     pub mean_improvement_rate: Option<f64>,

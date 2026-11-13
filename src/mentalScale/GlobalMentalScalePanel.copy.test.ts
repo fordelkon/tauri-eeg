@@ -9,7 +9,7 @@ describe('GlobalMentalScalePanel copy', () => {
     expect(source).toContain('全局心理量表状态');
     expect(source).toContain('心理状态雷达图');
     expect(source).toContain('心理状态');
-    expect(source).toContain('平均基线');
+    expect(source).toContain('暂无本次记录');
     expect(source).toContain('焦虑');
     expect(source).toContain('担忧');
     expect(source).toContain('情绪');

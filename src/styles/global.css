@@ -40,3 +40,20 @@ b {
      scale is 400/500/600 (no 700 display weights). */
   font-weight: 600;
 }
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--calm-primary-hover);
+  outline-offset: 3px;
+}
+
+:where(input, select, textarea) {
+  font: inherit;
+}
+
+:where(button, a, input, select, textarea) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:where(button:disabled) {
+  cursor: not-allowed;
+}

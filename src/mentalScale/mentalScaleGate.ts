@@ -1,10 +1,3 @@
-import {
-  PHQ4_INSTRUCTION,
-  PHQ4_SCALE_ID,
-  PHQ4_SCREENING_NOTE,
-  phq4Items,
-} from './instruments/phq4';
-
 export type MentalScalePath = '/video-regulation' | '/game-regulation' | '/music-regulation';
 
 export type MentalScaleAnswerValue = 0 | 1 | 2 | 3;
@@ -16,10 +9,6 @@ export type MentalScaleQuestion = {
 
 export type MentalScaleDefinition = {
   path: MentalScalePath;
-  /**
-   * scale_records scale_id (doc scale-instruments.md §3.3 naming: no longer
-   * the route path — the screening instrument is one shared PHQ-4).
-   */
   scaleId: string;
   title: string;
   subtitle: string;
@@ -33,33 +22,27 @@ export type MentalScaleDefinition = {
 
 export type MentalScaleAnswers = Record<string, MentalScaleAnswerValue | undefined>;
 
-/** PHQ-4 frequency anchors for values 0-3 (doc scale-instruments.md §2.1). */
 export const mentalScaleAnswerOptions: Array<{ value: MentalScaleAnswerValue; label: string }> = [
-  { value: 0, label: '完全不会' },
-  { value: 1, label: '好几天' },
-  { value: 2, label: '一半以上的天数' },
-  { value: 3, label: '几乎每天' },
+  { value: 0, label: '没有' },
+  { value: 1, label: '轻微' },
+  { value: 2, label: '中等' },
+  { value: 3, label: '强烈' },
 ];
 
-/**
- * Shared gate instrument (doc scale-instruments.md §2.1): the public-domain
- * PHQ-4 replaces the three per-method 3-item scales, which mixed a trait-style
- * "recent week" recall window into a gate measurement and changed the items
- * per regulation arm. Every regulation path now screens with the same 4 items;
- * the per-path identity stays (completion/skip bookkeeping is per route).
- */
-const phq4GateContent: Omit<MentalScaleDefinition, 'path'> = {
-  scaleId: PHQ4_SCALE_ID,
-  title: '心理健康筛查（PHQ-4）',
-  subtitle: PHQ4_INSTRUCTION,
-  questions: phq4Items.map((item) => ({ id: item.id, prompt: item.textZh })),
-  screening: PHQ4_SCREENING_NOTE,
+const stateCheck: Omit<MentalScaleDefinition, 'path'> = {
+  scaleId: 'momentary_checkin_2_v1',
+  title: '此刻感受',
+  subtitle: '按此刻的实际感受选择，也可以跳过。',
+  questions: [
+    { id: 'tension_now', prompt: '此刻，你感到多大程度的紧绷？' },
+    { id: 'unpleasant_now', prompt: '此刻，你感到多大程度的不愉快？' },
+  ],
 };
 
 export const mentalScaleDefinitions: Record<MentalScalePath, MentalScaleDefinition> = {
-  '/video-regulation': { path: '/video-regulation', ...phq4GateContent },
-  '/game-regulation': { path: '/game-regulation', ...phq4GateContent },
-  '/music-regulation': { path: '/music-regulation', ...phq4GateContent },
+  '/video-regulation': { path: '/video-regulation', ...stateCheck },
+  '/game-regulation': { path: '/game-regulation', ...stateCheck },
+  '/music-regulation': { path: '/music-regulation', ...stateCheck },
 };
 
 export function getMentalScaleForPath(path: string): MentalScaleDefinition | null {

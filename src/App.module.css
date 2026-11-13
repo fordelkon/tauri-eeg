@@ -3,7 +3,7 @@
 
 .routeFallback {
   align-items: center;
-  background: var(--surface, #f5f0eb);
+  background: var(--surface, #faf9f6);
   display: flex;
   flex-direction: column;
   gap: 16px;

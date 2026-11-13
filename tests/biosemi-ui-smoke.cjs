@@ -1,5 +1,5 @@
 // Exercise the actual UI with simulated IPC; never send hardware pulses.
-const { chromium } = require('playwright');
+const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -15,24 +15,27 @@ async function main() {
     localStorage.setItem('tauri-eeg.homeIntroPlayed.smoke-user', 'true');
     const calls = [];
     let connected = false;
+    let tested = false;
     window.__BIOSEMI_CALLS__ = calls;
     window.__TAURI_INTERNALS__ = {
       invoke: async (command, args) => {
         calls.push({ command, args });
-        const status = () => ({ connected, portName: connected ? 'COM7' : null, activeRunId: null, lastError: null });
+        const status = () => ({ connected, tested, portName: connected ? 'COM7' : null, activeRunId: null, lastError: null });
         if (command === 'trigger_list_ports') return [{ portName: 'COM7', description: 'BioSemi USB Trigger Interface' }];
         if (command === 'trigger_status') return status();
         if (command === 'trigger_test') {
           await new Promise(resolve => { window.__RELEASE_TEST__ = resolve; });
+          tested = true;
           return status();
         }
         if (command === 'trigger_connect') { connected = true; return status(); }
-        if (command === 'trigger_disconnect') { connected = false; return status(); }
+        if (command === 'trigger_disconnect') { connected = false; tested = false; return status(); }
         if (command === 'experiment_list' || command.startsWith('list_')) return [];
         if (command === 'get_storage_location') return { root: 'C:\\smoke' };
         if (command === 'load_paradigm_video_library') {
           if (!JSON.stringify(args).includes('smoke')) throw new Error('Fixture library is unavailable until selected.');
-          return { rootPath: 'C:\\smoke\\videos', anxiety: [], depression: [], fear: [], calm: [], valid: true, problems: [], readinessWarnings: [] };
+          const clip = { videoId: 'smoke-clip', absolutePath: '/video_paradigm/Anxiety/anxiety_vid01.mp4', fileName: 'anxiety_vid01.mp4' };
+          return { rootPath: 'C:\\smoke\\videos', anxiety: window.__SMOKE_CLIP_READY__ ? [clip] : [], depression: [], fear: [], calm: [], valid: true, problems: [], readinessWarnings: [] };
         }
         return {};
       },
@@ -70,6 +73,10 @@ async function main() {
     await page.getByRole('button', { name: '验证并保存素材库', exact: true }).click();
     await page.getByText(/素材库已验证：/).waitFor();
     await step('核对并进入');
+    assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
+    await step('选择实验');
+    await page.getByLabel('被试 ID', { exact: true }).fill('smoke-subject');
+    await step('核对并进入');
     assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isEnabled(), true);
 
     await step('选择实验');
@@ -78,7 +85,7 @@ async function main() {
     assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
     await step('连接与测试');
     await page.getByRole('button', { name: '连接触发盒', exact: true }).click();
-    await page.getByText('触发盒已连接 · COM7', { exact: true }).waitFor();
+    await page.getByText('触发盒已连接 · COM7 · 未测试', { exact: true }).waitFor();
     const test = page.getByRole('button', { name: '发送测试 Trigger', exact: true });
     const textBox = () => test.evaluate(element => {
       const text = [...element.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
@@ -105,36 +112,50 @@ async function main() {
     assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isEnabled(), true);
     await screenshot('preparation-review.png');
     await page.getByRole('button', { name: '进入效果评价', exact: true }).click();
-    await page.getByRole('heading', { name: /效果评价/ }).first().waitFor();
-    assert.equal(await page.getByText('正式实验', { exact: true }).isVisible(), true);
+    await page.getByText(/该情绪类别的诱发素材池为空/).waitFor();
+    const handoff = await page.evaluate(() => JSON.parse(sessionStorage.getItem('effectEvaluation.flowState.v1')));
+    assert.equal(handoff.step, 1);
+    assert.equal(handoff.subjectId, 'smoke-subject');
+    assert.equal(handoff.protocol, 'brief');
+    assert.equal(handoff.runMode, 'formal');
+    assert.equal(await page.getByLabel('被试 ID', { exact: true }).count(), 0);
+    assert.equal(await page.getByText('目标情绪:', { exact: true }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: '开始播放视频', exact: true }).count(), 0);
+    await page.getByRole('button', { name: '重置流程', exact: true }).click();
+    await page.getByRole('button', { name: '停止并重置', exact: true }).click();
     await go();
     await step('连接与测试');
     await page.getByRole('button', { name: '连接触发盒', exact: true }).click();
-    await page.getByText('触发盒已连接 · COM7', { exact: true }).waitFor();
+    await page.getByText('触发盒已连接 · COM7 · 未测试', { exact: true }).waitFor();
     await step('选择实验');
     await page.getByRole('button', { name: /^逐试次范式/ }).click();
+    await page.getByLabel('模式', { exact: true }).selectOption('rehearsal');
     await step('核对并进入');
     assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).count(), 0);
     await page.getByRole('button', { name: '进入逐试次范式', exact: true }).click();
     await page.getByRole('heading', { name: '逐试次范式', exact: true }).waitFor();
-    assert.equal(await page.getByRole('switch', { name: '正式 · 发送 Trigger', exact: true }).getAttribute('aria-checked'), 'false');
+    assert.equal(await page.getByText('准备模式：排练', { exact: true }).isVisible(), true);
 
     await page.goto(`${origin}/effect-evaluation`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('heading', { name: '情绪调控效果评价', exact: true }).waitFor();
-    const begin = page.getByRole('button', { name: '确认配置，开始诱发', exact: true });
-    assert.equal(await begin.isDisabled(), true);
-    await page.getByLabel('被试 ID', { exact: true }).fill('architecture-subject');
-    await begin.click();
-    await page.getByText('该情绪类别的诱发素材池为空，无法播放诱发素材。请先在实验设置页补充对应类别的素材，本步骤为流程硬前置，不提供跳过。', { exact: true }).waitFor();
-    assert.equal(await page.getByRole('button', { name: '开始播放诱发视频', exact: true }).count(), 0);
-    await page.getByRole('button', { name: '重置流程', exact: true }).click();
-    await page.getByRole('button', { name: '停止并重置', exact: true }).click();
-    await begin.waitFor();
-    assert.equal(await page.getByLabel('被试 ID', { exact: true }).inputValue(), '');
+    await page.getByRole('button', { name: '前往实验设置', exact: true }).click();
+    await page.getByRole('heading', { name: '实验设置', exact: true }).waitFor();
+    await page.evaluate(() => { window.__SMOKE_CLIP_READY__ = true; });
+    await page.getByLabel('被试 ID', { exact: true }).fill('ready-subject');
+    await step('核对并进入');
+    await page.getByRole('button', { name: '进入效果评价', exact: true }).click();
+    const play = page.getByRole('button', { name: '开始播放视频', exact: true });
+    await play.waitFor();
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('button')).some(button => button.textContent.trim() === '开始播放视频' && !button.disabled));
+    assert.equal(await page.getByLabel('被试 ID', { exact: true }).count(), 0);
+    assert.doesNotMatch(await page.locator('body').innerText(), /anxiety_vid01|焦虑|抑郁|恐惧/);
+    await page.getByRole('button', { name: '返回实验设置', exact: true }).click();
+    await page.getByRole('heading', { name: '实验设置', exact: true }).waitFor();
+    assert.equal(await page.getByLabel('被试 ID', { exact: true }).inputValue(), 'ready-subject');
     const startedRuns = await page.evaluate(() => window.__BIOSEMI_CALLS__.filter(call => call.command === 'experiment_start').length);
-    assert.equal(startedRuns, 0, 'An empty induction pool must never start an experiment');
+    assert.equal(startedRuns, 0, 'Loading or revising a prepared evaluation must never start acquisition');
     assert.deepEqual(errors, []);
-    console.log('Passed: five steps, small/wide layout, formal prerequisites, stable loading, experiment destinations, effect setup, empty-pool gate and reset. Simulated IPC; no hardware pulses.');
+    console.log('Passed: five steps, small/wide layout, formal prerequisites, both destinations, direct entry, empty-pool gate, video readiness and return to preparation. Simulated IPC; no hardware pulses.');
   } finally { await browser.close(); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

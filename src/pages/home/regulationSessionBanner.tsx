@@ -26,7 +26,7 @@ export function RegulationSessionBanner({
     <div className={className} role="status">
       {regulationElapsed
         ? '效果评价调控时长已达成，播放已自动停止。请回到「效果评价」页继续复测。'
-        : `效果评价调控进行中 · 目标情绪 ${context.emotionLabel} · 剩余时长 ${formatCountdown(context.remainingSeconds)}`}
+        : `效果评价调控进行中 · 剩余时长 ${formatCountdown(context.remainingSeconds)}`}
     </div>
   );
 }

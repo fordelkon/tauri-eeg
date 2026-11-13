@@ -46,6 +46,8 @@ type MentalScaleListener = () => void;
 // depression subscale (→ mood), items 3-4 the anxiety subscale; item 4 is the
 // core worry item (→ worry).
 const questionDimensionMap: Record<string, MentalScaleDimensionKey> = {
+  tension_now: 'anxiety',
+  unpleasant_now: 'mood',
   phq4_1: 'mood',
   phq4_2: 'mood',
   phq4_3: 'anxiety',

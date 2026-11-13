@@ -24,7 +24,6 @@ type EffectReviewPopoverProps = {
   /** null = closed. */
   review: EffectReviewTarget | null;
   state: EffectEvaluationFlowState;
-  emotionLabel: string;
   methodLabel: string;
   /** Skip warning copy (null while unskipped); shown on the condition node. */
   skippedCopy: string | null;
@@ -34,7 +33,6 @@ type EffectReviewPopoverProps = {
 export function EffectReviewPopover({
   review,
   state,
-  emotionLabel,
   methodLabel,
   skippedCopy,
   onClose,
@@ -64,7 +62,6 @@ export function EffectReviewPopover({
           {step <= 1 ? (
             <>
               <span className={styles.configChip}>被试 {state.subjectId.trim() || '未填写'}</span>
-              <span className={styles.configChip}>目标情绪 {emotionLabel}</span>
               {!isNaturalRecovery ? <span className={styles.configChip}>{methodLabel}</span> : null}
               <span className={styles.configChip}>{labelForCondition(state.condition)}</span>
               <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
@@ -77,7 +74,9 @@ export function EffectReviewPopover({
               </span>
               {/* The baseline battery prepends the SAM manipulation check
                   (doc scale-instruments.md §3.3) — stated as a record fact. */}
-              <span className={styles.configChip}>含 SAM 操纵检验</span>
+              <span className={styles.configChip}>
+                {state.protocol === 'brief' ? '三项当下感受' : '含 SAM 操纵检验'}
+              </span>
             </>
           ) : null}
           {step === 3 ? (
@@ -102,7 +101,9 @@ export function EffectReviewPopover({
               <span className={styles.configChip} title={state.postRecordId}>
                 条件后量表记录 {`${state.postRecordId.slice(0, 8)}…`}
               </span>
-              {state.method === 'music' ? (
+              {state.protocol === 'full' &&
+              state.condition === 'regulation' &&
+              state.method === 'music' ? (
                 <span className={styles.configChip}>含 GEMS-9 音乐情绪量表</span>
               ) : null}
             </>

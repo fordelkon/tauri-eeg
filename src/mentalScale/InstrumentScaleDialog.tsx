@@ -367,8 +367,8 @@ export default function InstrumentScaleDialog({
 
         <div className={styles.scaleHeading}>
           <p className={styles.scaleEyebrow}>心理量表</p>
-          <h2 id="instrument-scale-title">{definition.title}</h2>
-          <p>{definition.subtitle}</p>
+          <h2 id="instrument-scale-title">此刻感受</h2>
+          <p>请按此刻的感受作答，共 {totalQuestions} 题。</p>
           {hasRestoredDraft ? (
             <div className={sectionStyles.draftRestoredAlert} role="status">
               <Alert severity="info" onClose={() => setHasRestoredDraft(false)}>
@@ -379,11 +379,11 @@ export default function InstrumentScaleDialog({
         </div>
 
         <div className={sectionStyles.scaleBody}>
-          {sectionStates.map(({ section, answers }) => (
+          {sectionStates.map(({ section, answers }, index) => (
             <section className={sectionStyles.scaleSection} key={section.key}>
               <div className={sectionStyles.scaleStickySectionHead}>
                 <ScaleSectionHeader
-                  title={section.title}
+                  title={`第 ${index + 1} 部分`}
                   instruction={section.instruction}
                   answeredCount={sectionAnsweredCount(section, answers)}
                   totalCount={section.questions.length}

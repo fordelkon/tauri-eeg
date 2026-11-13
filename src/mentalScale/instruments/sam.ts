@@ -18,6 +18,7 @@
  */
 
 export const samScaleId = 'sam_vad_v1';
+export const BRIEF_SCALE_ID = 'momentary_vad_3_v1';
 
 export const SAM_MIN_VALUE = 1;
 export const SAM_MAX_VALUE = 9;
