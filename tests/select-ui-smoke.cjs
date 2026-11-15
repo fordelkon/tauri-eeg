@@ -52,6 +52,34 @@ async function main() {
 
     await page.getByText('研究者配置', { exact: false }).first().click();
     const duration = page.getByRole('combobox', { name: /条件时长/ });
+    for (const [width, zoom] of [
+      [1100, 1],
+      [800, 1.25],
+      [480, 1.5],
+    ]) {
+      await page.setViewportSize({ width, height: 760 });
+      await page.evaluate((scale) => {
+        document.body.style.zoom = String(scale);
+      }, zoom);
+      await duration.click();
+      const bounds = await duration.evaluate((select) => {
+        const field = select.getBoundingClientRect();
+        const label = select.parentElement.getBoundingClientRect();
+        const card = select.closest('details').getBoundingClientRect();
+        const option = select.options[0].getBoundingClientRect();
+        return {
+          fieldFits: field.left >= label.left - 1 && field.right <= label.right + 1,
+          menuFits: option.left >= card.left && option.right <= card.right,
+        };
+      });
+      assert(bounds.fieldFits, `Duration field overflows its label at ${width}px / ${zoom}x`);
+      assert(bounds.menuFits, `Duration menu overflows its card at ${width}px / ${zoom}x`);
+      await page.keyboard.press('Escape');
+    }
+    await page.evaluate(() => {
+      document.body.style.zoom = '';
+    });
+    await page.setViewportSize({ width: 1100, height: 760 });
     await duration.click();
     await page.getByRole('option', { name: '30', exact: true }).click();
     assert.equal(await duration.inputValue(), '30');

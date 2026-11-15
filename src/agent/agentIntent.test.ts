@@ -22,4 +22,16 @@ describe('agentIntent', () => {
   it('returns unknown for unsupported free-form operations', () => {
     expect(classifyAgentIntent('删除所有数据')).toBe('unknown');
   });
+
+  it('only advances on an explicit instruction', () => {
+    for (const instruction of ['请继续！', '请进入下一步', 'next']) {
+      expect(classifyAgentIntent(instruction)).toBe('go_next_page');
+    }
+    for (const question of ['下一步怎么做?', '继续？', '我想了解下一步', 'restart later']) {
+      expect(classifyAgentIntent(question)).not.toBe('go_next_page');
+    }
+    for (const negation of ['不要继续', '请先别进入下一步', '先不开始实验']) {
+      expect(classifyAgentIntent(negation)).toBe('cancel');
+    }
+  });
 });

@@ -54,6 +54,16 @@ export const steps = [
   },
 ] satisfies { id: PreparationStep; title: string; software: string; instructions: string[] }[];
 
+export function getPreparationInstructions(step: number, formal: boolean): readonly string[] {
+  const current = steps[step];
+  if (!formal && current.id === 'connection') return ['排练可跳过设备连接，继续准备素材。'];
+  if (!formal && current.id === 'recording') return ['排练无需 ActiView 保存，可以继续核对实验。'];
+  if (!formal && current.id === 'review') {
+    return ['核对本次配置和素材。进入排练后会保存操作记录，不发送流程标记。'];
+  }
+  return current.instructions;
+}
+
 export const emptyStatus: TriggerStatus = {
   connected: false,
   tested: false,

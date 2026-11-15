@@ -3,6 +3,7 @@ select:not([multiple], [size]) {
   background-color: var(--surface-raised);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-control);
+  box-sizing: border-box;
   color: var(--ink);
   cursor: pointer;
   font: inherit;
@@ -75,6 +76,7 @@ select:not([multiple], [size]):disabled {
     background: var(--surface-raised);
     border: 1px solid var(--line);
     border-radius: calc(var(--radius-control) + 4px);
+    box-sizing: border-box;
     box-shadow: var(--shadow-popover);
     color: var(--ink);
     margin-block: 4px;

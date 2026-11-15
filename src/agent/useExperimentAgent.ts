@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import {
   getMentalScaleStatusSnapshot,
   type MentalScaleDimensionKey,
 } from '../mentalScale/mentalScaleStatus';
 import { generateMusic } from '../music/musicGenerationApi';
+import { getCurrentRegulationVideos } from '../video/regulationVideoResources';
 import { type AgentActionId, getAgentAction, getAgentActionValidation } from './agentActions';
 import {
   type AgentActionParams,
@@ -18,6 +19,7 @@ import {
   type AgentTimelineEntry,
 } from './agentContext';
 import { classifyAgentIntent } from './agentIntent';
+import { runWorkspaceCommand, useWorkspaceCommandLabels } from './workspaceCommands';
 import { buildAgentMusicPreview } from './agentMusic';
 import {
   requestAgentPlannerRecommendation,
@@ -43,7 +45,7 @@ export type PendingAgentConfirmation = {
 
 export type UseExperimentAgentOptions = {
   pathname: string;
-  navigateTo: (path: string) => void;
+  navigateTo: (path: string) => Promise<string | undefined>;
 };
 
 const plannerActionMap = {
@@ -68,9 +70,9 @@ function isLocalFirstAction(actionId: AgentActionId | 'unknown'): actionId is Ag
 }
 
 export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentOptions) {
+  const workspacePrompts = useWorkspaceCommandLabels(pathname);
   const { currentUser } = useAuth();
   const [phase, setPhase] = useState<AgentPhase>(() => getAgentPhaseForRoute(pathname));
-  const [message, setMessage] = useState('');
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingAgentConfirmation | null>(
     null,
   );
@@ -78,17 +80,28 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   const [personalizedAnswers] = useState<AgentPersonalizedAnswer[]>([]);
   const [isPlannerAvailable, setIsPlannerAvailable] = useState(true);
   const [isPlanning, setIsPlanning] = useState(false);
+  const [isRequestingPlanner, setIsRequestingPlanner] = useState(false);
+  const submittingRef = useRef(false);
   const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
   const [thinkingDurationMs, setThinkingDurationMs] = useState<number | null>(null);
   const timelineRef = useRef(timeline);
-  // One buffered-thinking accumulator for the hook's whole lifetime (the ref
-  // init runs once; setThinkingSteps is a stable setter).
   const thinkingBufferRef = useRef<ReturnType<typeof createThinkingBuffer> | null>(null);
   if (thinkingBufferRef.current === null) {
     thinkingBufferRef.current = createThinkingBuffer(setThinkingSteps);
   }
   const thinkingBuffer = thinkingBufferRef.current;
   const plannerAbortRef = useRef<AbortController | null>(null);
+
+  useLayoutEffect(() => {
+    setPendingConfirmation(null);
+    setThinkingSteps([]);
+    setThinkingDurationMs(null);
+    setIsRequestingPlanner(false);
+    return () => {
+      plannerAbortRef.current?.abort();
+      thinkingBuffer.dispose();
+    };
+  }, [pathname, thinkingBuffer]);
 
   useEffect(() => {
     setPhase((currentPhase) => getAgentPhaseForRoute(pathname, currentPhase));
@@ -97,16 +110,6 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   useEffect(() => {
     timelineRef.current = timeline;
   }, [timeline]);
-
-  useEffect(() => {
-    return () => {
-      // Deliberate ref read: the cleanup must abort whatever planner request
-      // is in flight at unmount, not the one current when the effect ran.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      plannerAbortRef.current?.abort();
-      thinkingBuffer.dispose();
-    };
-  }, [thinkingBuffer]);
 
   const [videoRevision, setVideoRevision] = useState(0);
 
@@ -124,6 +127,9 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
     [phase, videoRevision],
   );
   const quickPrompts = useMemo(() => {
+    if (phase === 'video_regulation' && getCurrentRegulationVideos().length === 0) {
+      return ['下一步'];
+    }
     const nextStepPrompt = getAgentPromptExamplesForPhase(phase).find(
       (prompt) => prompt === '下一步',
     );
@@ -162,6 +168,8 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
     thinkingBuffer.flush();
   }, [thinkingBuffer]);
 
+  const setMessage = useCallback((text: string) => pushTimeline('planner', text), [pushTimeline]);
+
   const appendThinkingDelta = useCallback(
     (delta: string) => {
       thinkingBuffer.append(delta);
@@ -181,17 +189,23 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
 
       switch (actionId) {
         case 'open_paradigm':
-          navigateTo('/experiment-settings');
-          setMessage('已打开实验范式，请在页面确认材料与运行模式后开始。');
+        case 'open_experiment_settings': {
+          const notice = await navigateTo('/experiment-settings');
+          setMessage(notice ?? '已打开实验设置。请在页面确认材料与运行模式。');
           return;
-        case 'open_experiment_settings':
-          navigateTo('/experiment-settings');
-          setMessage('已打开实验设置，采集与 BDF 保存请在 ActiView 操作。');
-          return;
+        }
         case 'go_next_page': {
-          const nextPhase = getNextAgentPhase(phase);
-          navigateTo(getRouteForAgentPhase(nextPhase));
-          setMessage(`已进入：${getRecommendedPrompt(nextPhase)}`);
+          const local = runWorkspaceCommand(pathname, '下一步');
+          if (local !== undefined) {
+            setMessage(local);
+            return;
+          }
+          const destination = getRouteForAgentPhase(getNextAgentPhase(phase));
+          const notice = await navigateTo(destination);
+          setMessage(
+            notice ??
+              (destination === '/experiment-settings' ? '已打开实验设置。' : '已进入下一阶段。'),
+          );
           return;
         }
         case 'select_video': {
@@ -205,7 +219,7 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
               detail: { videoId: getPlannerStringParam(params, 'videoId') },
             }),
           );
-          setMessage('请在视频页面选择素材后播放。');
+          setMessage('已向视频页面发送播放请求。');
           return;
         case 'generate_music': {
           const scores = Object.fromEntries(
@@ -240,15 +254,8 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
               },
             }),
           );
-          // Fire-and-forget: the backend /generate call resolves only when the
-          // track finishes (possibly minutes later), and the result already
-          // reaches the UI on its own via MUSIC_GENERATED_EVENT plus the history
-          // refresh. Awaiting it here would keep the planner in "思考中" and
-          // block every follow-up prompt for the whole generation, so resolve
-          // this action as "submitted" the moment the request is sent. The
-          // floating promise still gets a .catch so a failed submission lands in
-          // the same message channel as other action failures instead of
-          // becoming an unhandled rejection.
+          // Completion arrives via MUSIC_GENERATED_EVENT. Keep chat available
+          // during generation and record submission failures in the conversation.
           void generateMusic({
             duration: plannerDuration ?? preview.params.duration,
             prompt: plannerPrompt ?? preview.params.prompt,
@@ -260,16 +267,17 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
           setMessage('已提交音乐生成请求。');
           return;
         }
-        case 'skip_game':
-          setPhase('music_regulation');
-          navigateTo('/music-regulation');
-          setMessage('游戏调控暂不可用，已进入音乐调控。');
+        case 'skip_game': {
+          const notice = await navigateTo('/music-regulation');
+          setMessage(notice ?? '已进入音乐调控。');
           return;
-        case 'finish_experiment':
-          setPhase('finish');
-          navigateTo('/home');
-          setMessage('实验流程已完成。');
+        }
+        case 'finish_experiment': {
+          const notice = await navigateTo('/home');
+          if (!notice) setPhase('finish');
+          setMessage(notice ?? '实验流程已完成。');
           return;
+        }
         case 'go_to_phase':
         case 'cancel':
           setMessage('已取消当前操作。');
@@ -278,7 +286,7 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
           setMessage('无法执行该操作。');
       }
     },
-    [currentUser, navigateTo, phase, pushTimeline],
+    [currentUser, navigateTo, pathname, phase, pushTimeline, setMessage],
   );
 
   const queueOrExecute = useCallback(
@@ -307,11 +315,13 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
 
       await executeAction(action.id, params);
     },
-    [executeAction, phase, pushTimeline],
+    [executeAction, phase, pushTimeline, setMessage],
   );
 
   const requestPlannerRecommendation = useCallback(
     async (input: string) => {
+      const planningStartedAt = Date.now();
+      setIsRequestingPlanner(true);
       return requestAgentPlannerRecommendation(input, {
         pathname,
         personalizedAnswers,
@@ -320,6 +330,12 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
         timelineRef,
         plannerActionMap,
         onThinkingDelta: appendThinkingDelta,
+        onStreamSettled: () => {
+          setIsRequestingPlanner(false);
+          if (!plannerAbortRef.current?.signal.aborted) {
+            setThinkingDurationMs(Date.now() - planningStartedAt);
+          }
+        },
         flushThinking: flushBufferedThinking,
         queueOrExecute,
         pushTimeline,
@@ -336,47 +352,55 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
       phase,
       queueOrExecute,
       pushTimeline,
+      setMessage,
     ],
   );
 
   const submitPrompt = useCallback(
     async (input: string) => {
       const trimmed = input.trim();
-      if (!trimmed || isPlanning) {
+      if (!trimmed || submittingRef.current) {
         return;
       }
 
+      submittingRef.current = true;
       setIsPlanning(true);
+      setPendingConfirmation(null);
       setThinkingDurationMs(null);
       setThinkingSteps([]);
-      const planningStartedAt = Date.now();
 
       try {
         pushTimeline('message', trimmed);
+        const workspaceReply = runWorkspaceCommand(pathname, trimmed);
+        if (workspaceReply !== undefined) {
+          setMessage(workspaceReply);
+          return;
+        }
         const localIntent = classifyAgentIntent(trimmed);
         if (isLocalFirstAction(localIntent)) {
-          setIsPlannerAvailable(true);
           await queueOrExecute(localIntent);
           return;
         }
 
-        const plannerHandled = await requestPlannerRecommendation(trimmed);
-        if (plannerHandled) {
-          return;
-        }
-
-        if (localIntent === 'unknown') {
-          setMessage('没有识别该请求，请使用面板中的示例表达。');
-        }
+        await requestPlannerRecommendation(trimmed);
       } catch (reason) {
         setMessage(formatAgentActionError(reason));
       } finally {
         flushBufferedThinking();
-        setThinkingDurationMs(Date.now() - planningStartedAt);
+        plannerAbortRef.current = null;
+        setIsRequestingPlanner(false);
+        submittingRef.current = false;
         setIsPlanning(false);
       }
     },
-    [flushBufferedThinking, isPlanning, pushTimeline, queueOrExecute, requestPlannerRecommendation],
+    [
+      flushBufferedThinking,
+      pathname,
+      pushTimeline,
+      queueOrExecute,
+      requestPlannerRecommendation,
+      setMessage,
+    ],
   );
 
   const confirmPendingAction = useCallback(async () => {
@@ -392,22 +416,28 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
     } catch (reason) {
       setMessage(formatAgentActionError(reason));
     }
-  }, [executeAction, pendingConfirmation]);
+  }, [executeAction, pendingConfirmation, setMessage]);
 
   const rejectPendingAction = useCallback(() => {
     setPendingConfirmation(null);
-    setMessage('已取消敏感操作。');
-  }, []);
+    setMessage('已取消该操作。');
+  }, [setMessage]);
 
   const cancelPlanning = useCallback(() => {
-    if (!isPlanning) {
+    if (
+      !isRequestingPlanner ||
+      !plannerAbortRef.current ||
+      plannerAbortRef.current.signal.aborted
+    ) {
       return;
     }
 
-    plannerAbortRef.current?.abort();
+    plannerAbortRef.current.abort();
+    thinkingBuffer.dispose();
+    setThinkingSteps([]);
+    setIsRequestingPlanner(false);
     setMessage('已取消本次智能助手请求。');
-    pushTimeline('planner', '已取消本次智能助手请求。');
-  }, [isPlanning, pushTimeline]);
+  }, [isRequestingPlanner, setMessage, thinkingBuffer]);
 
   useEffect(() => {
     const handleSubmitPromptEvent = (event: Event) => {
@@ -450,13 +480,13 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
   return {
     isPlannerAvailable,
     isPlanning,
+    isRequestingPlanner,
     thinkingDurationMs,
     thinkingSteps,
-    message,
     pendingConfirmation,
     phase,
-    quickPrompts,
-    recentTimeline: timeline.slice(-5),
+    quickPrompts: workspacePrompts ?? quickPrompts,
+    recentTimeline: timeline,
     recommendedPrompt,
     cancelPlanning,
     confirmPendingAction,

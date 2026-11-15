@@ -182,7 +182,7 @@
   min-height: var(--button-height);
   padding-inline: var(--button-padding-inline);
   position: fixed;
-  right: var(--page-gutter);
+  right: calc(max(25vw, 260px) + var(--page-gutter));
   bottom: 18px;
   z-index: var(--z5);
 }
@@ -209,6 +209,9 @@
   }
 }
 @media (max-width: 980px) {
+  .nextPageButton {
+    right: var(--page-gutter);
+  }
   .shell {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -221,7 +224,7 @@
   }
 }
 .page:has([data-participant-stage]) :is(.desktopRail, .mobileMenuButton, .nextPageButton),
-.shell:has([data-participant-stage]) > aside {
+.shell:has([data-participant-stage]) > :is(aside, button) {
   display: none;
 }
 .shell:has([data-participant-stage]) {

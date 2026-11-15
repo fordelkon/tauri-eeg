@@ -9,9 +9,7 @@
   height: 100dvh;
   min-height: 100dvh;
   overflow: hidden;
-  /* Bottom padding clears the shell's fixed nextPage CTA (bottom 38-80px,
-     right edge) so the agent composer never slides beneath it. */
-  padding: clamp(28px, 5vh, 50px) clamp(18px, 2.2vw, 30px) 80px;
+  padding: var(--page-gutter) clamp(14px, 1.5vw, 24px) 18px;
   position: relative;
   z-index: var(--z1);
 }
@@ -72,9 +70,48 @@
   min-height: 0;
 }
 
+.railToggle {
+  display: none;
+}
+
 @media (max-width: 980px) {
+  .railToggle {
+    align-items: center;
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    box-shadow: var(--shadow-card);
+    color: var(--ink);
+    cursor: pointer;
+    display: inline-flex;
+    font: inherit;
+    font-size: var(--text-sm);
+    gap: 6px;
+    inset: 12px 16px auto auto;
+    min-height: 36px;
+    padding-inline: 10px;
+    position: fixed;
+    z-index: var(--z4);
+  }
+  .railToggle:focus-visible {
+    outline: 2px solid var(--focus-color);
+    outline-offset: 2px;
+  }
   .panel {
     display: none;
+  }
+  .panel[data-open='true'] {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    display: flex;
+    height: auto;
+    inset: 56px 12px 12px auto;
+    min-height: 0;
+    padding: 14px;
+    position: fixed;
+    width: min(380px, calc(100% - 24px));
+    z-index: var(--z5);
   }
 }
 
@@ -119,7 +156,11 @@
     overflow-y: auto;
     overscroll-behavior: contain;
   }
-  .assistantSlot {
-    flex: 0 0 auto;
+  .chartWrap {
+    flex-basis: 120px;
+    min-height: 120px;
+  }
+  .radar {
+    min-height: 0;
   }
 }

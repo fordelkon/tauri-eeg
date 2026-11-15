@@ -110,7 +110,7 @@ export default function Home() {
           confirmText: '知道了',
           hideCancel: true,
         });
-        return;
+        return '当前范式正在进行。请先结束本次实验，再切换页面。';
       }
 
       if (isTauriAvailable()) {
@@ -122,7 +122,7 @@ export default function Home() {
               confirmText: '知道了',
               hideCancel: true,
             });
-            return;
+            return '当前实验正在进行。请先完成或中止实验，再切换页面。';
           }
         } catch {
           await confirm({
@@ -131,7 +131,7 @@ export default function Home() {
             confirmText: '知道了',
             hideCancel: true,
           });
-          return;
+          return '无法确认实验状态，请稍后再试。';
         }
       }
 
@@ -143,7 +143,7 @@ export default function Home() {
       if (scale && !isScaleSatisfiedForPath(scale.path)) {
         setPendingScale(scale);
         setIsSidebarOpen(false);
-        return;
+        return '请先完成页面上的量表，完成后即可继续。';
       }
 
       navigate(path);

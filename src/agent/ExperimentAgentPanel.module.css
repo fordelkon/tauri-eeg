@@ -88,12 +88,6 @@
 .promptGrid[hidden] {
   display: none;
 }
-.panel[data-idle='true'] {
-  flex: 0 1 auto;
-}
-.panel[data-idle='true'] .activity {
-  display: none;
-}
 
 .cancelButton {
   align-items: center;
@@ -187,22 +181,18 @@
   background: rgba(44, 34, 24, 0.16);
 }
 
+.promptGrid button {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  padding-block: 4px;
+  background: var(--surface-raised);
+  font-weight: 500;
+}
+
 .promptGrid button:active,
 .confirmationActions button:active {
   transform: scale(0.98);
-}
-
-.message:empty {
-  display: none;
-}
-.message {
-  color: var(--ink);
-  overflow-wrap: anywhere;
-  flex: 0 0 auto;
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  margin: 0;
-  padding: 6px 2px;
 }
 
 .thinking {
@@ -249,6 +239,13 @@
 
 .thinkingPanel .thinking::-webkit-details-marker {
   display: none;
+}
+.thinkingPanel .thinking svg {
+  margin-left: auto;
+  font-size: var(--text-lg);
+}
+.thinkingPanel[open] .thinking svg {
+  transform: rotate(180deg);
 }
 
 .thinkingBody {
@@ -307,8 +304,9 @@
 }
 .timeline li[data-kind='message'] {
   justify-self: end;
+  max-width: 85%;
   padding: 6px 10px;
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--ink) 7%, var(--surface-2));
   border-radius: var(--radius-control);
 }
 .timeline li span {
@@ -319,6 +317,7 @@
   font-size: var(--text-sm);
   font-weight: 400;
   line-height: 1.55;
+  white-space: pre-wrap;
 }
 /* Amber caution card in the app's shared warning-tint family (same recipe as
    the paradigm/EEG warning banners), not its own one-off orange. */
@@ -363,24 +362,28 @@
   margin-top: auto;
 }
 
-.form input {
+.form textarea {
   background: transparent;
   border: 0;
   border-radius: 8px;
   box-sizing: border-box;
   color: #2c2218;
   font: inherit;
-  font-size: var(--text-xs);
-  height: var(--button-height);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  field-sizing: content;
+  min-height: var(--button-height);
+  max-height: 5.5em;
   min-width: 0;
-  padding: 0 8px;
+  padding: 8px;
+  resize: none;
 }
 
-.form:has(input:focus-visible) {
+.form:focus-within {
   outline: 2px solid var(--focus-color);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
-.form input:focus-visible {
+.form textarea:focus-visible {
   outline: none;
 }
 
@@ -427,7 +430,6 @@
 .promptGrid button:disabled,
 .confirmationActions button:disabled,
 .cancelButton:disabled,
-.form input:disabled,
 .form button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
@@ -444,17 +446,6 @@
   50% {
     opacity: 1;
     transform: scale(1);
-  }
-}
-
-@media (max-height: 700px) {
-  .panel,
-  .content {
-    flex: 0 0 auto;
-  }
-  .activity {
-    flex: 0 1 auto;
-    max-height: 38dvh;
   }
 }
 

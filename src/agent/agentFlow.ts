@@ -60,17 +60,17 @@ const recommendedPrompts = {
   game_regulation: '跳过当前不可用环节',
   music_regulation: '生成舒缓音乐',
   recovery: '打开实验设置',
-  finish: '实验已完成',
+  finish: '打开实验设置',
 } as const satisfies Record<AgentPhase, string>;
 
 const phasePromptExamples = {
-  intro: [agentPromptExamples[0], agentPromptExamples[1]],
+  intro: [agentPromptExamples[0]],
   baseline: [agentPromptExamples[1], agentPromptExamples[2]],
   video_regulation: [agentPromptExamples[1], agentPromptExamples[3]],
   game_regulation: [agentPromptExamples[1], agentPromptExamples[6]],
   music_regulation: [agentPromptExamples[1], agentPromptExamples[4]],
   recovery: [agentPromptExamples[1], agentPromptExamples[5]],
-  finish: [agentPromptExamples[1], agentPromptExamples[5]],
+  finish: [agentPromptExamples[5]],
 } as const satisfies Record<AgentPhase, readonly string[]>;
 
 const localRegulationPromptPools: Partial<Record<AgentPhase, readonly string[]>> = {
@@ -235,6 +235,7 @@ export function getAgentPhaseForRoute(
       ? 'recovery'
       : 'baseline';
   }
+  if (pathname === '/effect-evaluation') return 'baseline';
   if (pathname === '/eeg-acquisition') {
     return previousPhase === 'music_regulation' || previousPhase === 'recovery'
       ? 'recovery'

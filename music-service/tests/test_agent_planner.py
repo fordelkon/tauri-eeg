@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import unittest
@@ -48,6 +48,16 @@ def base_request(**overrides):
 
 
 class AgentPlannerTests(unittest.TestCase):
+    def test_unknown_setup_input_returns_guidance_without_leaving_rehearsal(self) -> None:
+        response = plan_agent_action(base_request(
+            phase="baseline",
+            currentRoute="/experiment-settings",
+            userInput="你好",
+        ))
+
+        self.assertEqual(response.action, "no_op")
+        self.assertIn("快捷指令", response.reason)
+
     def test_exposes_planner_version_and_lm_capabilities(self):
         self.assertEqual(AGENT_PLANNER_VERSION, "lm-video-music-stream-v1")
         self.assertIn("lm_video_selection", AGENT_PLANNER_CAPABILITIES)
@@ -71,10 +81,10 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertEqual(response.action, "recommend_music")
         self.assertEqual(response.params["style"], "ambient instrumental")
         self.assertEqual(response.params["duration"], 30)
-        self.assertIn("high anxiety", response.reason.lower())
+        self.assertIn("焦虑或担忧评分偏高", response.reason)
         self.assertEqual(response.status, "available")
         self.assertGreaterEqual(len(response.thinking), 3)
-        self.assertTrue(any("phase" in step.lower() for step in response.thinking))
+        self.assertTrue(any("当前阶段" in step for step in response.thinking))
 
     def test_music_recommendation_varies_by_state_and_recent_history(self) -> None:
         with patch("agent_planner.complete_json_with_lm_studio") as complete_json:
@@ -105,7 +115,7 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertEqual(low_energy.action, "recommend_music")
         self.assertNotEqual(high_anxiety.params["style"], low_energy.params["style"])
         self.assertNotEqual(high_anxiety.params["details"], low_energy.params["details"])
-        self.assertIn("low energy", low_energy.reason.lower())
+        self.assertIn("精力评分偏低", low_energy.reason)
 
     def test_music_prompt_uses_lm_studio_planner(self) -> None:
         with patch("agent_planner.complete_json_with_lm_studio") as complete_json:
@@ -329,7 +339,9 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertNotIn("EEG", response.reason)
 
     def test_returns_unavailable_when_lm_studio_is_down_for_open_query(self) -> None:
-        response = plan_agent_action(base_request(userInput="personalized recommendation"))
+        with patch("agent_planner.complete_json_with_lm_studio") as complete_json:
+            complete_json.return_value.available = False
+            response = plan_agent_action(base_request(userInput="personalized recommendation"))
 
         self.assertEqual(response.status, "unavailable")
         self.assertEqual(response.action, "no_op")

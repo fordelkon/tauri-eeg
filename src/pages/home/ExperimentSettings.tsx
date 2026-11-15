@@ -29,7 +29,10 @@ import PreparationPlan from './PreparationPlan';
 import styles from './ExperimentSettings.module.css';
 import guide from './ExperimentPreparation.module.css';
 
-import { emptyStatus, steps } from './experimentPreparationSteps';
+import { emptyStatus, getPreparationInstructions, steps } from './experimentPreparationSteps';
+import { usePublishWorkspaceCommands } from '../../agent/workspaceCommands';
+import { getPreparationCommands } from './preparationCommands';
+import { useParadigmSessionStatus } from '../../paradigm/paradigmSessionStatus';
 
 export default function ExperimentSettings() {
   const navigate = useNavigate();
@@ -90,6 +93,7 @@ export default function ExperimentSettings() {
   const subjectMissing = !plan.subjectId;
   const canEnter = readiness.canEnter && !subjectMissing;
   const current = steps[step];
+  const paradigm = useParadigmSessionStatus();
 
   const perform = async (key: string, context: string, action: () => Promise<void>) => {
     setBusyKey(key);
@@ -205,18 +209,47 @@ export default function ExperimentSettings() {
     setError('');
   };
   const enterExperiment = () => {
-    if (!canEnter || busy) return;
+    if (!canEnter || busy) return '请先完成准备并核对当前设置。';
     if (destination === 'effect') {
       if (!prepareEffectHandoff(effectDraft)) {
-        setError('未能交接本次配置。请检查当前评价是否已结束，然后重试。');
-        return;
+        const reason = '未能交接本次配置。请检查当前评价是否已结束，然后重试。';
+        setError(reason);
+        return reason;
       }
       navigate('/effect-evaluation');
     } else {
       writeStoredSubjectId(plan.subjectId);
       setStage('paradigm');
     }
+    return `已进入${destinationLabel}。`;
   };
+
+  usePublishWorkspaceCommands(
+    '/experiment-settings',
+    stage === 'settings'
+      ? getPreparationCommands({
+          step,
+          goToStep,
+          enter: enterExperiment,
+          busy,
+          formal,
+          destinationLabel,
+          blockers: [...(subjectMissing ? ['请填写被试 ID。'] : []), ...readiness.blockers],
+        })
+      : [
+          {
+            label: '查看范式进度',
+            guidance: true,
+            aliases: ['下一步', '继续', '开始实验'],
+            run: () =>
+              paradigm.active
+                ? `当前为第 ${paradigm.trialIndex} / ${paradigm.totalTrials} 个试次，请跟随范式页面提示。`
+                : paradigm.phase === 'finished'
+                  ? '本次范式已完成，可在页面查看结果。'
+                  : '请在范式页面核对素材和运行模式，按页面提示继续。',
+          },
+        ],
+  );
 
   if (stage === 'paradigm')
     return (
@@ -476,7 +509,7 @@ export default function ExperimentSettings() {
             <span className={guide.software}>{current.software}</span>
             <h3>这一步怎么做</h3>
             <ol>
-              {current.instructions.map((text) => (
+              {getPreparationInstructions(step, formal).map((text) => (
                 <li key={text}>{text}</li>
               ))}
             </ol>

@@ -51,7 +51,7 @@ describe('ExperimentAgentPanel layout contract', () => {
     // Slice by marker positions instead of JSX-shape regexes so the contract
     // survives formatting-only rewrites of the markup.
     const contentStart = agentTsx.indexOf('<div className={styles.content}>');
-    const activityStart = agentTsx.indexOf('<div className={styles.activity}');
+    const activityStart = agentTsx.indexOf('className={styles.activity}');
     const formStart = agentTsx.indexOf('<form', activityStart);
     const contentBlock = agentTsx.slice(contentStart, activityStart);
     const activityBlock = agentTsx.slice(activityStart, formStart === -1 ? undefined : formStart);
@@ -72,8 +72,9 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(agentTsx).toContain("import { useEffect, useRef, useState } from 'react';");
     expect(agentTsx).toContain('const activityRef = useRef<HTMLDivElement | null>(null);');
     expect(agentTsx).toContain('activity.scrollTop = activity.scrollHeight;');
-    expect(agentTsx).toContain('[message, pendingConfirmation, recentTimeline]');
-    expect(agentTsx).toContain('<div className={styles.activity} ref={activityRef}>');
+    expect(agentTsx).toContain('[pendingConfirmation, recentTimeline, isPlanning]');
+    expect(agentTsx).toContain('ref={activityRef}');
+    expect(agentTsx).toContain('activity && followLatest.current');
   });
 
   test('surfaces assistant planning progress in the embedded chat panel', () => {
@@ -158,7 +159,7 @@ describe('ExperimentAgentPanel layout contract', () => {
     const hookTs = readText(new URL('./useExperimentAgent.ts', import.meta.url));
 
     expect(hookTs).not.toContain('setPhase(nextPhase);');
-    expect(hookTs).toContain('navigateTo(getRouteForAgentPhase(nextPhase));');
+    expect(hookTs).toContain('const notice = await navigateTo(destination);');
   });
 
   test('only executes workflow and EEG control prompts before asking the planner for recommendations', () => {
@@ -179,7 +180,7 @@ describe('ExperimentAgentPanel layout contract', () => {
       'const localIntent = classifyAgentIntent(trimmed);',
     );
     expect(submitPromptBlock?.[0] ?? '').toContain('isLocalFirstAction(localIntent)');
-    expect(submitPromptBlock?.[0] ?? '').toContain('setIsPlannerAvailable(true);');
+    expect(submitPromptBlock?.[0] ?? '').not.toContain('setIsPlannerAvailable(true);');
     expect(submitPromptBlock?.[0] ?? '').toContain('await queueOrExecute(localIntent);');
     expect(submitPromptBlock?.[0] ?? '').not.toContain('const intent = localIntent;');
     expect(submitPromptBlock?.[0] ?? '').not.toContain('await queueOrExecute(intent);');

@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from typing import Any, Callable, Literal, TypedDict
 
@@ -194,26 +194,26 @@ def _select_music_profile(request: AgentPlannerRequest) -> tuple[str, str, int, 
 
     if anxiety >= 70 or worry >= 65:
         profiles.extend([
-            ("ambient instrumental", "slow tempo, warm tone, soft rhythm", 30, "high anxiety and worry", 6),
-            ("meditation music", "breath-paced phrases, light reverb, minimal percussion", 30, "high anxiety and worry", 5),
+            ("ambient instrumental", "slow tempo, warm tone, soft rhythm", 30, "焦虑或担忧评分偏高", 6),
+            ("meditation music", "breath-paced phrases, light reverb, minimal percussion", 30, "焦虑或担忧评分偏高", 5),
         ])
 
     if mood <= 40:
         profiles.extend([
-            ("classical instrumental", "gentle dynamics, bright melody, warm strings", 30, "low mood", 5),
-            ("cinematic instrumental", "hopeful progression, soft piano, gradual lift", 30, "low mood", 4),
+            ("classical instrumental", "gentle dynamics, bright melody, warm strings", 30, "情绪评分偏低", 5),
+            ("cinematic instrumental", "hopeful progression, soft piano, gradual lift", 30, "情绪评分偏低", 4),
         ])
 
     if energy <= 35:
         profiles.extend([
-            ("lo-fi instrumental", "low tempo groove, soft texture, steady pulse", 30, "low energy", 5),
-            ("meditation music", "open pads, sparse melody, calm therapeutic texture", 30, "low energy", 4),
+            ("lo-fi instrumental", "low tempo groove, soft texture, steady pulse", 30, "精力评分偏低", 5),
+            ("meditation music", "open pads, sparse melody, calm therapeutic texture", 30, "精力评分偏低", 4),
         ])
 
     if not profiles:
         profiles.extend([
-            ("jazz instrumental", "gentle dynamics, light swing, warm tone", 30, "balanced state", 3),
-            ("ambient instrumental", "calm texture, light reverb, soft rhythm", 30, "balanced state", 2),
+            ("jazz instrumental", "gentle dynamics, light swing, warm tone", 30, "当前", 3),
+            ("ambient instrumental", "calm texture, light reverb, soft rhythm", 30, "当前", 2),
         ])
 
     ranked = []
@@ -285,7 +285,8 @@ def _select_video_with_lm_studio(
                 "content": (
                     "You are an experiment video regulation planner. "
                     "Choose exactly one videoId from the provided catalog. "
-                    "Return JSON only with videoId, reason, and thinking."
+                    "Return JSON only with videoId, reason, and thinking. "
+                    "Write the user-facing reason and brief selection notes in Simplified Chinese."
                 ),
             },
             {
@@ -331,6 +332,7 @@ def _select_music_with_lm_studio(
                     "You are an experiment music regulation planner. "
                     "Use the user's existing normalized tags when useful, but keep the result safe for relaxation. "
                     "Return JSON only with style, details, duration, prompt, reason, and thinking. "
+                    "Write the user-facing reason and brief selection notes in Simplified Chinese. "
                     "The prompt must describe instrumental music with no vocals, speech, or lyrics."
                 ),
             },
@@ -369,10 +371,21 @@ def _select_music_with_lm_studio(
 
 
 def _thinking_steps(request: AgentPlannerRequest, decision: str) -> list[str]:
+    phase = {
+        "intro": "开始", "baseline": "准备", "video_regulation": "视频调控",
+        "game_regulation": "VR 调控", "music_regulation": "音乐调控",
+        "recovery": "恢复", "finish": "结束",
+    }[request.phase]
+    action = {
+        "go_next_page": "继续下一步", "skip_game": "跳过 VR 调控",
+        "recommend_video": "推荐视频", "play_video": "准备播放视频",
+        "recommend_music": "推荐音乐", "generate_summary": "查看实验摘要",
+        "ask_personalized_question": "询问操作偏好", "no_op": "保留当前页面",
+    }[decision]
     return [
-        f"Phase: {request.phase}; route: {request.currentRoute}",
-        "Read scale status and available resources.",
-        f"Decision: {decision}",
+        f"当前阶段为{phase}。",
+        f"本页可用视频 {len(request.availableResources.videos)} 个。",
+        f"处理结果为{action}。",
     ]
 
 
@@ -388,7 +401,7 @@ def _plan_by_phase(
     if _is_next_step_input(user_input):
         state["response"] = AgentPlannerResponse(
             action="go_next_page",
-            reason="Received next-step instruction; continue to the next experiment phase.",
+            reason="已收到下一步指令。",
             requiresConfirmation=False,
         )
         return state
@@ -396,7 +409,7 @@ def _plan_by_phase(
     if request.phase == "game_regulation" and not request.availableResources.gameAvailable:
         state["response"] = AgentPlannerResponse(
             action="skip_game",
-            reason="Game regulation is unavailable; skip this phase and continue to music regulation.",
+            reason="本次 VR 调控不可用，下一项是音乐调控。",
             requiresConfirmation=False,
         )
         return state
@@ -410,7 +423,7 @@ def _plan_by_phase(
         state["response"] = AgentPlannerResponse(
             action="play_video",
             params={"videoId": video.id, "title": video.title},
-            reason=f"LM Studio did not return a valid video selection; local fallback selected low-stimulation video: {video.title}.",
+            reason=f"已从本地素材中选出《{video.title}》，确认后播放。",
             requiresConfirmation=True,
         )
         return state
@@ -437,7 +450,7 @@ def _plan_by_phase(
                 "duration": duration,
                 "prompt": f"{style}, {details}, instrumental, no vocals",
             },
-            reason=f"Local fallback music profile selected for {reason_key}: {style} with {details}.",
+            reason=f"根据{reason_key}的量表结果，建议生成 {duration} 秒的 {style}。",
             requiresConfirmation=False,
         )
         return state
@@ -446,7 +459,7 @@ def _plan_by_phase(
         state["response"] = AgentPlannerResponse(
             action="generate_summary",
             params={"source": "scale_and_resource_history"},
-            reason="Generate an experiment summary from scale status and regulation choices; biosignal analysis is not included in this version.",
+            reason="可在效果评价的结果页查看本次量表和调控记录。",
             requiresConfirmation=False,
         )
         return state
@@ -460,7 +473,7 @@ def _plan_by_phase(
     ):
         lm_result = complete_json_with_lm_studio(
             [
-                {"role": "system", "content": "Return JSON with action and reason only."},
+                {"role": "system", "content": "Return JSON with action and a Simplified Chinese reason only."},
                 {"role": "user", "content": user_input},
             ],
             LmPlannerOutput,
@@ -470,7 +483,7 @@ def _plan_by_phase(
             state["response"] = AgentPlannerResponse(
                 status="unavailable",
                 action="no_op",
-                reason="The intelligent assistant is unavailable; please use manual page controls.",
+                reason="推荐服务暂不可用，可使用当前页面的快捷指令。",
                 requiresConfirmation=False,
             )
             return state
@@ -482,8 +495,8 @@ def _plan_by_phase(
         return state
 
     state["response"] = AgentPlannerResponse(
-        action="go_next_page",
-        reason="No extra recommendation is needed in the current phase; continue to the next step.",
+        action="no_op",
+        reason="没有找到对应的实验操作。请选择当前页面的快捷指令，或输入其中的指令名称。",
         requiresConfirmation=False,
     )
     return state
@@ -515,7 +528,7 @@ def plan_agent_action(
     if response is None:
         return AgentPlannerResponse(
             action="no_op",
-            reason="No executable recommendation is available for the current phase.",
+            reason="当前阶段暂无可执行的推荐操作。",
             requiresConfirmation=False,
         )
     if not response.thinking:

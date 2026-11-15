@@ -42,6 +42,8 @@ import { useEffectReportExports } from './useEffectReportExports';
 import { useInductionPlayback } from './useInductionPlayback';
 import { StateRatingTable } from './StateRatingTable';
 import styles from './EffectEvaluation.module.css';
+import { usePublishWorkspaceCommands } from '../../agent/workspaceCommands';
+import { getEvaluationCommands } from './evaluationCommands';
 
 type PageTab = 'wizard' | 'history';
 
@@ -209,6 +211,20 @@ export default function EffectEvaluation() {
   const { currentNode, doneNodes, pipelineNodes } = useEffectPipelineNodes(
     state,
     flow.summary !== null,
+  );
+  usePublishWorkspaceCommands(
+    '/effect-evaluation',
+    getEvaluationCommands({
+      currentNode,
+      interrupted: state.interrupted,
+      showingHistory: !participantStage && activeTab === 'history',
+      showHistory: (show) => setActiveTab(show ? 'history' : 'wizard'),
+      openSettings: () => navigate('/experiment-settings'),
+      openScale:
+        measurementKey && !isScaleDialogOpen && !flow.isSavingScale && !state.interrupted
+          ? () => setDismissedMeasurement(null)
+          : null,
+    }),
   );
 
   const handleStationClick = useCallback<EffectStationClick>(

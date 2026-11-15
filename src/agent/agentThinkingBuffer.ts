@@ -51,6 +51,7 @@ export function createThinkingBuffer(
   };
 
   const dispose = () => {
+    buffer = '';
     if (flushTimer !== null) {
       window.clearTimeout(flushTimer);
       flushTimer = null;

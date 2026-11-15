@@ -2,13 +2,17 @@ import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import { useEffect, useRef, useState } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { preloadMusicServiceForUser } from '../music/musicServicePreload';
 import type { AgentTimelineEntry } from './agentContext';
 import { agentActions } from './agentActions';
-import { useExperimentAgent, type PendingAgentConfirmation } from './useExperimentAgent';
+import {
+  useExperimentAgent,
+  type PendingAgentConfirmation,
+  type UseExperimentAgentOptions,
+} from './useExperimentAgent';
 import styles from './ExperimentAgentPanel.module.css';
 
 const formatThinkingSeconds = (durationMs: number) => `${(durationMs / 1000).toFixed(1)} s`;
@@ -21,6 +25,13 @@ const entryLabels: Record<AgentTimelineEntry['type'], string> = {
 };
 
 function displayEntry(entry: AgentTimelineEntry): string {
+  if (entry.type === 'planner' && entry.text.startsWith('recommend_music:')) {
+    const style = entry.text.slice('recommend_music:'.length).split('|')[0].trim();
+    return style ? `推荐的音乐风格为 ${style}。` : '已选出推荐的音乐风格。';
+  }
+  if (entry.type === 'planner' && entry.text.startsWith('recommend_video:')) {
+    return '已从当前素材中选出推荐视频。';
+  }
   if (entry.type !== 'action' && entry.type !== 'confirmation') return entry.text;
   const [id, ...details] = entry.text.split(':');
   const label = agentActions.find((action) => action.id === id)?.label;
@@ -71,8 +82,9 @@ type Props = {
   isPlannerAvailable: boolean;
   isPlanning: boolean;
   thinkingDurationMs: number | null;
+  isRequestingPlanner: boolean;
   thinkingSteps: readonly string[];
-  message: string;
+  pathname: string;
   pendingConfirmation: PendingAgentConfirmation | null;
   quickPrompts: readonly string[];
   recentTimeline: readonly AgentTimelineEntry[];
@@ -90,9 +102,10 @@ type Props = {
 const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
   isPlannerAvailable,
   isPlanning,
+  isRequestingPlanner,
   thinkingDurationMs,
   thinkingSteps,
-  message,
+  pathname,
   pendingConfirmation,
   quickPrompts,
   recentTimeline,
@@ -102,66 +115,66 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
   onCancel,
 }: Props) {
   const [input, setInput] = useState('');
-  const [showPrompts, setShowPrompts] = useState(false);
+  const [showPrompts, setShowPrompts] = useState(true);
   const activityRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const lastCompositionEnd = useRef(-Infinity);
+  const followLatest = useRef(true);
   // The live elapsed time is owned by the ThinkingTimer leaf below; the panel
   // itself no longer re-renders on its 250 ms tick.
-  const thinkingSummary = <ThinkingTimer isPlanning={isPlanning} durationMs={thinkingDurationMs} />;
-  const thinkingClassName = isPlanning
+  const thinkingSummary = (
+    <ThinkingTimer isPlanning={isRequestingPlanner} durationMs={thinkingDurationMs} />
+  );
+  const thinkingClassName = isRequestingPlanner
     ? `${styles.thinking} ${styles.thinkingActive}`
     : styles.thinking;
-  const visibleThinkingSteps = thinkingSteps.length > 0 ? thinkingSteps : ['等待规划器响应。'];
+  const visibleThinkingSteps =
+    thinkingSteps.length > 0
+      ? thinkingSteps
+      : [isRequestingPlanner ? '等待规划器响应。' : '本次请求没有更多步骤。'];
   const hasThinkingDetails =
-    isPlanning || thinkingSteps.length > 0 || (thinkingDurationMs ?? 0) >= 250;
+    isRequestingPlanner || thinkingSteps.length > 0 || (thinkingDurationMs ?? 0) >= 250;
 
-  const submit = (value: string) => {
+  const submit = (value: string, fromShortcut = false) => {
     const nextValue = value.trim();
-    if (!nextValue) {
+    if (!nextValue || isPlanning) {
       return;
     }
 
+    followLatest.current = true;
     onSubmitPrompt(nextValue);
-    setInput('');
-    setShowPrompts(false);
+    if (!fromShortcut) {
+      setInput('');
+      inputRef.current?.focus();
+    }
   };
 
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
       const activity = activityRef.current;
-      if (activity) {
+      if (activity && followLatest.current) {
         activity.scrollTop = activity.scrollHeight;
       }
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [message, pendingConfirmation, recentTimeline]);
+  }, [pendingConfirmation, recentTimeline, isPlanning]);
 
   return (
-    <section
-      className={styles.panel}
-      data-idle={
-        !recentTimeline.length &&
-        !message &&
-        !pendingConfirmation &&
-        !isPlanning &&
-        thinkingDurationMs === null
-      }
-      aria-busy={isPlanning}
-      aria-label="实验助手聊天"
-    >
+    <section className={styles.panel} aria-busy={isPlanning} aria-label="实验助手聊天">
       <div className={styles.header}>
         <h2>
           <SmartToyRoundedIcon fontSize="small" aria-hidden="true" />
           实验助手
         </h2>
         <div className={styles.headerActions}>
-          {isPlanning ? (
+          {isRequestingPlanner ? (
             <button type="button" className={styles.cancelButton} onClick={onCancel}>
               取消
             </button>
           ) : (
             <span className={styles.availability} data-available={isPlannerAvailable}>
-              {isPlannerAvailable ? '可用' : '本地指令'}
+              {isPlanning ? '执行中' : isPlannerAvailable ? '可用' : '本地指令'}
             </span>
           )}
         </div>
@@ -191,7 +204,7 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
                 key={example}
                 type="button"
                 disabled={isPlanning}
-                onClick={() => submit(example)}
+                onClick={() => submit(example, true)}
               >
                 {example}
               </button>
@@ -199,10 +212,11 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
         </div>
 
         {hasThinkingDetails ? (
-          <details className={styles.thinkingPanel}>
-            <summary className={thinkingClassName} role="status" aria-live="polite">
+          <details className={styles.thinkingPanel} key={`${pathname}-${isRequestingPlanner}`}>
+            <summary className={thinkingClassName}>
               <span aria-hidden="true" />
               <strong>{thinkingSummary}</strong>
+              <ExpandMoreRoundedIcon aria-hidden="true" fontSize="small" />
             </summary>
             <ol className={styles.thinkingBody} aria-label="规划器思考步骤">
               {visibleThinkingSteps.map((step, index) => (
@@ -212,9 +226,17 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
           </details>
         ) : null}
 
-        <div className={styles.activity} ref={activityRef}>
+        <div
+          className={styles.activity}
+          ref={activityRef}
+          onScroll={(event) => {
+            const activity = event.currentTarget;
+            followLatest.current =
+              activity.scrollHeight - activity.clientHeight - activity.scrollTop < 24;
+          }}
+        >
           {recentTimeline.length > 0 ? (
-            <ol className={styles.timeline} aria-label="最近助手记录">
+            <ol className={styles.timeline} role="log" aria-label="最近助手记录" aria-live="polite">
               {recentTimeline.map((entry) => (
                 <li key={`${entry.at}-${entry.type}`} data-kind={entry.type}>
                   <span>{entryLabels[entry.type]}</span>
@@ -223,9 +245,6 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
               ))}
             </ol>
           ) : null}
-          <p className={styles.message} aria-live="polite">
-            {recentTimeline[recentTimeline.length - 1]?.text === message ? '' : message}
-          </p>
 
           {pendingConfirmation ? (
             <div
@@ -254,12 +273,24 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
           submit(input);
         }}
       >
-        <input
+        <textarea
+          ref={inputRef}
           value={input}
-          disabled={isPlanning}
-          maxLength={100}
+          rows={1}
+          maxLength={1000}
           placeholder="输入实验指令…"
           aria-label="助手指令"
+          title="Enter 发送，Shift+Enter 换行"
+          onCompositionEnd={() => {
+            lastCompositionEnd.current = performance.now();
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || event.shiftKey) return;
+            if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+            event.preventDefault();
+            if (performance.now() - lastCompositionEnd.current < 500) return;
+            submit(input);
+          }}
           onChange={(event) => setInput(event.currentTarget.value)}
         />
         <button type="submit" disabled={isPlanning || !input.trim()} aria-label="发送助手指令">
@@ -270,9 +301,7 @@ const ExperimentAgentPanelView = memo(function ExperimentAgentPanelView({
   );
 });
 
-type ContainerProps = {
-  navigateTo: (path: string) => void;
-};
+type ContainerProps = Pick<UseExperimentAgentOptions, 'navigateTo'>;
 
 export default function ExperimentAgentPanel({ navigateTo }: ContainerProps) {
   const location = useLocation();
@@ -299,36 +328,17 @@ export default function ExperimentAgentPanel({ navigateTo }: ContainerProps) {
     [submitPrompt],
   );
 
-  // useExperimentAgent mints a fresh timeline slice on every render without
-  // exposing `timeline` itself, so this memo keeps the previous slice while
-  // its entries are all reference-identical; otherwise every container
-  // render would mint a new prop and defeat the view memo.
-  const recentTimelineRef = useRef<readonly AgentTimelineEntry[]>([]);
-  const recentTimeline = useMemo(() => {
-    const previous = recentTimelineRef.current;
-    const next = agent.recentTimeline;
-
-    if (
-      previous.length === next.length &&
-      previous.every((entry, index) => entry === next[index])
-    ) {
-      return previous;
-    }
-
-    recentTimelineRef.current = next;
-    return next;
-  }, [agent.recentTimeline]);
-
   return (
     <ExperimentAgentPanelView
       isPlannerAvailable={agent.isPlannerAvailable}
       isPlanning={agent.isPlanning}
+      isRequestingPlanner={agent.isRequestingPlanner}
       thinkingDurationMs={agent.thinkingDurationMs}
       thinkingSteps={agent.thinkingSteps}
-      message={agent.message}
+      pathname={location.pathname}
       pendingConfirmation={agent.pendingConfirmation}
       quickPrompts={agent.quickPrompts}
-      recentTimeline={recentTimeline}
+      recentTimeline={agent.recentTimeline}
       onConfirm={handleConfirm}
       onReject={agent.rejectPendingAction}
       onSubmitPrompt={handleSubmitPrompt}

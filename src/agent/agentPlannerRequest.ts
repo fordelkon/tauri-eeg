@@ -9,6 +9,7 @@ import type { AgentPersonalizedAnswer, AgentTimelineEntry } from './agentContext
 import type { AgentPhase } from './agentFlow';
 import type { AgentPlannerResponse } from './agentPlannerApi';
 import { requestAgentPlanStream } from './agentPlannerApi';
+import { classifyStepRequest } from './agentIntent';
 
 /**
  * Planner recommendation request for the experiment agent, as a plain async
@@ -31,6 +32,7 @@ export type AgentPlannerRequestContext = {
   timelineRef: MutableRefObject<AgentTimelineEntry[]>;
   plannerActionMap: AgentPlannerActionMap;
   onThinkingDelta: (delta: string) => void;
+  onStreamSettled: () => void;
   flushThinking: () => void;
   queueOrExecute: (
     actionId: AgentActionId,
@@ -46,7 +48,7 @@ export type AgentPlannerRequestContext = {
 export async function requestAgentPlannerRecommendation(
   input: string,
   context: AgentPlannerRequestContext,
-): Promise<boolean> {
+): Promise<void> {
   const {
     pathname,
     personalizedAnswers,
@@ -66,6 +68,7 @@ export async function requestAgentPlannerRecommendation(
   abortRef.current?.abort();
   const abortController = new AbortController();
   abortRef.current = abortController;
+  let receivedPlan = false;
 
   try {
     const videos = getCurrentRegulationVideos().map((video) => ({
@@ -98,19 +101,20 @@ export async function requestAgentPlannerRecommendation(
         userInput: input,
       },
       { onThinkingDelta, signal: abortController.signal },
-    );
+    ).finally(context.onStreamSettled);
 
     if (abortController.signal.aborted) {
-      return true;
+      return;
     }
 
+    receivedPlan = true;
     flushThinking();
 
     if (response.status === 'unavailable') {
       setIsPlannerAvailable(false);
       setThinkingSteps(response.thinking ?? []);
-      setMessage('智能助手暂不可用，请使用页面手动操作。');
-      return false;
+      setMessage('推荐服务暂不可用。你仍可使用本地快捷指令，或在当前页面手动操作。');
+      return;
     }
 
     setIsPlannerAvailable(true);
@@ -121,14 +125,17 @@ export async function requestAgentPlannerRecommendation(
       response.action === 'no_op'
     ) {
       setMessage(response.reason);
-      pushTimeline('planner', response.reason);
-      return true;
+      return;
     }
 
     const actionId = plannerActionMap[response.action];
+    if (actionId === 'go_next_page' && classifyStepRequest(input) !== 'advance') {
+      setMessage('已停留在当前步骤。要继续，请选择对应的快捷指令。');
+      return;
+    }
     if (!actionId) {
       setMessage('智能助手返回了不可执行操作，已拒绝。');
-      return true;
+      return;
     }
 
     setMessage(response.reason);
@@ -145,17 +152,16 @@ export async function requestAgentPlannerRecommendation(
     }
     const plannerParams = normalizeAgentActionParams(response.params);
     await queueOrExecute(actionId, response.requiresConfirmation, plannerParams);
-    return true;
-  } catch {
+  } catch (error) {
     // Superseded by a newer request (abortRef moved on) or explicitly aborted:
     // both are intentional stops, not planner failures, so keep the assistant
     // marked available.
     if (abortController.signal.aborted || abortRef.current !== abortController) {
-      return true;
+      return;
     }
 
+    if (receivedPlan) throw error;
     setIsPlannerAvailable(false);
-    setMessage('智能助手暂不可用，已切换为本地指令识别。');
-    return false;
+    setMessage('无法连接推荐服务。你仍可使用本地快捷指令，或稍后重新发送。');
   }
 }
