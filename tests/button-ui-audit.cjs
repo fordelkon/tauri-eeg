@@ -6,7 +6,7 @@ const path = require('node:path');
 
 async function main() {
   const browser = await chromium.launch({ channel: 'msedge', headless: true });
-  const output = process.env.BUTTON_AUDIT_OUTPUT || 'docs/ui-buttons';
+  const output = process.env.BUTTON_AUDIT_OUTPUT || 'test-results/ui-buttons';
   fs.mkdirSync(output, { recursive: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.setDefaultTimeout(15000);

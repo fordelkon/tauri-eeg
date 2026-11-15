@@ -66,7 +66,12 @@ Desktop.ini
 
 # Claude Flow runtime data
 .claude-flow/
-.claude/
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/hooks/*
+!.claude/hooks/context.mjs
+!.claude/hooks/context.test.mjs
 .swarm/
 ruvector.db
 

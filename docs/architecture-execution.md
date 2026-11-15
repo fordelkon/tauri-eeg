@@ -1,54 +1,54 @@
-# Experiment execution ownership
+# 实验执行架构与职责分工
 
-The UI presents stimuli and forwards operator and media events. Execution modules own phase permissions, pending operations, marker completion, and interruption. The Rust experiment worker remains authoritative for run exclusivity, lifecycle markers, serial writes, and persisted events.
+界面负责呈现刺激，并转发操作者的操作和播放器事件。执行模块判断当前阶段允许哪些操作，跟踪进行中的操作和标记发送结果，并处理中断。Rust 实验工作线程负责确保同一时间只有一次实验运行（run），管理运行开始和结束等标记，执行串口写入并保存事件记录。
 
-## Effect evaluation
+## 效果评价
 
-`src/pages/home/effectEvaluationExecution.ts` owns the complete evaluation run. Its snapshot provides the current phase, errors, pending scale/start operations, and the elapsed-window fact.
+`src/pages/home/effectEvaluationExecution.ts` 管理一次效果评价的完整流程。其状态快照包含当前阶段、错误、尚未完成的量表或启动操作，以及设定的条件时长是否已到。
 
-The module keeps duplicate marker callers waiting on the same delivery result. It sends markers in order and captures the frontend timestamp when the callback arrives. Normal condition completion requires the configured duration to elapse on the monotonic clock. A confirmed early exit records the existing skip marker before moving to post measurement.
+同一标记被重复请求时，各调用方等待同一次发送的结果。模块按顺序发送标记，并在收到回调时记录前端时间戳。条件阶段只有在单调时钟测得的时长达到设定值后才能正常结束。若操作者确认提前结束，模块先记录既有的跳过标记，再进入后测。
 
-Playback callbacks bind to a reset generation. A late callback from a retired player cannot change the next run. Reloading an unfinished persisted run interrupts it without replaying its markers.
+每次重置都会更新运行代次，播放回调绑定到创建它时的代次。旧播放器迟到的回调无法改变下一次运行。重新加载已保存但尚未完成的运行时，模块将其标为中断，不会重发标记。
 
-`useEffectEvaluationFlow.ts` supplies storage, authentication, clock, IPC, scale, material, and report dependencies. It subscribes to execution state. `EffectEvaluation.tsx` keeps dialogs, focus, layout, and presentation.
+`useEffectEvaluationFlow.ts` 为执行模块提供存储、身份认证、时钟、进程间通信（IPC）、量表、素材和报告等依赖，并订阅其状态。`EffectEvaluation.tsx` 负责对话框、焦点、布局和页面呈现。
 
-## Paradigm trials
+## 逐试次范式
 
-`src/paradigm/paradigmExecution.ts` owns the phase reducer, current operation, block gates, skip and abort coordination, and whole-run completion. Media callbacks carry the phase and trial index from their rendered state. The module rejects callbacks that no longer match the active trial.
+`src/paradigm/paradigmExecution.ts` 管理阶段状态转换、当前操作、试次块的放行条件、跳过与中止操作的协调，以及整次运行的结束。媒体回调携带界面渲染时的阶段和试次序号；若与当前试次不符，模块会忽略该回调。
 
-`ParadigmExperiment` keeps trial snapshots, marker identities, persistence, and summaries. Stopping execution prevents subsequent markers and waits for the current mutation before saving an interrupted trial and closing the run.
+`ParadigmExperiment` 管理试次快照、标记标识、持久化和结果汇总。停止执行后，模块不再发送后续标记。它会等待当前状态变更完成，再保存中断的试次并关闭本次运行。
 
-`useIndependentParadigmRun.ts` subscribes to the execution snapshot and forwards UI facts. `ParadigmRunner.tsx` retains fullscreen handling, early-exit confirmation, global activity publication, and presentation. Returning to setup uses `exitSession()`; callers cannot dispatch arbitrary reducer actions.
+`useIndependentParadigmRun.ts` 订阅执行状态快照，转发界面上实际发生的事件。`ParadigmRunner.tsx` 负责全屏切换、提前退出确认、发布全局活动状态以及页面呈现。返回设置页须调用 `exitSession()`；调用方不能任意向状态机派发动作。
 
-## Material loading
+## 素材加载
 
-`src/paradigm/materialLibraryLoader.ts` owns one caller's directory-loading lifecycle. Its state is idle, loading, ready, invalid, or failed. Each request has a generation. Late results from a superseded or cancelled request cannot replace the current directory state.
+`src/paradigm/materialLibraryLoader.ts` 管理单个调用方的目录加载过程。加载状态分为空闲、加载中、就绪、无效和失败。每个请求都有代次，已被取代或取消的请求即使稍后返回，也不能覆盖当前目录状态。
 
-`useMaterialLibrary.ts` connects the loader to React. The induction pool, Calm regulation pool, and paradigm setup use the same lifecycle implementation. Emotion selection and deterministic queue preview remain with their callers. There is no shared cache or additional production scanner adapter.
+`useMaterialLibrary.ts` 将加载器接入 React。诱发素材池、平静调控素材池和范式设置页共用这套加载逻辑。情绪选择和确定性的试次队列预览仍由各调用方负责。各调用方之间没有共享缓存，生产环境也没有额外的扫描器适配层。
 
-## Effect reports
+## 效果报告
 
-`src/pages/home/effectResultReports.ts` owns summary and condition-comparison requests for one frozen measurement context. Each report has an idle, loading, ready, or failed state. Reset, disposal, and retries invalidate earlier requests, so late successes and failures cannot replace current results or end a newer request's loading state.
+`src/pages/home/effectResultReports.ts` 为一组固定的测量信息管理两类请求：单次效果汇总和跨条件对比。每份报告独立维护空闲、加载中、就绪或失败状态。重置、释放或重试都会使先前的请求失效。迟到的成功或失败结果既不能覆盖当前结果，也不能提前结束新请求的加载状态。
 
-`useEffectResultReports.ts` subscribes to the report module and maps its states to presentation values. It creates a new report context when the run, user, subject, emotion, or measurement IDs change, and starts loading only on the result step. Leaving that step disposes the context. Setup after cleanup starts fresh requests, including React's development lifecycle check.
+`useEffectResultReports.ts` 订阅报告模块，将状态映射为界面显示值。运行、用户、被试、情绪或测量记录的标识发生变化时，它会创建新的报告上下文。只有进入结果步骤才开始加载，离开时即释放上下文。清理后再次初始化会发起全新的请求，React 开发模式的生命周期检查也是如此。
 
-## Experiment records
+## 实验记录
 
-`src-tauri/src/experiment/records.rs` owns trial, scale, and BDF record validation and persistence, plus run lists and details. Trial IDs belong to one run. Scale links must match the run's frozen subject, operator, emotion, condition, and measurement phase; identical links are idempotent. Closed runs reject trial and scale writes. BDF association requires the run to have stopped.
+`src-tauri/src/experiment/records.rs` 校验并保存试次、量表和 BDF 关联记录，也提供运行列表和详情。每个试次 ID 只属于一次运行。关联量表时，被试、操作者、情绪、条件和测量阶段必须与本次运行锁定的信息一致；重复提交相同关联不会产生额外记录。运行关闭后拒绝写入试次和量表。BDF 只能在运行停止后关联。
 
-The Tauri adapter forwards record operations through the existing worker queue. The worker's database is private. Reads and export manifests use the same queue; file export happens after the manifest returns. Tests cross the same worker record interface with a real in-memory SQLite database.
+Tauri 适配层通过既有的工作线程队列转发记录操作。数据库由工作线程独占，读取记录和获取导出清单也经过同一队列；清单返回后才导出文件。测试通过同一个工作线程记录接口访问真实的内存 SQLite 数据库。
 
-## Verification
+## 验证
 
-Behavior tests cross the execution and loading interfaces with simulated external dependencies.
+行为测试从执行和加载模块的接口发起，外部依赖使用模拟实现。
 
-- `tests/effect/effectEvaluationExecution.test.ts` covers normal marker order, pending duplicate callbacks, duration permission, scale writes, interruption, recovery, and retired playback callbacks.
-- `tests/paradigm/paradigmExecution.test.ts` covers trial order and identities, SAM quality, blocks, stale callbacks, competing end/skip operations, pending-operation aborts, and completion failures.
-- `tests/paradigm/materialLibraryLoader.test.ts` covers directory replacement, stale results, invalid scans, failures, cancellation, and retained completed material.
-- `tests/effect/effectResultReports.test.ts` covers missing measurements, reset, out-of-order retries, independent report failures, disposal, and setup after cleanup.
-- `src-tauri/src/experiment/records_tests.rs` covers trial ownership, closed-run rejection, scale metadata and idempotence, BDF association, and record read contracts.
-- `tests/biosemi-ui-smoke.cjs` checks experiment preparation at small and wide sizes, mode prerequisites, destination selection, effect setup, the empty-pool gate, and reset in the actual browser UI.
+- `tests/effect/effectEvaluationExecution.test.ts`：检查正常标记顺序、发送尚未完成时的重复回调、条件时长达到后才允许结束、量表写入、中断与恢复，以及旧播放器回调。
+- `tests/paradigm/paradigmExecution.test.ts`：检查试次顺序和标识、SAM 质量、试次块、过期回调、结束与跳过操作的竞争、操作尚未完成时的中止，以及结束失败。
+- `tests/paradigm/materialLibraryLoader.test.ts`：检查目录替换、过期结果、无效扫描、加载失败、请求取消，以及已加载素材的保留。
+- `tests/effect/effectResultReports.test.ts`：检查测量记录缺失、重置、重试结果乱序返回、报告独立失败、上下文释放，以及清理后重新初始化。
+- `src-tauri/src/experiment/records_tests.rs`：检查试次归属、关闭运行后拒绝写入、量表元数据和关联幂等性、BDF 关联，以及记录读取接口的约定。
+- `tests/biosemi-ui-smoke.cjs`：在实际浏览器界面中检查窄屏和宽屏下的实验准备、运行模式的前置条件、保存位置选择、效果评价设置、素材池为空时阻止继续，以及重置流程。
 
-Run the test suite with `npm test` and the production build with `npm run build`. The browser smoke script requires Playwright and a running preview. Set `BIOSEMI_SMOKE_URL` to the preview origin, then run `node tests/biosemi-ui-smoke.cjs`.
+运行测试套件使用 `npm test`，生产构建使用 `npm run build`。浏览器冒烟检查需要 Playwright 和已启动的预览服务。将 `BIOSEMI_SMOKE_URL` 设为预览服务地址，再运行 `node tests/biosemi-ui-smoke.cjs`。
 
-On 2026-10-09, all 65 frontend test files and 455 tests passed, along with 118 Rust library tests, the production build, and the browser smoke checks. Browser checks simulate IPC and never send hardware pulses. These checks do not verify physical stimulus timing or trigger receipt in BDF files.
+**历史验证记录（2026-10-09）**：65 个前端测试文件中的 455 项测试、118 项 Rust 库测试、生产构建及浏览器冒烟检查均通过。浏览器检查模拟 IPC，从不发送硬件脉冲。这些检查无法验证刺激实际呈现的时序，也无法证明触发标记已写入 BDF 文件。

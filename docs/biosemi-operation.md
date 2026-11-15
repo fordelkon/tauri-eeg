@@ -106,6 +106,40 @@
 
 如果没有正常停止 ActiView，文件头记录数可能仍为 `-1`。先让 ActiView 完成文件收尾，再回读核对。
 
+### 用 MNE 读取 BDF 并核对事件
+
+ActiveTwo 的 `Status` 轨道为 24 位复合通道。在 MNE-Python 中提取低 8 位 Trigger 时，使用 `mask=0x0000FF` 屏蔽高位状态字。时间换算读取文件中的实际采样率，不固定假设为 1024 Hz 或 2048 Hz。
+
+在已安装 MNE 的 Python 环境中运行，将文件名换为实际 BDF 路径：
+
+```python
+import mne
+
+# 1. 加载原始 BDF 文件
+raw = mne.io.read_raw_bdf("recording.bdf", preload=True)
+
+# 2. 仅提取 Status 低 8 位事件
+events = mne.find_events(
+    raw,
+    stim_channel="Status",
+    mask=0x0000FF,  # 十进制 255
+    mask_type="and",
+    shortest_event=1,  # 按 1 个样本检查最短事件长度
+    consecutive=False,
+)
+
+# 3. 输出码值与相对 BDF 起点的时间，核对次数、顺序和阶段时长
+sfreq = raw.info["sfreq"]
+print(f"采样率: {sfreq:g} Hz，事件数: {len(events)}")
+for sample, _, code in events:
+    seconds = (sample - raw.first_samp) / sfreq
+    print(f"{seconds:.3f} s\tcode={code}")
+
+raw.close()
+```
+
+MNE 内部 EEG 数据以 V 表示。检查幅值时，可用 `raw.get_data(picks=["A1", "A2"], units="uV")` 明确转换成 µV，在关闭 `raw` 前执行。幅值检查与 Trigger 码值提取是两项独立检查。
+
 ## 1. 连接设备
 
 1. 将配套电池连接到 ActiveTwo 采集盒。

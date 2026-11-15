@@ -7,7 +7,7 @@
 
 ```
 配置(被试/情绪/手段/条件/时长) → 情绪诱发(视频) → 诱发后量表[baseline]
-→ 条件执行(自然恢复 | 调控[音乐/视频]) → 条件后量表[post] → 结果评价(改善率)
+→ 条件执行(自然恢复 | 调控[音乐/视频]) → 条件后量表[post] → 结果评价(简版分差 / 完整版改善率)
 ```
 
 该"诱发 → 前测 → 干预/调控 → 后测 → 量化改善"的骨架与两条文献路线同构：
@@ -30,18 +30,18 @@
 | 参数 | 值 | 依据 |
 |---|---|---|
 | 量表时点 | 诱发后（phase=baseline）、条件后（phase=post）两次 | [文献] 前测-后测设计是情绪干预效果评估的标准范式（Li J. 2025 同款时序）；baseline 语义 = "诱发后、条件前"，即干预的起点状态 |
-| 量表内容 | 前后测：**STAI-S + state-PANAS**（"此刻"指令）；筛查：**PHQ-4**（"过去两周"，仅基线一次）；操纵检验：SAM；音乐条件后：GEMS-9。详见 **docs/scale-instruments.md** | [文献] state/trait 区分与前测-后测惯例：Spielberger (1983)；Li X. et al. 2024（PHQ-9/GAD-7 rated once，前后测用 state-PANAS）；Li J. 2025（STAI + SAM 效价）。旧自编 3 题"最近一周"量表已废弃（trait 窗口误用于分钟级前后测） |
-| 改善率口径 | `(baseline − post) / baseline`，逐维度 + 均值 | [适配] 降分=改善的相对变化率；与跨条件对比口径 `(B_post − T_post)/B_post` 一致（scale_records.rs 实现） |
-| 有效阈值 | 均值改善 ≥ 10% 判定有效 | [大纲] 项目自定义阈值（scale_records.rs `DEFAULT_IMPROVEMENT_THRESHOLD`）。**无直接文献依据**，属预注册前需明确的工程判定线 |
+| [简版（默认）](momentary-assessment.md) | 前后各评效价、唤醒、支配三项（1–9 分）。同版本 `momentary_vad_3_v1` 逐项报告 `post − baseline` 原始分差 | 唤醒度没有统一的改善方向。简版不计算百分比、阈值或跨条件改善率。 |
+| [完整量表](scale-instruments.md) | 研究者可在开始前选用 STAI-S + state-PANAS（“此刻”）；前测加 SAM，音乐调控后测加 GEMS-9。PHQ-4 如需筛查，按“过去两周”单独施测一次 | [文献] state/trait 区分与前测-后测惯例：Spielberger (1983)；Li X. et al. 2024（PHQ-9/GAD-7 rated once，前后测用 state-PANAS）；Li J. 2025（STAI + SAM 效价）。旧自编 3 题"最近一周"量表已废弃（trait 窗口误用于分钟级前后测） |
+| 完整版单次改善率 | 按可比较维度计算 `(baseline − post) / baseline` 后取均值，基线为 0 的维度跳过 | [大纲] 均值 ≥ 10% 为项目工程判定线，**无直接文献依据**，应在预注册中明确。 |
 
 ### 2.3 条件执行（调控/自然恢复）
 
 | 参数 | 值 | 依据 |
 |---|---|---|
 | 条件类型 | natural_recovery（基线对照）/ regulation（音乐或视频调控） | [文献] 自然恢复作为对照条件：情绪的时间衰减基线（Delgado et al. 2008 一类 reactivity/recovery 研究）；音乐/视频作为调控手段：Li J. 2025（音乐, STAI d=1.05）；Ehrlich et al. (2019). A closed-loop, music-based BCI for emotion mediation. *PLOS ONE* 14(2):e0213516 |
-| 调控时长 | 1–30 min 可配，默认 5 min | [工程] 无单一文献标准。参考：单次音乐治疗干预通常 20–60 min（Gold et al. 2009 综述），实验内单条件窗常用 3–10 min；默认值取实验室可行性，**正式实验前应在预注册中固定** |
+| 调控时长 | 可选 1、3、5、10、15 或 30 min；自然恢复默认 1 min，调控默认 5 min | [工程] 无单一文献标准。参考：单次音乐治疗干预通常 20–60 min（Gold et al. 2009 综述），实验内单条件窗常用 3–10 min；默认值取实验室可行性，**正式实验前应在预注册中固定** |
 | 调控素材 | 音乐：Stable Audio 预生成曲目；视频：调控素材库 | [文献] 音乐参数-情绪映射（tempo/响度→arousal，调式/音区→valence）：Gomez & Danuser (2007). *Biological Psychology*, 75(3):323–334；iso principle（先匹配后引导）：Heiderscheit & Madson (2015) 综述 |
-| 跨条件对比 | 同被试同情绪、每条件最近一次完整 run，`(B_post − T_post)/B_post` | [适配] 被试内条件对比（Li J. 2025 随机交叉设计同思路） |
+| 完整版跨条件对比 | 同被试同情绪、每条件最近一次符合条件的完整 run，`(B_post − T_post)/B_post`；B、T 分别为自然恢复与调控条件 | [适配] 被试内条件对比（Li J. 2025 随机交叉设计同思路） |
 
 ### 2.4 旧闭环调控反馈设计，已退出当前实现
 
@@ -65,5 +65,5 @@
 ## 4. 已知局限（写论文前需处理）
 
 1. 自编 3 题量表缺信效度证据 → 建议并行采集 PANAS/STAI。
-2. 10% 改善率阈值与 5 min 默认调控窗为工程设定 → 预注册时固定。
+2. 完整版的 10% 改善率阈值与各条件的默认时长均为工程设定，预注册时固定。
 3. 调控反馈的模拟反馈数据不可用于科学结论，仅用于流程验证。

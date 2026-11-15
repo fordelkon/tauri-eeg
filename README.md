@@ -77,11 +77,13 @@ flowchart LR
 
 ## 🚀 快速开始
 
+贡献代码可查阅[贡献指南](docs/contributing.md)。核对排练、正式实验或 BDF 结果时，见[实验验收](docs/verification.md)。
+
 ### 依赖环境
 
 | 组件 | 推荐版本 | 说明 |
 |---|---|---|
-| **Node.js** | $\ge 20.x$ | 前端运行时环境 |
+| **Node.js** | 推荐 24.x | 包含 lint 在内的工具链支持 20.19+（20.x）、22.13+（22.x）或 24 及以上。 |
 | **pnpm** | $\ge 9.x$ | **必需**，统一的包管理器 |
 | **Rust & Cargo** | $\ge 1.80$ (MSVC) | 桌面后端与串口通信编译 |
 | **Visual Studio C++ Build Tools** | 2022 | 勾选“使用 C++ 的桌面开发” |
@@ -91,7 +93,7 @@ flowchart LR
 
 ```powershell
 # 1. 克隆代码仓库并进入根目录
-git clone https://github.com/your-org/tauri-eeg.git
+git clone https://github.com/fordelkon/tauri-eeg.git
 cd tauri-eeg
 
 # 2. 安装前端依赖（统一使用 pnpm）
@@ -166,37 +168,7 @@ BDF 事件时间只表示硬件标记在采样时间轴上的位置。屏幕亮�
 
 ### 用 MNE 读取 BDF 并核对事件
 
-ActiveTwo 的 `Status` 轨道为 24 位复合通道。在 MNE-Python 中提取低 8 位 Trigger 时，使用 `mask=0x0000FF` 屏蔽高位状态字。时间换算读取文件中的实际采样率，不固定假设为 1024 Hz 或 2048 Hz。
-
-在已安装 MNE 的 Python 环境中运行，将文件名换为实际 BDF 路径：
-
-```python
-import mne
-
-# 1. 加载原始 BDF 文件
-raw = mne.io.read_raw_bdf("recording.bdf", preload=True)
-
-# 2. 仅提取 Status 低 8 位事件
-events = mne.find_events(
-    raw,
-    stim_channel="Status",
-    mask=0x0000FF,  # 十进制 255
-    mask_type="and",
-    shortest_event=1,  # 按 1 个样本检查最短事件长度
-    consecutive=False,
-)
-
-# 3. 输出码值与相对 BDF 起点的时间，核对次数、顺序和阶段时长
-sfreq = raw.info["sfreq"]
-print(f"采样率: {sfreq:g} Hz，事件数: {len(events)}")
-for sample, _, code in events:
-    seconds = (sample - raw.first_samp) / sfreq
-    print(f"{seconds:.3f} s\tcode={code}")
-
-raw.close()
-```
-
-MNE 内部 EEG 数据以 V 表示。检查幅值时，可用 `raw.get_data(picks=["A1", "A2"], units="uV")` 明确转换成 µV，在关闭 `raw` 前执行。幅值检查与 Trigger 码值提取是两项独立检查。
+见操作规程中的 [MNE 读取与事件核对示例](docs/biosemi-operation.md#用-mne-读取-bdf-并核对事件)。
 
 ### 按实验条件核对事件序列
 
@@ -221,8 +193,8 @@ tauri-eeg/
 ├── src/                        # 前端应用源码 (React + TypeScript)
 │   ├── components/             # 通用 UI 组件 (向导、量表、视频播放器)
 │   ├── pages/                  # 业务页面 (实验设置、流程执行、记录管理)
-│   ├── services/               # 前端服务层 (IPC 桥接、量表计算、状态管理)
-│   └── types/                  # 全局 TypeScript 类型定义
+│   ├── experiment/             # 实验准备、IPC 与记录
+│   └── paradigm/               # 逐试次范式与执行状态
 ├── src-tauri/                  # 桌面后端源码 (Rust)
 │   ├── src/                    # 串口控制、SQLite 数据库驱动、IPC 命令处理
 │   ├── Cargo.toml              # Rust 依赖声明
@@ -236,8 +208,6 @@ tauri-eeg/
 ---
 
 ## 📚 文档导航
-
-深入了解系统设计与实验执行细节，请参阅 `docs/` 目录：
 
 - 📖 [实验标准操作规程 (SOP)](docs/biosemi-operation.md) — 5 步向导使用、电极偏置检查与实验全流程说明。
 - ⚡ [硬件打标与串口实现规范](docs/biosemi-trigger-implementation.md) — FTDI 驱动配置、时钟锁存机制与异常恢复。

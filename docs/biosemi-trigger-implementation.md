@@ -1,8 +1,8 @@
 # BioSemi trigger 与离线 BDF 改造实现规格
 
-日期：2026-10-08。状态：软件实现已完成，硬件与 BDF 入标验证尚未完成。
+原始记录：「日期：2026-10-08。状态：软件实现已完成，硬件与 BDF 入标验证尚未完成。」后续自然恢复 run 已有[实测 BDF 样例](formal-session-protocol.md#42-触发码时间线)；其他条件与物理刺激时序需分别取证。
 
-本文根据当前代码、现有范式协议和用户确认的设备整理。用于后续实施与验收。现状、确定需求和建议方案分别标注，建议方案不代表用户已经确认。
+以下区分已确认的设备边界、当时的方案与现行实现。建议方案不代表用户已经确认。第 9 节列出软件检查与需要实际采集的证据。
 
 ## 1. 目标与边界
 
@@ -16,7 +16,7 @@
 
 本文不要求本应用读取实时 BioSemi 数据、生成 BDF、远程控制 ActiView，或实现在线脑电解码。软件实现后的操作步骤见 [BioSemi 实验操作说明](biosemi-operation.md)。
 
-尚未确认的设计选择：
+2026-10-08 方案比较（原提议及适用条件）：
 
 | 项目 | 本文建议 | 实施时处理 |
 |---|---|---|
@@ -44,18 +44,18 @@
 
 ### 2.1 效果评价流程
 
-代码入口为 [EffectEvaluation.tsx](../src/pages/home/EffectEvaluation.tsx)，流程控制为 [useEffectEvaluationFlow.ts](../src/pages/home/useEffectEvaluationFlow.ts)，状态与参数为 [effectEvaluationFlow.ts](../src/pages/home/effectEvaluationFlow.ts)。
+代码入口为 [EffectEvaluation.tsx](../src/pages/home/EffectEvaluation.tsx)，流程控制为 [useEffectEvaluationFlow.ts](../src/pages/home/useEffectEvaluationFlow.ts)，状态与参数为 [effectEvaluationFlow](../src/pages/home/effectEvaluationFlow/index.ts)。
 
 | 步骤 | 当前行为 | 改造时保留的内容 |
 |---|---|---|
 | 选择被试 | 配置被试、目标情绪、条件、调控手段和时长 | 被试与实验参数 |
 | 情绪诱发 | 按焦虑、抑郁或恐惧选择诱发视频 | 素材与呈现流程 |
-| 诱发后量表 | SAM 与 STAI-S、state-PANAS | 题目、评分和原始答案 |
+| 诱发后量表 | 默认三项此刻感受；完整版含 SAM、STAI-S、state-PANAS | 题目、评分和原始答案 |
 | 条件执行 | 自然恢复，或音乐调控，或视频调控 | 条件类型与时长 |
-| 条件后量表 | STAI-S、state-PANAS；音乐调控额外 GEMS-9 | 前后测记录 |
-| 结果评价 | 计算改善率并查看历史和跨条件比较 | 结果与导出能力 |
+| 条件后量表 | 与前测同版；完整版音乐调控附 GEMS-9 | 前后测记录 |
+| 结果评价 | 简版报告各维度原始分差；完整版支持改善率和跨条件比较 | 结果与导出能力 |
 
-默认调控时长为 5 分钟，可配置为 1–30 分钟。一个流程只执行一个条件。当前跨条件比较使用同被试同情绪的完整记录，不能将一次流程理解为已执行两个条件。
+自然恢复默认 1 分钟，音乐和视频调控默认 5 分钟，可选时长为 1、3、5、10、15、30 分钟。一个 run 只执行一个条件。简版与完整版的记录、配对和判定范围见[正式实验流程](formal-session-protocol.md)。
 
 `baseline` 在该流程中表示“诱发后、干预前的量表”，不是逐试次范式中的静息脑电基线。报告与事件日志必须保留这个语义区别。
 
@@ -63,13 +63,11 @@
 
 ### 2.2 视频与音乐的实际播放方式
 
-- [EffectFullscreenInduction.tsx](../src/pages/home/EffectFullscreenInduction.tsx) 负责诱发视频，有结束与错误处理，目前没有向流程报告首次实际播放的事件。
-- [EffectFullscreenVideoRegulation.tsx](../src/pages/home/EffectFullscreenVideoRegulation.tsx) 从准备按钮启动流程计时，再挂载并播放视频；视频循环播放。
-- [EffectRegulationPlayer.tsx](../src/pages/home/EffectRegulationPlayer.tsx) 的音乐分支加载音乐历史，再由操作者选曲并播放。
-- [EffectStepPanels.tsx](../src/pages/home/EffectStepPanels.tsx) 当前先启动音乐调控计时，再显示音乐播放器。历史加载和选曲等待会占用调控窗口。
-- 独立 [MusicRegulation.tsx](../src/pages/home/MusicRegulation.tsx) 与 [VideoRegulationPlayerModal.tsx](../src/pages/home/VideoRegulationPlayerModal.tsx) 也有播放器。普通素材试听不应自动产生正式实验 trigger。
+改造前，准备按钮可早于实际播放启动计时，历史查询和选曲可能占用调控窗口。现在由[步骤面板](../src/pages/home/EffectStepPanels.tsx)把呈现回调交给活动 run：
 
-所以，不能只在现有“开始”按钮旁加入串口发送。必须统一“素材就绪、实际播放、阶段计时、事件记录”的顺序。
+- 诱发与调控视频在首个呈现帧打标；无法观察首帧时使用标明来源的 `playing` 后备。视频循环不重复打标。
+- 音乐从[播放器](../src/pages/home/EffectRegulationPlayer.tsx)首次有效播放起打标、计时，预载、查历史和选曲不计入调控窗口。
+- 普通素材试听不应自动产生正式实验 trigger。软件时点与设备物理呈现的验收区别见第 7、9 节。
 
 ### 2.3 逐试次范式
 
@@ -128,27 +126,15 @@ Trigger 设置显示 COM 端口、刷新、连接、断开、测试与最近发�
 
 正式实验与排练分开。正式模式要求触发盒连接、素材就绪和外部保存确认。排练不发硬件 trigger，记录 `rehearsal`，不能在运行中静默降级。
 
-以下文件位置为拟新增位置，实施时可按模块大小拆分，单文件保持在 500 行以内：
+实验接口与设置在 `src/experiment/`，队列、呈现、SAM 与质量标注在 `src/paradigm/`，素材工具在 `src/video/`。串口输出由 [Rust 实验 worker](../src-tauri/src/experiment/worker.rs) 持有，记录与导出在同一实验模块内。
 
-| 位置 | 职责 |
-|---|---|
-| `src/experiment/` | 实验类型、事件定义、前端接口和设置组件 |
-| `src/paradigm/` | 当前实验队列、呈现、SAM 与质量标注 |
-| `src-tauri/src/trigger/` | 串口配置、连接状态、唯一发送线程、错误处理 |
-| `src-tauri/src/experiment/` | 实验、试次、事件持久化及导出 |
-| `src/video/` | 素材扫描、校验和库配置；复用现有视频工具 |
-
-先迁移 `useEffectInductionPool`、`useEffectRegulationPool` 依赖的库读取、类型和配置存储。更新 `EffectStepPanels` 中跳转 `/eeg-acquisition` 的入口。
-
-移除波形、环形缓冲、旧 TCP 与 UDP 接收、内部原始 EEG 写入，以及代理启动和停止旧采集的动作。素材管理、试次队列、量表和历史读取不随采集代码一并删除。
-
-原 `eeg-service/` 已删除。`music-service/` 仍用于音乐生成。
+原 `/eeg-acquisition` 路由、内部 EEG 写入、旧 TCP/UDP 接收、原 `eeg-service/` 及其代理动作已移除。素材管理、量表、试次和音乐生成仍通过各自模块使用。
 
 ## 5. Trigger 输出契约
 
 官方接口使用 115200 波特率、8 数据位、1 停止位、无校验、无流控，接收一个二进制字节并默认维持 8 ms 后归零。接口输出 8 位事件值。详见文末官方资料。
 
-拟采用 Rust `serialport` 库，由专用线程保持 COM 连接。该库支持 Windows、端口枚举及阻塞读写。串口线程不在 UI 或呈现回调中等待。
+Rust worker 使用 `serialport` 库，由专用线程保持 Windows COM 连接并执行阻塞读写。串口线程不在 UI 或呈现回调中等待。
 
 接口职责为：列出端口、连接、查询状态、测试、断开、接收实验事件。生产入口根据已注册事件推导事件码，不接受任意网页传来的原始命令字节。正式实验中禁止测试和修改串口配置。
 
@@ -190,12 +176,12 @@ Trigger 设置显示 COM 端口、刷新、连接、断开、测试与最近发�
 | 90 | playback_error | 播放故障且串口仍可用 |
 | 91 | run_abort | 操作者中止且串口仍可用 |
 | 92 | trial_skip | 试次被跳过且串口仍可用 |
-| 93、94 | trial_start、trial_end | 独立试次整体边界 |
-| 254 | trigger_test | 实验前的连接测试 |
+| 93、94 | trial_start、trial_end | 独立试次刺激阶段边界；94 在本试次 SAM 开始（74）之前 |
+| 254 | trigger_test | 运行前单独手动发送，不能替代正式流程验证 |
 
 量表标记可在最终实验计划中选择只写软件日志。事件码不承载被试、素材或试次编号；这些字段写入日志。该关联依赖事件次序及完整性，丢标或多标时必须报告匹配不确定，不能继续按次序强行配对。
 
-23–25 只预留，首期关闭模拟反馈正式入口，不发送这些码。普通试听、播放器循环以及 React 重渲染不重复发送阶段开始码。若将来需要逐循环分析，新增独立事件与编码版本，不复用开始码。
+逐试次由试前静息转入提示时发送 23；24、25 仅预留，当前正式流程不发送。模拟反馈正式入口已关闭。普通试听、播放器循环以及 React 重渲染不重复发送阶段开始码。若将来需要逐循环分析，新增独立事件与编码版本，不复用开始码。
 
 ## 7. 播放、计时与去重规则
 
@@ -251,52 +237,27 @@ Trigger 设置显示 COM 端口、刷新、连接、断开、测试与最近发�
 
 只依据软件日志可判断播放、计时和发送完整性。没有检查 BDF 时不能声称脑电完整或无伪迹。
 
-## 9. 实施顺序与完成条件
+## 9. 软件回归与硬件验收
 
-### 9.1 迁移素材与范式
+| 软件行为 | 验收依据 |
+|---|---|
+| 素材与独立范式可在排练运行，保留原素材路径、队列与呈现时序 | [素材库加载](../tests/paradigm/materialLibraryLoader.test.ts)、[范式状态机](../tests/paradigm/paradigmExecution.test.ts)；正式运行与素材管理无需启动旧 EEG 服务。 |
+| 串口故障与重复事件可观察；正式 run 中禁止发送测试码 | [实验 worker 测试](../src-tauri/src/experiment/tests.rs)断言实际写出的字节和错误状态。端口被占用、物理拔出与 BDF 入标还须设备验证。 |
+| 音乐等待不计时；开始码只发一次，到时结束；中断、重挂载不补发 | [效果评价执行测试](../tests/effect/effectEvaluationExecution.test.ts)；实际声画与脉冲的延迟需现场测量。 |
+| 同一 run 的前后测、试次与日志可追溯；缺失 BDF 有明确状态 | [记录与导出测试](../src-tauri/src/experiment/records_tests.rs)、[效果报告测试](../tests/effect/effectResultReports.test.ts)。增量数据库迁移必须可重复，不改写已有记录含义。 |
 
-迁出素材扫描、库配置、类型、队列、呈现和 SAM。更新所有旧采集页跳转。将 `beginEegTrial`、`markEegTrial`、`endEegTrial` 替换为独立实验生命周期。
-
-完成条件：不启动旧 EEG 服务也能在排练中完成效果评价，以及个人校准与独立诱发；旧素材路径可读取，所有旧排程与时序仍一致。
-
-### 9.2 实现独立串口输出
-
-添加 Rust 串口依赖、发送线程和边界校验。完成 COM 设置与测试页，创建事件清单与发送结果持久化。
-
-完成条件：端口被占用、拔出、重复事件和队列故障均可观察；测试发送实际写入单个字节；正式模式不接受任意测试码。
-
-### 9.3 接入播放与计时
-
-修改诱发播放器、全屏视频调控和音乐播放器，增加准备态和首次播放事件。统一由活动 run 的事件入口处理，普通素材试听不发实验码。
-
-完成条件：音乐等待不计时；视频与音乐各只发一次阶段开始码；到时停止；暂停、循环、失败和重挂载不重复开始。
-
-### 9.4 关联量表与外部文件
-
-新增实验记录表与量表 run 关联。更新结果、历史、报告和导出。实施可重复的增量数据库迁移，不改写已有记录含义。
-
-完成条件：当前 run 可读取、导出完整事件与量表清单，BDF 缺失或尚未关联明确可见。
-
-### 9.5 删除旧采集依赖
-
-移除实时采集页面、旧设备通信、波形渲染、内部录制入口、旧实验服务和相应代理动作。清理注册命令、启动脚本、依赖与无效测试。
-
-完成条件：正式实验与素材管理不依赖旧采集上下文；没有遗留入口引导到已删除页面；音乐生成服务和既有量表计算仍可用。
-
-### 9.6 验证与硬件验收
-
-运行项目构建与现有测试。新增行为测试覆盖事件码、重复回调、错误发送、音乐准备、正常结束与异常中止、旧数据库迁移和报告配对。Rust 发送逻辑测试使用可注入字节写入器，不能仅断言“调用过发送函数”。
+原 `beginEegTrial`、`markEegTrial`、`endEegTrial` 已由独立生命周期替代。移除旧采集依赖的边界是正式实验与素材管理可独立运行，音乐生成和既有量表计算保持可用。
 
 硬件验收由实际设备完成：
 
-1. 在 ActiView 开始保存短 BDF，发送 1、2、4、8、16、32、64、128 的测试字节。
+1. 在 ActiView 开始保存短 BDF。应用内的连接测试只发送 254；逐位测试 1、2、4、8、16、32、64、128 需另用专用测试工具，不能在正式 run 中发送任意字节。
 2. 检查 BDF Status 的低 8 位事件值和归零间隔。高位含其他触发及状态信息，不将整个 Status 值当作本项目事件码。
 3. 在短测试序列中覆盖全部正式事件码，核对码值、数量、次序和日志，排除丢标、多标与相邻脉冲合并。
 4. 完成一次视频调控和一次音乐调控；若保留自然恢复比较，再完成一次自然恢复。确认 BDF 切段与事件清单对应。
 5. 测试拔掉触发盒、播放失败、提前结束和重启，确认异常结果不显示为正常完成，不重放旧 trigger。
 6. 保存实际延迟测量、设备与音频配置、脉冲设置和验收结果。
 
-软件测试不能代替硬件验收。本应用没有 BDF 回读能力时，用离线工具检查文件并保留核对记录。
+软件测试不能代替硬件验收。应用核验 BDF 文件结构；Status 值、次序和脉冲归零须离线回读，保留本次核对记录。
 
 ERP 使用前，以光电或音频检测测量刺激实际呈现与 trigger 的偏差及抖动，按最终科研方案定义可接受阈值。仅靠 `playing` 回调或串口写入成功不足以通过 ERP 验收。
 
@@ -308,4 +269,4 @@ ERP 使用前，以光电或音频检测测量刺激实际呈现与 trigger 的�
 - [BioSemi trigger 与 Status 官方说明](https://www.biosemi.com/faq/trigger_signals.htm)：Status 记录与物理刺激时序验证。
 - [serialport-rs 官方仓库](https://github.com/serialport/serialport-rs)：Windows 串口与阻塞读写。已通过 Context7 核对配置；实施时固定实际采用版本。
 
-当前 BioSemi 具体型号、实际采样率和 COM 编号尚未给出。不要继承旧后端的 32 通道与 1000 Hz 为 BioSemi 参数；这些信息由真实 BDF 和采集配置提供。
+本机实测的型号、采样率与 COM 端口见[设备操作记录](biosemi-operation.md)。下一次采集以本次 BDF 和实际连接为准，不套用历史实测值或旧后端的 32 通道、1000 Hz。
