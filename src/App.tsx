@@ -4,8 +4,6 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import ProtectedRoute from './auth/ProtectedRoute';
 import styles from './App.module.css';
 
-const ScaleGateRoute = lazy(() => import('./mentalScale/ScaleGateRoute'));
-
 const Login = lazy(() => import('./pages/Login'));
 const Home = lazy(() => import('./pages/Home'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -58,16 +56,10 @@ function AppRoutes() {
           >
             <Route path="/home" element={<HomeOverview />} />
             <Route path="/experiment-settings" element={<ExperimentSettings />} />
-            {/* The evaluation flow orchestrates its own scale phases, so it
-                sits outside the standalone regulation-page gate. */}
             <Route path="/effect-evaluation" element={<EffectEvaluation />} />
-            {/* Regulation pages require a recent mental-scale completion:
-                the gate also covers direct URL entry / page refreshes. */}
-            <Route element={<ScaleGateRoute />}>
-              <Route path="/video-regulation" element={<VideoRegulation />} />
-              <Route path="/game-regulation" element={<GameRegulation />} />
-              <Route path="/music-regulation" element={<MusicRegulation />} />
-            </Route>
+            <Route path="/video-regulation" element={<VideoRegulation />} />
+            <Route path="/game-regulation" element={<GameRegulation />} />
+            <Route path="/music-regulation" element={<MusicRegulation />} />
           </Route>
         </Route>
         <Route path="*" element={<NotFound />} />

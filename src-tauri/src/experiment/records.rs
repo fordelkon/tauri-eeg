@@ -181,9 +181,6 @@ pub(crate) fn save_measurement(
     input: &SaveScaleRecordInput,
 ) -> Result<ScaleRecord, String> {
     if input.scale_id.trim() != DEQ_SCALE_ID {
-        if input.scale_id.trim() == "momentary_checkin_2_v1" && input.experiment_run_id.is_none() {
-            return scale_records::save_scale_record(conn, input);
-        }
         return Err("Unsupported measurement instrument.".into());
     }
     let run_id = input

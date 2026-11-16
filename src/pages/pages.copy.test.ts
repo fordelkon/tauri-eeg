@@ -22,16 +22,12 @@ describe('page Chinese copy', () => {
       readText(new URL('./home/MusicPlayerCard.tsx', import.meta.url)),
       readText(new URL('./home/VideoRegulation.tsx', import.meta.url)),
       readText(new URL('./home/VideoRegulationPlayerModal.tsx', import.meta.url)),
-      readText(new URL('../mentalScale/mentalScaleGate.ts', import.meta.url)),
-      readText(new URL('../mentalScale/MentalScaleDialog.tsx', import.meta.url)),
     ].join('\n');
 
     [
       '首页',
       '已登录',
       '存储路径设置',
-      '心理量表',
-      '完成全部题目后继续。',
       '进入',
       '页面未找到',
       '当前 EEG 系统路由尚未实现。',
@@ -53,7 +49,6 @@ describe('page Chinese copy', () => {
       '生成记录',
       '视频调控',
       '视频调节播放器',
-      '此刻感受',
     ].forEach((copy) => {
       expect(sources).toContain(copy);
     });
@@ -61,8 +56,6 @@ describe('page Chinese copy', () => {
     [
       'Signed in',
       'Storage path settings',
-      'Psychological Scale',
-      'Complete all questions to continue.',
       'Page Not Found',
       'This EEG Ecosystem route has not been implemented yet.',
       'EEG emotion regulation home logo',

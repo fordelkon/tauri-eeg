@@ -51,7 +51,6 @@ async function main() {
   try {
     await page.goto(`${process.env.VIDEO_REGULATION_SMOKE_URL || 'http://127.0.0.1:1432'}/video-regulation`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: '跳过', exact: true }).click();
-    await page.getByRole('button', { name: '跳过本次', exact: true }).click();
     await page.getByRole('heading', { name: '视频调控', exact: true }).waitFor();
     await page.waitForFunction(count => [...document.querySelectorAll('button')].filter(button => button.textContent.trim() === '播放').length === count, calm.length);
     assert.equal(await page.getByRole('button', { name: '播放', exact: true }).count(), calm.length);

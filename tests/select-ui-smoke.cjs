@@ -110,7 +110,6 @@ async function main() {
       false,
     );
     await page.goto(origin + '/music-regulation');
-    await page.getByRole('button', { name: '跳过本次', exact: true }).click();
     const length = page.getByRole('combobox', { name: '长度', exact: true });
     await length.click();
     await page.keyboard.press('End');

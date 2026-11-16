@@ -36,7 +36,6 @@ pub struct AgentPlannerRequest {
     pub phase: String,
     pub current_route: String,
     pub user_input: String,
-    pub scale_status: Value,
     pub available_resources: Value,
     pub personalized_context: Value,
 }
@@ -105,7 +104,6 @@ mod tests {
             phase: "music_regulation".to_string(),
             current_route: "/music-regulation".to_string(),
             user_input: "生成舒缓音乐".to_string(),
-            scale_status: json!({"dimensions": []}),
             available_resources: json!({"videos": [], "musicGeneration": true, "gameAvailable": false}),
             personalized_context: json!({"answers": [], "timeline": []}),
         };
@@ -114,6 +112,7 @@ mod tests {
 
         assert_eq!(value["currentRoute"], "/music-regulation");
         assert_eq!(value["userInput"], "生成舒缓音乐");
+        assert!(value.get("scaleStatus").is_none());
         assert_eq!(value["availableResources"]["musicGeneration"], true);
     }
 
@@ -123,7 +122,7 @@ mod tests {
             "status": "available",
             "action": "recommend_music",
             "params": {"duration": 30},
-            "reason": "当前量表显示焦虑较高。",
+            "reason": "已按请求选择舒缓风格。",
             "thinking": ["Phase: music_regulation"],
             "requiresConfirmation": true
         }))

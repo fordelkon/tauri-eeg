@@ -26,7 +26,7 @@ function fixture(patch: Partial<EffectEvaluationFlowState> = {}) {
     emitEvent: vi.fn(async (input: EmitEventInput) => { markers.push(input); }),
     finishRun: vi.fn(async () => {}),
     saveScale: vi.fn(async (_state: EffectEvaluationFlowState, phase: ScalePhase) => ({ id: `${phase}-record` })),
-    scaleSaved: vi.fn(), preferences: () => ({ mode: 'rehearsal', externalRecordingConfirmed: false, expectedRecordingName: '' }),
+    preferences: () => ({ mode: 'rehearsal', externalRecordingConfirmed: false, expectedRecordingName: '' }),
     consumeRecordingConfirmation: vi.fn(), userId: () => 'user', paradigmActive: vi.fn(() => false),
     subjectSelected: vi.fn(), wallNow: () => wall, monotonicNow: () => monotonic,
   } satisfies EffectExecutionDependencies;
@@ -192,7 +192,6 @@ describe('effect evaluation execution', () => {
     dependencies.saveScale.mockRejectedValueOnce(new Error('save failed'));
     expect(await execution.completeScaleMeasurement('baseline', answers)).toBe(false);
     expect(execution.getSnapshot()).toMatchObject({ isSavingScale: false, state: { step: 2, baselineRecordId: null, interrupted: true } });
-    expect(dependencies.scaleSaved).not.toHaveBeenCalled();
     expect(dependencies.finishRun).toHaveBeenCalledExactlyOnceWith('run', 'aborted');
   });
 
@@ -241,7 +240,6 @@ describe('effect evaluation execution', () => {
     expect(await execution.completeScaleMeasurement('post', answers)).toBe(false);
     expect(execution.getSnapshot().state).toMatchObject({ step: 4, postRecordId: null, interrupted: true });
     expect(dependencies.finishRun.mock.calls).toEqual([['run', 'completed'], ['run', 'aborted']]);
-    expect(dependencies.scaleSaved).not.toHaveBeenCalled();
   });
 
   test('leaving the page while run creation is pending aborts the created run', async () => {

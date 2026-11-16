@@ -1,7 +1,4 @@
-import type { AgentCoreScores } from './agentContext';
-
 export type AgentMusicInput = {
-  coreScores: AgentCoreScores;
   personalizedTags?: readonly string[];
   customDescription?: string;
 };
@@ -41,7 +38,7 @@ export function sanitizeMusicCustomDescription(description: string): CustomDescr
 }
 
 export function buildAgentMusicPreview(input: AgentMusicInput): AgentMusicPreview {
-  const { coreScores, personalizedTags = [] } = input;
+  const { personalizedTags = [] } = input;
   const custom = sanitizeMusicCustomDescription(input.customDescription ?? '');
   const plannerTags = personalizedTags
     .map((tag) => tag.trim())
@@ -52,10 +49,8 @@ export function buildAgentMusicPreview(input: AgentMusicInput): AgentMusicPrevie
         !blockedDescriptionPattern.test(tag),
     );
   const parts = [
-    coreScores.anxiety >= 70 || coreScores.worry >= 70
-      ? 'ambient instrumental'
-      : 'calm instrumental',
-    coreScores.energy <= 35 ? 'warm low energy texture' : 'stable slow rhythm',
+    'calm instrumental',
+    'stable slow rhythm',
     personalizedTags.includes('piano') ? 'piano' : '',
     personalizedTags.includes('soft') ? 'soft dynamics' : '',
     ...plannerTags,

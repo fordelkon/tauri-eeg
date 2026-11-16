@@ -9,11 +9,6 @@ import {
   writeFlowStateToStorage,
 } from '../pages/home/effectEvaluationFlow';
 import {
-  isScaleSatisfiedForPath,
-  recordScaleCompletion,
-  recordScaleSkip,
-} from '../mentalScale/scaleCompletion';
-import {
   readStoredSubjectId,
   SUBJECT_ID_STORAGE_KEY,
   writeStoredSubjectId,
@@ -59,19 +54,6 @@ describe('clearUserSessionState', () => {
 
     expect(subjectStorage.getItem(SUBJECT_ID_STORAGE_KEY)).toBeNull();
     expect(readStoredSubjectId(subjectStorage)).toBe('');
-  });
-
-  it('re-arms the scale gate: neither a skip pass nor a grace window survives', () => {
-    const t0 = 1_000_000;
-    recordScaleSkip('/music-regulation');
-    recordScaleCompletion('/video-regulation', t0);
-    expect(isScaleSatisfiedForPath('/music-regulation', t0)).toBe(true);
-    expect(isScaleSatisfiedForPath('/video-regulation', t0 + 1000)).toBe(true);
-
-    clearUserSessionState(createMemoryStorage(), createMemoryStorage());
-
-    expect(isScaleSatisfiedForPath('/music-regulation', t0)).toBe(false);
-    expect(isScaleSatisfiedForPath('/video-regulation', t0 + 1000)).toBe(false);
   });
 
   // Wiring guard, in the repo's readFileSync convention: the cleanup helpers

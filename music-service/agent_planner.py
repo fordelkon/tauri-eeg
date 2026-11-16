@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from lm_studio_client import complete_json_with_lm_studio
 
-AGENT_PLANNER_VERSION = "lm-video-music-stream-v1"
+AGENT_PLANNER_VERSION = "lm-video-music-stream-v2"
 AGENT_PLANNER_CAPABILITIES = [
     "lm_video_selection",
     "lm_music_generation_prompt",
@@ -18,19 +18,6 @@ try:
 except Exception:  # pragma: no cover - exercised only when dependency is absent locally
     END = "__end__"
     StateGraph = None  # type: ignore[assignment]
-
-
-class ScaleDimension(BaseModel):
-    key: str
-    label: str
-    description: str
-    value: int = Field(ge=0, le=100)
-
-
-class ScaleStatus(BaseModel):
-    dimensions: list[ScaleDimension]
-    lastScaleTitle: str
-    updatedAt: int | None
 
 
 class VideoSummary(BaseModel):
@@ -76,7 +63,6 @@ class AgentPlannerRequest(BaseModel):
     ]
     currentRoute: str
     userInput: str
-    scaleStatus: ScaleStatus
     availableResources: AvailableResources
     personalizedContext: PersonalizedContext = Field(default_factory=PersonalizedContext)
 
@@ -144,13 +130,6 @@ class LmMusicPlannerOutput(BaseModel):
 
 
 
-def _dimension_value(request: AgentPlannerRequest, key: str) -> int:
-    for dimension in request.scaleStatus.dimensions:
-        if dimension.key == key:
-            return dimension.value
-    return 50
-
-
 def _is_next_step_input(user_input: str) -> bool:
     normalized = user_input.strip().lower().replace(" ", "")
     return normalized in {"next", "\u4e0b\u4e00\u6b65", "\u7ee7\u7eed", "continue"}
@@ -184,78 +163,36 @@ def _personalized_music_tags(request: AgentPlannerRequest) -> list[str]:
     return tags
 
 
-def _select_music_profile(request: AgentPlannerRequest) -> tuple[str, str, int, str]:
-    anxiety = _dimension_value(request, "anxiety")
-    worry = _dimension_value(request, "worry")
-    mood = _dimension_value(request, "mood")
-    energy = _dimension_value(request, "energy")
+def _select_music_profile(request: AgentPlannerRequest) -> tuple[str, str]:
+    tags = _personalized_music_tags(request)
     recent = _recent_music_signatures(request)
-    profiles: list[tuple[str, str, int, str, int]] = []
-
-    if anxiety >= 70 or worry >= 65:
-        profiles.extend([
-            ("ambient instrumental", "slow tempo, warm tone, soft rhythm", 30, "焦虑或担忧评分偏高", 6),
-            ("meditation music", "breath-paced phrases, light reverb, minimal percussion", 30, "焦虑或担忧评分偏高", 5),
-        ])
-
-    if mood <= 40:
-        profiles.extend([
-            ("classical instrumental", "gentle dynamics, bright melody, warm strings", 30, "情绪评分偏低", 5),
-            ("cinematic instrumental", "hopeful progression, soft piano, gradual lift", 30, "情绪评分偏低", 4),
-        ])
-
-    if energy <= 35:
-        profiles.extend([
-            ("lo-fi instrumental", "low tempo groove, soft texture, steady pulse", 30, "精力评分偏低", 5),
-            ("meditation music", "open pads, sparse melody, calm therapeutic texture", 30, "精力评分偏低", 4),
-        ])
-
-    if not profiles:
-        profiles.extend([
-            ("jazz instrumental", "gentle dynamics, light swing, warm tone", 30, "当前", 3),
-            ("ambient instrumental", "calm texture, light reverb, soft rhythm", 30, "当前", 2),
-        ])
-
-    ranked = []
-    for index, (style, details, duration, reason_key, score) in enumerate(profiles):
-        signature = f"{style}|{details}"
-        repeat_penalty = 10 if signature in recent else 0
-        ranked.append((score - repeat_penalty, -index, style, details, duration, reason_key))
-
-    ranked.sort(reverse=True)
-    _, _, style, details, duration, reason_key = ranked[0]
-    return style, details, duration, reason_key
+    profiles = [
+        ("ambient instrumental", "slow tempo, warm tone, soft rhythm"),
+        ("meditation music", "gentle dynamics, soft texture"),
+    ]
+    for style, texture in profiles:
+        details = ", ".join([texture, *tags])
+        if f"{style}|{details}" not in recent:
+            return style, details
+    style, texture = profiles[0]
+    return style, ", ".join([texture, *tags])
 
 
-def _video_score(request: AgentPlannerRequest, video: VideoSummary) -> int:
-    anxiety = _dimension_value(request, "anxiety")
-    mood = _dimension_value(request, "mood")
-    energy = _dimension_value(request, "energy")
-    terms = " ".join([video.title, *video.tags]).lower()
-    score = 0
+def _select_video_for_request(request: AgentPlannerRequest) -> VideoSummary:
+    videos = request.availableResources.videos
+    requested_id = _requested_video_id(request)
+    for video in videos:
+        if video.id == requested_id:
+            return video
 
-    if anxiety >= 60:
-        score += sum(token in terms for token in ["calm", "quiet", "soft", "green", "forest", "nature", "peaceful", "clear"])
-        score -= sum(token in terms for token in ["storm", "rain", "dark", "intense", "wind", "thunder"])
-
-    if mood <= 45:
-        score += sum(token in terms for token in ["warm", "dusk", "sun", "sunset", "golden", "gentle"])
-
-    if energy <= 45:
-        score += sum(token in terms for token in ["open", "coast", "sky", "sea", "valley", "horizon"])
-
-    return score
-
-
-def _select_video_for_state(request: AgentPlannerRequest) -> VideoSummary:
+    query = request.userInput.casefold()
     recent_ids = _recent_recommended_video_ids(request)
-    scored = []
-    for index, video in enumerate(request.availableResources.videos):
-        repeat_penalty = 100 if video.id in recent_ids else 0
-        scored.append((_video_score(request, video) - repeat_penalty, -index, video))
 
-    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
-    return scored[0][2]
+    def rank(video: VideoSummary) -> tuple[int, bool]:
+        terms = [term.strip().casefold() for term in [video.title, *video.tags] if term.strip()]
+        return sum(term in query for term in terms), video.id not in recent_ids
+
+    return max(videos, key=rank)
 
 
 def _format_video_catalog(request: AgentPlannerRequest) -> str:
@@ -294,7 +231,6 @@ def _select_video_with_lm_studio(
                 "content": (
                     f"User request: {request.userInput}\n"
                     f"Requested video id from frontend click: {_requested_video_id(request)}\n"
-                    f"Scale status: {request.scaleStatus.model_dump_json()}\n"
                     f"Recently recommended video ids: {sorted(_recent_recommended_video_ids(request))}\n"
                     f"Catalog:\n{_format_video_catalog(request)}"
                 ),
@@ -340,7 +276,6 @@ def _select_music_with_lm_studio(
                 "role": "user",
                 "content": (
                     f"User request: {request.userInput}\n"
-                    f"Scale status: {request.scaleStatus.model_dump_json()}\n"
                     f"Existing normalized music tags: {_personalized_music_tags(request)}\n"
                     f"Recently generated music signatures: {sorted(_recent_music_signatures(request))}\n"
                     "Generate one concrete music prompt for the music generation service."
@@ -395,8 +330,6 @@ def _plan_by_phase(
 ) -> PlannerState:
     request = state["request"]
     user_input = request.userInput
-    anxiety = _dimension_value(request, "anxiety")
-    mood = _dimension_value(request, "mood")
 
     if _is_next_step_input(user_input):
         state["response"] = AgentPlannerResponse(
@@ -419,7 +352,7 @@ def _plan_by_phase(
         if state["response"] is not None:
             return state
 
-        video = _select_video_for_state(request)
+        video = _select_video_for_request(request)
         state["response"] = AgentPlannerResponse(
             action="play_video",
             params={"videoId": video.id, "title": video.title},
@@ -441,7 +374,8 @@ def _plan_by_phase(
         if state["response"] is not None:
             return state
 
-        style, details, duration, reason_key = _select_music_profile(request)
+        style, details = _select_music_profile(request)
+        duration = 30
         state["response"] = AgentPlannerResponse(
             action="recommend_music",
             params={
@@ -450,7 +384,7 @@ def _plan_by_phase(
                 "duration": duration,
                 "prompt": f"{style}, {details}, instrumental, no vocals",
             },
-            reason=f"根据{reason_key}的量表结果，建议生成 {duration} 秒的 {style}。",
+            reason=f"建议生成 {duration} 秒的 {style}。",
             requiresConfirmation=False,
         )
         return state

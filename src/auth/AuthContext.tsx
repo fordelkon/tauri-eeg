@@ -58,9 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: () => {
         setCurrentUser(null);
         window.localStorage.removeItem(STORAGE_KEY);
-        // Cross-user hygiene: the wizard run state, subject binding, and
-        // scale-gate memory are per-user but live outside the auth session;
-        // without this the next login inherits them.
         clearUserSessionState();
       },
       signUp: async (username, password) => {

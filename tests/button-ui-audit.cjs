@@ -63,14 +63,10 @@ async function main() {
     await page.screenshot({ path: path.join(output, 'effect-buttons.png'), fullPage: true, timeout: 10000 });
 
     await visit('/video-regulation');
-    const videoSkip = page.getByRole('button', { name: '跳过本次', exact: true });
-    await videoSkip.waitFor(); await videoSkip.click();
     await measure('选择视频库', 40); await measure('重新选择', 40);
     await page.screenshot({ path: path.join(output, 'video-buttons.png'), fullPage: true, timeout: 10000 });
 
     await visit('/music-regulation');
-    const musicSkip = page.getByRole('button', { name: '跳过本次', exact: true });
-    await musicSkip.waitFor(); await musicSkip.click();
     await measure('生成 WAV', 44);
     await page.screenshot({ path: path.join(output, 'music-buttons.png'), fullPage: true, timeout: 10000 });
     const login = await browser.newPage({ viewport: { width: 1000, height: 800 } });

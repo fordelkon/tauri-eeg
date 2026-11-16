@@ -1,9 +1,4 @@
-import type { MentalScalePath } from '../../../mentalScale/mentalScaleGate';
-import {
-  EFFECT_EMOTION_OPTIONS,
-  EFFECT_METHOD_OPTIONS,
-  type EffectRegulationMethod,
-} from './constants';
+import { EFFECT_EMOTION_OPTIONS, type EffectRegulationMethod } from './constants';
 import type { EffectEvaluationFlowState } from './state';
 import { isRegulationWindowOpen, readFlowStateFromStorage, type FlowStorage } from './storage';
 
@@ -11,12 +6,6 @@ import { isRegulationWindowOpen, readFlowStateFromStorage, type FlowStorage } fr
  * Regulation-window timing, countdown math, and the regulation-page context
  * consumed by the music/video pages while a window is live.
  */
-export function regulationPathForMethod(method: EffectRegulationMethod): MentalScalePath {
-  return (
-    EFFECT_METHOD_OPTIONS.find((option) => option.value === method)?.path ?? '/music-regulation'
-  );
-}
-
 export function regulationDurationMs(state: EffectEvaluationFlowState): number {
   return state.durationMinutes * 60_000;
 }

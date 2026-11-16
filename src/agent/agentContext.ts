@@ -1,12 +1,5 @@
 import type { AgentPhase } from './agentFlow';
 
-export type AgentCoreScores = {
-  anxiety: number;
-  worry: number;
-  mood: number;
-  energy: number;
-};
-
 export type AgentPersonalizedAnswer = {
   phase: AgentPhase;
   answer: string;

@@ -47,7 +47,6 @@ export type EffectExecutionDependencies = {
     phase: ScalePhase,
     answers: DeqAnswers,
   ): Promise<{ id: string }>;
-  scaleSaved(state: EffectEvaluationFlowState): void;
   preferences(): ExperimentPreferences;
   consumeRecordingConfirmation(): void;
   userId(): string | null;
@@ -374,7 +373,6 @@ export class EffectEvaluationExecution {
             current.regulationSkipped ? 'aborted' : 'completed',
           );
         if (this.snapshot.state.interrupted) return false;
-        this.dependencies.scaleSaved(current);
         this.changeState(
           phase === 'baseline'
             ? { baselineRecordId: record.id, step: 3 }

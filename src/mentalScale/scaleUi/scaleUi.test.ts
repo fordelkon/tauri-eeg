@@ -97,17 +97,17 @@ describe('DevAutoFillButton', () => {
 });
 
 describe('ScaleAnchorGroup', () => {
-  const PHQ4_LABELS = ['完全不会', '好几天', '一半以上的天数', '几乎每天'];
+  const labels = ['没有', '轻微', '中等', '强烈'];
 
   test('buildAnchorOptions models the discrete and bipolar layouts', () => {
-    // Discrete derives values from minValue + label order (0-3 gate).
+    // Discrete derives values from minValue + label order.
     expect(
-      buildAnchorOptions({ layout: 'discrete', minValue: 0, anchorLabels: PHQ4_LABELS }),
+      buildAnchorOptions({ layout: 'discrete', minValue: 0, anchorLabels: labels }),
     ).toEqual([
-      { value: 0, label: '完全不会' },
-      { value: 1, label: '好几天' },
-      { value: 2, label: '一半以上的天数' },
-      { value: 3, label: '几乎每天' },
+      { value: 0, label: '没有' },
+      { value: 1, label: '轻微' },
+      { value: 2, label: '中等' },
+      { value: 3, label: '强烈' },
     ]);
     // Discrete scale starting at 1.
     expect(
@@ -130,16 +130,16 @@ describe('ScaleAnchorGroup', () => {
       createElement(ScaleAnchorGroup, {
         layout: 'discrete',
         minValue: 0,
-        anchorLabels: PHQ4_LABELS,
+        anchorLabels: labels,
         value: 2,
         onSelect: () => undefined,
-        ariaLabel: '做事时提不起劲或没有兴趣',
+        ariaLabel: '强度',
       }),
     );
 
     for (const value of [0, 1, 2, 3]) {
-      expect(markup).toContain(`aria-label="${value}(${PHQ4_LABELS[value]})"`);
-      expect(markup).toContain(`>${PHQ4_LABELS[value]}</span>`);
+      expect(markup).toContain(`aria-label="${value}(${labels[value]})"`);
+      expect(markup).toContain(`>${labels[value]}</span>`);
     }
     // Exactly one pressed anchor: the selected value.
     expect((markup.match(/aria-pressed="true"/g) ?? []).length).toBe(1);
@@ -206,7 +206,7 @@ describe('ScaleAnchorGroup', () => {
     const received: number[] = [];
     // The same handler backs both layouts' buttons.
     selectAnchorValue((value) => received.push(value), { value: 7 });
-    selectAnchorValue((value) => received.push(value), { value: 0, label: '完全不会' });
+    selectAnchorValue((value) => received.push(value), { value: 0, label: '没有' });
 
     expect(received).toEqual([7, 0]);
   });

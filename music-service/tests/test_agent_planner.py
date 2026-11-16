@@ -24,16 +24,6 @@ def base_request(**overrides):
         "phase": "music_regulation",
         "currentRoute": "/music-regulation",
         "userInput": "generate relaxing music",
-        "scaleStatus": {
-            "dimensions": [
-                {"key": "anxiety", "label": "Anxiety", "description": "Tension", "value": 85},
-                {"key": "worry", "label": "Worry", "description": "Worry", "value": 70},
-                {"key": "mood", "label": "Mood", "description": "Mood", "value": 45},
-                {"key": "energy", "label": "Energy", "description": "Energy", "value": 50},
-            ],
-            "lastScaleTitle": "Music Regulation Scale",
-            "updatedAt": 1782748800000,
-        },
         "availableResources": {
             "videos": [
                 {"id": "9_seg016", "title": "鏆壊娴峰哺", "tags": ["娴峰哺", "榛勬槒", "娓╂煍"]},
@@ -59,7 +49,7 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertIn("快捷指令", response.reason)
 
     def test_exposes_planner_version_and_lm_capabilities(self):
-        self.assertEqual(AGENT_PLANNER_VERSION, "lm-video-music-stream-v1")
+        self.assertEqual(AGENT_PLANNER_VERSION, "lm-video-music-stream-v2")
         self.assertIn("lm_video_selection", AGENT_PLANNER_CAPABILITIES)
         self.assertIn("lm_music_generation_prompt", AGENT_PLANNER_CAPABILITIES)
         self.assertIn("lm_planner_streaming", AGENT_PLANNER_CAPABILITIES)
@@ -71,7 +61,7 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertEqual(response["plannerVersion"], AGENT_PLANNER_VERSION)
         self.assertEqual(response["capabilities"], AGENT_PLANNER_CAPABILITIES)
 
-    def test_recommends_music_for_high_anxiety_music_phase(self) -> None:
+    def test_recommends_music_without_questionnaire(self) -> None:
         with patch("agent_planner.complete_json_with_lm_studio") as complete_json:
             complete_json.return_value.available = False
             complete_json.return_value.value = None
@@ -81,28 +71,18 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertEqual(response.action, "recommend_music")
         self.assertEqual(response.params["style"], "ambient instrumental")
         self.assertEqual(response.params["duration"], 30)
-        self.assertIn("焦虑或担忧评分偏高", response.reason)
+        self.assertNotIn("量表", response.reason)
         self.assertEqual(response.status, "available")
         self.assertGreaterEqual(len(response.thinking), 3)
         self.assertTrue(any("当前阶段" in step for step in response.thinking))
 
-    def test_music_recommendation_varies_by_state_and_recent_history(self) -> None:
+    def test_music_recommendation_varies_by_recent_history(self) -> None:
         with patch("agent_planner.complete_json_with_lm_studio") as complete_json:
             complete_json.return_value.available = False
             complete_json.return_value.value = None
 
-            high_anxiety = plan_agent_action(base_request())
-            low_energy = plan_agent_action(base_request(
-                scaleStatus={
-                    "dimensions": [
-                        {"key": "anxiety", "label": "Anxiety", "description": "Tension", "value": 35},
-                        {"key": "worry", "label": "Worry", "description": "Worry", "value": 30},
-                        {"key": "mood", "label": "Mood", "description": "Mood", "value": 55},
-                        {"key": "energy", "label": "Energy", "description": "Energy", "value": 20},
-                    ],
-                    "lastScaleTitle": "Music Regulation Scale",
-                    "updatedAt": 1782748800000,
-                },
+            first_plan = plan_agent_action(base_request())
+            second_plan = plan_agent_action(base_request(
                 personalizedContext={
                     "answers": [],
                     "timeline": [
@@ -111,11 +91,10 @@ class AgentPlannerTests(unittest.TestCase):
                 },
             ))
 
-        self.assertEqual(high_anxiety.action, "recommend_music")
-        self.assertEqual(low_energy.action, "recommend_music")
-        self.assertNotEqual(high_anxiety.params["style"], low_energy.params["style"])
-        self.assertNotEqual(high_anxiety.params["details"], low_energy.params["details"])
-        self.assertIn("精力评分偏低", low_energy.reason)
+        self.assertEqual(first_plan.action, "recommend_music")
+        self.assertEqual(second_plan.action, "recommend_music")
+        self.assertNotEqual(first_plan.params["style"], second_plan.params["style"])
+        self.assertNotEqual(first_plan.params["details"], second_plan.params["details"])
 
     def test_music_prompt_uses_lm_studio_planner(self) -> None:
         with patch("agent_planner.complete_json_with_lm_studio") as complete_json:
@@ -137,6 +116,7 @@ class AgentPlannerTests(unittest.TestCase):
         user_message = complete_json.call_args.args[0][1]["content"]
         self.assertIn("piano", user_message)
         self.assertIn("soft-rain", user_message)
+        self.assertIn("piano", response.params["prompt"])
 
     def test_music_planner_uses_lm_studio_generated_tags_when_valid(self) -> None:
         class LmResult:
@@ -246,7 +226,7 @@ class AgentPlannerTests(unittest.TestCase):
             class Value:
                 videoId = "14_seg000"
                 reason = "The forest clip has the lowest stimulation."
-                thinking = ["Reviewed scale scores.", "Selected quiet forest material."]
+                thinking = ["Reviewed the request.", "Selected quiet forest material."]
 
             value = Value()
 
@@ -268,17 +248,17 @@ class AgentPlannerTests(unittest.TestCase):
         self.assertEqual(response.action, "play_video")
         self.assertEqual(response.params["videoId"], "14_seg000")
         self.assertIn("forest", response.reason.lower())
-        self.assertIn("Reviewed scale scores.", response.thinking)
+        self.assertIn("Reviewed the request.", response.thinking)
 
     def test_video_planner_accepts_string_thinking_from_lm_studio(self) -> None:
         output = LmVideoPlannerOutput.model_validate({
             "videoId": "9_seg016",
             "reason": "Coast video is soft.",
-            "thinking": "Compared available videos against scale state.",
+            "thinking": "Compared available videos against user preferences.",
         })
 
         self.assertEqual(output.videoId, "9_seg016")
-        self.assertEqual(output.thinking, ["Compared available videos against scale state."])
+        self.assertEqual(output.thinking, ["Compared available videos against user preferences."])
 
     def test_video_phase_next_step_is_navigation_not_video_recommendation(self) -> None:
         response = plan_agent_action(base_request(

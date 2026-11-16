@@ -1,33 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { MentalScaleAnswers, MentalScaleDefinition } from './mentalScaleGate';
-import {
-  buildMentalScaleStatus,
-  measuredDimensionKeys,
-  type MentalScaleDimensionKey,
-} from './mentalScaleStatus';
-import { readStoredSubjectId } from '../storage/currentSubject';
 
 export type ScalePhase = 'pre_induction' | 'baseline' | 'post';
-
-export type ScaleRecordInput = {
-  experimentRunId?: string;
-  userId: string | null;
-  subjectId: string | null;
-  scaleId: string;
-  phase: ScalePhase;
-  /** Scores for the dimensions reported by this instrument. */
-  dimensionScores: Record<string, number>;
-  /** Item responses and the measurement timeframe. */
-  rawAnswers: Record<string, unknown>;
-  /** Target emotion bound by the evaluation wizard; absent on gate saves. */
-  emotion?: string | null;
-  condition?: string | null;
-  /** Configured regulation window in minutes; absent outside the wizard. */
-  durationMinutes?: number | null;
-  /** True when part of the regulation window was explicitly skipped. */
-  regulationSkipped?: boolean;
-  measuredDimensions?: string[];
-};
 
 /** camelCase mirror of the backend ScaleRecord. */
 export type ScaleRecordView = {
@@ -60,68 +33,6 @@ export type RegulationEffectSummaryView = {
   emotionChanges: EmotionChange[];
 };
 
-function normalizeSubjectId(subjectId: string | null | undefined): string | null {
-  const trimmed = subjectId?.trim() ?? '';
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-export function saveScaleRecord(input: ScaleRecordInput): Promise<ScaleRecordView> {
-  return invoke<ScaleRecordView>('save_scale_record', { input });
-}
-
-/** Local re-computation of the per-dimension scores stored with a record. */
-export function buildScaleDimensionScores(
-  scale: MentalScaleDefinition,
-  answers: MentalScaleAnswers,
-): Record<MentalScaleDimensionKey, number> {
-  const status = buildMentalScaleStatus(scale, answers);
-  return Object.fromEntries(
-    status.dimensions.map((dimension) => [dimension.key, dimension.value]),
-  ) as Record<MentalScaleDimensionKey, number>;
-}
-
-type PersistSubmissionOptions = {
-  /**
-   * Explicit subject binding; the evaluation flow passes its configured
-   * subject here. When omitted the shared subject memory is consulted so
-   * gate submissions inherit whatever subject the operator last set.
-   */
-  subjectId?: string | null;
-  /** Defaults to `baseline` (the gate measures right before a regulation). */
-  phase?: ScalePhase;
-};
-
-/**
- * Fire-and-forget persistence of one completed gate submission. The gate's
- * memory-cache behavior is untouched; a persistence failure must never block
- * navigation, so it only lands in the console.
- *
- * The instrument ID and current-state timeframe distinguish new entries from historical screening.
- */
-export function persistMentalScaleSubmission(
-  scale: MentalScaleDefinition,
-  answers: MentalScaleAnswers,
-  userId: string | null,
-  options: PersistSubmissionOptions = {},
-): void {
-  void saveScaleRecord({
-    userId,
-    // Explicit binding wins; otherwise fall back to the shared subject memory
-    // (still null when no subject was ever configured).
-    subjectId:
-      options.subjectId !== undefined
-        ? normalizeSubjectId(options.subjectId)
-        : normalizeSubjectId(readStoredSubjectId()),
-    scaleId: scale.scaleId,
-    phase: options.phase ?? 'baseline',
-    dimensionScores: buildScaleDimensionScores(scale, answers),
-    rawAnswers: { ...answers, timeframe: 'now' },
-    measuredDimensions: measuredDimensionKeys(scale, answers),
-  }).catch((error: unknown) => {
-    console.warn('[mentalScale] 量表记录落库失败:', error);
-  });
-}
-
 export type PhaseInstrumentRecordInput = {
   experimentRunId: string;
   userId: string | null;
@@ -143,19 +54,15 @@ export type PhaseInstrumentRecordInput = {
 export function savePhaseInstrumentRecord(
   input: PhaseInstrumentRecordInput,
 ): Promise<ScaleRecordView> {
-  return saveScaleRecord({
-    experimentRunId: input.experimentRunId,
-    userId: input.userId,
-    subjectId: normalizeSubjectId(input.subjectId),
-    scaleId: input.scaleId,
-    phase: input.phase,
-    dimensionScores: input.dimensionScores,
-    rawAnswers: input.rawAnswers,
-    emotion: input.emotion ?? null,
-    condition: input.condition ?? null,
-    durationMinutes: input.durationMinutes ?? null,
-    regulationSkipped: input.regulationSkipped ?? false,
-    measuredDimensions: input.measuredDimensions,
+  return invoke<ScaleRecordView>('save_scale_record', {
+    input: {
+      ...input,
+      subjectId: input.subjectId?.trim() || null,
+      emotion: input.emotion ?? null,
+      condition: input.condition ?? null,
+      durationMinutes: input.durationMinutes ?? null,
+      regulationSkipped: input.regulationSkipped ?? false,
+    },
   });
 }
 

@@ -19,7 +19,6 @@ import {
   regulationDurationMs,
   regulationFinishModeFromRemaining,
   regulationPageContextFor,
-  regulationPathForMethod,
   remainingRegulationSeconds,
   serializeFlowState,
   setupBlockingReason,
@@ -57,11 +56,6 @@ describe('effectEvaluationFlow stepper', () => {
 
     const filled = { ...blank, subjectId: 'subj-001' };
     expect(setupBlockingReason(filled)).toBeNull();
-  });
-
-  it('maps each regulation method onto its page path with a safe fallback', () => {
-    expect(regulationPathForMethod('music')).toBe('/music-regulation');
-    expect(regulationPathForMethod('video')).toBe('/video-regulation');
   });
 
   it('computes the regulation window from the configured minutes', () => {

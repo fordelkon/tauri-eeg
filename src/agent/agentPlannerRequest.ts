@@ -1,5 +1,4 @@
 import type { MutableRefObject } from 'react';
-import { getMentalScaleStatusSnapshot } from '../mentalScale/mentalScaleStatus';
 import { getCurrentMusicRegulationTags } from '../music/musicRegulationTags';
 import { getCurrentRegulationVideos } from '../video/regulationVideoResources';
 import type { AgentActionId } from './agentActions';
@@ -97,7 +96,6 @@ export async function requestAgentPlannerRecommendation(
           timeline: timelineRef.current,
         },
         phase,
-        scaleStatus: getMentalScaleStatusSnapshot(),
         userInput: input,
       },
       { onThinkingDelta, signal: abortController.signal },

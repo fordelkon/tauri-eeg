@@ -20,7 +20,6 @@ const sampleRequest: AgentPlannerRequest = {
   currentRoute: '/home',
   personalizedContext: { answers: [], timeline: [] },
   phase: 'intro',
-  scaleStatus: { dimensions: [], lastScaleTitle: '', updatedAt: null },
   userInput: '开始实验',
 };
 

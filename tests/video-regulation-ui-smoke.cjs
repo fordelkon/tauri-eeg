@@ -10,9 +10,13 @@ async function main() {
   page.setDefaultTimeout(15000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
+  await page.route('https://asset.localhost/**', route => route.abort());
   await page.addInitScript(() => {
     localStorage.setItem('tauri-eeg.currentUser', JSON.stringify({ id: 'smoke-user', username: 'smoke' }));
     localStorage.setItem('tauri-eeg.homeIntroPlayed.smoke-user', 'true');
+    if (!localStorage.getItem('video.paradigmRootPath')) {
+      localStorage.setItem('video.paradigmRootPath', 'C:\\smoke\\video_paradigm');
+    }
     const calls = [];
     window.__VIDEO_REGULATION_CALLS__ = calls;
     window.__TAURI_INTERNALS__ = {
@@ -51,8 +55,7 @@ async function main() {
   const go = async () => {
     await page.goto(`${origin}/video-regulation`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: '跳过', exact: true }).click();
-    await page.getByRole('button', { name: '跳过本次', exact: true }).click();
-    await page.getByRole('heading', { name: '视频调控', exact: true }).waitFor();
+    await page.getByRole('heading', { name: '视频素材多维分层选择', exact: true }).waitFor();
   };
   const waitForCount = async count => {
     await page.waitForFunction(expected => [...document.querySelectorAll('button')]
@@ -76,7 +79,7 @@ async function main() {
     const player = page.getByLabel('视频调节播放器', { exact: true });
     await player.waitFor();
     assert.equal(decodeURIComponent(await player.locator('video').getAttribute('src')), 'https://asset.localhost/C:\\smoke\\video_paradigm\\Calm\\healing_animation\\calm_vid01.mp4');
-    await page.getByRole('button', { name: '关闭调节视频', exact: true }).click();
+    await player.getByRole('button', { name: '返回素材列表', exact: true }).click();
     assert.equal(await player.count(), 0);
     await page.getByRole('button', { name: /^风景/ }).click();
     await waitForCount(1);
@@ -90,7 +93,7 @@ async function main() {
     await page.evaluate(() => window.dispatchEvent(new CustomEvent('agent:play-video', { detail: { videoId: 'music/calm_vid02' } })));
     await player.waitFor();
     assert.equal(decodeURIComponent(await player.locator('video').getAttribute('src')), 'https://asset.localhost/C:\\smoke\\video_paradigm\\Calm\\music\\calm_vid02.mp4');
-    await page.getByRole('button', { name: '关闭调节视频', exact: true }).click();
+    await player.getByRole('button', { name: '返回素材列表', exact: true }).click();
     await page.getByRole('button', { name: /^全部/ }).click();
     const search = page.getByLabel('搜索视频', { exact: true });
     await search.fill('calm_vid02');
@@ -118,6 +121,34 @@ async function main() {
     assert.equal(await page.evaluate(() => window.__VIDEO_REGULATION_CALLS__.find(call => call.command === 'load_paradigm_video_library').args.input.rootPath), 'C:\\smoke\\replacement-root');
     assert.deepEqual(errors, []);
 
+    const sections = [
+      {path: '/video-regulation', nav: '视频调控', title: '视频素材多维分层选择'},
+      {path: '/game-regulation', nav: 'VR调控', title: 'VR 与 AR 调控'},
+      {path: '/music-regulation', nav: '音乐调控', title: 'WAV 音乐生成'},
+    ];
+    async function verifyEntry(section) {
+      await page.getByRole('heading', {name: section.title, exact: true}).waitFor();
+      assert.equal(new URL(page.url()).pathname, section.path);
+      assert.equal(await page.getByRole('dialog').count(), 0);
+      const saves = await page.evaluate(() =>
+        window.__VIDEO_REGULATION_CALLS__.filter(call => call.command === 'save_scale_record').length);
+      assert.equal(saves, 0, 'Browsing a standalone activity must not create a measurement');
+    }
+    const nav = page.getByRole('navigation', {name: '主导航'});
+    for (const section of [sections[1], sections[0], sections[2]]) {
+      await nav.getByRole('button', {name: section.nav, exact: true}).click();
+      await verifyEntry(section);
+    }
+    await page.goBack();
+    await verifyEntry(sections[0]);
+    await page.goForward();
+    await verifyEntry(sections[2]);
+    for (const section of sections) {
+      await page.goto(origin + section.path, {waitUntil: 'domcontentloaded'});
+      await page.getByRole('button', {name: '跳过', exact: true}).click();
+      await verifyEntry(section);
+    }
+
     const preview = await browser.newPage();
     await preview.addInitScript(() => {
       localStorage.setItem('tauri-eeg.currentUser', JSON.stringify({ id: 'smoke-user', username: 'smoke' }));
@@ -125,12 +156,11 @@ async function main() {
     });
     await preview.goto(`${origin}/video-regulation`, { waitUntil: 'domcontentloaded' });
     await preview.getByRole('button', { name: '跳过', exact: true }).click();
-    await preview.getByRole('button', { name: '跳过本次', exact: true }).click();
-    await preview.getByRole('heading', { name: '视频调控', exact: true }).waitFor();
+    await preview.getByRole('heading', { name: '视频素材多维分层选择', exact: true }).waitFor();
     await preview.getByText(/浏览器预览/).waitFor();
     assert.equal(await preview.getByRole('button', { name: '播放', exact: true }).count(), 0);
     await preview.close();
-    console.log('Passed: Calm library, nested duplicate filenames, category and filename search, real asset paths, close/Escape, root selection, saved-root restoration, browser-preview empty state. Simulated IPC; file decoding is not covered.');
+    console.log('Passed: all three sidebar entries, direct links, back/forward navigation and no questionnaire writes; Calm library, nested duplicate filenames, category and filename search, real asset paths, close/Escape, root selection, saved-root restoration, browser-preview empty state. Simulated IPC; file decoding is not covered.');
   } catch (error) {
     console.error('Page diagnostics:', await page.locator('body').innerText(), errors);
     if (output) await page.screenshot({ path: path.join(output, 'video-library-failure.png'), fullPage: true });

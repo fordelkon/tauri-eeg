@@ -1,5 +1,3 @@
-import type { MentalScalePath } from '../../../mentalScale/mentalScaleGate';
-
 /** Wizard option constants and step definitions for the effect evaluation. */
 
 export type EffectTargetEmotion = 'anxiety' | 'depression' | 'fear';
@@ -29,12 +27,11 @@ export const EFFECT_CONDITION_OPTIONS = [
 }>;
 
 export const EFFECT_METHOD_OPTIONS = [
-  { value: 'music', label: '音乐调控', path: '/music-regulation' },
-  { value: 'video', label: '视频调控', path: '/video-regulation' },
+  { value: 'music', label: '音乐调控' },
+  { value: 'video', label: '视频调控' },
 ] as const satisfies ReadonlyArray<{
   value: EffectRegulationMethod;
   label: string;
-  path: MentalScalePath;
 }>;
 
 /** Displays the condition recorded for the run. */

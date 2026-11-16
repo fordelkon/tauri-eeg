@@ -1,9 +1,5 @@
 /**
- * Canonical subject memory shared by every flow that records data against
- * a subject: the paradigm setup panel writes it before acquisition, and the
- * effect-evaluation loop plus the gate persistence leg read it back, so scale
- * records stop being written without a subject binding once an operator has
- * set one.
+ * Subject identity shared by paradigm setup and effect evaluation.
  *
  * Best-effort by design (E-Prime StartupInfo style): storage may be
  * unavailable, in which case reads degrade to empty/null and writes are silently

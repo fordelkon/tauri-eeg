@@ -1,4 +1,3 @@
-import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
@@ -27,20 +26,7 @@ import { getTriggerStatus } from '../experiment/api';
 import { isTauriAvailable } from '../ui/tauriEnvironment';
 const HomeIntroLogo = lazy(() => import('../homeIntro/HomeIntroLogo'));
 import { homeIntroPlayback } from '../homeIntro/homeIntroPlayback';
-import GlobalMentalScalePanel from '../mentalScale/GlobalMentalScalePanel';
-import MentalScaleDialog from '../mentalScale/MentalScaleDialog';
-import {
-  getMentalScaleForPath,
-  type MentalScaleAnswers,
-  type MentalScaleDefinition,
-} from '../mentalScale/mentalScaleGate';
-import { buildMentalScaleStatus, updateMentalScaleStatus } from '../mentalScale/mentalScaleStatus';
-import { persistMentalScaleSubmission } from '../mentalScale/scaleRecordsApi';
-import {
-  isScaleSatisfiedForPath,
-  recordScaleCompletion,
-  recordScaleSkip,
-} from '../mentalScale/scaleCompletion';
+import ExperimentAssistantRail from '../agent/ExperimentAssistantRail';
 import {
   getParadigmSessionStatus,
   useParadigmSessionStatus,
@@ -74,7 +60,6 @@ export default function Home() {
   const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isStorageOpen, setIsStorageOpen] = useState(false);
-  const [pendingScale, setPendingScale] = useState<MentalScaleDefinition | null>(null);
   const [showHomeIntro, setShowHomeIntro] = useState(false);
   const activeItem =
     navigationItems.find((item) =>
@@ -136,17 +121,6 @@ export default function Home() {
         }
       }
 
-      const scale = getMentalScaleForPath(path);
-
-      // The route-level ScaleGateRoute would also catch this, but prompting from
-      // here keeps the sidebar flow identical — and skips re-prompting while a
-      // recent completion is still inside its grace window.
-      if (scale && !isScaleSatisfiedForPath(scale.path)) {
-        setPendingScale(scale);
-        setIsSidebarOpen(false);
-        return '请先完成页面上的量表，完成后即可继续。';
-      }
-
       navigate(path);
     },
     [confirm, location.pathname, navigate],
@@ -200,37 +174,6 @@ export default function Home() {
 
     signOut();
     navigate('/login', { replace: true });
-  };
-
-  const handleCloseScale = () => {
-    setPendingScale(null);
-  };
-
-  const handleCompleteScale = (answers: MentalScaleAnswers) => {
-    if (!pendingScale) {
-      return;
-    }
-
-    const nextPath = pendingScale.path;
-    updateMentalScaleStatus(buildMentalScaleStatus(pendingScale, answers));
-    recordScaleCompletion(nextPath);
-    // Mirror the submission into the backend scale_records table; a failure
-    // only logs so the gate flow keeps working offline.
-    persistMentalScaleSubmission(pendingScale, answers, currentUser?.id ?? null);
-    setPendingScale(null);
-    navigate(nextPath);
-  };
-
-  const handleSkipScale = () => {
-    if (!DEVELOPMENT_BUILD || !pendingScale) {
-      return;
-    }
-
-    const nextPath = pendingScale.path;
-    // Skipping is a one-shot pass: the next entry into a gated page re-prompts.
-    recordScaleSkip(nextPath);
-    setPendingScale(null);
-    navigate(nextPath);
   };
 
   const navigation = (
@@ -361,20 +304,10 @@ export default function Home() {
           ) : null}
         </section>
 
-        <GlobalMentalScalePanel>
+        <ExperimentAssistantRail>
           <ExperimentAgentPanel navigateTo={requestNavigation} />
-        </GlobalMentalScalePanel>
+        </ExperimentAssistantRail>
       </div>
-
-      {pendingScale ? (
-        <MentalScaleDialog
-          key={pendingScale.path}
-          onComplete={handleCompleteScale}
-          onClose={handleCloseScale}
-          onSkip={DEVELOPMENT_BUILD ? handleSkipScale : undefined}
-          scale={pendingScale}
-        />
-      ) : null}
 
       {confirmDialogElement}
 

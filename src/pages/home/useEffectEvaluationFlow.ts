@@ -3,7 +3,6 @@ import { useAuth } from '../../auth/AuthContext';
 import { createRun, emitEvent, finishRun } from '../../experiment/api';
 import { consumeRecordingConfirmation, readExperimentPreferences } from '../../experiment/settings';
 import { getParadigmSessionStatus } from '../../paradigm/paradigmSessionStatus';
-import { recordScaleCompletion } from '../../mentalScale/scaleCompletion';
 import { buildDeqMeasurement } from '../../mentalScale/instruments/deq';
 import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject';
 import { savePhaseInstrumentRecord } from '../../mentalScale/scaleRecordsApi';
@@ -11,7 +10,6 @@ import {
   clearFlowStateFromStorage,
   createEffectEvaluationFlowState,
   readFlowStateFromStorage,
-  regulationPathForMethod,
   writeFlowStateToStorage,
 } from './effectEvaluationFlow';
 import { EffectEvaluationExecution } from './effectEvaluationExecution';
@@ -63,9 +61,6 @@ export function useEffectEvaluationFlow() {
               durationMinutes: current.durationMinutes,
               regulationSkipped: phase === 'post' ? current.regulationSkipped : false,
             });
-          },
-          scaleSaved: (current) => {
-            recordScaleCompletion(regulationPathForMethod(current.method));
           },
         },
         storedInitialState !== null,

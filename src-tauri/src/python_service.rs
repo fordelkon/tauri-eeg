@@ -13,7 +13,7 @@ use crate::python_client::shared_client;
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
-const REQUIRED_AGENT_PLANNER_VERSION: &str = "lm-video-music-stream-v1";
+const REQUIRED_AGENT_PLANNER_VERSION: &str = "lm-video-music-stream-v2";
 const REQUIRED_AGENT_CAPABILITIES: &[&str] = &[
     "lm_video_selection",
     "lm_music_generation_prompt",
@@ -481,7 +481,7 @@ mod tests {
     fn accepts_agent_health_only_when_lm_planner_capabilities_are_present() {
         let health = AgentHealthResponse {
             status: "ready".to_string(),
-            planner_version: Some("lm-video-music-stream-v1".to_string()),
+            planner_version: Some("lm-video-music-stream-v2".to_string()),
             capabilities: vec![
                 "lm_video_selection".to_string(),
                 "lm_music_generation_prompt".to_string(),

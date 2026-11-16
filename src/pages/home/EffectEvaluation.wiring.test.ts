@@ -11,15 +11,11 @@ const reviewUrl = new URL('./EffectReviewPopover.tsx', import.meta.url);
 const panelsUrl = new URL('./EffectStepPanels.tsx', import.meta.url);
 
 describe('EffectEvaluation wiring contract', () => {
-  test('registers /effect-evaluation outside the standalone regulation gate', () => {
+  test('registers the formal evaluation route', () => {
     const appSource = readText(new URL('../../App.tsx', import.meta.url));
 
     expect(appSource).toContain("import('./pages/home/EffectEvaluation')");
     expect(appSource).toContain('path="/effect-evaluation"');
-    const evaluationIndex = appSource.indexOf('path="/effect-evaluation"');
-    const gateIndex = appSource.indexOf('<Route element={<ScaleGateRoute />}>');
-    expect(evaluationIndex).toBeGreaterThan(-1);
-    expect(gateIndex).toBeGreaterThan(evaluationIndex);
   });
 
   test('adds the effect-evaluation entry to the home navigation', () => {
@@ -58,11 +54,6 @@ describe('subject passthrough contract', () => {
     expect(hookSource).toContain('subjectSelected: writeStoredSubjectId');
   });
 
-  test('persists gate submissions with an explicit subject binding option', () => {
-    const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
-    expect(apiSource).toContain('readStoredSubjectId()');
-    expect(apiSource).not.toContain('subjectId: null,');
-  });
 });
 
 describe('strong duration constraint (R3 contract)', () => {

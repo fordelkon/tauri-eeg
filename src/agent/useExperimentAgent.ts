@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import {
-  getMentalScaleStatusSnapshot,
-  type MentalScaleDimensionKey,
-} from '../mentalScale/mentalScaleStatus';
 import { generateMusic } from '../music/musicGenerationApi';
 import { getCurrentRegulationVideos } from '../video/regulationVideoResources';
 import { type AgentActionId, getAgentAction, getAgentActionValidation } from './agentActions';
@@ -222,12 +218,6 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
           setMessage('已向视频页面发送播放请求。');
           return;
         case 'generate_music': {
-          const scores = Object.fromEntries(
-            getMentalScaleStatusSnapshot().dimensions.map((dimension) => [
-              dimension.key,
-              dimension.value,
-            ]),
-          ) as Record<MentalScaleDimensionKey, number>;
           const plannerPrompt = getPlannerStringParam(params, 'prompt');
           const plannerDuration = getPlannerDurationParam(params);
           const plannerInstrument = getPlannerStringParam(params, 'instrument');
@@ -237,7 +227,6 @@ export function useExperimentAgent({ pathname, navigateTo }: UseExperimentAgentO
             (tag): tag is string => Boolean(tag),
           );
           const preview = buildAgentMusicPreview({
-            coreScores: scores,
             personalizedTags: plannerTags.length > 0 ? plannerTags : ['soft'],
           });
           if (!currentUser) {

@@ -1,5 +1,4 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { MentalScaleStatus } from '../mentalScale/mentalScaleStatus';
 import type { VideoRegulationAsset } from '../video/videoRegulationCatalog';
 import type { AgentPersonalizedAnswer, AgentTimelineEntry } from './agentContext';
 import type { AgentPhase } from './agentFlow';
@@ -8,7 +7,6 @@ export type AgentPlannerRequest = {
   phase: AgentPhase;
   currentRoute: string;
   userInput: string;
-  scaleStatus: MentalScaleStatus;
   availableResources: {
     videos: Pick<VideoRegulationAsset, 'id' | 'title' | 'tags'>[];
     musicGeneration: boolean;

@@ -5,17 +5,13 @@ import { describe, expect, test } from 'vitest';
 const readText = (url: URL) => readFileSync(url, 'utf8');
 
 describe('ExperimentAgentPanel layout contract', () => {
-  test('is embedded below the daily emotion ratings', () => {
+  test('fits inside the responsive assistant rail', () => {
     const agentCss = readText(new URL('./ExperimentAgentPanel.module.css', import.meta.url));
-    const mentalScaleTsx = readText(
-      new URL('../mentalScale/GlobalMentalScalePanel.tsx', import.meta.url),
+    const railTsx = readText(
+      new URL('./ExperimentAssistantRail.tsx', import.meta.url),
     );
     const homeCss = readText(new URL('../pages/Home.module.css', import.meta.url));
     const homeTsx = readText(new URL('../pages/Home.tsx', import.meta.url));
-    const shellBlock = homeTsx.match(
-      /<div className={styles\.shell}>[\s\S]*?<\/div>\s*\r?\n\r?\n\s*\{pendingScale \?/,
-    );
-
     expect(agentCss).not.toMatch(/position:\s*fixed/);
     expect(agentCss).not.toMatch(/\.dragHandle\s*{/s);
     expect(agentCss).toMatch(/\.panel\s*{[^}]*gap:\s*8px;/s);
@@ -27,14 +23,11 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(agentCss).toMatch(/\.confirmation\s*{[^}]*gap:\s*6px;/s);
     expect(agentCss).toMatch(/\.confirmation\s*{[^}]*max-height:\s*120px;/s);
     expect(agentCss).toMatch(/\.confirmation\s*{[^}]*overflow-y:\s*auto;/s);
-    expect(mentalScaleTsx).not.toContain('Highest signal');
-    expect(mentalScaleTsx).not.toContain('styles.metrics');
-    expect(mentalScaleTsx).toContain('{children}');
+    expect(railTsx).toContain('{children}');
     expect(homeCss).toMatch(
       /\.shell\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*3fr\)\s+minmax\(260px,\s*1fr\);/s,
     );
-    expect(shellBlock?.[0] ?? '').toContain('<GlobalMentalScalePanel>');
-    expect(shellBlock?.[0] ?? '').toContain('<ExperimentAgentPanel');
+    expect(homeTsx).toMatch(/<ExperimentAssistantRail>\s*<ExperimentAgentPanel[\s\S]*?<\/ExperimentAssistantRail>/);
     expect(readText(new URL('./ExperimentAgentPanel.tsx', import.meta.url))).toContain(
       'className={styles.content}',
     );

@@ -1,6 +1,23 @@
 use super::*;
 
 #[test]
+fn rejects_measurements_outside_an_evaluation_run() {
+    use crate::experiment::records::save_measurement;
+
+    let (db, _, run) = setup();
+    let conn = db.lock().unwrap();
+    let mut input = rating_input(&run, "baseline", 2);
+    input.experiment_run_id = None;
+    assert!(save_measurement(&conn, &input).is_err());
+    input.scale_id = "momentary_checkin_2_v1".into();
+    assert!(save_measurement(&conn, &input).is_err());
+    let count: i64 = conn
+        .query_row("SELECT count(*) FROM scale_records", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 0);
+}
+
+#[test]
 fn formal_pre_induction_event_is_logged_without_a_serial_device() {
     let (_, service, run) = setup();
     let event = EventInput {

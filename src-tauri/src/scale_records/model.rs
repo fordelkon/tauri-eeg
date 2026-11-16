@@ -18,11 +18,9 @@ pub struct SaveScaleRecordInput {
     pub phase: String,
     pub dimension_scores: BTreeMap<String, f64>,
     pub raw_answers: serde_json::Value,
-    /// Target emotion configured by the evaluation wizard; `None` on
-    /// standalone gate submissions.
+    /// Target emotion configured by the evaluation wizard.
     pub emotion: Option<String>,
-    /// Wizard condition of this run (R6): `natural_recovery` or `regulation`;
-    /// `None` on standalone gate submissions and legacy payloads.
+    /// Wizard condition of this run: `natural_recovery` or `regulation`.
     #[serde(default)]
     pub condition: Option<String>,
     /// Planned regulation window in minutes; `None` outside the wizard.

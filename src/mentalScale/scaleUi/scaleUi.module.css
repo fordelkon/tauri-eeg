@@ -116,32 +116,6 @@
   }
 }
 
-/* -------------------------------------------------------------- item rows */
-
-.itemRow {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-}
-
-.itemPrompt {
-  color: var(--scale-ink);
-  display: flex;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  gap: 8px;
-  line-height: 1.6;
-  margin: 0;
-}
-
-.itemBadge {
-  align-self: baseline;
-  color: var(--scale-ink-soft);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-}
-
 /* -------------------------------------------------------- progress (total) */
 
 .progressBar {
