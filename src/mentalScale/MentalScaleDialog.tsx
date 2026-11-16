@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import {
   Button,
@@ -141,7 +142,7 @@ export default function MentalScaleDialog({
             ) : null}
           </div>
           <div className={styles.scaleFooterActions}>
-            {onSkip ? (
+            {DEVELOPMENT_BUILD && onSkip ? (
               <button type="button" className={styles.scaleSkipButton} onClick={onSkip}>
                 跳过本次
               </button>

@@ -1,3 +1,4 @@
+import { canUseRehearsalTools, DEVELOPMENT_BUILD } from '../../experiment/buildMode';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
@@ -128,7 +129,7 @@ export function InductionStepPanel({
           entry={status.entry}
           isPlaying={isInductionPlaying}
           onError={onVideoError}
-          rehearsal={state.runMode === 'rehearsal'}
+          rehearsal={canUseRehearsalTools(state.runMode)}
           onTestSkip={() => void flow.skipInduction()}
           onFinished={() => void flow.completeInduction()}
           onPlaying={(onset) => flow.inductionOnset(status.entry.videoId, onset)}
@@ -191,6 +192,7 @@ export function ScaleStepPanel({
 
       {isDialogOpen && state.runId ? (
         <DeqRatingDialog
+          rehearsal={canUseRehearsalTools(state.runMode)}
           key={`${state.runId}-${phase}`}
           runId={state.runId}
           phase={phase}
@@ -336,7 +338,7 @@ export function ConditionStepPanel({
                 {isNaturalRecovery
                   ? '开始后请注视十字，到时自动进入复测。按 Esc 可中止实验。'
                   : '素材开始播放后计时。'}
-                {isNaturalRecovery && state.runMode === 'rehearsal'
+                {DEVELOPMENT_BUILD && isNaturalRecovery && state.runMode === 'rehearsal'
                   ? ` 排练可按 ${TEST_SKIP_LABEL} 跳过静息。`
                   : null}
               </p>
@@ -387,7 +389,9 @@ export function ConditionStepPanel({
                 在独立页打开{methodLabel}（已锁定）
               </button>
             )}
-            {finishMode.mode === 'requires-skip' ? (
+            {DEVELOPMENT_BUILD &&
+            state.runMode === 'rehearsal' &&
+            finishMode.mode === 'requires-skip' ? (
               <button
                 type="button"
                 className={styles.secondaryActionDanger}

@@ -70,7 +70,7 @@ export function createEffectEvaluationFlowState(): EffectEvaluationFlowState {
     regulationStartedAtMs: null,
     regulationSkipped: false,
     runId: null,
-    runMode: 'rehearsal',
+    runMode: __EXPERIMENT_DEV__ ? 'rehearsal' : 'formal',
     interrupted: false,
     regulationStartedAtMonotonicMs: null,
     eventLogStatus: 'not-started',
@@ -179,7 +179,10 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
   const runId = optionalString(candidate.runId);
   if (
     runId === undefined ||
-    !['formal', 'rehearsal'].includes(String(candidate.runMode)) ||
+    !(
+      candidate.runMode === 'formal' ||
+      (__EXPERIMENT_DEV__ && candidate.runMode === 'rehearsal')
+    ) ||
     typeof candidate.interrupted !== 'boolean'
   )
     return null;
@@ -208,7 +211,7 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
     regulationStartedAtMs,
     regulationSkipped,
     runId,
-    runMode: candidate.runMode === 'formal' ? 'formal' : 'rehearsal',
+    runMode: candidate.runMode,
     interrupted: candidate.interrupted,
     regulationStartedAtMonotonicMs: monotonic,
     eventLogStatus,

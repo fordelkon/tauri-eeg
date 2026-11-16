@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -68,6 +69,7 @@ export default function ScaleGateRoute() {
   };
 
   const handleSkip = () => {
+    if (!DEVELOPMENT_BUILD) return;
     // Skip only lifts the gate for this attempt; the effect above consumes it
     // once the page mounts, so the next navigation re-prompts.
     recordScaleSkip(scale.path);
@@ -85,7 +87,7 @@ export default function ScaleGateRoute() {
       key={scale.path}
       onComplete={handleComplete}
       onClose={handleClose}
-      onSkip={handleSkip}
+      onSkip={DEVELOPMENT_BUILD ? handleSkip : undefined}
       scale={scale}
     />
   );

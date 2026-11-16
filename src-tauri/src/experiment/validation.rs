@@ -6,6 +6,9 @@ use rusqlite::Connection;
 
 pub fn validate(conn: &Connection, run: &Run, input: &EventInput) -> Result<(), String> {
     let name = input.event.as_str();
+    if name == "trial_skip" && !super::is_development_rehearsal(&run.input.mode) {
+        return Err("仅开发版排练允许跳过实验步骤。".into());
+    }
     if run.input.mode == "formal" && ["media_pause", "media_resume", "media_change"].contains(&name)
     {
         return Err(

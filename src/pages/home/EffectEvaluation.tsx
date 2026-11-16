@@ -1,3 +1,4 @@
+import { canUseRehearsalTools } from '../../experiment/buildMode';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -125,7 +126,7 @@ export default function EffectEvaluation() {
   };
 
   const handleSkipRemaining = () => {
-    if (finishMode.mode !== 'requires-skip') {
+    if (!canUseRehearsalTools(state.runMode) || finishMode.mode !== 'requires-skip') {
       return;
     }
     const remainingAtConfirm = remainingRegulationSeconds(state, Date.now()) ?? 0;
@@ -320,7 +321,7 @@ export default function EffectEvaluation() {
               <span className={styles.configChip}>被试 {state.subjectId.trim() || '未填写'}</span>
               <span className={styles.configChip}>时长 {state.durationMinutes} 分钟</span>
               <span className={styles.configChip}>
-                {state.runMode === 'formal' ? '正式实验' : '排练，不发送硬件标记'}
+                {!__EXPERIMENT_DEV__ || state.runMode === 'formal' ? '正式实验' : '排练，不发送硬件标记'}
                 {state.runId ? ` · ${state.runId.slice(0, 8)}` : ''}
               </span>
               {state.eventLogStatus !== 'not-started' ? (

@@ -31,7 +31,9 @@ function toWindowsPath(path: string) {
   return path.replace(/\//g, '\\');
 }
 
-export const videoLibraryPath = `${toWindowsPath(__TAURI_EEG_PROJECT_ROOT__)}\\video_database`;
+export const videoLibraryPath = __EXPERIMENT_DEV__
+  ? `${toWindowsPath(__TAURI_EEG_PROJECT_ROOT__)}\\video_database`
+  : '';
 
 export const videoSelectionSteps = ['tag', 'atmosphere', 'scene'] as const;
 
@@ -294,7 +296,7 @@ const librarySegments: readonly LibrarySegment[] = [
   },
 ];
 
-const assets = librarySegments.map(toVideoAsset);
+const assets = __EXPERIMENT_DEV__ ? librarySegments.map(toVideoAsset) : [];
 
 function joinVideoLibraryPath(file: string) {
   return `${videoLibraryPath}\\${file}`;

@@ -77,6 +77,8 @@ export const testTrigger = () => invoke<TriggerStatus>('trigger_test');
 
 export function createRun({ flowKind, ...input }: CreateRunInput) {
   if (!input.userId) return Promise.reject(new Error('请先登录再开始实验。'));
+  if (!__EXPERIMENT_DEV__ && input.mode !== 'formal')
+    return Promise.reject(new Error('发布版仅支持正式实验。'));
   return invoke<ExperimentRun>('experiment_start', { input: { ...input, kind: flowKind } });
 }
 

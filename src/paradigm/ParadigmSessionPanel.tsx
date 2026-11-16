@@ -28,7 +28,8 @@ export default function ParadigmSessionPanel(props: PreparedParadigm) {
     setError(null);
     try {
       const preferences = readExperimentPreferences();
-      if (!request.dryRun)
+      const dryRun = __EXPERIMENT_DEV__ && request.dryRun;
+      if (!dryRun)
         requirePreparedRecording(preferences, {
           userId: currentUser?.id ?? '',
           subjectId: request.subjectId,
@@ -38,13 +39,13 @@ export default function ParadigmSessionPanel(props: PreparedParadigm) {
         userId: currentUser?.id ?? null,
         subjectId: request.subjectId,
         flowKind: request.sessionKind,
-        mode: request.dryRun ? 'rehearsal' : 'formal',
+        mode: dryRun ? 'rehearsal' : 'formal',
         externalRecordingConfirmed: preferences.externalRecordingConfirmed,
         expectedRecordingName: preferences.expectedRecordingName,
         materials: { sessionRunId: request.sessionRunId, queue: request.queue },
       });
-      if (!request.dryRun) consumeRecordingConfirmation();
-      setRun({ ...request, runId: started.runId });
+      if (!dryRun) consumeRecordingConfirmation();
+      setRun({ ...request, dryRun, runId: started.runId });
     } catch (failure) {
       setError(toLibraryErrorMessage(failure));
     } finally {

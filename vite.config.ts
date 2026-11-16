@@ -44,10 +44,11 @@ const manualChunks = (id: string): string | undefined => {
 };
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ command, isPreview, mode }) => ({
   plugins: [react(), UnoCSS({ presets: [presetUno()] })],
   define: {
-    __TAURI_EEG_PROJECT_ROOT__: JSON.stringify(process.cwd()),
+    __EXPERIMENT_DEV__: command === "serve" && !isPreview,
+    __TAURI_EEG_PROJECT_ROOT__: JSON.stringify(command === "serve" && !isPreview ? process.cwd() : ""),
   },
   // Tauri ships an evergreen WebView2 / WKWebView, so we can target the latest
   // JS features instead of down-leveling for legacy browsers.

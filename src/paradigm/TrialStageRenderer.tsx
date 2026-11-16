@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -46,7 +47,7 @@ type Props = {
   onVideoEnded: () => void;
   onVideoDurationLoaded: (durationSeconds: number | null) => void;
   /** Retires the active trial after a load failure and moves to the next one. */
-  onSkipTrial: () => void;
+  onSkipTrial?: () => void;
   /**
    * Command failures surfaced inside the fullscreen stage; the panel-level
    * error banner sits behind the portal and would otherwise be invisible.
@@ -234,7 +235,7 @@ type VideoStageProps = {
   onVideoError: () => void;
   onVideoEnded: () => void;
   onVideoDurationLoaded: (durationSeconds: number | null) => void;
-  onSkipTrial: () => void;
+  onSkipTrial?: () => void;
 };
 
 function VideoStage({
@@ -322,13 +323,15 @@ function VideoStage({
           </button>
           <span>视频加载失败,无法播放(文件缺失或格式不受支持)。</span>
 
-          <button
-            type="button"
-            className={`${styles.stageActionButton} ${styles.stageDangerActionButton}`}
-            onClick={onSkipTrial}
-          >
-            跳过该试次
-          </button>
+          {DEVELOPMENT_BUILD && onSkipTrial && (
+            <button
+              type="button"
+              className={`${styles.stageActionButton} ${styles.stageDangerActionButton}`}
+              onClick={onSkipTrial}
+            >
+              跳过该试次
+            </button>
+          )}
         </div>
       ) : null}
     </>

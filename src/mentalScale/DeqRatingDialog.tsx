@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle } from '@mui/material';
 import { useState } from 'react';
 import {
@@ -11,9 +12,11 @@ import {
 import { createRatingDraft } from './ratingDraft';
 import type { ScalePhase } from './scaleRecordsApi';
 import ScaleProgressBar from './scaleUi/ScaleProgressBar';
+import DevAutoFillButton from './scaleUi/DevAutoFillButton';
 import styles from './DeqRatingDialog.module.css';
 
 type Props = {
+  rehearsal: boolean;
   runId: string;
   phase: ScalePhase;
   isSubmitting: boolean;
@@ -33,7 +36,15 @@ export default function DeqRatingDialog(props: Props) {
   return <RatingForm key={JSON.stringify([props.runId, props.phase])} {...props} />;
 }
 
-function RatingForm({ runId, phase, isSubmitting, submitError, onClose, onComplete }: Props) {
+function RatingForm({
+  runId,
+  phase,
+  rehearsal,
+  isSubmitting,
+  submitError,
+  onClose,
+  onComplete,
+}: Props) {
   const [ratings, setRatings] = useState(() => draft.read(window.sessionStorage, runId, phase));
   const count = Object.keys(ratings).length;
 
@@ -95,6 +106,17 @@ function RatingForm({ runId, phase, isSubmitting, submitError, onClose, onComple
       </DialogContent>
       {submitError && <Alert severity="error">{submitError}</Alert>}
       <DialogActions className={styles.actions}>
+        {DEVELOPMENT_BUILD && rehearsal && !isSubmitting && (
+          <DevAutoFillButton
+            items={deqItems.map(({ id }) => ({ id, minValue: 1, maxValue: deqAnchors.length }))}
+            answeredIds={Object.keys(ratings)}
+            onFill={(fill) => {
+              const next = { ...ratings, ...fill };
+              setRatings(next);
+              draft.write(window.sessionStorage, runId, phase, next);
+            }}
+          />
+        )}
         <div className={styles.progress} role="status">
           <ScaleProgressBar
             answered={count}

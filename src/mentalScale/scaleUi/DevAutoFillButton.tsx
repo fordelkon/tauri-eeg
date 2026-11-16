@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../../experiment/buildMode';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import styles from './scaleUi.module.css';
 
@@ -17,6 +18,7 @@ export function buildRandomFill(
   items: ReadonlyArray<ScaleFillItem>,
   answeredIds: ReadonlyArray<string>,
 ): Record<string, number> {
+  if (!DEVELOPMENT_BUILD) return {};
   const answered = new Set(answeredIds);
   const fill: Record<string, number> = {};
 
@@ -32,38 +34,17 @@ export function buildRandomFill(
   return fill;
 }
 
-/**
- * The exact body of the button's click handler: build the fill, then push
- * every value through the dialog's EXISTING per-item onChange/setter so the
- * regular validation path runs and the submit gate re-evaluates. Exported
- * for the node-env tests (no DOM is available to dispatch real clicks).
- */
-export function applyRandomFill(
-  items: ReadonlyArray<ScaleFillItem>,
-  answeredIds: ReadonlyArray<string>,
-  onAnswer: (id: string, value: number) => void,
-): Record<string, number> {
-  const fill = buildRandomFill(items, answeredIds);
-
-  for (const [id, value] of Object.entries(fill)) {
-    onAnswer(id, value);
-  }
-
-  return fill;
-}
-
 export type DevAutoFillButtonProps = {
   items: ReadonlyArray<ScaleFillItem>;
   /** Answer keys already set — the fill skips them. */
   answeredIds: ReadonlyArray<string>;
-  /** The dialog's existing per-item onChange (same path as manual clicks). */
-  onAnswer: (id: string, value: number) => void;
+  onFill: (answers: Record<string, number>) => void;
   /** Optional "清空" action (resets the answers through the dialog's setter). */
   onClear?: () => void;
 };
 
 /**
- * DEV-ONLY helper button. Hard visibility gate: import.meta.env.DEV is
+ * DEV-ONLY helper button. Hard visibility gate: DEVELOPMENT_BUILD is
  * statically false in production builds (vite define), so the component
  * renders null in production and the branch is dead-code-eliminated by the
  * minifier — it can never reach a built app.
@@ -71,10 +52,10 @@ export type DevAutoFillButtonProps = {
 export default function DevAutoFillButton({
   items,
   answeredIds,
-  onAnswer,
+  onFill,
   onClear,
 }: DevAutoFillButtonProps) {
-  if (!import.meta.env.DEV) {
+  if (!DEVELOPMENT_BUILD) {
     return null;
   }
 
@@ -83,7 +64,7 @@ export default function DevAutoFillButton({
       <button
         type="button"
         className={styles.devFillButton}
-        onClick={() => applyRandomFill(items, answeredIds, onAnswer)}
+        onClick={() => onFill(buildRandomFill(items, answeredIds))}
       >
         <BoltRoundedIcon aria-hidden="true" fontSize="inherit" />
         一键填写（开发）

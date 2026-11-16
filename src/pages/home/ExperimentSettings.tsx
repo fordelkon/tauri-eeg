@@ -66,7 +66,7 @@ export default function ExperimentSettings() {
   const busy = busyKey !== '';
   const desktop = isTauriAvailable();
   const locked = busy || Boolean(status.activeRunId);
-  const formal = preferences.mode === 'formal';
+  const formal = !__EXPERIMENT_DEV__ || preferences.mode === 'formal';
   const destinationLabel = destination === 'effect' ? '效果评价' : '逐试次范式';
   const plan = {
     userId: currentUser?.id ?? '',
@@ -156,8 +156,7 @@ export default function ExperimentSettings() {
   }, [desktop]);
   const savePreferences = (next: typeof preferences) => {
     try {
-      writeExperimentPreferences(next);
-      setPreferences(next);
+      setPreferences(writeExperimentPreferences(next));
     } catch (failure) {
       setError(describeFriendlyError(failure, '写入实验偏好'));
     }
@@ -267,8 +266,7 @@ export default function ExperimentSettings() {
           个人校准使用平静视频；独立诱发使用三类情绪视频。音乐或视频调控的前后测请使用效果评价。
         </p>
         <p className={styles.environmentNotice}>
-          开始前核对下方运行模式，以“正式 · 发送 Trigger”或“排练 · 不发送
-          Trigger”为准。正式实验需保持 ActiView 的 Saving。
+          {formal ? '正式实验期间，请保持 ActiView 连续保存 BDF。' : '排练将保存操作记录。'}
         </p>
         <ParadigmSessionPanel preparedSubjectId={plan.subjectId} preparedKind={paradigmKind} />
         <button

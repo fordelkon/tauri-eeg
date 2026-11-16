@@ -16,7 +16,7 @@ fn setup() -> (Arc<Mutex<Connection>>, Service, Run) {
     let service = Service::new(db.clone());
     let run: Run = service
         .call(Box::new(move |w| {
-            w.start(StartInput {
+            w.start_formal_for_test(StartInput {
                 user_id: "operator".into(),
                 subject_id: "subject".into(),
                 kind: "effect_evaluation".into(),
@@ -24,8 +24,8 @@ fn setup() -> (Arc<Mutex<Connection>>, Service, Run) {
                 condition: Some("regulation".into()),
                 method: Some("music".into()),
                 duration_minutes: Some(5.0),
-                mode: "rehearsal".into(),
-                external_recording_confirmed: false,
+                mode: "formal".into(),
+                external_recording_confirmed: true,
                 expected_recording_name: None,
                 materials: None,
             })

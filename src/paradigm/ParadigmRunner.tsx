@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import { useCallback, useEffect } from 'react';
 import { useParticipantFullscreen } from '../pages/home/useParticipantFullscreen';
 import { useTestSkip } from '../pages/home/useTestSkip';
@@ -32,7 +33,7 @@ const STAGE_PHASES: readonly string[] = ['baseline', 'hint', 'video', 'postRest'
  * confirmations.
  */
 export default function ParadigmRunner({ request, onExitToSetup }: Props) {
-  const dryRun = request.dryRun;
+  const dryRun = DEVELOPMENT_BUILD && request.dryRun;
   /** Regulation sessions run the closed-loop trial flow (dry-run only for now). */
 
   // Promise-based MUI confirm replaces the native window.confirm calls that
@@ -265,6 +266,7 @@ export default function ParadigmRunner({ request, onExitToSetup }: Props) {
 
       {state.phase === 'running' && state.trialPhase === 'selfReport' ? (
         <SamRatingDialog
+            rehearsal={dryRun}
           videoNumber={progress.currentVideoNumber}
           videosInBlock={PARADIGM_TRIALS_PER_CLASS}
           onSubmit={handleSelfReportSubmit}

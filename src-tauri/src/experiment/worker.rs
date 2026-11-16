@@ -76,7 +76,7 @@ impl Service {
 }
 pub struct Worker {
     db: Db,
-    port: Option<Box<dyn serialport::SerialPort>>,
+    port: Option<Box<dyn Write + Send>>,
     pub status: Status,
     active: Option<(Run, Instant)>,
     last_write: Option<Instant>,
@@ -117,8 +117,16 @@ impl Worker {
         )
     }
     #[cfg(test)]
-    pub fn set_active_mode_for_test(&mut self) {
-        self.active.as_mut().unwrap().0.input.mode = "formal".into();
+    pub fn start_formal_for_test(&mut self, mut input: StartInput) -> Result<Value, String> {
+        self.port = Some(Box::new(std::io::sink()));
+        self.set_trigger_state_for_test(true, true);
+        input.mode = "formal".into();
+        input.external_recording_confirmed = true;
+        self.start(input)
+    }
+    #[cfg(test)]
+    pub fn lose_port_for_test(&mut self) {
+        self.port = None;
     }
     #[cfg(test)]
     pub fn set_trigger_state_for_test(&mut self, connected: bool, tested: bool) {
@@ -205,8 +213,8 @@ impl Worker {
         {
             return Err("Unsupported experiment kind.".into());
         }
-        if !["formal", "rehearsal"].contains(&input.mode.as_str()) {
-            return Err("Invalid experiment mode.".into());
+        if input.mode != "formal" && !super::is_development_rehearsal(&input.mode) {
+            return Err("当前构建不支持此实验模式。".into());
         }
         if input.mode == "formal" && (!self.status.connected || !input.external_recording_confirmed)
         {
@@ -305,7 +313,7 @@ impl Worker {
         } else {
             Some(code(&input.event)?)
         };
-        let rehearsal = run.input.mode == "rehearsal";
+        let rehearsal = super::is_development_rehearsal(&run.input.mode);
         super::validation::validate(
             &*self.db.lock().map_err(|_| "Database unavailable")?,
             run,

@@ -1,3 +1,4 @@
+import { canUseRehearsalTools } from '../../experiment/buildMode';
 import type { CreateRunInput, EmitEventInput } from '../../experiment/api';
 import type { ExperimentPreferences } from '../../experiment/settings';
 import { requirePreparedRecording } from '../../experiment/recordingPath';
@@ -309,7 +310,10 @@ export class EffectEvaluationExecution {
 
   skipInduction = (): Promise<boolean> => {
     const { runMode, runId, emotion } = this.snapshot.state;
-    if (runMode !== 'rehearsal' || !this.events.has(`${runId}:induction:${emotion}_video_start`))
+    if (
+      !canUseRehearsalTools(runMode) ||
+      !this.events.has(`${runId}:induction:${emotion}_video_start`)
+    )
       return Promise.resolve(false);
     return this.leaveInduction(true);
   };
@@ -434,6 +438,8 @@ export class EffectEvaluationExecution {
   skipRemainingRegulation = () => this.leaveRegulation(true);
 
   private leaveRegulation(skipped: boolean): Promise<boolean> {
+    if (skipped && !canUseRehearsalTools(this.snapshot.state.runMode))
+      return Promise.resolve(false);
     if (!this.allowed(3) || this.snapshot.state.regulationStartedAtMs === null)
       return Promise.resolve(false);
     if (!skipped && this.regulationFinishMode().mode !== 'finish') return Promise.resolve(false);

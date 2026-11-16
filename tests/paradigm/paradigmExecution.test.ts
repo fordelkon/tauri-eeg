@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as buildMode from '../../src/experiment/buildMode';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const ipc = vi.hoisted(() => ({ emitEvent: vi.fn(), saveTrial: vi.fn(), finishRun: vi.fn() }));
 vi.mock('../../src/experiment/api', () => ipc);
 import { ParadigmExecution } from '../../src/paradigm/paradigmExecution';
@@ -18,8 +19,8 @@ const token = (run: ParadigmExecution) => run.getSnapshot().state;
 async function idle(run: ParadigmExecution) {
   await vi.waitFor(() => expect(run.getSnapshot().operation).toBe('idle'));
 }
-async function start(queue = [plan]) {
-  const run = new ParadigmExecution({ runId: 'run-1', queue, sessionKind: 'personal_calibration' });
+async function start(queue = [plan], dryRun = true) {
+  const run = new ParadigmExecution({ runId: 'run-1', queue, dryRun, sessionKind: 'personal_calibration' });
   run.start();
   await idle(run);
   return run;
@@ -43,6 +44,18 @@ beforeEach(() => {
 });
 
 describe('independent paradigm execution', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('release refuses both skip paths even if a rehearsal flag is supplied', async () => {
+    vi.spyOn(buildMode, 'DEVELOPMENT_BUILD', 'get').mockReturnValue(false);
+    const run = await start([plan], true);
+    await run.skipRehearsalTrial(token(run));
+    const confirm = vi.fn(async () => true);
+    await run.skip(token(run), confirm);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(events()).not.toContain('trial_skip');
+    expect(token(run).trialPhase).toBe('baseline');
+  });
   it('retains marker identities, order, quality, SAM and summary through completion', async () => {
     const run = await start();
     await review(run);
@@ -63,8 +76,11 @@ describe('independent paradigm execution', () => {
   });
 
   it('only records a rehearsal shortcut as a rejected trial, without a playback failure', async () => {
-    const formal = await start();
+    const formal = await start([plan], false);
     await formal.skipRehearsalTrial(token(formal));
+    const confirm = vi.fn(async () => true);
+    await formal.skip(token(formal), confirm);
+    expect(confirm).not.toHaveBeenCalled();
     expect(token(formal).trialPhase).toBe('baseline');
     expect(events()).not.toContain('trial_skip');
 

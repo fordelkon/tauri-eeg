@@ -22,13 +22,14 @@ type ParadigmFinishedScreenProps = {
 };
 
 export default function ParadigmFinishedScreen({
-  dryRun,
+  dryRun: rehearsal,
   summary,
   summaryError,
   sessionId,
   onReturnToSetup,
 }: ParadigmFinishedScreenProps) {
   const navigate = useNavigate();
+  const dryRun = __EXPERIMENT_DEV__ && rehearsal;
 
   return (
     <div className={`${styles.panel} ${styles.panelFinished}`} aria-label="范式 Session 训练前统计">

@@ -14,11 +14,12 @@ function toWindowsPath(path: string) {
 }
 
 /**
- * The bundled project library is the first-choice source for both induction
- * and effect-evaluation video regulation. Operators can still replace it by
- * selecting and validating another root on the EEG acquisition page.
+ * The development checkout contains example stimuli. Installed applications
+ * use the library selected and validated on the acquisition computer.
  */
-export const defaultParadigmLibraryRootPath = `${toWindowsPath(__TAURI_EEG_PROJECT_ROOT__)}\\video_paradigm`;
+export const defaultParadigmLibraryRootPath = __EXPERIMENT_DEV__
+  ? `${toWindowsPath(__TAURI_EEG_PROJECT_ROOT__)}\\video_paradigm`
+  : '';
 
 function resolveStorage(): StorageLike | null {
   try {
@@ -30,8 +31,7 @@ function resolveStorage(): StorageLike | null {
 }
 
 /**
- * Last validated paradigm video root path, falling back to the bundled
- * video_paradigm folder for a first launch or unavailable local storage.
+ * Last validated paradigm video root path, or the build's initial value.
  */
 export function readStoredLibraryRootPath(): string {
   try {

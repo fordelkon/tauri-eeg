@@ -28,7 +28,7 @@ export default function PreparationReview({
   destination,
   paradigmKind,
   effectDraft,
-  formal,
+  formal: formalModeSelected,
   status,
   validatedLibrary,
   library,
@@ -39,6 +39,7 @@ export default function PreparationReview({
   readiness,
   goToStep,
 }: Props) {
+  const formal = !__EXPERIMENT_DEV__ || formalModeSelected;
   return (
     <>
       <p className={guide.introduction}>

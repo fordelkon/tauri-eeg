@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import { describeParadigmQueueProgress } from './paradigmBlockQueue';
 import { ParadigmExecution } from './paradigmExecution';
 import type { StartedParadigmRequest } from './ParadigmSetupPanel';
@@ -53,13 +54,16 @@ export function useIndependentParadigmRun({
     handleRehearsalSkip: () => {
       void execution.skipRehearsalTrial(state);
     },
-    handleSkipTrial: () =>
-      execution.skip(state, () =>
-        confirm({
-          title: '跳过该试次？',
-          description: '记录播放失败和跳过事件，将试次标为拒收。',
-        }),
-      ),
+    handleSkipTrial:
+      DEVELOPMENT_BUILD && request.dryRun
+        ? () =>
+            execution.skip(state, () =>
+              confirm({
+                title: '跳过该试次？',
+                description: '记录播放失败和跳过事件，将试次标为拒收。',
+              }),
+            )
+        : undefined,
     abortRun: execution.abort,
   };
 }

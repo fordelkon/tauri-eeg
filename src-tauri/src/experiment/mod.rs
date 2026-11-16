@@ -18,6 +18,11 @@ use types::*;
 pub type WorkerJob = Box<dyn FnOnce(&mut worker::Worker) -> Result<Value, String> + Send>;
 
 pub use worker::Service;
+// tauri-build sets cfg(dev) when the CLI uses the development protocol.
+fn is_development_rehearsal(mode: &str) -> bool {
+    cfg!(dev) && mode == "rehearsal"
+}
+
 pub fn init(conn: &rusqlite::Connection) -> Result<(), String> {
     store::init(conn)
 }

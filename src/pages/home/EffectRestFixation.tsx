@@ -1,3 +1,4 @@
+import { canUseRehearsalTools } from '../../experiment/buildMode';
 import Modal from '@mui/material/Modal';
 import type { EffectEvaluationFlowState } from './effectEvaluationFlow';
 import { ConditionCountdown } from './EffectConditionCountdown';
@@ -15,7 +16,7 @@ export function EffectRestFixation({
   onSkip: () => void;
   onExit: () => void;
 }) {
-  useTestSkip(state.runMode === 'rehearsal', onSkip);
+  useTestSkip(canUseRehearsalTools(state.runMode), onSkip);
   return (
     <Modal
       open

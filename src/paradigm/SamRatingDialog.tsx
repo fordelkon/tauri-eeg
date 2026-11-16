@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { KeyboardEvent } from 'react';
@@ -7,6 +8,7 @@ import type { SelfReport } from './types';
 import styles from './ParadigmSession.module.css';
 
 type Props = {
+  rehearsal: boolean;
   /** 1-based position of the just-watched video inside its block. */
   videoNumber: number;
   videosInBlock: number;
@@ -88,7 +90,12 @@ function RatingRow({
   );
 }
 
-export default function SamRatingDialog({ videoNumber, videosInBlock, onSubmit }: Props) {
+export default function SamRatingDialog({
+  rehearsal,
+  videoNumber,
+  videosInBlock,
+  onSubmit,
+}: Props) {
   const [valence, setValence] = useState<number | null>(null);
   const [arousal, setArousal] = useState<number | null>(null);
   const [dominance, setDominance] = useState<number | null>(null);
@@ -284,11 +291,15 @@ export default function SamRatingDialog({ videoNumber, videosInBlock, onSubmit }
         )}
 
         <footer className={styles.dialogFooter}>
-          {Boolean(import.meta.env.DEV) && (
+          {DEVELOPMENT_BUILD && rehearsal && (
             <DevAutoFillButton
               items={fillItems}
               answeredIds={answeredRowIds}
-              onAnswer={(rowId, value) => selectForRow(rowId as RatingRowKey)(value)}
+              onFill={(answers) => {
+                for (const [rowId, value] of Object.entries(answers)) {
+                  selectForRow(rowId as RatingRowKey)(value);
+                }
+              }}
               onClear={handleClearRatings}
             />
           )}

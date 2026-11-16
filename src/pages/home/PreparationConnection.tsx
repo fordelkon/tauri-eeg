@@ -52,7 +52,7 @@ export default function PreparationConnection({
     <>
       <h3 className={guide.subheading}>Trigger 接口</h3>
       <p className={guide.introduction}>
-        {formal
+        {!__EXPERIMENT_DEV__ || formal
           ? '先连接触发盒，再用短 BDF 检查测试码。'
           : '排练可跳过设备连接。需要测试硬件时，仍可连接并发送 254。'}
       </p>

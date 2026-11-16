@@ -140,6 +140,10 @@ pub fn associate_bdf(
 
 pub fn save_trial(conn: &Connection, run_id: &str, trial: Value) -> Result<Value, String> {
     let run = store::run(conn, run_id)?;
+    if trial["presentationStatus"] == "skipped" && !super::is_development_rehearsal(&run.input.mode)
+    {
+        return Err("正式实验无法保存跳过的试次。".into());
+    }
     if !["running", "interrupted"].contains(&run.status.as_str()) {
         return Err("Trial run is closed.".into());
     }
@@ -188,6 +192,10 @@ pub(crate) fn save_measurement(
         .filter(|id| !id.trim().is_empty())
         .ok_or("DEQ requires an experiment run.")?;
     let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    let run = store::run(&tx, run_id)?;
+    if input.regulation_skipped && !super::is_development_rehearsal(&run.input.mode) {
+        return Err("正式实验无法保存跳过条件时长的评分。".into());
+    }
     let phase = input.phase.trim();
     let mut record = if let Some(id) = phase_record_id(&tx, run_id, phase)? {
         let saved = scale_records::get_scale_record(&tx, &id)?;
@@ -205,7 +213,6 @@ pub(crate) fn save_measurement(
         }
         saved
     } else {
-        let run = store::run(&tx, run_id)?;
         if run.input.kind != "effect_evaluation" || run.status != "running" {
             return Err("该实验未开放情绪评分。".into());
         }

@@ -90,7 +90,7 @@ export default function ExperimentRunHistory() {
         </p>
       )}
       {!runs.length && (
-        <p className={styles.empty}>暂无实验记录。完成排练或正式实验后，可在这里查看。</p>
+        <p className={styles.empty}>暂无实验记录。完成实验后，可在这里查看。</p>
       )}
       {runs.map((run) => (
         <details className={styles.record} key={run.runId}>

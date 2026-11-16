@@ -92,20 +92,22 @@ export default function PreparationPlan({
           onChange={updateEffectDraft}
         />
       )}
-      <label className={guide.modeField}>
-        模式
-        <select
-          aria-label="模式"
-          disabled={locked}
-          value={mode}
-          onChange={(event) => onMode(event.target.value === 'formal' ? 'formal' : 'rehearsal')}
-        >
-          <option value="rehearsal">排练 · 不发送硬件 Trigger</option>
-          <option value="formal">正式实验 · 发送 Trigger</option>
-        </select>
-      </label>
+      {__EXPERIMENT_DEV__ && (
+        <label className={guide.modeField}>
+          模式
+          <select
+            aria-label="模式"
+            disabled={locked}
+            value={mode}
+            onChange={(event) => onMode(event.target.value === 'formal' ? 'formal' : 'rehearsal')}
+          >
+            <option value="rehearsal">排练 · 不发送硬件 Trigger</option>
+            <option value="formal">正式实验 · 发送 Trigger</option>
+          </select>
+        </label>
+      )}
       <p className={styles.muted}>
-        {mode === 'formal'
+        {!__EXPERIMENT_DEV__ || mode === 'formal'
           ? '将实际发送事件到 BioSemi，开始前需要连接触发盒并确认 BDF 保存。'
           : '用于熟悉操作。保存实验日志和量表，不发送流程 Trigger。'}
       </p>

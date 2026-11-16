@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import type { MentalScalePath } from './mentalScaleGate';
 
 /**
@@ -32,6 +33,7 @@ export const createScaleCompletionStore = () => {
       store.skips.delete(path);
     },
     recordSkip(path: MentalScalePath) {
+      if (!DEVELOPMENT_BUILD) return;
       store.skips.add(path);
     },
     /** Spends a pending skip pass; a no-op when none is pending (e.g. the
@@ -40,7 +42,7 @@ export const createScaleCompletionStore = () => {
       store.skips.delete(path);
     },
     isSatisfied(path: MentalScalePath, now = Date.now()): boolean {
-      if (store.skips.has(path)) {
+      if (DEVELOPMENT_BUILD && store.skips.has(path)) {
         return true;
       }
 

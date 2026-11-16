@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import { finishRun } from '../experiment/api';
 import { videoOnsetEventSource, type VideoOnsetInfo } from '../ui/videoFrameOnset';
 import { evaluateParadigmAcceptance } from './paradigmAcceptance';
@@ -279,12 +280,19 @@ export class ParadigmExecution {
   }
 
   skipRehearsalTrial(token: TrialCallbackToken) {
-    if (!this.request.dryRun || !this.current(token) || this.snapshot.operation !== 'idle') return;
+    if (
+      !DEVELOPMENT_BUILD ||
+      !this.request.dryRun ||
+      !this.current(token) ||
+      this.snapshot.operation !== 'idle'
+    )
+      return;
     if (!['baseline', 'video', 'postRest'].includes(token.trialPhase)) return;
     return this.finishSkippedTrial(token, true);
   }
 
   async skip(token: TrialCallbackToken, confirm: () => Promise<boolean>) {
+    if (!DEVELOPMENT_BUILD || !this.request.dryRun) return;
     if (!this.current(token) || this.snapshot.operation !== 'idle') return;
     if (!(await confirm()) || !this.current(token) || this.snapshot.operation !== 'idle') return;
     return this.finishSkippedTrial(token, false);

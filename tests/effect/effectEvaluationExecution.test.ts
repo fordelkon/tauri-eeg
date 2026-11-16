@@ -1,4 +1,5 @@
-import { describe, expect, test, vi } from 'vitest';
+import * as buildMode from '../../src/experiment/buildMode';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { EmitEventInput } from '../../src/experiment/api';
 import type { ScalePhase } from '../../src/mentalScale/scaleRecordsApi';
 import { deqItems, type DeqAnswers } from '../../src/mentalScale/instruments/deq';
@@ -34,6 +35,28 @@ function fixture(patch: Partial<EffectEvaluationFlowState> = {}) {
 }
 
 describe('effect evaluation execution', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  test('release ignores induction and condition skips even if stale state says rehearsal', async () => {
+    vi.spyOn(buildMode, 'canUseRehearsalTools').mockReturnValue(false);
+    const induction = fixture({ runMode: 'rehearsal', step: 1, runId: 'run', preInductionRecordId: 't0' });
+    await induction.execution.inductionOnset('clip-1');
+    expect(await induction.execution.skipInduction()).toBe(false);
+    expect(induction.markers.map(m => m.eventName)).toEqual(['anxiety_video_start']);
+
+    const condition = fixture({ runMode: 'rehearsal', step: 3, runId: 'run' });
+    await condition.execution.beginRegulation();
+    expect(await condition.execution.skipRemainingRegulation()).toBe(false);
+    expect(condition.execution.getSnapshot().state.step).toBe(3);
+    expect(condition.markers.map(m => m.eventName)).not.toContain('trial_skip');
+  });
+
+  test('a formal condition must finish its duration in development too', async () => {
+    const {execution} = fixture({runMode:'formal',step:3,runId:'run'});
+    await execution.beginRegulation();
+    expect(await execution.skipRemainingRegulation()).toBe(false);
+    expect(execution.getSnapshot().state.step).toBe(3);
+  });
   test('skips a playing rehearsal induction once and rejects the same shortcut during acquisition', async () => {
     for (const runMode of ['rehearsal', 'formal'] as const) {
       const { execution, markers } = fixture({ runId: 'run', step: 1, preInductionRecordId: 't0', runMode });

@@ -125,7 +125,7 @@ export const ConditionCountdown = memo(function ConditionCountdown({
           <p className={styles.panelHint} id="regulation-countdown-hint">
             {hasElapsed
               ? `${windowNoun}时长已达成，可结束${windowNoun}进入复测。`
-              : `未达最短时长：还剩 ${formatCountdown(remainingSeconds)}。计时结束后才能进入复测；确有特殊情况可跳过剩余时长（二次确认后记录标记）。`}
+              : `还剩 ${formatCountdown(remainingSeconds)}，计时结束后可进入复测。`}
           </p>
         </>
       ) : null}

@@ -16,7 +16,7 @@ fn formal_pre_induction_event_is_logged_without_a_serial_device() {
     };
     let logged: Event = service
         .call(Box::new(move |worker| {
-            worker.set_active_mode_for_test();
+            worker.lose_port_for_test();
             worker.emit(event)
         }))
         .unwrap();
@@ -26,7 +26,7 @@ fn formal_pre_induction_event_is_logged_without_a_serial_device() {
 }
 
 #[test]
-fn deq_rehearsal_saves_and_exports_three_ratings_from_one_run() {
+fn deq_saves_and_exports_three_ratings_from_one_run() {
     let (db, service, run) = setup();
     let emit = |name: &str, phase: &str| {
         let event = EventInput {
@@ -56,6 +56,9 @@ fn deq_rehearsal_saves_and_exports_three_ratings_from_one_run() {
     assert!(emit("pre_induction_scale_submit", "t0").is_err());
     assert!(save("pre_induction", 8).is_err());
     assert!(save("baseline", 5).is_err());
+    let mut skipped = rating_input(&run, "pre_induction", 2);
+    skipped.regulation_skipped = true;
+    assert!(crate::experiment::records::save_measurement(&db.lock().unwrap(), &skipped).is_err());
     let first = save("pre_induction", 2).unwrap();
     assert_eq!(save("pre_induction", 2).unwrap().id, first.id);
     assert!(save("pre_induction", 3).is_err());
@@ -99,6 +102,7 @@ fn deq_rehearsal_saves_and_exports_three_ratings_from_one_run() {
         .is_empty());
     let mut finished = run.clone();
     finished.status = "completed".into();
+    finished.input.mode = "rehearsal".into();
     store::save_run(&conn, &finished).unwrap();
     assert!(scale_records::completed_effect_records(&conn)
         .unwrap()

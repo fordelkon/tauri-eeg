@@ -1,11 +1,12 @@
+import { DEVELOPMENT_BUILD } from '../../experiment/buildMode';
 import { useEffect } from 'react';
 
-export const TEST_SKIP_LABEL = 'Ctrl+Shift+S';
+export const TEST_SKIP_LABEL = DEVELOPMENT_BUILD ? 'Ctrl+Shift+S' : '';
 
 /** Only mounted by an active rehearsal stimulus. Ignore held keys and IME input. */
 export function useTestSkip(enabled: boolean, skip: () => unknown) {
   useEffect(() => {
-    if (!enabled) return;
+    if (!DEVELOPMENT_BUILD || !enabled) return;
     function handleKey(event: KeyboardEvent) {
       if (
         event.code !== 'KeyS' ||

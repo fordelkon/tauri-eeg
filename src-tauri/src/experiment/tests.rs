@@ -44,6 +44,45 @@ fn formal_requires_confirmation_and_connection() {
         .is_err());
 }
 
+#[cfg(not(dev))]
+#[test]
+fn packaged_app_rejects_rehearsal_before_creating_a_run() {
+    let (db, service) = setup();
+    let error = service
+        .call::<Run>(Box::new(|w| w.start(input("rehearsal"))))
+        .unwrap_err();
+    assert!(error.contains("实验模式"));
+    assert!(super::records::list(&db.lock().unwrap(), None)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn formal_run_rejects_skip_event_and_skipped_trial_but_can_abort() {
+    let (db, service) = setup();
+    let run: Run = service
+        .call(Box::new(|w| w.start_formal_for_test(input("formal"))))
+        .unwrap();
+    let mut skip = event(&run, "skip");
+    skip.event = "trial_skip".into();
+    assert!(service
+        .call::<Event>(Box::new(move |w| w.emit(skip)))
+        .is_err());
+    assert!(store::event(&db.lock().unwrap(), "skip").unwrap().is_none());
+
+    let id = run.run_id.clone();
+    let trial = serde_json::json!({"trialId": "trial-1", "presentationStatus": "skipped"});
+    assert!(service
+        .call::<serde_json::Value>(Box::new(move |w| w.save_trial(id, trial)))
+        .is_err());
+    let aborted: Run = service
+        .call(Box::new(move |w| {
+            w.finish(run.run_id, Some("participant stopped".into()))
+        }))
+        .unwrap();
+    assert_eq!(aborted.status, "aborted");
+}
+
 #[test]
 fn formal_requires_trigger_test_since_last_connect() {
     let (_, service) = setup();
@@ -83,7 +122,7 @@ fn formal_requires_trigger_test_since_last_connect() {
 fn stale_run_and_end_before_onset_never_create_send_intentions() {
     let (db, service) = setup();
     let run: Run = service
-        .call(Box::new(|w| w.start(input("rehearsal"))))
+        .call(Box::new(|w| w.start_formal_for_test(input("formal"))))
         .unwrap();
     let mut wrong = event(&run, "stale");
     wrong.run_id = "previous-run".into();
@@ -106,6 +145,7 @@ fn stale_run_and_end_before_onset_never_create_send_intentions() {
         1
     );
 }
+#[cfg(dev)]
 #[test]
 fn rehearsal_is_persistent_without_serial_and_deduplicates_onset() {
     let (db, service) = setup();
@@ -118,6 +158,10 @@ fn rehearsal_is_persistent_without_serial_and_deduplicates_onset() {
     assert_eq!(first.result, "rehearsal");
     assert_eq!(first.code, Some(2));
     assert_eq!(first.sequence, 2);
+    let mut skip = event(&run, "skip");
+    skip.event = "trial_skip".into();
+    let skipped: Event = service.call(Box::new(move |w| w.emit(skip))).unwrap();
+    assert_eq!(skipped.result, "rehearsal");
     let second: Event = service.call(Box::new(move |w| w.emit(original))).unwrap();
     assert_eq!(second.sequence, 2);
     let duplicate = event(&run, "another-onset");
@@ -135,20 +179,20 @@ fn rehearsal_is_persistent_without_serial_and_deduplicates_onset() {
         None,
     )
     .unwrap();
-    assert_eq!(rows.len(), 3);
-    assert_eq!(rows[2].code, Some(91));
+    assert_eq!(rows.len(), 4);
+    assert_eq!(rows[3].code, Some(91));
 }
 #[test]
 fn failed_serial_send_interrupts_and_is_never_replayed() {
     let (db, service) = setup();
     let run: Run = service
-        .call(Box::new(|w| w.start(input("rehearsal"))))
+        .call(Box::new(|w| w.start_formal_for_test(input("formal"))))
         .unwrap();
     let onset = event(&run, "lost-cable");
     let copy = onset.clone();
     service
         .call::<serde_json::Value>(Box::new(move |w| {
-            w.set_active_mode_for_test();
+            w.lose_port_for_test();
             Ok(serde_json::Value::Null)
         }))
         .unwrap();
@@ -171,7 +215,7 @@ fn failed_serial_send_interrupts_and_is_never_replayed() {
 fn restart_converts_unresolved_write_to_unknown() {
     let (db, service) = setup();
     let run: Run = service
-        .call(Box::new(|w| w.start(input("rehearsal"))))
+        .call(Box::new(|w| w.start_formal_for_test(input("formal"))))
         .unwrap();
     let conn = db.lock().unwrap();
     let onset = Event {

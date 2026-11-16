@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../../experiment/buildMode';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ParticipantVideoStage } from './ParticipantVideoStage';
 import { useEffect, useRef, useState } from 'react';
@@ -136,7 +137,7 @@ export function EffectFullscreenInduction({
             <span>{isMediaReady ? '视频已就绪' : '正在加载视频…'}</span>
             <h2>准备观看视频</h2>
             <p>看完后请记录此刻的感受。按 Esc 可中止本次实验。</p>
-            {rehearsal && <p>排练中按 {TEST_SKIP_LABEL} 可跳过视频。</p>}
+            {DEVELOPMENT_BUILD && rehearsal && <p>排练中按 {TEST_SKIP_LABEL} 可跳过视频。</p>}
             <button
               type="button"
               className={styles.fullscreenStagePrimaryAction}

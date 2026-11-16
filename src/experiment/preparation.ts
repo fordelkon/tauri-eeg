@@ -1,4 +1,5 @@
 import type { ExperimentMode } from './api';
+import { canUseRehearsalTools } from './buildMode';
 
 export type PreparationStep = 'plan' | 'connection' | 'materials' | 'recording' | 'review';
 export type ExperimentDestination = 'effect' | 'paradigm';
@@ -22,7 +23,7 @@ export function getPreparationReadiness(input: PreparationInput): {
   if (!input.desktop) blockers.push('请在桌面应用中准备并开始实验。');
   if (input.activeRunId !== null) blockers.push('当前实验尚未结束，请先完成或中止当前实验。');
   if (!input.libraryValidated) blockers.push('请先选择素材库并完成验证。');
-  if (input.mode === 'formal') {
+  if (!canUseRehearsalTools(input.mode)) {
     if (!input.connected) blockers.push('请先连接触发盒。');
     if (!input.triggerTested)
       blockers.push('请先发送测试 Trigger（254），并在 ActiView/BDF 中确认收到标记。');

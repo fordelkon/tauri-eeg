@@ -99,7 +99,8 @@ export default function ParadigmSetupPanel({
   });
   // Session-only by design: a sticky dry-run flag would silently skip data
   // collection on a real run, so it resets on every app launch.
-  const [dryRun, setDryRun] = useState(() => preferences.mode === 'rehearsal');
+  const [rehearsalSelected, setDryRun] = useState(() => preferences.mode === 'rehearsal');
+  const dryRun = __EXPERIMENT_DEV__ && rehearsalSelected;
   const [startingSession, setStartingSession] = useState(false);
   const sessionKindGroupRef = useRef<HTMLDivElement>(null);
   // Video-library state (load/restore, silent queue preview, preview modal)
@@ -254,7 +255,7 @@ export default function ParadigmSetupPanel({
     // (R4/F4): a live regulation window owns the operator's attention and
     // possibly the EEG recording, mirroring the wizard's own paradigm check.
     if (isRegulationWindowOpenInStorage(window.sessionStorage)) {
-      setQueueError('效果评价调控进行中，请先回到「效果评价」结束或跳过本次调控，再开始实验范式。');
+      setQueueError('效果评价调控进行中，请先回到「效果评价」结束本次调控，再开始实验范式。');
       return;
     }
 
@@ -439,17 +440,19 @@ export default function ParadigmSetupPanel({
         </div>
 
         <div className={styles.readinessRow}>
-          <button
-            type="button"
-            disabled={preparedKind !== undefined}
-            role="switch"
-            aria-checked={dryRun}
-            title="切换排练模式。排练不发送硬件 Trigger，仍保存实验事件与 SAM"
-            className={`${styles.pillRadio} ${dryRun ? styles.selectedPillRadio : ''}`}
-            onClick={() => setDryRun((value) => !value)}
-          >
-            {dryRun ? '排练 · 不发送 Trigger' : '正式 · 发送 Trigger'}
-          </button>
+          {__EXPERIMENT_DEV__ && (
+            <button
+              type="button"
+              disabled={preparedKind !== undefined}
+              role="switch"
+              aria-checked={dryRun}
+              title="切换排练模式。排练不发送硬件 Trigger，仍保存实验事件与 SAM"
+              className={`${styles.pillRadio} ${dryRun ? styles.selectedPillRadio : ''}`}
+              onClick={() => setDryRun((value) => !value)}
+            >
+              {dryRun ? '排练 · 不发送 Trigger' : '正式 · 发送 Trigger'}
+            </button>
+          )}
           <span
             className={`${styles.deviceLight} ${styles.miniLight} ${triggerConnected ? styles.connectedLight : ''}`}
           >

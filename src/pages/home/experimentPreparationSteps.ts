@@ -8,8 +8,12 @@ export const steps = [
     software: 'tauri-eeg',
     instructions: [
       '先选择要运行的流程。效果评价与个人校准是不同实验。',
-      '正式实验自动发送阶段标记；排练保留日志，但不发送流程标记。',
-      '在同一个应用窗口完成准备和实验。新窗口默认排练。',
+      __EXPERIMENT_DEV__
+        ? '正式实验自动发送阶段标记；排练保留日志，但不发送流程标记。'
+        : '正式实验自动向 BioSemi 发送阶段标记。',
+      __EXPERIMENT_DEV__
+        ? '在同一个应用窗口完成准备和实验。新窗口默认排练。'
+        : '在同一个应用窗口完成准备和实验。',
     ],
   },
   {
@@ -56,9 +60,11 @@ export const steps = [
 
 export function getPreparationInstructions(step: number, formal: boolean): readonly string[] {
   const current = steps[step];
-  if (!formal && current.id === 'connection') return ['排练可跳过设备连接，继续准备素材。'];
-  if (!formal && current.id === 'recording') return ['排练无需 ActiView 保存，可以继续核对实验。'];
-  if (!formal && current.id === 'review') {
+  if (__EXPERIMENT_DEV__ && !formal && current.id === 'connection')
+    return ['排练可跳过设备连接，继续准备素材。'];
+  if (__EXPERIMENT_DEV__ && !formal && current.id === 'recording')
+    return ['排练无需 ActiView 保存，可以继续核对实验。'];
+  if (__EXPERIMENT_DEV__ && !formal && current.id === 'review') {
     return ['核对本次配置和素材。进入排练后会保存操作记录，不发送流程标记。'];
   }
   return current.instructions;

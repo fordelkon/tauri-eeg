@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import * as buildMode from '../experiment/buildMode';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SCALE_GRACE_PERIOD_MS, createScaleCompletionStore } from './scaleCompletion';
 
 const T0 = 1_700_000_000_000;
@@ -9,6 +10,18 @@ describe('scaleCompletionStore', () => {
 
   beforeEach(() => {
     store = createScaleCompletionStore();
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it('requires an answered scale in release, even with a pending development skip', () => {
+    store.recordSkip('/music-regulation');
+    vi.spyOn(buildMode, 'DEVELOPMENT_BUILD', 'get').mockReturnValue(false);
+    expect(store.isSatisfied('/music-regulation', T0)).toBe(false);
+    store.recordSkip('/video-regulation');
+    expect(store.isSatisfied('/video-regulation', T0)).toBe(false);
+    store.record('/video-regulation', T0);
+    expect(store.isSatisfied('/video-regulation', T0)).toBe(true);
   });
 
   it('is unsatisfied before any completion or skip', () => {

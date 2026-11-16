@@ -1,12 +1,9 @@
+import * as buildMode from '../../experiment/buildMode';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { createElement } from 'react';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import DevAutoFillButton, {
-  applyRandomFill,
-  buildRandomFill,
-  type ScaleFillItem,
-} from './DevAutoFillButton';
+import DevAutoFillButton, { buildRandomFill, type ScaleFillItem } from './DevAutoFillButton';
 import ScaleAnchorGroup, { buildAnchorOptions, selectAnchorValue } from './ScaleAnchorGroup';
 
 /**
@@ -14,7 +11,7 @@ import ScaleAnchorGroup, { buildAnchorOptions, selectAnchorValue } from './Scale
  * plain node environment (no jsdom/happy-dom installed, and no new deps are
  * allowed), so markup is asserted through react-dom/server's static renderer
  * and click-paths through the exported pure functions the rendered buttons
- * call exactly (selectAnchorValue / applyRandomFill).
+ * call (selectAnchorValue / buildRandomFill).
  */
 
 const render = (element: ReactElement) => renderToStaticMarkup(element);
@@ -26,30 +23,30 @@ const FILL_ITEMS: ScaleFillItem[] = [
 ];
 
 afterEach(() => {
-  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe('DevAutoFillButton', () => {
   test('renders null when DEV is false (production visibility gate)', () => {
-    vi.stubEnv('DEV', false);
+    vi.spyOn(buildMode, 'DEVELOPMENT_BUILD', 'get').mockReturnValue(false);
     const markup = render(
       createElement(DevAutoFillButton, {
         items: FILL_ITEMS,
         answeredIds: [],
-        onAnswer: () => undefined,
+        onFill: () => undefined,
       }),
     );
 
     expect(markup).toBe('');
+    expect(buildRandomFill(FILL_ITEMS, [])).toEqual({});
   });
 
   test('renders the dev fill action when DEV is true', () => {
-    vi.stubEnv('DEV', true);
     const markup = render(
       createElement(DevAutoFillButton, {
         items: FILL_ITEMS,
         answeredIds: [],
-        onAnswer: () => undefined,
+        onFill: () => undefined,
       }),
     );
 
@@ -58,12 +55,11 @@ describe('DevAutoFillButton', () => {
   });
 
   test('offers the optional clear action only when onClear is provided', () => {
-    vi.stubEnv('DEV', true);
     const markup = render(
       createElement(DevAutoFillButton, {
         items: FILL_ITEMS,
         answeredIds: [],
-        onAnswer: () => undefined,
+        onFill: () => undefined,
         onClear: () => undefined,
       }),
     );
@@ -72,17 +68,13 @@ describe('DevAutoFillButton', () => {
   });
 
   test('the click path answers every unanswered key with a legal value and skips answered keys', () => {
-    vi.stubEnv('DEV', true);
-
     for (let iteration = 0; iteration < 60; iteration += 1) {
-      const received: Array<{ id: string; value: number }> = [];
-      const fill = applyRandomFill(FILL_ITEMS, ['b'], (id, value) => received.push({ id, value }));
+      const fill = buildRandomFill(FILL_ITEMS, ['b']);
 
       // Full key coverage of the unanswered items, answered keys untouched.
       expect(Object.keys(fill).sort()).toEqual(['a', 'c']);
-      expect(received.map(({ id }) => id).sort()).toEqual(['a', 'c']);
 
-      for (const { id, value } of received) {
+      for (const [id, value] of Object.entries(fill)) {
         const item = FILL_ITEMS.find((entry) => entry.id === id)!;
         expect(item).toBeDefined();
         expect(Number.isInteger(value)).toBe(true);

@@ -10,13 +10,19 @@ async function main() {
   page.setDefaultTimeout(15000);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(() => {
+  const release = process.argv.includes('--release');
+  await page.addInitScript(release => {
     localStorage.setItem('tauri-eeg.currentUser', JSON.stringify({ id: 'smoke-user', username: 'sub-001' }));
     localStorage.setItem('tauri-eeg.homeIntroPlayed.smoke-user', 'true');
     const calls = [];
     let connected = false;
     let tested = false;
     window.__BIOSEMI_CALLS__ = calls;
+    if (release) {
+      sessionStorage.setItem('biosemi.experimentPreferences.v1', JSON.stringify({
+        mode: 'rehearsal', externalRecordingConfirmed: true, expectedRecordingName: 'old.bdf',
+      }));
+    }
     window.__TAURI_INTERNALS__ = {
       invoke: async (command, args) => {
         calls.push({ command, args });
@@ -37,6 +43,7 @@ async function main() {
         }
         if (command === 'trigger_connect') { connected = true; return status(); }
         if (command === 'trigger_disconnect') { connected = false; tested = false; return status(); }
+        if (command === 'experiment_start') return { runId: 'qa-formal-run' };
         if (command === 'experiment_list' || command.startsWith('list_')) return [];
         if (command === 'get_storage_location') return { root: 'C:\\smoke' };
         if (command === 'load_paradigm_video_library') {
@@ -48,7 +55,7 @@ async function main() {
       },
       transformCallback: () => 1, unregisterCallback: () => {}, convertFileSrc: file => file,
     };
-  });
+  }, release);
   const origin = process.env.BIOSEMI_SMOKE_URL || 'http://127.0.0.1:1421';
   const output = process.env.BIOSEMI_SMOKE_OUTPUT;
   if (output) fs.mkdirSync(output, { recursive: true });
@@ -63,6 +70,47 @@ async function main() {
   const step = title => page.getByRole('navigation', { name: '实验准备步骤' }).getByRole('button', { name: new RegExp(title) }).click();
   try {
     await go();
+    if (release) {
+      assert.equal(await page.getByRole('option', {name: /排练/}).count(), 0);
+      assert.doesNotMatch(await page.locator('body').innerText(), /排练/);
+      await step('准备素材');
+      const root = page.getByLabel('素材库根目录', {exact: true});
+      assert.equal(await root.inputValue(), '');
+      await page.evaluate(() => { window.__SMOKE_CLIP_READY__ = true; });
+      await root.fill('C:/smoke/videos');
+      await page.getByRole('button', {name: '验证并保存素材库', exact: true}).click();
+      await page.getByText(/素材库已验证/).waitFor();
+      await step('核对并进入');
+      const enter = review.getByRole('button', {name: '进入效果评价', exact: true});
+      assert.equal(await enter.isDisabled(), true);
+      await step('连接与测试');
+      await page.getByRole('button', {name: '连接触发盒', exact: true}).click();
+      await page.getByRole('button', {name: '发送测试 Trigger', exact: true}).click();
+      await page.waitForFunction(() => typeof window.__RELEASE_TEST__ === 'function');
+      await page.evaluate(() => window.__RELEASE_TEST__());
+      await step('核对并进入');
+      assert.equal(await enter.isDisabled(), true);
+      await step('保存脑电');
+      const confirm = page.getByRole('checkbox', {name: '我已在 ActiView 启动本次 BDF 保存'});
+      assert.equal(await confirm.isChecked(), false);
+      await page.getByRole('button', {name: /复制正式 BDF 路径/}).click();
+      await confirm.check();
+      await step('核对并进入');
+      await enter.click();
+      await page.getByRole('button', {name: '填写观看前感受'}).click();
+      const deq = page.getByRole('dialog', {name: '此刻的情绪感受'});
+      await deq.waitFor();
+      assert.equal(await deq.locator('fieldset').count(), 12);
+      assert.equal(await deq.getByRole('button', {name: /一键填写|跳过/}).count(), 0);
+      await page.keyboard.press('Control+Shift+s');
+      assert.equal(await deq.getByRole('button', {name: '提交评分'}).isDisabled(), true);
+      const run = await page.evaluate(() => window.__BIOSEMI_CALLS__.find(c => c.command === 'experiment_start').args.input);
+      assert.equal(run.mode, 'formal');
+      assert.equal(run.externalRecordingConfirmed, true);
+      assert.deepEqual(errors, []);
+      console.log('Verified release preparation, hardware and BDF gates, formal run and required DEQ with simulated IPC.');
+      return;
+    }
     assert.equal(await page.getByLabel('被试 ID', {exact:true}).inputValue(),'sub-001');
     await page.getByLabel('被试 ID', {exact:true}).fill('');
     await screenshot('preparation-wide.png');

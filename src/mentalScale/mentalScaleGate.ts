@@ -32,7 +32,7 @@ export const mentalScaleAnswerOptions: Array<{ value: MentalScaleAnswerValue; la
 const stateCheck: Omit<MentalScaleDefinition, 'path'> = {
   scaleId: 'momentary_checkin_2_v1',
   title: '此刻感受',
-  subtitle: '按此刻的实际感受选择，也可以跳过。',
+  subtitle: '请按此刻的实际感受，分别选择强度。',
   questions: [
     { id: 'tension_now', prompt: '此刻，你感到多大程度的紧绷？' },
     { id: 'unpleasant_now', prompt: '此刻，你感到多大程度的不愉快？' },

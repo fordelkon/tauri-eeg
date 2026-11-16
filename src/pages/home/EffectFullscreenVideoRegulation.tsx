@@ -1,3 +1,4 @@
+import { canUseRehearsalTools } from '../../experiment/buildMode';
 import { ParticipantVideoStage } from './ParticipantVideoStage';
 import { useEffect, useRef, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
@@ -74,7 +75,7 @@ export function EffectFullscreenVideoRegulation({
   const shouldPause = shouldPauseAt(isPlaying && finishMode.mode === 'finish' ? 0 : null);
   const finishRequested = useRef(false);
   useTestSkip(
-    state.runMode === 'rehearsal' &&
+    canUseRehearsalTools(state.runMode) &&
       isPlaying &&
       !interrupted &&
       state.regulationStartedAtMs !== null &&
@@ -170,7 +171,7 @@ export function EffectFullscreenVideoRegulation({
             <span>{isMediaReady ? '视频已就绪' : '正在加载视频…'}</span>
             <h2>准备观看视频</h2>
             <p>计时将随播放开始。按 Esc 可中止本次实验。</p>
-            {state.runMode === 'rehearsal' && <p>排练中按 {TEST_SKIP_LABEL} 可跳过视频。</p>}
+            {canUseRehearsalTools(state.runMode) && <p>排练中按 {TEST_SKIP_LABEL} 可跳过视频。</p>}
             <button
               type="button"
               className={styles.fullscreenStagePrimaryAction}

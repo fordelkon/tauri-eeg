@@ -1,3 +1,4 @@
+import { DEVELOPMENT_BUILD } from '../experiment/buildMode';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
@@ -221,7 +222,7 @@ export default function Home() {
   };
 
   const handleSkipScale = () => {
-    if (!pendingScale) {
+    if (!DEVELOPMENT_BUILD || !pendingScale) {
       return;
     }
 
@@ -370,7 +371,7 @@ export default function Home() {
           key={pendingScale.path}
           onComplete={handleCompleteScale}
           onClose={handleCloseScale}
-          onSkip={handleSkipScale}
+          onSkip={DEVELOPMENT_BUILD ? handleSkipScale : undefined}
           scale={pendingScale}
         />
       ) : null}
