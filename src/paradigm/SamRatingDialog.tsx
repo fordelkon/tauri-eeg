@@ -15,7 +15,7 @@ type Props = {
 
 type RatingRowKey = 'valence' | 'arousal' | 'dominance';
 
-/** SAM bipolar range (doc scale-instruments.md §2.4): 1-9 per dimension. */
+/** SAM bipolar range (docs/scale-instruments.md): 1-9 per dimension. */
 const RATING_MIN = 1;
 const RATING_MAX = 9;
 
@@ -53,7 +53,7 @@ type RatingRowProps = {
 
 /**
  * One SAM dimension: the legend (frozen copy) above the shared bipolar
- * anchor row, so the visuals match the battery dialog's SAM section. The
+ * anchor row. The
  * registered wrapper div keeps being the focus target of the digit flow.
  */
 function RatingRow({

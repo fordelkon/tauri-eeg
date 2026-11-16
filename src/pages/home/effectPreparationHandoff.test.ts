@@ -9,11 +9,10 @@ import { prepareEffectHandoff } from './effectPreparationHandoff';
 const draft = {
   ...createEffectEvaluationFlowState(),
   subjectId: ' S-01 ',
-  protocol: 'full' as const,
 };
 
 describe('settings to measurement handoff', () => {
-  it('opens video preparation with the chosen protocol before creating a run', () => {
+  it('opens the pre-induction assessment with the unified protocol before creating a run', () => {
     let value: string | null = null;
     const storage = {
       getItem: () => value,
@@ -25,9 +24,9 @@ describe('settings to measurement handoff', () => {
     expect(prepareEffectHandoff(draft, storage)).toBe(true);
     expect(parseFlowState(storage.getItem())).toMatchObject({
       subjectId: 'S-01',
-      protocol: 'full',
       step: 1,
       runId: null,
+      preInductionRecordId: null,
       baselineRecordId: null,
     });
   });

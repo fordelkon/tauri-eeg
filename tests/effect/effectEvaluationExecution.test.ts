@@ -1,11 +1,13 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { EmitEventInput } from '../../src/experiment/api';
+import type { ScalePhase } from '../../src/mentalScale/scaleRecordsApi';
+import { deqItems, type DeqAnswers } from '../../src/mentalScale/instruments/deq';
 import { createEffectEvaluationFlowState, type EffectEvaluationFlowState } from '../../src/pages/home/effectEvaluationFlow';
 import { EffectEvaluationExecution, type EffectExecutionDependencies } from '../../src/pages/home/effectEvaluationExecution';
 import type { InductionPoolStatus } from '../../src/pages/home/effectInductionPool';
 
 const readyPool: InductionPoolStatus = { kind: 'ready', entry: { videoId: 'clip', fileName: 'clip.mp4', absolutePath: 'C:/materials/clip.mp4' } };
-const answers = { stai: {}, panas: {} };
+const answers = { deq: Object.fromEntries(deqItems.map(({ id }) => [id, 3])) as DeqAnswers['deq'] };
 
 function deferred() {
   let resolve = () => {};
@@ -22,8 +24,7 @@ function fixture(patch: Partial<EffectEvaluationFlowState> = {}) {
     createRun: vi.fn(async () => ({ runId: 'run' })),
     emitEvent: vi.fn(async (input: EmitEventInput) => { markers.push(input); }),
     finishRun: vi.fn(async () => {}),
-    linkScale: vi.fn(async () => {}),
-    saveScale: vi.fn(async (_state: EffectEvaluationFlowState, phase: 'baseline' | 'post') => ({ id: `${phase}-record` })),
+    saveScale: vi.fn(async (_state: EffectEvaluationFlowState, phase: ScalePhase) => ({ id: `${phase}-record` })),
     scaleSaved: vi.fn(), preferences: () => ({ mode: 'rehearsal', externalRecordingConfirmed: false, expectedRecordingName: '' }),
     consumeRecordingConfirmation: vi.fn(), userId: () => 'user', paradigmActive: vi.fn(() => false),
     subjectSelected: vi.fn(), wallNow: () => wall, monotonicNow: () => monotonic,
@@ -35,7 +36,7 @@ function fixture(patch: Partial<EffectEvaluationFlowState> = {}) {
 describe('effect evaluation execution', () => {
   test('skips a playing rehearsal induction once and rejects the same shortcut during acquisition', async () => {
     for (const runMode of ['rehearsal', 'formal'] as const) {
-      const { execution, markers } = fixture({ runId: 'run', step: 1, runMode });
+      const { execution, markers } = fixture({ runId: 'run', step: 1, preInductionRecordId: 't0', runMode });
       expect(await execution.skipInduction()).toBe(false);
       await execution.inductionOnset('clip');
       expect(await execution.skipInduction()).toBe(runMode === 'rehearsal');
@@ -44,11 +45,16 @@ describe('effect evaluation execution', () => {
         ['anxiety_video_start', 'trial_skip', 'induction_video_end', 'pre_scale_start']);
     }
   });
-  test('preserves the normal marker and persistence sequence through completion', async () => {
+  test('records all three DEQ observations and gates video onset on the saved pre-induction record', async () => {
     const { execution, dependencies, markers, advance } = fixture();
     execution.startBaselineMeasurement();
     expect(dependencies.subjectSelected).toHaveBeenCalledWith('subject');
     expect(await execution.beginInduction(readyPool)).toBe(true);
+    await execution.inductionOnset('clip');
+    expect(await execution.completeInduction()).toBe(false);
+    expect(markers.map(marker => marker.eventName)).toEqual(['pre_induction_scale_start']);
+    expect(await execution.completeScaleMeasurement('pre_induction', answers)).toBe(true);
+    expect(await execution.completeScaleMeasurement('pre_induction', answers)).toBe(false);
     await execution.inductionOnset('clip');
     expect(await execution.completeInduction()).toBe(true);
     expect(await execution.completeScaleMeasurement('baseline', answers)).toBe(true);
@@ -58,18 +64,20 @@ describe('effect evaluation execution', () => {
     expect(await execution.finishRegulation()).toBe(true);
     expect(await execution.completeScaleMeasurement('post', answers)).toBe(true);
     expect(markers.map(marker => marker.eventName)).toEqual([
+      'pre_induction_scale_start', 'pre_induction_scale_submit',
       'anxiety_video_start', 'induction_video_end', 'pre_scale_start', 'pre_scale_submit',
       'natural_recovery_start', 'natural_recovery_end', 'post_scale_start', 'post_scale_submit',
     ]);
-    expect(markers[0]).toMatchObject({ runId: 'run', eventId: 'run:induction:anxiety_video_start',
+    expect(markers[2]).toMatchObject({ runId: 'run', eventId: 'run:induction:anxiety_video_start',
       phaseInstanceId: 'run:induction', mediaId: 'clip', source: 'html_video_playing', frontendMonotonicMs: 5_000 });
-    expect(dependencies.linkScale.mock.calls).toEqual([['run', 'baseline-record', 'baseline'], ['run', 'post-record', 'post']]);
+    expect(dependencies.saveScale.mock.calls.map(([state, phase]) => [state.runId, phase]))
+      .toEqual([['run', 'pre_induction'], ['run', 'baseline'], ['run', 'post']]);
     expect(dependencies.finishRun).toHaveBeenCalledExactlyOnceWith('run', 'completed');
     expect(execution.getSnapshot().state).toMatchObject({ step: 5, eventLogStatus: 'saved', baselineRecordId: 'baseline-record', postRecordId: 'post-record', interrupted: false });
   });
 
   test('duplicate end callbacks share pending acknowledgments before advancing', async () => {
-    const { execution, dependencies, markers } = fixture({ step: 1, runId: 'run', eventLogStatus: 'active' });
+    const { execution, dependencies, markers } = fixture({ step: 1, runId: 'run', preInductionRecordId: 't0', eventLogStatus: 'active' });
     const pending = deferred();
     dependencies.emitEvent.mockImplementationOnce(async input => { markers.push(input); await pending.promise; });
     const first = execution.completeInduction();
@@ -110,7 +118,7 @@ describe('effect evaluation execution', () => {
   });
 
   test('a marker failure interrupts once and prevents all queued progression and replay', async () => {
-    const { execution, dependencies, markers } = fixture({ step: 1, runId: 'run' });
+    const { execution, dependencies, markers } = fixture({ step: 1, runId: 'run', preInductionRecordId: 't0' });
     const pending = deferred();
     dependencies.emitEvent.mockImplementationOnce(async input => { markers.push(input); await pending.promise; });
     const onset = execution.inductionOnset('clip');
@@ -158,7 +166,7 @@ describe('effect evaluation execution', () => {
 
   test('scale failure preserves the current phase and interrupts', async () => {
     const { execution, dependencies } = fixture({ step: 2, runId: 'run' });
-    dependencies.linkScale.mockRejectedValueOnce(new Error('link failed'));
+    dependencies.saveScale.mockRejectedValueOnce(new Error('save failed'));
     expect(await execution.completeScaleMeasurement('baseline', answers)).toBe(false);
     expect(execution.getSnapshot()).toMatchObject({ isSavingScale: false, state: { step: 2, baselineRecordId: null, interrupted: true } });
     expect(dependencies.scaleSaved).not.toHaveBeenCalled();
@@ -178,11 +186,11 @@ describe('effect evaluation execution', () => {
     execution.startBaselineMeasurement();
     expect(await execution.beginInduction(readyPool)).toBe(true);
     expect(execution.getSnapshot().state).toMatchObject({ runId: 'run', step: 1, interrupted: false });
-    expect(dependencies.emitEvent).not.toHaveBeenCalled();
+    expect(dependencies.emitEvent).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ eventName: 'pre_induction_scale_start' }));
   });
 
   test('reset retains the interrupted run when abort fails and permits a retry', async () => {
-    const { execution, dependencies } = fixture({ step: 1, runId: 'run' });
+    const { execution, dependencies } = fixture({ step: 1, runId: 'run', preInductionRecordId: 't0' });
     dependencies.finishRun.mockRejectedValueOnce(new Error('abort unavailable'));
     expect(await execution.resetFlow()).toBe(false);
     expect(execution.getSnapshot().state).toMatchObject({ runId: 'run', step: 1, interrupted: true });
@@ -228,7 +236,7 @@ describe('effect evaluation execution', () => {
   });
 
   test('unmounting during the final phase marker does not advance the aborted run', async () => {
-    const { execution, dependencies, markers } = fixture({ step: 1, runId: 'run' });
+    const { execution, dependencies, markers } = fixture({ step: 1, runId: 'run', preInductionRecordId: 't0' });
     const pending = deferred();
     dependencies.emitEvent.mockImplementation(async input => {
       markers.push(input);
@@ -253,12 +261,13 @@ describe('effect evaluation execution', () => {
     await oldPlayer.inductionOnset('old-clip');
     await oldPlayer.playbackError();
     expect(await oldPlayer.completeInduction()).toBe(false);
-    expect(markers).toEqual([]);
+    expect(markers.map(marker => marker.eventName)).toEqual(['pre_induction_scale_start']);
     expect(execution.getSnapshot().state).toMatchObject({ step: 1, runId: 'run', interrupted: false });
     const currentPlayer = execution.bindPlayback();
+    expect(await execution.completeScaleMeasurement('pre_induction', answers)).toBe(true);
     await currentPlayer.inductionOnset('clip');
     expect(await currentPlayer.completeInduction()).toBe(true);
-    expect(markers.map(marker => marker.mediaId)).toEqual(['clip', undefined, undefined]);
+    expect(markers.map(marker => marker.mediaId)).toEqual([undefined, undefined, 'clip', undefined, undefined]);
     expect(dependencies.finishRun).toHaveBeenCalledExactlyOnceWith('old', 'aborted');
   });
 });

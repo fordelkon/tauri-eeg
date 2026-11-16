@@ -9,7 +9,6 @@ const timelineUrl = new URL('./EffectTimeline.tsx', import.meta.url);
 const disclosureUrl = new URL('./EffectProgressDisclosure.tsx', import.meta.url);
 const reviewUrl = new URL('./EffectReviewPopover.tsx', import.meta.url);
 const panelsUrl = new URL('./EffectStepPanels.tsx', import.meta.url);
-const cardsUrl = new URL('./EffectResultCards.tsx', import.meta.url);
 
 describe('EffectEvaluation wiring contract', () => {
   test('registers /effect-evaluation outside the standalone regulation gate', () => {
@@ -31,40 +30,23 @@ describe('EffectEvaluation wiring contract', () => {
     );
   });
 
-  test('renders the battery dialog and confirm dialog on the page', () => {
-    const pageSource = readText(pageUrl);
-    const panelsSource = readText(panelsUrl);
-
-    expect(panelsSource).toContain(
-      "import InstrumentScaleDialog from '../../mentalScale/InstrumentScaleDialog'",
-    );
-    expect(pageSource).toContain("import { useConfirmDialog } from '../../ui/useConfirmDialog'");
-    expect(panelsSource).toContain('<InstrumentScaleDialog');
-    expect(pageSource).toContain('useConfirmDialog()');
-  });
-
-  test('keeps the complete battery available for researcher-configured evaluations', () => {
-    const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
-    const panelsSource = readText(panelsUrl);
-    expect(hookSource).toContain("from '../../mentalScale/instruments/battery'");
-    expect(hookSource).toContain('buildPhaseMeasurement(current.protocol, answers)');
-    expect(hookSource).toContain('buildBatteryDefinition({ includeSam: true })');
-    expect(hookSource).toContain(
-      "includeGems: state.method === 'music' && state.condition === 'regulation'",
-    );
-    expect(hookSource).toContain('const BASELINE_SCALE_DEFINITION = buildBatteryDefinition');
-    expect(panelsSource).toContain('definition={flow.scaleDefinitionFor(phase)}');
-    expect(panelsSource).not.toContain('scaleForMethod');
+  test('opens the same DEQ dialog at each measurement point', () => {
+    const page = readText(pageUrl);
+    for (const phase of ['pre_induction', 'baseline', 'post']) {
+      expect(page).toContain(`renderScalePanel('${phase}')`);
+    }
+    expect(readText(panelsUrl)).toContain('<DeqRatingDialog');
+    expect(page).toContain('useConfirmDialog()');
   });
 });
 
 describe('subject passthrough contract', () => {
-  test('saves phase records under the configured subject for both phases', () => {
+  test('saves phase records under the configured subject for all three phases', () => {
     const hookSource = readText(new URL('./useEffectEvaluationFlow.ts', import.meta.url));
 
-    expect(hookSource).toContain('await savePhaseInstrumentRecord({');
+    expect(hookSource).toContain('return savePhaseInstrumentRecord({');
     expect(hookSource).toContain('subjectId: current.subjectId.trim()');
-    expect(hookSource).toContain("phase === 'baseline'");
+    expect(hookSource).toContain('experimentRunId: current.runId');
   });
 
   test('shares the validated subject with the rest of the app on setup completion', () => {
@@ -135,19 +117,6 @@ describe('report export & history review (R3 contract)', () => {
 });
 
 describe('measured dimensions & eeg persistence (R4 contract)', () => {
-  test('F1: submissions mark measured dimensions and the mean basis is surfaced', () => {
-    const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
-    const statusSource = readText(
-      new URL('../../mentalScale/mentalScaleStatus.ts', import.meta.url),
-    );
-    const pageSource = readText(pageUrl);
-    const cardsSource = readText(cardsUrl);
-    expect(apiSource).toContain('measuredDimensionKeys(scale, answers)');
-    expect(statusSource).toContain('export function measuredDimensionKeys');
-    expect(cardsSource).toContain('实际纳入对比的维度数');
-    expect(pageSource).toContain('describeMeasuredBasis(flow.summary)');
-  });
-
   test('F4: regulation pages consume the session context and the paradigm gate is mutual', () => {
     for (const page of ['./MusicRegulation.tsx', './VideoRegulation.tsx'] as const) {
       const source = readText(new URL(page, import.meta.url));
@@ -203,47 +172,13 @@ describe('six-step flow & condition split (R6 contract)', () => {
     expect(flowSource).toContain("state.condition !== 'regulation'");
   });
 
-  test('the result step renders the cross-condition comparison card', () => {
-    const pageSource = readText(pageUrl);
-    const cardsSource = readText(cardsUrl);
-    const chartSource = readText(new URL('./effectResultChartOption.ts', import.meta.url));
-    const reportsSource = readText(new URL('./useEffectResultReports.ts', import.meta.url));
-    expect(reportsSource).toContain('computeComparison: computeConditionEffect');
-    expect(pageSource).toContain('conditionComparison');
-    expect(pageSource).toContain('buildConditionComparisonVerdictCopy');
-    expect(pageSource).toContain('buildConditionComparisonChartOption');
-    expect(cardsSource).toContain('CONDITION_COMPARISON_FORMULA_NOTE');
-    expect(cardsSource).toContain('需完成基线条件（自然恢复）与调控条件各一次完整评价');
-    expect(cardsSource).toContain('跨条件平均改善率');
-    expect(cardsSource).toContain('基线条件 · 条件后');
-    expect(chartSource).toContain('buildConditionComparisonChartOption');
+  test('shows the same three-timepoint result on completion and in history', () => {
+    expect(readText(pageUrl)).toContain('<EmotionChangeTable');
+    expect(readText(new URL('./EffectHistoryPanel.tsx', import.meta.url))).toContain('<EmotionChangeTable');
   });
 });
 
-describe('comparison export, leg trace & induction fallback (R7 contract)', () => {
-  test("the comparison card renders both legs' record trace and export buttons", () => {
-    const pageSource =
-      readText(pageUrl) + readText(new URL('./useEffectReportExports.ts', import.meta.url));
-    const cardsSource = readText(cardsUrl);
-    const exportSource = readText(new URL('./effectReportExport.ts', import.meta.url));
-    const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
-    expect(cardsSource).toContain('renderComparisonLegTrace');
-    expect(cardsSource).toContain('conditionComparison.naturalRecoveryLeg');
-    expect(cardsSource).toContain('conditionComparison.regulationLeg');
-    expect(cardsSource).toContain('formatRunTimestamp');
-    expect(pageSource).toContain("runComparisonExport('json')");
-    expect(pageSource).toContain("runComparisonExport('csv')");
-    expect(pageSource).toContain('buildComparisonReportPayload');
-    expect(exportSource).toContain('effect-comparison-');
-    expect(apiSource).toContain("kind: 'comparison'");
-  });
-
-  test('the backend leg shape travels into the view types', () => {
-    const apiSource = readText(new URL('../../mentalScale/scaleRecordsApi.ts', import.meta.url));
-    expect(apiSource).toContain('naturalRecoveryLeg: ConditionComparisonLegView');
-    expect(apiSource).toContain('regulationLeg: ConditionComparisonLegView');
-  });
-
+describe('induction and history', () => {
   test('a failed induction video offers a retry and a way back to the setup step', () => {
     const pageSource = readText(pageUrl);
     const panelsSource = readText(panelsUrl);
@@ -258,7 +193,7 @@ describe('comparison export, leg trace & induction fallback (R7 contract)', () =
     expect(inductionStageSource).toContain('`${entry.videoId}-${retryCount}`');
   });
 
-  test("the history panel shows each run's condition with a legacy tag", () => {
+  test("the history panel shows each run's condition", () => {
     const panelSource = readText(new URL('./EffectHistoryPanel.tsx', import.meta.url));
     const viewSource = readText(new URL('./effectHistoryView.ts', import.meta.url));
     expect(panelSource).toContain('labelForHistoryCondition(entry.condition)');
@@ -417,46 +352,17 @@ describe('usability/operability fixes (audit contract)', () => {
     expect(pageSource).toContain('hasRenderedStepRef');
   });
 
-  test('the scale dialog stays open while the record saves (draft survives failure)', () => {
-    const panelsSource = readText(panelsUrl);
-    const dialogSource = readText(
-      new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url),
-    );
-    expect(panelsSource).toContain('isSubmitting={flow.isSavingScale}');
-    expect(panelsSource).toContain('submitError={flow.actionError}');
-    expect(panelsSource).not.toContain(
-      'onCloseDialog();\n            void flow.completeScaleMeasurement',
-    );
-    expect(dialogSource).toContain('isSubmitting?: boolean');
-    expect(dialogSource).toContain('submitError?: string | null');
-    expect(dialogSource).toContain("isSubmitting ? '正在保存量表…' : '提交量表'");
-    expect(dialogSource).toContain('role="alert"');
-  });
-
-  test('the hand-rolled scale overlay traps focus and closes guarded', () => {
-    const dialogSource = readText(
-      new URL('../../mentalScale/InstrumentScaleDialog.tsx', import.meta.url),
-    );
-    expect(dialogSource).toContain('openerElementRef');
-    expect(dialogSource).toContain("event.key === 'Escape'");
-    expect(dialogSource).toContain("event.key !== 'Tab'");
-    expect(dialogSource).toContain('handleCloseRequest()');
-  });
-
-  test('scale anchor rows navigate (and select) with the keyboard', () => {
-    const anchorSource = readText(
-      new URL('../../mentalScale/scaleUi/ScaleAnchorGroup.tsx', import.meta.url),
-    );
-    expect(anchorSource).toContain("case 'ArrowLeft':");
-    expect(anchorSource).toContain("case 'ArrowRight':");
-    expect(anchorSource).toContain("case 'Home':");
-    expect(anchorSource).toContain('selectAnchorValue(onSelect, next)');
+  test('a submission keeps its answers while saving', () => {
+    const source = readText(new URL('../../mentalScale/DeqRatingDialog.tsx', import.meta.url));
+    expect(source).toContain('onClose={isSubmitting ? undefined : onClose}');
+    expect(source).toContain('await onComplete');
+    expect(source).toContain('draft.clear');
   });
 
   test('history delete warns when the target feeds the in-flight run', () => {
     const panelSource = readText(new URL('./EffectHistoryPanel.tsx', import.meta.url));
     expect(panelSource).toContain('readFlowStateFromStorage(window.sessionStorage)');
     expect(panelSource).toContain('isDeleteTargetOfActiveRun');
-    expect(panelSource).toContain('删除后本次运行的改善率与跨条件对比将无法计算');
+    expect(panelSource).toContain('删除后将无法查看本次运行的量表结果');
   });
 });

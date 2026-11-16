@@ -1,3 +1,4 @@
+use super::deq::{validate_deq, DEQ_SCALE_ID, PHASE_PRE_INDUCTION};
 use super::model::*;
 use chrono::Utc;
 use rusqlite::{params, params_from_iter, Connection};
@@ -19,8 +20,10 @@ pub fn save_scale_record(
     }
 
     validate_phase(input.phase.trim())?;
-    if scale_id == BRIEF_SCALE_ID {
-        validate_vad(&input.dimension_scores)?;
+    if scale_id == DEQ_SCALE_ID {
+        validate_deq(input)?;
+    } else if input.phase.trim() == PHASE_PRE_INDUCTION {
+        return Err("Pre-induction measurement requires the DEQ instrument.".into());
     }
 
     let emotion = normalize_optional_text(input.emotion.as_deref());
@@ -180,8 +183,31 @@ pub fn list_scale_records(
         .collect()
 }
 
-/// Loads one scale record by id (the read side pairs two saved records for
-/// the effect computation).
+/// Load only completed formal DEQ runs; daily check-ins remain independently queryable.
+pub fn completed_effect_records(conn: &Connection) -> Result<Vec<ScaleRecord>, String> {
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.user_id, s.subject_id, s.scale_id, s.phase, s.dimension_scores, s.raw_answers,
+                s.created_at, s.emotion, s.condition, s.duration_minutes, s.regulation_skipped,
+                s.measured_dimensions, r.run_id
+         FROM scale_records s JOIN experiment_scales l ON l.record_id=s.id AND l.measurement_time=s.phase
+         JOIN experiment_runs r ON r.run_id=l.run_id
+         WHERE s.scale_id=?1 AND r.status='completed' AND json_extract(r.data,'$.mode')='formal'
+           AND json_extract(r.data,'$.kind')='effect_evaluation'"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([DEQ_SCALE_ID], |r| {
+            Ok((map_record_row(r)?, r.get::<_, String>(13)?))
+        })
+        .map_err(|e| e.to_string())?;
+    rows.map(|row| {
+        let (raw, run_id) = row.map_err(|e| e.to_string())?;
+        let mut record = parse_record_row(raw)?;
+        record.experiment_run_id = Some(run_id);
+        Ok(record)
+    })
+    .collect()
+}
+
 pub fn get_scale_record(conn: &Connection, id: &str) -> Result<ScaleRecord, String> {
     parse_record_row(fetch_record_row(conn, id)?)
 }
@@ -219,6 +245,26 @@ fn map_record_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RecordRow> {
 
 pub fn delete_scale_record(conn: &Connection, id: &str) -> Result<ScaleRecord, String> {
     let row = fetch_record_row(conn, id)?;
+    if row.scale_id == DEQ_SCALE_ID && row.phase == PHASE_POST {
+        let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+        let run: String = tx
+            .query_row(
+                "SELECT run_id FROM experiment_scales WHERE record_id=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .map_err(|_| "无法定位该评分的实验。")?;
+        tx.execute(
+            "DELETE FROM scale_records WHERE scale_id=?1 AND id IN
+            (SELECT record_id FROM experiment_scales WHERE run_id=?2)",
+            params![DEQ_SCALE_ID, run],
+        )
+        .map_err(|e| e.to_string())?;
+        tx.execute("DELETE FROM experiment_scales WHERE run_id=?1 AND record_id NOT IN (SELECT id FROM scale_records)", [&run])
+            .map_err(|e| e.to_string())?;
+        tx.commit().map_err(|e| e.to_string())?;
+        return parse_record_row(row);
+    }
 
     if let Err(err) = conn.execute(
         "DELETE FROM experiment_scales WHERE record_id = ?1",
@@ -237,12 +283,12 @@ pub fn delete_scale_record(conn: &Connection, id: &str) -> Result<ScaleRecord, S
 }
 
 fn validate_phase(phase: &str) -> Result<(), String> {
-    if phase == PHASE_BASELINE || phase == PHASE_POST {
+    if [PHASE_BASELINE, PHASE_POST, PHASE_PRE_INDUCTION].contains(&phase) {
         return Ok(());
     }
 
     Err(format!(
-        "Scale record phase must be '{PHASE_BASELINE}' or '{PHASE_POST}'."
+        "Scale record phase must be '{PHASE_PRE_INDUCTION}', '{PHASE_BASELINE}' or '{PHASE_POST}'."
     ))
 }
 

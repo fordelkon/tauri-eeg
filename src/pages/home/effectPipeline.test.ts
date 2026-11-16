@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'vitest';
 import {
-  buildEffectVerdictCopy,
   createEffectEvaluationFlowState,
   type EffectEvaluationFlowState,
   type EffectFlowStep,
@@ -9,7 +8,6 @@ import {
   deriveEffectPipelineNodes,
   describeEventLogStatus,
   isNodeActionable,
-  verdictCopyForCondition,
 } from './effectPipeline';
 
 /** Flow state fixed at `step` with optional field overrides. */
@@ -198,13 +196,13 @@ describe('deriveEffectPipelineNodes', () => {
 
     expect(titles).toEqual([
       '准备开始评价',
-      '观看视频',
+      '记录观看前的感受',
       '记录此刻状态',
       '静息恢复',
       '再次记录此刻状态',
       '查看前后记录',
     ]);
-    // Both scale steps advertise the same battery expectations.
+    // Both scale steps advertise the same rating instructions.
     expect(nodes[2].stageHint).toBe(nodes[4].stageHint);
   });
 });
@@ -242,37 +240,6 @@ describe('isNodeActionable', () => {
       false,
       true,
     ]);
-  });
-});
-
-describe('verdictCopyForCondition', () => {
-  test('keeps the regulation-condition verdict copy untouched', () => {
-    const copy = buildEffectVerdictCopy({ meanImprovementRate: 0.4, meetsThreshold: true });
-
-    expect(verdictCopyForCondition(copy, 'regulation')).toBe(copy);
-  });
-
-  test('rephrases the success tail for the natural-recovery leg', () => {
-    const copy = buildEffectVerdictCopy({ meanImprovementRate: 0.4, meetsThreshold: true });
-    const adjusted = verdictCopyForCondition(copy, 'natural_recovery');
-
-    expect(adjusted.severity).toBe('success');
-    expect(adjusted.title).toBe(copy.title);
-    expect(adjusted.detail).toContain('本次静息恢复判定为有效');
-    expect(adjusted.detail).not.toContain('本次调控判定为有效');
-    // The threshold math stays in the sentence.
-    expect(adjusted.detail).toContain('+40%');
-  });
-
-  test('leaves the warning verdict (condition-neutral detail) alone', () => {
-    const below = buildEffectVerdictCopy({ meanImprovementRate: -0.05, meetsThreshold: false });
-    expect(verdictCopyForCondition(below, 'natural_recovery')).toBe(below);
-
-    const unjudgeable = buildEffectVerdictCopy({
-      meanImprovementRate: null,
-      meetsThreshold: false,
-    });
-    expect(verdictCopyForCondition(unjudgeable, 'natural_recovery')).toBe(unjudgeable);
   });
 });
 

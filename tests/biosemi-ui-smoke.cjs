@@ -59,6 +59,7 @@ async function main() {
     const skip = page.getByRole('button', { name: '跳过', exact: true });
     if (await skip.isVisible()) await skip.click();
   };
+  const review = page.getByLabel('核对并进入', { exact: true });
   const step = title => page.getByRole('navigation', { name: '实验准备步骤' }).getByRole('button', { name: new RegExp(title) }).click();
   try {
     await go();
@@ -76,22 +77,22 @@ async function main() {
     await page.setViewportSize({ width: 1440, height: 900 });
 
     await step('核对并进入');
-    assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
+    assert.equal(await review.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
     await step('准备素材');
     await page.getByLabel('素材库根目录', { exact: true }).fill('C:\\smoke\\videos');
     await page.getByRole('button', { name: '验证并保存素材库', exact: true }).click();
     await page.getByText(/素材库已验证：/).waitFor();
     await step('核对并进入');
-    assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
+    assert.equal(await review.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
     await step('选择实验');
     await page.getByLabel('被试 ID', { exact: true }).fill('smoke-subject');
     await step('核对并进入');
-    assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isEnabled(), true);
+    assert.equal(await review.getByRole('button', { name: '进入效果评价', exact: true }).isEnabled(), true);
 
     await step('选择实验');
     await page.getByLabel('模式', { exact: true }).selectOption('formal');
     await step('核对并进入');
-    assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
+    assert.equal(await review.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
     await step('连接与测试');
     await page.getByRole('button', { name: '连接触发盒', exact: true }).click();
     await page.getByText('触发盒已连接 · COM7 · 未测试', { exact: true }).waitFor();
@@ -116,7 +117,7 @@ async function main() {
     await page.evaluate(() => window.__RELEASE_TEST__());
     await page.getByText('测试码 254 已写入串口。请在 ActiView 和短 BDF 中确认标记。', { exact: true }).waitFor();
     await step('核对并进入');
-    assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
+    assert.equal(await review.getByRole('button', { name: '进入效果评价', exact: true }).isDisabled(), true);
     await screenshot('preparation-missing-recording.png');
     await step('保存脑电');
     await page.getByRole('button',{name:'复制正式 BDF 路径',exact:true}).click();
@@ -136,14 +137,14 @@ async function main() {
     assert.equal(await reservedCount(),2);
     await page.getByRole('checkbox', { name: '我已在 ActiView 启动本次 BDF 保存' }).check();
     await step('核对并进入');
-    assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).isEnabled(), true);
+    assert.equal(await review.getByRole('button', { name: '进入效果评价', exact: true }).isEnabled(), true);
     await screenshot('preparation-review.png');
-    await page.getByRole('button', { name: '进入效果评价', exact: true }).click();
+    await review.getByRole('button', { name: '进入效果评价', exact: true }).click();
     await page.getByText(/该情绪类别的诱发素材池为空/).waitFor();
     const handoff = await page.evaluate(() => JSON.parse(sessionStorage.getItem('effectEvaluation.flowState.v1')));
     assert.equal(handoff.step, 1);
     assert.equal(handoff.subjectId, 'smoke-subject');
-    assert.equal(handoff.protocol, 'brief');
+    assert.equal(handoff.preInductionRecordId, null);
     assert.equal(handoff.runMode, 'formal');
     assert.equal(await page.getByLabel('被试 ID', { exact: true }).count(), 0);
     assert.equal(await page.getByText('目标情绪:', { exact: true }).count(), 0);
@@ -159,8 +160,8 @@ async function main() {
     await page.getByLabel('范式类型',{exact:true}).selectOption('held_out_generation');
     await page.getByLabel('模式', { exact: true }).selectOption('rehearsal');
     await step('核对并进入');
-    assert.equal(await page.getByRole('button', { name: '进入效果评价', exact: true }).count(), 0);
-    await page.getByRole('button', { name: '进入逐试次范式', exact: true }).click();
+    assert.equal(await review.getByRole('button', { name: '进入效果评价', exact: true }).count(), 0);
+    await review.getByRole('button', { name: '进入逐试次范式', exact: true }).click();
     await page.getByRole('heading', { name: '逐试次范式', exact: true }).waitFor();
     assert.equal(await page.getByText('准备模式：排练', { exact: true }).isVisible(), true);
 
@@ -171,10 +172,9 @@ async function main() {
     await page.evaluate(() => { window.__SMOKE_CLIP_READY__ = true; });
     await page.getByLabel('被试 ID', { exact: true }).fill('ready-subject');
     await step('核对并进入');
-    await page.getByRole('button', { name: '进入效果评价', exact: true }).click();
-    const play = page.getByRole('button', { name: '开始播放视频', exact: true });
-    await play.waitFor();
-    await page.waitForFunction(() => Array.from(document.querySelectorAll('button')).some(button => button.textContent.trim() === '开始播放视频' && !button.disabled));
+    await review.getByRole('button', { name: '进入效果评价', exact: true }).click();
+    await page.getByRole('button', { name: '填写观看前感受', exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: '开始播放视频', exact: true }).count(), 0);
     assert.equal(await page.getByLabel('被试 ID', { exact: true }).count(), 0);
     assert.doesNotMatch(await page.locator('body').innerText(), /anxiety_vid01|焦虑|抑郁|恐惧/);
     await page.getByRole('button', { name: '返回实验设置', exact: true }).click();

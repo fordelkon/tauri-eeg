@@ -11,22 +11,13 @@ use std::path::{Component, PathBuf};
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExportEffectReportInput {
-    /// `single` exports one baseline/post pair; `batch` writes every subject's
-    /// most recent evaluation as CSV; `comparison` writes the cross-condition
-    /// comparison of one subject+emotion (R7).
     kind: String,
-    /// `json` or `csv`; single/comparison default to json, batch is always csv.
+    /// `json` or `csv`; single defaults to json, batch is always csv.
     format: Option<String>,
     /// Absolute destination chosen by the user through the save dialog.
     pub(crate) path: String,
     baseline_record_id: Option<String>,
     post_record_id: Option<String>,
-    /// Subject binding of the comparison export (kind = `comparison`).
-    #[serde(default)]
-    subject_id: Option<String>,
-    /// Target emotion of the comparison export (kind = `comparison`).
-    #[serde(default)]
-    emotion: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -66,91 +57,28 @@ pub fn build_report_content(
     conn: &Connection,
     input: ExportEffectReportInput,
 ) -> Result<String, String> {
-    // Batch is CSV-only; an explicit csv on single switches its format.
-    let format = if input.kind == "batch" {
-        "csv".to_string()
-    } else {
-        input
-            .format
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("json")
-            .to_string()
-    };
-
     match input.kind.trim() {
         "single" => {
+            let csv = match input.format.as_deref().map(str::trim) {
+                None | Some("json" | "") => false,
+                Some("csv") => true,
+                _ => return Err("Unsupported single report format.".into()),
+            };
             let baseline_id = required_id("Baseline", input.baseline_record_id.as_ref())?;
             let post_id = required_id("Post", input.post_record_id.as_ref())?;
 
             let baseline = scale_records::get_scale_record(conn, &baseline_id)?;
             let post = scale_records::get_scale_record(conn, &post_id)?;
-            experiment::report::require_same_run(conn, &baseline.id, &post.id)?;
-            let report = scale_records::build_single_effect_report(&baseline, &post)?;
-
-            if format == "csv" {
-                Ok(scale_records::build_single_effect_report_csv(&report))
-            } else {
-                if !report.rating_changes.is_empty() {
-                    return serde_json::to_string_pretty(&serde_json::json!({
-                        "scaleId": baseline.scale_id,
-                        "subjectId": report.subject_id,
-                        "condition": report.condition,
-                        "emotion": report.emotion,
-                        "durationMinutes": report.duration_minutes,
-                        "regulationSkipped": report.regulation_skipped,
-                        "baselineRecordId": report.baseline_record_id,
-                        "postRecordId": report.post_record_id,
-                        "baselineCreatedAt": report.baseline_created_at,
-                        "postCreatedAt": report.post_created_at,
-                        "baselineRawAnswers": report.baseline_raw_answers,
-                        "postRawAnswers": report.post_raw_answers,
-                        "ratingChanges": report.rating_changes,
-                        "exportedAt": report.exported_at,
-                    }))
-                    .map_err(|e| e.to_string());
-                }
-                serde_json::to_string_pretty(&report)
-                    .map_err(|_| "Failed to serialize the report.".to_string())
-            }
+            let first = experiment::report::pre_induction_for_pair(conn, &baseline, &post)?;
+            scale_records::export_deq(&first, &baseline, &post, csv)
         }
         "batch" => {
-            let records = scale_records::list_scale_records(conn, None, None)?;
-            let records = experiment::report::eligible_records(conn, records)?;
+            let records = scale_records::completed_effect_records(conn)?;
             let history = scale_records::build_effect_history(&records);
 
             Ok(scale_records::build_batch_effect_report_csv(
                 &scale_records::latest_entry_per_subject_emotion_condition(&history),
             ))
-        }
-        "comparison" => {
-            let subject_id = required_field("Subject id", input.subject_id.as_ref())?;
-            let emotion = required_field("Emotion", input.emotion.as_ref())?;
-
-            // Subject pushdown (same safety argument as
-            // compute_condition_effect): the comparison rejects entries whose
-            // subject differs from this required, non-blank target.
-            let records = scale_records::list_scale_records(conn, Some(subject_id.as_str()), None)?;
-            let records = experiment::report::eligible_records(conn, records)?;
-            // 大纲 6.3 步骤 5: the exported document carries both legs'
-            // trace, the per-dimension inputs, the verdict, and the frozen
-            // formula statement so the calculation can be re-derived.
-            let comparison = scale_records::compute_condition_effect_comparison(
-                &records,
-                &subject_id,
-                &emotion,
-            )?;
-            let report = scale_records::build_condition_comparison_report(&comparison);
-
-            if format == "csv" {
-                Ok(scale_records::build_condition_comparison_report_csv(
-                    &report,
-                ))
-            } else {
-                serde_json::to_string_pretty(&report)
-                    .map_err(|_| "Failed to serialize the report.".to_string())
-            }
         }
         other => Err(format!("Unknown report kind '{other}'.")),
     }
@@ -163,13 +91,4 @@ fn required_id(label: &str, value: Option<&String>) -> Result<String, String> {
         .filter(|value| !value.is_empty())
         .map(str::to_string)
         .ok_or_else(|| format!("{label} record id is required."))
-}
-
-fn required_field(label: &str, value: Option<&String>) -> Result<String, String> {
-    value
-        .map(String::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| format!("{label} is required."))
 }

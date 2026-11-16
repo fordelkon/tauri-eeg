@@ -10,12 +10,11 @@ import {
   type EffectCondition,
   type EffectFlowStep,
   type EffectRegulationMethod,
-  type EffectScaleProtocol,
   type EffectTargetEmotion,
 } from './constants';
 
 /**
- * The wizard's serializable state (v4) plus its strict storage parser: any
+ * The wizard's serializable state plus its strict storage parser: any
  * stale or corrupt payload yields null so the flow restarts cleanly instead
  * of restoring half-valid data.
  */
@@ -33,7 +32,7 @@ const EVENT_LOG_STATUS_VALUES: EffectEventLogStatus[] = [
   'interrupted',
 ];
 
-const FLOW_STATE_VERSION = 5;
+const FLOW_STATE_VERSION = 7;
 
 export type EffectEvaluationFlowState = {
   version: typeof FLOW_STATE_VERSION;
@@ -41,15 +40,9 @@ export type EffectEvaluationFlowState = {
   subjectId: string;
   emotion: EffectTargetEmotion;
   method: EffectRegulationMethod;
-  protocol: EffectScaleProtocol;
-  /**
-   * Wizard condition of this run (R6): 基线条件（自然恢复） or 调控条件. The
-   * 大纲-aligned flow runs the natural-recovery condition first, so it is the
-   * default; records saved without a condition are pre-R6 legacy rows that
-   * consumers already treat as the regulation condition.
-   */
   condition: EffectCondition;
   durationMinutes: number;
+  preInductionRecordId: string | null;
   baselineRecordId: string | null;
   postRecordId: string | null;
   regulationStartedAtMs: number | null;
@@ -69,9 +62,9 @@ export function createEffectEvaluationFlowState(): EffectEvaluationFlowState {
     subjectId: '',
     emotion: 'anxiety',
     method: 'music',
-    protocol: 'brief',
     condition: 'natural_recovery',
     durationMinutes: DEFAULT_REST_MINUTES,
+    preInductionRecordId: null,
     baselineRecordId: null,
     postRecordId: null,
     regulationStartedAtMs: null,
@@ -113,7 +106,7 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
 
   const candidate = parsed as Record<string, unknown>;
 
-  if (candidate.version !== FLOW_STATE_VERSION && candidate.version !== 4) {
+  if (candidate.version !== FLOW_STATE_VERSION) {
     return null;
   }
 
@@ -128,9 +121,8 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
   }
 
   const subjectId = candidate.subjectId;
-  // A version 4 session already under way used the full battery at baseline.
-  const protocol = candidate.version === 4 ? (step === 0 ? 'brief' : 'full') : candidate.protocol;
-  if (protocol !== 'brief' && protocol !== 'full') return null;
+  const preInductionRecordId = optionalString(candidate.preInductionRecordId);
+  if (preInductionRecordId === undefined) return null;
   if (typeof subjectId !== 'string') {
     return null;
   }
@@ -208,9 +200,9 @@ export function parseFlowState(raw: string | null | undefined): EffectEvaluation
     subjectId,
     emotion,
     method,
-    protocol,
     condition,
     durationMinutes,
+    preInductionRecordId,
     baselineRecordId,
     postRecordId,
     regulationStartedAtMs,

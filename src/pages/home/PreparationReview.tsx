@@ -2,8 +2,7 @@ import type { ExperimentDestination } from '../../experiment/preparation';
 import type { ExperimentPreferences } from '../../experiment/settings';
 import type { TriggerStatus } from '../../experiment/api';
 import type { EffectPreparationDraft } from './effectPreparationHandoff';
-import { EFFECT_METHOD_OPTIONS } from './effectEvaluationFlow';
-import { labelForEmotion } from './effectHistoryView';
+import { EFFECT_EMOTION_OPTIONS, EFFECT_METHOD_OPTIONS } from './effectEvaluationFlow';
 import type { ParadigmSessionKind } from '../../paradigm/types';
 import { sessionKindShortLabels } from '../../paradigm/paradigmSessionKinds';
 import styles from './ExperimentSettings.module.css';
@@ -56,7 +55,11 @@ export default function PreparationReview({
             <div>
               <dt>目标与条件</dt>
               <dd>
-                {labelForEmotion(effectDraft.emotion)} ·{' '}
+                {
+                  EFFECT_EMOTION_OPTIONS.find((option) => option.value === effectDraft.emotion)
+                    ?.label
+                }{' '}
+                ·{' '}
                 {effectDraft.condition === 'natural_recovery'
                   ? '自然恢复'
                   : EFFECT_METHOD_OPTIONS.find(({ value }) => value === effectDraft.method)?.label}
@@ -64,10 +67,7 @@ export default function PreparationReview({
             </div>
             <div>
               <dt>测量方案</dt>
-              <dd>
-                {effectDraft.protocol === 'brief' ? '简版 · 前后各 3 题' : '完整量表'} ·{' '}
-                {effectDraft.durationMinutes} 分钟
-              </dd>
+              <dd>状态情绪评分 · 三次各 12 项 · {effectDraft.durationMinutes} 分钟</dd>
             </div>
           </>
         )}
@@ -125,7 +125,7 @@ export default function PreparationReview({
       )}
       <p className={styles.muted}>
         {destination === 'effect'
-          ? '进入后请将界面交给参与者，准备好后点击播放。'
+          ? '进入后请将界面交给参与者，先填写观看视频前的感受。'
           : '进入后核对素材并开始，才创建实验记录。'}
       </p>
     </>

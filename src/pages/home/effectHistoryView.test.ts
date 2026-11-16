@@ -2,12 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { EffectHistoryEntryView } from '../../mentalScale/scaleRecordsApi';
 import {
   filterHistoryEntries,
-  formatMeanImprovementRate,
   formatRunTimestamp,
   groupHistoryBySubject,
   labelForEmotion,
   labelForHistoryCondition,
-  outcomeForEntry,
 } from './effectHistoryView';
 
 /**
@@ -22,16 +20,14 @@ function entry(overrides: Partial<EffectHistoryEntryView> = {}): EffectHistoryEn
     postRecordId: 'rec-post',
     baselineCreatedAt: '2026-08-01T09:00:00+00:00',
     postCreatedAt: '2026-08-01T10:00:00+00:00',
-    scaleId: '/video-regulation',
+    scaleId: 'deq_zh_state_12_v1',
+    experimentRunId: 'run',
+    preInductionRecordId: 'rec-initial',
     emotion: 'anxiety',
-    // Pre-R6 legacy row by default; individual tests override it.
-    condition: null,
+    condition: 'regulation',
     durationMinutes: 5,
     regulationSkipped: false,
-    measuredOnly: true,
-    meanImprovementRate: 0.4,
-    meetsThreshold: true,
-    dimensions: [],
+    emotionChanges: [],
     ...overrides,
   };
 }
@@ -121,18 +117,6 @@ describe('history display helpers', () => {
     expect(labelForEmotion(null)).toBe('—');
   });
 
-  it('formats rates through the shared improvement formatter', () => {
-    expect(formatMeanImprovementRate(0.4)).toBe('+40%');
-    expect(formatMeanImprovementRate(-0.125)).toBe('-12.5%');
-    expect(formatMeanImprovementRate(null)).toBe('—');
-  });
-
-  it('derives the outcome verdict from the mean rate and threshold flag', () => {
-    expect(outcomeForEntry({ meanImprovementRate: 0.4, meetsThreshold: true })).toBe('达标');
-    expect(outcomeForEntry({ meanImprovementRate: -0.02, meetsThreshold: false })).toBe('未达标');
-    expect(outcomeForEntry({ meanImprovementRate: null, meetsThreshold: false })).toBe('无法判定');
-  });
-
   it('formats timestamps as local YYYY-MM-DD HH:mm and echoes unparsable input', () => {
     expect(formatRunTimestamp('not-a-timestamp')).toBe('not-a-timestamp');
 
@@ -144,12 +128,8 @@ describe('history display helpers', () => {
     expect(later > formatted).toBe(true);
   });
 
-  // R7, feedback-003 P2-1: the history rows must distinguish the three
-  // condition families, with legacy rows annotated instead of blended in.
-  it('labels each condition family and tags legacy rows explicitly', () => {
+  it('labels the acquisition conditions', () => {
     expect(labelForHistoryCondition('natural_recovery')).toBe('基线条件（自然恢复）');
     expect(labelForHistoryCondition('regulation')).toBe('调控条件');
-    expect(labelForHistoryCondition(null)).toContain('legacy');
-    expect(labelForHistoryCondition(null)).toContain('旧流程');
   });
 });

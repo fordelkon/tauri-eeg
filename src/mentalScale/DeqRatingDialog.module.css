@@ -30,10 +30,6 @@
 }
 
 .instruction,
-.poles {
-  color: color-mix(in srgb, var(--ink) 72%, var(--surface-raised));
-}
-
 .instruction {
   margin: 5px 0 0;
   font-size: var(--text-base);
@@ -65,7 +61,7 @@
 
 .choices {
   display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: clamp(2px, 0.55vw, 5px);
   padding: 4px;
   background: var(--surface-2);
@@ -75,6 +71,16 @@
 .choice {
   position: relative;
   min-width: 0;
+}
+
+.choice span {
+  align-content: start;
+  padding: 4px 1px;
+}
+
+.choice small {
+  font-size: var(--text-xs);
+  text-align: center;
 }
 
 .choice input {

@@ -17,7 +17,7 @@ import {
   type ScaleRecordInput,
 } from './scaleRecordsApi';
 import { PHQ4_SCALE_ID } from './instruments/phq4';
-import { STAI_PANAS_BATTERY_SCALE_ID } from './instruments/battery';
+import { buildDeqMeasurement, DEQ_SCALE_ID, deqItems, type DeqAnswers } from './instruments/deq';
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
@@ -166,7 +166,7 @@ describe('subject_id passthrough (R2 效果闭环)', () => {
   });
 });
 
-describe('phase instrument records (battery pre/post legs)', () => {
+describe('DEQ measurements', () => {
   beforeEach(() => {
     vi.mocked(invoke).mockResolvedValue(undefined);
   });
@@ -175,35 +175,31 @@ describe('phase instrument records (battery pre/post legs)', () => {
     vi.clearAllMocks();
   });
 
-  const batteryInput = {
+  const deqInput = {
     userId: 'user-1',
     subjectId: ' subj-009 ',
-    scaleId: STAI_PANAS_BATTERY_SCALE_ID,
+    experimentRunId: 'run-1',
+    ...buildDeqMeasurement({
+      deq: Object.fromEntries(deqItems.map(({ id }) => [id, 4])) as DeqAnswers['deq'],
+    }),
     phase: 'post' as const,
-    dimensionScores: { anxiety: 50, mood: 2.5, energy: 3 },
-    rawAnswers: { stai: { S1: 2 }, panas: { P1: 3 }, timeframe: 'now' },
-    measuredDimensions: ['anxiety', 'mood', 'energy'],
   };
 
   it('persists an explicit phase with a trimmed subject for the wizard flow', async () => {
-    await savePhaseInstrumentRecord(batteryInput);
+    await savePhaseInstrumentRecord(deqInput);
 
     const input = lastSaveInput();
     expect(input.subjectId).toBe('subj-009');
     expect(input.phase).toBe('post');
-    expect(input.scaleId).toBe(STAI_PANAS_BATTERY_SCALE_ID);
-    expect(input.dimensionScores).toEqual({ anxiety: 50, mood: 2.5, energy: 3 });
-    expect(input.rawAnswers).toEqual({
-      stai: { S1: 2 },
-      panas: { P1: 3 },
-      timeframe: 'now',
-    });
-    expect(input.measuredDimensions).toEqual(['anxiety', 'mood', 'energy']);
+    expect(input.scaleId).toBe(DEQ_SCALE_ID);
+    expect(input.dimensionScores).toEqual({ anxiety: 4, sadness: 4, fear: 4 });
+    expect(input.rawAnswers).toEqual(deqInput.rawAnswers);
+    expect(input.measuredDimensions).toEqual(['anxiety', 'sadness', 'fear']);
   });
 
-  it('defaults the run-context fields and forwards the eeg session id (R4/F2)', async () => {
+  it('forwards the run id and defaults optional context fields', async () => {
     await savePhaseInstrumentRecord({
-      ...batteryInput,
+      ...deqInput,
     });
 
     const input = lastSaveInput();
@@ -213,14 +209,14 @@ describe('phase instrument records (battery pre/post legs)', () => {
     expect(input.regulationSkipped).toBe(false);
 
     await savePhaseInstrumentRecord({
-      ...batteryInput,
+      ...deqInput,
       phase: 'baseline',
     });
   });
 
   it('forwards the wizard run context (emotion, condition, duration, skip)', async () => {
     await savePhaseInstrumentRecord({
-      ...batteryInput,
+      ...deqInput,
       emotion: 'anxiety',
       condition: 'regulation',
       durationMinutes: 5,
@@ -234,30 +230,37 @@ describe('phase instrument records (battery pre/post legs)', () => {
     expect(input.regulationSkipped).toBe(true);
   });
 
+  it('sends the run owning the pre-induction DEQ measurement to the atomic save', async () => {
+    await savePhaseInstrumentRecord({
+      ...deqInput,
+      scaleId: 'deq_zh_state_12_v1',
+      experimentRunId: 'run-1',
+      phase: 'pre_induction',
+    });
+    expect(lastSaveInput()).toMatchObject({ experimentRunId: 'run-1', phase: 'pre_induction' });
+  });
+
   it('resolves the saved record id so baseline/post can be paired', async () => {
     vi.mocked(invoke).mockResolvedValueOnce({
       id: 'rec-post-1',
       userId: 'user-1',
       subjectId: 'subj-009',
-      scaleId: STAI_PANAS_BATTERY_SCALE_ID,
+      scaleId: DEQ_SCALE_ID,
       phase: 'post',
       dimensionScores: {},
       rawAnswers: {},
       createdAt: '2026-08-26T10:00:00+00:00',
     });
 
-    const record = await savePhaseInstrumentRecord(batteryInput);
+    const record = await savePhaseInstrumentRecord(deqInput);
 
     expect(record.id).toBe('rec-post-1');
   });
 
   it('invokes compute_regulation_effect with the camelCase record ids', async () => {
     const summary: RegulationEffectSummaryView = {
-      subjectId: 'subj-009',
-      dimensions: [{ dimension: 'anxiety', baseline: 80, post: 48, improvementRate: 0.4 }],
-      meanImprovementRate: 0.4,
-      meetsThreshold: true,
-      measuredOnly: true,
+      subjectId: 'sub-001',
+      emotionChanges: [],
     };
     vi.mocked(invoke).mockResolvedValueOnce(summary);
 
@@ -266,9 +269,7 @@ describe('phase instrument records (battery pre/post legs)', () => {
     expect(invoke).toHaveBeenCalledWith('compute_regulation_effect', {
       input: { baselineRecordId: 'rec-baseline-1', postRecordId: 'rec-post-1' },
     });
-    expect(result.meetsThreshold).toBe(true);
-    expect(result.meanImprovementRate).toBe(0.4);
-    expect(result.measuredOnly).toBe(true);
+    expect(result).toEqual(summary);
   });
 
   it('loads the paired history without arguments', async () => {

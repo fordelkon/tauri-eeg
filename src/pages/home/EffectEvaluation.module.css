@@ -22,8 +22,6 @@
   /* Warm beacon/indicator accent - coral, never saturated red. */
   --ee-warm: var(--brand-coral, #fb7f6e);
   --ee-warm-rgb: 251, 127, 110;
-  /* Negative data semantics - the chart's muted brick POST color. */
-  --ee-negative: #c0524c;
   --ee-negative-rgb: 192, 82, 76;
   --ee-line: rgba(var(--ee-ink-rgb), 0.1);
   --ee-line-strong: rgba(var(--ee-ink-rgb), 0.18);
@@ -520,44 +518,6 @@
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   min-width: 130px;
-}
-
-.historyRowRate {
-  color: rgba(var(--ee-ink-rgb), 0.78);
-  font-variant-numeric: tabular-nums;
-}
-
-.outcomeChip {
-  border-radius: 999px;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  margin-left: auto;
-  padding: 4px 12px;
-  /* Verdict chips (合格/未合格) must not wrap. */
-  white-space: nowrap;
-}
-
-/* System semantic recipes (MusicRegulation / MUI overrides above): muted
-   fill + slightly stronger border + dark ink text. One recipe per
-   severity, shared by every chip/banner on the page. */
-.outcomePass {
-  background: rgba(34, 125, 84, 0.12);
-  border: 1px solid rgba(34, 125, 84, 0.24);
-  color: var(--success, #1c6a47);
-}
-
-.outcomeFail {
-  background: rgba(var(--ee-negative-rgb), 0.1);
-  border: 1px solid rgba(var(--ee-negative-rgb), 0.22);
-  color: var(--danger-ink, #8d2d25);
-}
-
-/* Unknown/unavailable states ride the same ink-alpha family as every
-   other neutral chip - the old slate base was a stray off-dialect hue. */
-.outcomeUnknown {
-  background: rgba(var(--ee-ink-rgb), 0.08);
-  border: 1px solid rgba(var(--ee-ink-rgb), 0.28);
-  color: rgba(var(--ee-ink-rgb), 0.78);
 }
 
 .historyDetail {
@@ -1241,16 +1201,6 @@
   white-space: nowrap;
 }
 
-/* High-contrast / forced-colors fallback: gradient-clip text would vanish,
-   so the sign-tinted hero value falls back to system CanvasText. */
-@media (forced-colors: active) {
-  .metricHeroValue.isPositive,
-  .metricHeroValue.isNegative {
-    background: none;
-    color: CanvasText;
-  }
-}
-
 .progressTrack {
   background: rgba(var(--ee-ink-rgb), 0.1);
   border-radius: 999px;
@@ -1311,246 +1261,12 @@
   width: 7px;
 }
 
-/* ------------------------------------------------------------------ */
-/* Result step: verdict hero, metrics, chart, tables                   */
-/* ------------------------------------------------------------------ */
-
-/* Step 5 mounts its two panels in a dedicated stack so the result area
-   breathes on a wider rhythm (24px) than the wizard steps above. */
 .resultStep {
   display: flex;
   flex-direction: column;
   gap: 24px;
 }
 
-/* Result panels run a slightly deeper padding/gap than the input steps:
-   the output deserves the calmest container on the page. */
-.resultPanel {
-  container: results / inline-size;
-  grid-template-columns: minmax(0, 1fr);
-  min-width: 0;
-  gap: 20px;
-  padding: 24px 28px 28px;
-}
-
-/* Verdict hero: replaces the stock Alert on the result/comparison cards.
-   A severity-tinted banner whose icon disc is the "completed" visual
-   anchor - the finish reads as an achievement, not a side note. */
-.resultHero {
-  animation: heroEnter 420ms var(--ease-out) backwards;
-  border: 1px solid transparent;
-  border-radius: var(--ee-radius-card);
-  display: grid;
-  gap: 14px;
-  grid-template-columns: auto 1fr;
-  padding: 16px 18px;
-}
-
-@keyframes heroEnter {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 8px, 0);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-/* Flat uniform tints (no diagonal sweeps): the severity reads from the
-   muted wash + border + icon disc, not from a gradient performance. */
-.heroPass {
-  background: rgba(34, 125, 84, 0.08);
-  border-color: rgba(34, 125, 84, 0.26);
-}
-
-.heroWarn {
-  background: rgba(217, 119, 6, 0.08);
-  border-color: rgba(217, 119, 6, 0.28);
-}
-
-.heroIcon {
-  align-items: center;
-  border-radius: var(--radius-card);
-  color: #fff;
-  display: flex;
-  flex: 0 0 auto;
-  height: 40px;
-  justify-content: center;
-  width: 40px;
-}
-
-.heroIcon svg {
-  display: block;
-  height: 22px;
-  width: 22px;
-}
-
-/* Flat solid discs, no colored glow: white glyph on system green /
-   muted amber carries the severity at >=4.5:1 without a halo. */
-.heroPass .heroIcon {
-  background: var(--success, #1c6a47);
-}
-
-.heroWarn .heroIcon {
-  background: #a4690f;
-}
-
-.heroCopy {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-}
-
-.heroTitle {
-  color: var(--ee-ink);
-  display: block;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-
-.heroDetail {
-  color: rgba(var(--ee-ink-rgb), 0.7);
-  font-size: var(--text-sm);
-  line-height: 1.55;
-  text-wrap: pretty;
-}
-
-/* Metric grid: the headline rate card dominates (1.5fr + a size step up
-   + gradient-tinted value), the threshold/dimension cards stay clearly
-   subordinate. */
-.metricGrid {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: minmax(0, 1.5fr) minmax(150px, 1fr) minmax(150px, 1fr);
-}
-
-/* Result cards enter in a 30ms cascade (hero first, then the two metric
-   cards). Transform/opacity only; `backwards` fill releases the end
-   transform so no card keeps a containing block. */
-.metricGrid > * {
-  animation: metricCardEnter 320ms var(--ease-out) backwards;
-}
-
-.metricGrid > :nth-child(2) {
-  animation-delay: 30ms;
-}
-
-.metricGrid > :nth-child(3) {
-  animation-delay: 60ms;
-}
-
-@keyframes metricCardEnter {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 8px, 0);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-/* Metric cards read as quiet data output: plain white wells like the
-   input panels, hairline only (no nested shadow inside the result
-   panel) - only the headline hero keeps a muted coral marker. */
-.metricCard,
-.metricHero {
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--ee-line);
-  border-radius: var(--ee-radius-card);
-  display: grid;
-  gap: 8px;
-  overflow: hidden;
-  padding: 16px 18px 16px;
-  position: relative;
-}
-
-.metricHero::before {
-  background: rgba(var(--ee-warm-rgb), 0.35);
-  content: '';
-  display: block;
-  height: 3px;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-}
-
-.metricLabel {
-  color: rgba(var(--ee-ink-rgb), 0.58);
-  font-size: var(--text-2xs);
-  font-weight: 500;
-  letter-spacing: 0.04em;
-}
-
-.metricValue {
-  color: var(--ee-ink);
-  font-size: 24px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  line-height: 1.15;
-}
-
-/* Headline metric: the number the whole page exists to produce. One
-   muted coral hairline, a barely-there warm tint (the page's single
-   gradient detail) and one giant size step make it the focal datum;
-   the value's color rides the sign system below. Surface contrast only:
-   same hairline well as .metricCard, no drop shadow of its own. */
-.metricHero {
-  background:
-    radial-gradient(120% 110% at 88% -18%, rgba(var(--ee-warm-rgb), 0.06), transparent 60%),
-    linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.9));
-  gap: 6px;
-  padding: 18px 24px 20px;
-}
-
-.metricHeroValue {
-  align-items: center;
-  color: var(--ee-ink);
-  display: flex;
-  font-size: 36px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  gap: 10px;
-  line-height: 1.05;
-}
-
-/* Sign-tinted value: solid system green when the mean improved, muted
-   brick when it worsened - the same sign family as the chart's POST
-   series, minus the gradient-clip theatrics. */
-.metricHeroValue.isPositive {
-  color: var(--success, #1c6a47);
-}
-
-.metricHeroValue.isNegative {
-  color: var(--ee-negative);
-}
-
-/* Delta arrow beside the headline value - a plain CSS triangle tinted to
-   match the sign. Explicit colors (not currentColor) so the arrow keeps
-   its hue even if the value's color treatment changes again. */
-.deltaArrow {
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  flex: 0 0 auto;
-  height: 0;
-  width: 0;
-}
-
-.deltaArrowUp {
-  border-bottom: 12px solid var(--success, #1c6a47);
-}
-
-.deltaArrowDown {
-  border-top: 12px solid var(--ee-negative);
-}
-
-/* Quiet left-accented callout (coral hairline) for the 口径/口径-basis
-   notes. */
 .noteCallout {
   background: rgba(var(--ee-ink-rgb), 0.028);
   border-left: 3px solid rgba(var(--ee-warm-rgb), 0.45);
@@ -1562,72 +1278,6 @@
   padding: 8px 14px;
 }
 
-/* Chart frame: the ECharts canvas sits in a plain framed card so chart +
-   table read as one data-output family. The frame only carries chrome
-   (border + padding + shadow); the chart itself mounts on the inner
-   .chartCanvas because zrender measures clientWidth/Height and lays the
-   canvas out from the content box - padding on the host would push the
-   canvas over the frame's right/bottom border. */
-.chartWrap {
-  background: linear-gradient(180deg, #fff, rgba(255, 255, 255, 0.55));
-  border: 1px solid var(--ee-line);
-  border-radius: var(--ee-radius-card);
-  box-sizing: border-box;
-  overflow: hidden;
-  padding: 14px 16px 12px;
-  position: relative;
-  width: 100%;
-}
-
-.chartCanvas {
-  height: 330px;
-  width: 100%;
-}
-
-/* Leg trace cards: white mini-cards whose leading swatch matches the
-   comparison chart's series colors (baseline gray-blue / the muted
-   brick POST_COLOR in effectResultChartOption.ts), keeping the
-   on-screen pairing legible next to the chart it belongs to. */
-.legTraceGrid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-}
-
-.legTrace {
-  align-items: center;
-  background: #fff;
-  border: 1px solid var(--ee-line);
-  border-radius: var(--ee-radius-control);
-  color: rgba(var(--ee-ink-rgb), 0.78);
-  display: flex;
-  font-size: var(--text-xs);
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-  gap: 8px;
-  padding: 8px 12px;
-}
-
-.legTrace::before {
-  border-radius: 3px;
-  content: '';
-  display: block;
-  flex: 0 0 auto;
-  height: 12px;
-  width: 12px;
-}
-
-.legTraceBaseline::before {
-  background: #8a93a6;
-}
-
-.legTraceRegulation::before {
-  background: #c0524c;
-}
-
-/* Framed dimension tables (result / comparison / history detail): a
-   card-wrapped table with zebra rows instead of bare rows on the panel.
-   The frame scrolls horizontally on narrow screens instead of clipping. */
 .tableFrame {
   background: #fff;
   border: 1px solid var(--ee-line);
@@ -1702,104 +1352,6 @@
   border-bottom: none;
 }
 
-/* Score cells: number + a mini 0-100 bar so 基线 vs 调控后 compare at a
-   glance down the column (positive rate tints the post bar green,
-   negative the muted brick - the same sign system as the rate cells). */
-.scoreCell {
-  display: grid;
-  gap: 4px;
-  justify-items: end;
-}
-
-.scoreNum {
-  font-variant-numeric: tabular-nums;
-}
-
-.scoreTrack {
-  background: rgba(var(--ee-ink-rgb), 0.08);
-  border-radius: 999px;
-  display: block;
-  height: 5px;
-  overflow: hidden;
-  width: 72px;
-}
-
-/* Same transform-fill recipe as .progressBar (72px mini bars: scale keeps
-   value changes off the layout path). */
-.scoreBar {
-  background: rgba(var(--ee-ink-rgb), 0.34);
-  border-radius: 999px;
-  display: block;
-  height: 100%;
-  transform: scaleX(0);
-  transform-origin: left center;
-  transition: transform var(--dur-med) var(--ease-out);
-  width: 100%;
-}
-
-.scoreBar.barUp {
-  background: var(--success, #1c6a47);
-}
-
-.scoreBar.barDown {
-  background: var(--ee-negative);
-}
-
-.rateCell {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-/* Delta arrow before each rate value - the same triangle glyph as the
-   headline metric, one size smaller. */
-.rateCell::before {
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  content: '';
-  display: inline-block;
-  height: 0;
-  margin-right: 6px;
-  vertical-align: 2px;
-  width: 0;
-}
-
-.rateCell.isPositive {
-  color: var(--success, #1c6a47);
-}
-
-.rateCell.isPositive::before {
-  border-bottom: 7px solid var(--success, #1c6a47);
-}
-
-.rateCell.isNegative {
-  color: var(--ee-negative);
-}
-
-.rateCell.isNegative::before {
-  border-top: 7px solid var(--ee-negative);
-}
-
-/* Result actions close their panel with a hairline divider so the export
-   row reads as the section's footer. */
-.resultActions {
-  border-top: 1px solid var(--ee-line);
-  margin-top: 4px;
-  padding-top: 18px;
-}
-
-@container results (max-width: 600px) {
-  .metricGrid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .metricHero {
-    grid-column: 1 / -1;
-  }
-
-  .metricHeroValue {
-    font-size: 32px;
-  }
-}
 @media (max-width: 900px) {
   .stepper {
     padding: 12px 12px 8px;
@@ -1807,7 +1359,7 @@
 }
 
 /* Narrow windows / small screens: tighten the surface rhythm and let the
-   hero countdown and chart give up their spare height. */
+   countdown fits the available height. */
 @media (max-width: 620px) {
   .workspace {
     gap: 14px;
@@ -1845,21 +1397,6 @@
     gap: 18px;
   }
 
-  .resultPanel {
-    gap: 16px;
-    padding: 20px 16px 24px;
-  }
-
-  .metricGrid {
-    gap: 10px;
-  }
-
-  /* Below 620px the 54px mini bars carry <6px of real delta - drop the
-     decoration and let the numbers + rate column do the comparison. */
-  .scoreTrack {
-    display: none;
-  }
-
   .dimensionTable th,
   .dimensionTable td {
     padding: 8px 10px;
@@ -1878,14 +1415,6 @@
     font-size: 44px;
   }
 
-  .metricHeroValue {
-    font-size: 30px;
-  }
-
-  .chartCanvas {
-    height: 240px;
-  }
-
   .historyRowTime {
     min-width: 0;
   }
@@ -1894,8 +1423,6 @@
 @media (prefers-reduced-motion: reduce) {
   .workspace,
   .panel,
-  .resultHero,
-  .metricGrid > *,
   .stageSwap {
     animation: none;
   }
@@ -1905,7 +1432,6 @@
   .historyRow,
   .historyRow::after,
   .countdownValue,
-  .scoreBar,
   .stationDotCurrent,
   .progressDotCurrent,
   .progressChevron,

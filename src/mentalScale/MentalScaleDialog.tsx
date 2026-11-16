@@ -20,7 +20,6 @@ import ScaleAnchorGroup from './scaleUi/ScaleAnchorGroup';
 import ScaleItemRow from './scaleUi/ScaleItemRow';
 import ScaleProgressBar from './scaleUi/ScaleProgressBar';
 import styles from './MentalScaleDialog.module.css';
-import sectionStyles from './InstrumentScaleDialog.module.css';
 
 type MentalScaleDialogProps = {
   onComplete: (answers: MentalScaleAnswers) => void;
@@ -111,8 +110,8 @@ export default function MentalScaleDialog({
           <p>{scale.subtitle}</p>
         </div>
 
-        <div className={sectionStyles.scaleBody}>
-          <div className={sectionStyles.itemList}>
+        <div className={styles.scaleBody}>
+          <div className={styles.itemList}>
             {scale.questions.map((question, questionIndex) => (
               <ScaleItemRow
                 badge={String(questionIndex + 1)}

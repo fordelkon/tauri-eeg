@@ -1,47 +1,26 @@
-import type {
-  ConditionEffectComparisonView,
-  RegulationEffectSummaryView,
-} from '../../mentalScale/scaleRecordsApi';
+import type { RegulationEffectSummaryView } from '../../mentalScale/scaleRecordsApi';
 import { describeFriendlyError } from '../../ui/friendlyError';
-import type { EffectEvaluationFlowState } from './effectEvaluationFlow';
-import { describeMissingMeasurements } from './effectEvaluationResultCopy';
 
-type ReportState<T> =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'ready'; data: T }
+type Summary =
+  | { kind: 'idle' | 'loading' }
+  | { kind: 'ready'; data: RegulationEffectSummaryView }
   | { kind: 'failed'; error: string };
-
-type ReportContext = Pick<
-  EffectEvaluationFlowState,
-  'subjectId' | 'emotion' | 'baselineRecordId' | 'postRecordId'
-> & { protocol?: 'brief' | 'full' };
-type Snapshot = {
-  summary: ReportState<RegulationEffectSummaryView>;
-  comparison: ReportState<ConditionEffectComparisonView>;
-};
-export type EffectReportDependencies = {
-  computeSummary(
-    baselineRecordId: string,
-    postRecordId: string,
-  ): Promise<RegulationEffectSummaryView>;
-  computeComparison(subjectId: string, emotion: string): Promise<ConditionEffectComparisonView>;
-};
+type ComputeSummary = (
+  baselineRecordId: string,
+  postRecordId: string,
+) => Promise<RegulationEffectSummaryView>;
 
 export class EffectResultReports {
-  private snapshot: Snapshot = { summary: { kind: 'idle' }, comparison: { kind: 'idle' } };
+  private snapshot: Summary = { kind: 'idle' };
   private listeners = new Set<() => void>();
-  private summaryRequest = 0;
-  private comparisonRequest = 0;
+  private request = 0;
   private active = false;
-  private readonly context: ReportContext;
 
   constructor(
-    context: ReportContext,
-    private readonly dependencies: EffectReportDependencies,
-  ) {
-    this.context = { ...context, subjectId: context.subjectId.trim() };
-  }
+    private readonly baselineRecordId: string | null,
+    private readonly postRecordId: string | null,
+    private readonly compute: ComputeSummary,
+  ) {}
 
   getSnapshot = () => this.snapshot;
   subscribe = (listener: () => void) => {
@@ -50,22 +29,20 @@ export class EffectResultReports {
       this.listeners.delete(listener);
     };
   };
-  private publish(patch: Partial<Snapshot>) {
-    this.snapshot = { ...this.snapshot, ...patch };
+
+  private publish(snapshot: Summary) {
+    this.snapshot = snapshot;
     this.listeners.forEach((listener) => listener());
   }
 
   start = () => {
     this.active = true;
-    if (this.snapshot.summary.kind === 'idle') void this.loadSummary();
-    if (this.context.protocol !== 'brief' && this.snapshot.comparison.kind === 'idle')
-      void this.loadConditionComparison();
+    if (this.snapshot.kind === 'idle') void this.loadSummary();
   };
 
   clearResults = () => {
-    this.summaryRequest += 1;
-    this.comparisonRequest += 1;
-    this.publish({ summary: { kind: 'idle' }, comparison: { kind: 'idle' } });
+    this.request++;
+    this.publish({ kind: 'idle' });
   };
 
   dispose = () => {
@@ -75,48 +52,19 @@ export class EffectResultReports {
 
   loadSummary = async () => {
     if (!this.active) return;
-    const request = ++this.summaryRequest;
-    const { baselineRecordId, postRecordId } = this.context;
-    if (!baselineRecordId || !postRecordId) {
-      this.publish({
-        summary: {
-          kind: 'failed',
-          error: describeMissingMeasurements(this.context) ?? '缺少量表记录。',
-        },
-      });
+    const request = ++this.request;
+    if (!this.baselineRecordId || !this.postRecordId) {
+      this.publish({ kind: 'failed', error: '缺少本次实验的量表记录，无法计算三时点变化。' });
       return;
     }
-    this.publish({ summary: { kind: 'loading' } });
+    this.publish({ kind: 'loading' });
     try {
-      const data = await this.dependencies.computeSummary(baselineRecordId, postRecordId);
-      if (this.active && request === this.summaryRequest)
-        this.publish({ summary: { kind: 'ready', data } });
+      const data = await this.compute(this.baselineRecordId, this.postRecordId);
+      if (data.emotionChanges.length !== 3) throw new Error('未读取到三个分量表的三时点评分。');
+      if (request === this.request) this.publish({ kind: 'ready', data });
     } catch (error) {
-      if (this.active && request === this.summaryRequest) {
-        this.publish({
-          summary: { kind: 'failed', error: describeFriendlyError(error, '计算调控效果') },
-        });
-      }
-    }
-  };
-
-  loadConditionComparison = async () => {
-    if (!this.active) return;
-    const request = ++this.comparisonRequest;
-    this.publish({ comparison: { kind: 'loading' } });
-    try {
-      const data = await this.dependencies.computeComparison(
-        this.context.subjectId,
-        this.context.emotion,
-      );
-      if (this.active && request === this.comparisonRequest)
-        this.publish({ comparison: { kind: 'ready', data } });
-    } catch (error) {
-      if (this.active && request === this.comparisonRequest) {
-        this.publish({
-          comparison: { kind: 'failed', error: describeFriendlyError(error, '计算跨条件对比') },
-        });
-      }
+      if (request === this.request)
+        this.publish({ kind: 'failed', error: describeFriendlyError(error, '读取情绪评分') });
     }
   };
 }

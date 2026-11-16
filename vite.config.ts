@@ -40,12 +40,6 @@ const manualChunks = (id: string): string | undefined => {
     return "vendor-lottie";
   }
 
-  // echarts is dynamically imported by GlobalMentalScalePanel; without an
-  // explicit chunk rollup merges it into the shared entry chunk (~1MB).
-  if (id.indexOf("echarts") !== -1 || id.indexOf("zrender") !== -1) {
-    return "vendor-echarts";
-  }
-
   return undefined;
 };
 

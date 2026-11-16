@@ -5,11 +5,8 @@ import { describe, expect, test } from 'vitest';
 const readText = (url: URL) => readFileSync(url, 'utf8');
 
 describe('ExperimentAgentPanel layout contract', () => {
-  test('is embedded below the emotion radar without restoring the metric detail list', () => {
+  test('is embedded below the daily emotion ratings', () => {
     const agentCss = readText(new URL('./ExperimentAgentPanel.module.css', import.meta.url));
-    const mentalScaleCss = readText(
-      new URL('../mentalScale/GlobalMentalScalePanel.module.css', import.meta.url),
-    );
     const mentalScaleTsx = readText(
       new URL('../mentalScale/GlobalMentalScalePanel.tsx', import.meta.url),
     );
@@ -33,8 +30,6 @@ describe('ExperimentAgentPanel layout contract', () => {
     expect(mentalScaleTsx).not.toContain('Highest signal');
     expect(mentalScaleTsx).not.toContain('styles.metrics');
     expect(mentalScaleTsx).toContain('{children}');
-    expect(mentalScaleCss).toMatch(/\.chartWrap\s*{[^}]*flex:\s*0\s+0\s+min\(32dvh,\s*260px\);/s);
-    expect(mentalScaleCss).toMatch(/\.chartWrap\s*{[^}]*min-height:\s*180px;/s);
     expect(homeCss).toMatch(
       /\.shell\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*3fr\)\s+minmax\(260px,\s*1fr\);/s,
     );

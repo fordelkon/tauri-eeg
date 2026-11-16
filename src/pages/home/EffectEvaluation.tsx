@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -9,9 +9,6 @@ import Tabs from '@mui/material/Tabs';
 import { getParadigmSessionStatus } from '../../paradigm/paradigmSessionStatus';
 import { useConfirmDialog } from '../../ui/useConfirmDialog';
 import {
-  buildConditionComparisonVerdictCopy,
-  buildEffectVerdictCopy,
-  describeMeasuredBasis,
   describeRegulationSkipped,
   EFFECT_FLOW_STEP_COUNT,
   EFFECT_METHOD_OPTIONS,
@@ -19,12 +16,7 @@ import {
   remainingRegulationSeconds,
   type EffectFlowStep,
 } from './effectEvaluationFlow';
-import { describeEventLogStatus, verdictCopyForCondition } from './effectPipeline';
-import {
-  buildConditionComparisonChartOption,
-  buildEffectChartOption,
-} from './effectResultChartOption';
-import { ConditionComparisonCard, ResultCard } from './EffectResultCards';
+import { describeEventLogStatus } from './effectPipeline';
 import {
   ConditionStepPanel,
   EventLogUnavailableHint,
@@ -40,7 +32,7 @@ import { useEffectEvaluationFlow } from './useEffectEvaluationFlow';
 import { useEffectPipelineNodes } from './useEffectPipelineNodes';
 import { useEffectReportExports } from './useEffectReportExports';
 import { useInductionPlayback } from './useInductionPlayback';
-import { StateRatingTable } from './StateRatingTable';
+import { EmotionChangeTable } from './EmotionChangeTable';
 import styles from './EffectEvaluation.module.css';
 import { usePublishWorkspaceCommands } from '../../agent/workspaceCommands';
 import { getEvaluationCommands } from './evaluationCommands';
@@ -53,8 +45,11 @@ export default function EffectEvaluation() {
   const { state } = flow;
   const { confirm, confirmDialogElement } = useConfirmDialog();
   const [dismissedMeasurement, setDismissedMeasurement] = useState<string | null>(null);
+  const beforeInduction = state.step === 1 && !state.preInductionRecordId;
   const measurementKey =
-    state.runId && (state.step === 2 || state.step === 4) ? `${state.runId}:${state.step}` : null;
+    state.runId && !flow.isStartingRun && (beforeInduction || state.step === 2 || state.step === 4)
+      ? `${state.runId}:${state.step}`
+      : null;
   const isScaleDialogOpen =
     measurementKey !== null && !state.interrupted && dismissedMeasurement !== measurementKey;
   const {
@@ -68,8 +63,6 @@ export default function EffectEvaluation() {
   const [activeTab, setActiveTab] = useState<PageTab>('wizard');
   const {
     exportNotice,
-    handleExportComparisonCsv,
-    handleExportComparisonJson,
     handleExportSingleCsv,
     handleExportSingleJson,
     isExporting,
@@ -77,7 +70,6 @@ export default function EffectEvaluation() {
     setExportNotice,
   } = useEffectReportExports({
     subjectId: state.subjectId,
-    emotion: state.emotion,
     baselineRecordId: state.baselineRecordId,
     postRecordId: state.postRecordId,
   });
@@ -89,7 +81,6 @@ export default function EffectEvaluation() {
   const methodLabel =
     EFFECT_METHOD_OPTIONS.find((option) => option.value === state.method)?.label ?? state.method;
   const isNaturalRecovery = state.condition === 'natural_recovery';
-  const postLabel = isNaturalRecovery ? '静息后' : '调控后';
   const hasRenderedStepRef = useRef(false);
   useEffect(() => {
     if (!hasRenderedStepRef.current) {
@@ -127,39 +118,6 @@ export default function EffectEvaluation() {
   const skippedCopy = describeRegulationSkipped(state);
   const windowNoun = isNaturalRecovery ? '静息' : '调控';
   const isWindowRunning = state.step === 3 && state.regulationStartedAtMs !== null;
-  const verdictCopy = useMemo(
-    () =>
-      flow.summary && !flow.summary.ratingChanges
-        ? verdictCopyForCondition(buildEffectVerdictCopy(flow.summary), state.condition)
-        : null,
-    [flow.summary, state.condition],
-  );
-  const measuredBasisNote = flow.summary ? describeMeasuredBasis(flow.summary) : null;
-  const chartOption = useMemo(
-    () =>
-      flow.summary && flow.summary.dimensions.length > 0
-        ? buildEffectChartOption(flow.summary, postLabel)
-        : null,
-    [flow.summary, postLabel],
-  );
-  const comparisonVerdictCopy = useMemo(
-    () =>
-      flow.conditionComparison
-        ? buildConditionComparisonVerdictCopy(flow.conditionComparison)
-        : null,
-    [flow.conditionComparison],
-  );
-  const comparisonMeasuredBasisNote = flow.conditionComparison
-    ? describeMeasuredBasis(flow.conditionComparison)
-    : null;
-  const comparisonChartOption = useMemo(
-    () =>
-      flow.conditionComparison && flow.conditionComparison.dimensions.length > 0
-        ? buildConditionComparisonChartOption(flow.conditionComparison)
-        : null,
-    [flow.conditionComparison],
-  );
-
   const handleFinishRegulation = () => {
     if (finishMode.mode === 'finish') {
       void flow.finishRegulation();
@@ -197,17 +155,13 @@ export default function EffectEvaluation() {
 
   // The flow hook's callbacks are useCallback-stable, so destructuring keeps
   // the identities without depending on the per-render `flow` object itself.
-  const { playbackError, loadSummary, loadConditionComparison } = flow;
+  const { playbackError, loadSummary } = flow;
   const handleInductionVideoError = useCallback(() => {
     setInductionVideoFailed(true);
     playbackError();
   }, [setInductionVideoFailed, playbackError]);
 
   const handleRetrySummary = useCallback(() => void loadSummary(), [loadSummary]);
-  const handleRetryComparison = useCallback(
-    () => void loadConditionComparison(),
-    [loadConditionComparison],
-  );
   const { currentNode, doneNodes, pipelineNodes } = useEffectPipelineNodes(
     state,
     flow.summary !== null,
@@ -249,7 +203,7 @@ export default function EffectEvaluation() {
 
   const eventLogUnavailableHint = <EventLogUnavailableHint />;
 
-  const renderScalePanel = (phase: 'baseline' | 'post') => (
+  const renderScalePanel = (phase: 'pre_induction' | 'baseline' | 'post') => (
     <ScaleStepPanel
       flow={flow}
       phase={phase}
@@ -265,6 +219,8 @@ export default function EffectEvaluation() {
       case 0:
         return <SetupStepPanel />;
       case 1:
+        if (beforeInduction && state.runId && !flow.isStartingRun)
+          return renderScalePanel('pre_induction');
         return (
           <InductionStepPanel
             flow={flow}
@@ -300,62 +256,32 @@ export default function EffectEvaluation() {
       case 4:
         return renderScalePanel('post');
       case 5:
-        if (state.protocol === 'brief') {
-          return (
-            <div className={styles.resultStep}>
-              {flow.summaryError ? (
-                <Alert severity="error" action={<Button onClick={handleRetrySummary}>重试</Button>}>
-                  {flow.summaryError}
-                </Alert>
-              ) : flow.summary?.ratingChanges ? (
-                <>
-                  <StateRatingTable changes={flow.summary.ratingChanges} />
-                  <p>各项变化单独呈现。分数升降描述感受变化。</p>
-                  {skippedCopy && <Alert severity="info">{skippedCopy}</Alert>}
-                  <div className={styles.headerActions}>
-                    <Button disabled={isExporting} onClick={handleExportSingleCsv}>
-                      导出 CSV
-                    </Button>
-                    <Button disabled={isExporting} onClick={handleExportSingleJson}>
-                      导出 JSON
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <p role="status">正在读取感受记录…</p>
-              )}
-            </div>
-          );
-        }
         return (
           <div className={styles.resultStep}>
-            <ResultCard
-              chartOption={chartOption}
-              runId={state.runId}
-              isLoadingSummary={flow.isLoadingSummary}
-              isExporting={isExporting}
-              measuredBasisNote={measuredBasisNote}
-              postLabel={postLabel}
-              skippedCopy={skippedCopy}
-              onExportCsv={handleExportSingleCsv}
-              onExportJson={handleExportSingleJson}
-              onRetry={handleRetrySummary}
-              summary={flow.summary}
-              summaryError={flow.summaryError}
-              verdictCopy={verdictCopy}
-            />
-            <ConditionComparisonCard
-              chartOption={comparisonChartOption}
-              comparisonError={flow.conditionComparisonError}
-              conditionComparison={flow.conditionComparison}
-              isLoadingComparison={flow.isLoadingConditionComparison}
-              isExporting={isExporting}
-              measuredBasisNote={comparisonMeasuredBasisNote}
-              onExportCsv={handleExportComparisonCsv}
-              onExportJson={handleExportComparisonJson}
-              onRetry={handleRetryComparison}
-              verdictCopy={comparisonVerdictCopy}
-            />
+            {flow.summaryError ? (
+              <Alert severity="error" action={<Button onClick={handleRetrySummary}>重试</Button>}>
+                {flow.summaryError}
+              </Alert>
+            ) : flow.summary ? (
+              <>
+                <EmotionChangeTable
+                  changes={flow.summary.emotionChanges}
+                  emotion={state.emotion}
+                  condition={state.condition}
+                />
+                {skippedCopy && <Alert severity="info">{skippedCopy}</Alert>}
+                <div className={styles.headerActions}>
+                  <Button disabled={isExporting} onClick={handleExportSingleCsv}>
+                    导出 CSV
+                  </Button>
+                  <Button disabled={isExporting} onClick={handleExportSingleJson}>
+                    导出 JSON
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p role="status">正在读取情绪评分…</p>
+            )}
           </div>
         );
       default:

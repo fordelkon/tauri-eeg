@@ -17,23 +17,14 @@ import {
 import { describeFriendlyError } from '../../ui/friendlyError';
 import {
   filterHistoryEntries,
-  formatMeanImprovementRate,
   formatRunTimestamp,
   groupHistoryBySubject,
   labelForEmotion,
   labelForHistoryCondition,
-  outcomeForEntry,
-  type HistoryOutcome,
 } from './effectHistoryView';
-import { labelForDimension, readFlowStateFromStorage } from './effectEvaluationFlow';
-import { StateRatingTable } from './StateRatingTable';
+import { readFlowStateFromStorage } from './effectEvaluationFlow';
+import { EmotionChangeTable } from './EmotionChangeTable';
 import styles from './EffectEvaluation.module.css';
-
-const OUTCOME_CLASS: Record<HistoryOutcome, string> = {
-  达标: styles.outcomePass,
-  未达标: styles.outcomeFail,
-  无法判定: styles.outcomeUnknown,
-};
 
 /** Keystroke pause before the subject filter re-runs filtering + grouping. */
 const SUBJECT_QUERY_DEBOUNCE_MS = 250;
@@ -44,9 +35,9 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
     <div className={styles.historyDetail}>
       <div className={styles.configSummary}>
         <span className={styles.configChip}>
-          基线 {formatRunTimestamp(entry.baselineCreatedAt)}
+          诱发后 {formatRunTimestamp(entry.baselineCreatedAt)}
         </span>
-        <span className={styles.configChip}>复测 {formatRunTimestamp(entry.postCreatedAt)}</span>
+        <span className={styles.configChip}>条件后 {formatRunTimestamp(entry.postCreatedAt)}</span>
         {entry.experimentRunId ? (
           <span className={styles.configChip} title={entry.experimentRunId}>
             实验 {entry.experimentRunId.slice(0, 8)}
@@ -56,49 +47,12 @@ function RunDetailTable({ entry }: { entry: EffectHistoryEntryView }) {
           时长 {entry.durationMinutes === null ? '—' : `${entry.durationMinutes} 分钟`}
         </span>
         {entry.regulationSkipped ? <span className={styles.configChip}>已跳过剩余时长</span> : null}
-
-        {/* R4/F1: flag pairs whose mean still covers unmarked stored keys. */}
-        {!entry.measuredOnly ? (
-          <span className={styles.configChip}>旧记录口径（未标注实测维度）</span>
-        ) : null}
       </div>
-
-      {entry.ratingChanges?.length ? (
-        <StateRatingTable changes={entry.ratingChanges} />
-      ) : entry.dimensions.length > 0 ? (
-        <div className={styles.tableFrame}>
-          <table className={styles.dimensionTable}>
-            <thead>
-              <tr>
-                <th scope="col">维度</th>
-                <th scope="col">基线</th>
-                <th scope="col">调控后</th>
-                <th scope="col">改善率</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entry.dimensions.map((dimension) => (
-                <tr key={dimension.dimension}>
-                  <td>{labelForDimension(dimension.dimension)}</td>
-                  <td>{Math.round(dimension.baseline)}</td>
-                  <td>{Math.round(dimension.post)}</td>
-                  <td
-                    className={
-                      dimension.improvementRate >= 0
-                        ? `${styles.rateCell} ${styles.isPositive}`
-                        : `${styles.rateCell} ${styles.isNegative}`
-                    }
-                  >
-                    {formatMeanImprovementRate(dimension.improvementRate)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <p className={styles.panelHint}>该次评价没有可对比的维度（维度缺失或基线为 0）。</p>
-      )}
+      <EmotionChangeTable
+        changes={entry.emotionChanges}
+        emotion={entry.emotion}
+        condition={entry.condition}
+      />
     </div>
   );
 }
@@ -124,8 +78,6 @@ const HistoryRow = memo(function HistoryRow({
   onDeleteRequest,
   onToggle,
 }: HistoryRowProps) {
-  const outcome = outcomeForEntry(entry);
-
   return (
     <div className={styles.historyRowWrap}>
       <div className={styles.historyRowLine}>
@@ -141,21 +93,8 @@ const HistoryRow = memo(function HistoryRow({
             aria-hidden="true"
           />
           <span className={styles.historyRowTime}>{formatRunTimestamp(entry.postCreatedAt)}</span>
-          <span className={styles.configChip}>情绪 {labelForEmotion(entry.emotion)}</span>
-          {/* R7, feedback-003 P2-1: the condition chip makes
-            natural-recovery / regulation / legacy runs distinguishable at a
-            glance while checking that both conditions were completed. */}
+          <span className={styles.configChip}>素材类别 {labelForEmotion(entry.emotion)}</span>
           <span className={styles.configChip}>{labelForHistoryCondition(entry.condition)}</span>
-          {entry.ratingChanges?.length ? (
-            <span className={styles.configChip}>三项感受记录</span>
-          ) : (
-            <>
-              <span className={styles.historyRowRate}>
-                改善率 {formatMeanImprovementRate(entry.meanImprovementRate)}
-              </span>
-              <span className={`${styles.outcomeChip} ${OUTCOME_CLASS[outcome]}`}>{outcome}</span>
-            </>
-          )}
         </button>
 
         <IconButton
@@ -253,11 +192,6 @@ export default function EffectHistoryPanel() {
     setPendingDelete(entry);
   }, []);
 
-  // Destructive guard (audit 4): the wizard's in-flight run persists its
-  // record ids in sessionStorage. A history row that IS one of those records
-  // feeds the current run's result step — deleting it mid-run silently breaks
-  // the 改善率 the operator is about to read. Surface that in the confirm
-  // dialog instead of letting the pair vanish unnoticed.
   const activeRun = useMemo(() => {
     if (pendingDelete === null) {
       return null;
@@ -279,8 +213,6 @@ export default function EffectHistoryPanel() {
       ? 0
       : 'auto';
 
-  // A history entry is derived from its baseline+post record pair, so
-  // deleting a run removes BOTH legs; the pair disappears as one run.
   const confirmDelete = async () => {
     const entry = pendingDelete;
     if (!entry || isDeleting) {
@@ -290,7 +222,6 @@ export default function EffectHistoryPanel() {
     setDeleteError(null);
     try {
       await deleteScaleRecord(entry.postRecordId);
-      await deleteScaleRecord(entry.baselineRecordId);
       setExpandedPostId((current) => (current === entry.postRecordId ? null : current));
       setPendingDelete(null);
       await loadHistory();
@@ -354,7 +285,7 @@ export default function EffectHistoryPanel() {
           {entries.length === 0 ? (
             <>
               <strong>还没有完成的评价</strong>
-              <span>完成一次诱发、前测、条件执行与后测后，可在这里回看结果。</span>
+              <span>完成一次效果评价后，可在这里回看各时点的评分。</span>
             </>
           ) : (
             '没有匹配该被试 ID 的评价记录。'
@@ -398,14 +329,12 @@ export default function EffectHistoryPanel() {
       >
         <DialogTitle id="history-delete-title">删除这条历史评价?</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            将同时删除该次评价对应的基线与复测量表记录，删除后无法恢复。
-          </DialogContentText>
+          <DialogContentText>将删除该次评价各时点的量表记录，删除后无法恢复。</DialogContentText>
           {isDeleteTargetOfActiveRun ? (
             <DialogContentText>
               注意：该记录属于正在进行的效果评价运行
               {activeRun?.subjectId.trim() ? `（被试 ${activeRun.subjectId.trim()}）` : ''}
-              ，删除后本次运行的改善率与跨条件对比将无法计算。建议先完成或重置本次流程，再清理历史记录。
+              ，删除后将无法查看本次运行的量表结果。
             </DialogContentText>
           ) : null}
         </DialogContent>

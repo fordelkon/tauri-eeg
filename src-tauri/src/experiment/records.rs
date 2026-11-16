@@ -1,4 +1,7 @@
 use super::{store, types::*};
+use crate::scale_records::{
+    self, SaveScaleRecordInput, ScaleRecord, DEQ_SCALE_ID, PHASE_PRE_INDUCTION,
+};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
@@ -49,7 +52,7 @@ pub fn detail(conn: &Connection, id: &str) -> Result<Value, String> {
         link["record"] = serde_json::to_value(record).map_err(|e| e.to_string())?;
     }
     Ok(
-        json!({"run":run,"events":events,"trials":trials,"scales":scales,"eventDefinitions":EVENT_CODES,"hardwareReceiptVerified":false}),
+        json!({"run":run,"events":events,"trials":trials,"scales":scales,"eventDefinitions":EVENT_CODES,"softwareEvents":SOFTWARE_EVENTS,"hardwareReceiptVerified":false}),
     )
 }
 
@@ -155,50 +158,91 @@ pub fn save_trial(conn: &Connection, run_id: &str, trial: Value) -> Result<Value
     Ok(trial)
 }
 
-pub fn link_scale(
+pub(crate) fn phase_record_id(
     conn: &Connection,
     run_id: &str,
-    record_id: &str,
-    measurement_time: &str,
-) -> Result<(), String> {
-    if !["baseline", "post"].contains(&measurement_time) {
-        return Err("Invalid measurement time.".into());
-    }
-    let run = store::run(conn, run_id)?;
-    let record = crate::scale_records::get_scale_record(conn, record_id)?;
-    if run.input.kind != "effect_evaluation"
-        || !["running", "interrupted"].contains(&run.status.as_str())
-    {
-        return Err("Scale run is closed or does not support this measure.".into());
-    }
-    if record.subject_id.as_deref() != Some(run.input.subject_id.as_str())
-        || record.user_id != run.input.user_id
-        || record.phase != measurement_time
-        || record.emotion != run.input.emotion
-        || record.condition != run.input.condition
-    {
-        return Err("Scale metadata does not match the frozen experiment run.".into());
-    }
-    let existing: Option<(String, String)> = conn
-        .query_row(
-            "SELECT run_id,measurement_time FROM experiment_scales WHERE record_id=?1",
-            [record_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .optional()
-        .map_err(|e| e.to_string())?;
-    if let Some((existing_run, existing_time)) = existing {
-        if existing_run == run_id && existing_time == measurement_time {
-            return Ok(());
-        }
-        return Err("Scale is already linked to a different run or phase.".into());
-    }
-    conn.execute(
-        "INSERT INTO experiment_scales VALUES (?1,?2,?3)",
-        params![record_id, run_id, measurement_time],
+    phase: &str,
+) -> Result<Option<String>, String> {
+    conn.query_row(
+        "SELECT record_id FROM experiment_scales WHERE run_id=?1 AND measurement_time=?2",
+        params![run_id, phase],
+        |r| r.get(0),
     )
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    .optional()
+    .map_err(|e| e.to_string())
+}
+
+pub(crate) fn save_measurement(
+    conn: &Connection,
+    input: &SaveScaleRecordInput,
+) -> Result<ScaleRecord, String> {
+    if input.scale_id.trim() != DEQ_SCALE_ID {
+        if input.scale_id.trim() == "momentary_checkin_2_v1" && input.experiment_run_id.is_none() {
+            return scale_records::save_scale_record(conn, input);
+        }
+        return Err("Unsupported measurement instrument.".into());
+    }
+    let run_id = input
+        .experiment_run_id
+        .as_deref()
+        .filter(|id| !id.trim().is_empty())
+        .ok_or("DEQ requires an experiment run.")?;
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    let phase = input.phase.trim();
+    let mut record = if let Some(id) = phase_record_id(&tx, run_id, phase)? {
+        let saved = scale_records::get_scale_record(&tx, &id)?;
+        scale_records::validate_deq(input)?;
+        if saved.scale_id != DEQ_SCALE_ID
+            || saved.raw_answers.value()? != input.raw_answers
+            || saved.user_id != input.user_id
+            || saved.subject_id != input.subject_id
+            || saved.emotion != input.emotion
+            || saved.condition != input.condition
+            || saved.duration_minutes != input.duration_minutes
+            || saved.regulation_skipped != input.regulation_skipped
+        {
+            return Err("该时点已有不同的作答记录。".into());
+        }
+        saved
+    } else {
+        let run = store::run(&tx, run_id)?;
+        if run.input.kind != "effect_evaluation" || run.status != "running" {
+            return Err("该实验未开放情绪评分。".into());
+        }
+        if input.subject_id.as_deref() != Some(run.input.subject_id.as_str())
+            || input.user_id != run.input.user_id
+            || input.emotion != run.input.emotion
+            || input.condition != run.input.condition
+        {
+            return Err("Scale metadata does not match the frozen experiment run.".into());
+        }
+        let opening_event = match phase {
+            PHASE_PRE_INDUCTION => "pre_induction_scale_start",
+            "baseline" => "pre_scale_start",
+            "post" => "post_scale_start",
+            _ => return Err("Invalid measurement time.".into()),
+        };
+        let started: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM experiment_events WHERE run_id=?1 AND event=?2)",
+                params![run_id, opening_event],
+                |r| r.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if !started {
+            return Err("该评分时点尚未开始。".into());
+        }
+        let record = scale_records::save_scale_record(&tx, input)?;
+        tx.execute(
+            "INSERT INTO experiment_scales (record_id,run_id,measurement_time) VALUES (?1,?2,?3)",
+            params![record.id, run_id, phase],
+        )
+        .map_err(|e| e.to_string())?;
+        record
+    };
+    record.experiment_run_id = Some(run_id.to_owned());
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(record)
 }
 
 pub fn delete(conn: &Connection, run_id: &str, user_id: Option<&str>) -> Result<Run, String> {

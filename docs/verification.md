@@ -9,4 +9,4 @@
 | 流程标记到达设备 | 按[BioSemi 操作](biosemi-operation.md)和[触发码规范](biosemi-trigger-implementation.md)核对正式运行。排练不发送流程标记；显式发送测试码 254 是单独的设备测试。 |
 | 标记确实写入某次采集 | 记录对应 run，回读 ActiView 保存的 BDF Status，与应用日志的码值、顺序和数量逐一对应。界面显示已连接、模拟 IPC 成功和另一种范式的历史结果都不能替代本次 BDF。 |
 
-按问题查阅[正式实验流程](formal-session-protocol.md)、[简版测量](momentary-assessment.md)、[完整量表](scale-instruments.md)或[视频素材要求](video-library-requirements.md)。涉及真实采集时，使用已获授权的设备与测试数据。
+按问题查阅[正式实验流程](formal-session-protocol.md)、[三时点情绪自评](momentary-assessment.md)、[逐试次 SAM](scale-instruments.md)或[视频素材要求](video-library-requirements.md)。涉及真实采集时，使用已获授权的设备与测试数据。

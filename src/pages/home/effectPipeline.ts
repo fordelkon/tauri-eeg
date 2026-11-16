@@ -1,11 +1,9 @@
 import {
   EFFECT_FLOW_STEPS,
   EFFECT_FLOW_STEP_COUNT,
-  type EffectCondition,
   type EffectEventLogStatus,
   type EffectEvaluationFlowState,
   type EffectFlowStep,
-  type EffectVerdictCopy,
 } from './effectEvaluationFlow';
 
 /**
@@ -53,15 +51,7 @@ export type EffectPipelineOptions = {
 
 const SHORT_ID_LENGTH = 8;
 
-/**
- * Shared stage hint of the two scale steps (nodes 2/4). The battery core is
- * 40 items (STAI-S 20 + PANAS 20), but the optional sections ride the same
- * dialog (SAM +3 on the baseline leg, GEMS-9 +9 on the music post leg), so
- * the honest planning range is 40-49 items / 3-4 minutes — a fixed "40 题"
- * would understate the participant time whenever an optional section ran.
- * One shared string keeps nodes 2/4 advertising the same expectations.
- */
-const SCALE_STAGE_HINT = '40-49 题 · 约 3-4 分钟 · 凭第一感受作答';
+const SCALE_STAGE_HINT = '请按此刻的感受，为每个情绪词选择强度。';
 
 function shortId(id: string): string {
   return `${id.slice(0, SHORT_ID_LENGTH)}…`;
@@ -97,11 +87,13 @@ function stageCopyFor(
         stageHint: '先在实验设置中确认被试、素材和测量方案，再开始本次评价。',
       };
     case 1:
+      if (!state.preInductionRecordId)
+        return { stageTitle: '记录观看前的感受', stageHint: SCALE_STAGE_HINT };
       return { stageTitle: '观看视频', stageHint: '准备好后开始播放，观看至结束' };
     case 2:
       return {
         stageTitle: '记录此刻状态',
-        stageHint: state.protocol === 'brief' ? '按此刻的感受完成三项评分。' : SCALE_STAGE_HINT,
+        stageHint: SCALE_STAGE_HINT,
       };
     // The condition node's noun follows the run condition: 调控 plays media,
     // 静息 (基线条件) just waits. Both advertise the set duration.
@@ -118,12 +110,12 @@ function stageCopyFor(
     case 4:
       return {
         stageTitle: '再次记录此刻状态',
-        stageHint: state.protocol === 'brief' ? '按此刻的感受完成三项评分。' : SCALE_STAGE_HINT,
+        stageHint: SCALE_STAGE_HINT,
       };
     case 5:
       return {
         stageTitle: '查看前后记录',
-        stageHint: '查看两次填写的分数和变化。',
+        stageHint: '比较诱发前、诱发后与条件结束后的评分。',
       };
   }
 }
@@ -247,35 +239,4 @@ const EVENT_LOG_STATUS_COPY: Record<EffectEventLogStatus, string> = {
 
 export function describeEventLogStatus(association: EffectEventLogStatus): string {
   return EVENT_LOG_STATUS_COPY[association];
-}
-
-/* ------------------------------------------------------------------ */
-/* Condition-aware result copy                                          */
-/* ------------------------------------------------------------------ */
-
-/**
- * The single-run verdict builder is shared by both conditions, but its
- * success tail claims “本次调控判定为有效” — on a natural-recovery (基线)
- * leg nothing was regulated, so that sentence would be false on the run's
- * primary output screen. This adapter rewords only that tail; the threshold
- * math and the worsening note are condition-neutral and pass through
- * untouched. The source string is matched dynamically so future rewording
- * of the shared builder degrades to a no-op instead of drifting.
- */
-export function verdictCopyForCondition(
-  copy: EffectVerdictCopy,
-  condition: EffectCondition,
-): EffectVerdictCopy {
-  if (condition !== 'natural_recovery') {
-    return copy;
-  }
-
-  if (!copy.detail.includes('本次调控判定为有效')) {
-    return copy;
-  }
-
-  return {
-    ...copy,
-    detail: copy.detail.replace('本次调控判定为有效', '本次静息恢复判定为有效'),
-  };
 }

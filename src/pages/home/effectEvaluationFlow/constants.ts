@@ -5,7 +5,6 @@ import type { MentalScalePath } from '../../../mentalScale/mentalScaleGate';
 export type EffectTargetEmotion = 'anxiety' | 'depression' | 'fear';
 
 export type EffectRegulationMethod = 'music' | 'video';
-export type EffectScaleProtocol = 'brief' | 'full';
 
 /**
  * Wizard condition of a run (R6, 大纲 6.2): `natural_recovery` is the 基线
@@ -17,7 +16,7 @@ export type EffectCondition = 'natural_recovery' | 'regulation';
 
 export const EFFECT_EMOTION_OPTIONS = [
   { value: 'anxiety', label: '焦虑' },
-  { value: 'depression', label: '抑郁' },
+  { value: 'depression', label: '悲伤（抑郁类素材）' },
   { value: 'fear', label: '恐惧' },
 ] as const;
 
@@ -38,14 +37,10 @@ export const EFFECT_METHOD_OPTIONS = [
   path: MentalScalePath;
 }>;
 
-/**
- * Chinese label for a run's condition; `null` marks pre-R6 legacy rows of
- * the old regulation-only flow, which consumers treat as the regulation
- * condition and label explicitly so exports/history stay honest.
- */
+/** Displays the condition recorded for the run. */
 export function labelForCondition(condition: string | null): string {
   if (condition === null) {
-    return '调控条件（legacy 旧流程）';
+    return '—';
   }
 
   return EFFECT_CONDITION_OPTIONS.find((option) => option.value === condition)?.label ?? condition;

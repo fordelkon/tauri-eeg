@@ -13,10 +13,10 @@ import {
 
 export type EffectPreparationDraft = Pick<
   EffectEvaluationFlowState,
-  'subjectId' | 'protocol' | 'method' | 'condition' | 'emotion' | 'durationMinutes'
+  'subjectId' | 'method' | 'condition' | 'emotion' | 'durationMinutes'
 >;
 
-/** Store a ready-to-present session. Acquisition starts only on video playback. */
+/** Store a prepared session. The participant creates the run at the first measurement. */
 export function prepareEffectHandoff(
   draft: EffectPreparationDraft,
   storage: FlowStorage = window.sessionStorage,
@@ -24,12 +24,11 @@ export function prepareEffectHandoff(
   const existing = readFlowStateFromStorage(storage);
   if (getParadigmSessionStatus().active || (existing?.runId && existing.step < 5)) return false;
 
-  const { subjectId, protocol, method, condition, emotion, durationMinutes } = draft;
+  const { subjectId, method, condition, emotion, durationMinutes } = draft;
   const prepared: EffectEvaluationFlowState = {
     ...createEffectEvaluationFlowState(),
     step: 1,
     subjectId: subjectId.trim(),
-    protocol,
     method,
     condition,
     emotion,

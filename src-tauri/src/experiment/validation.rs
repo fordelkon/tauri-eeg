@@ -23,6 +23,8 @@ pub fn validate(conn: &Connection, run: &Run, input: &EventInput) -> Result<(), 
         "trial_end",
     ];
     let condition_events = [
+        "pre_induction_scale_start",
+        "pre_induction_scale_submit",
         "music_regulation_start",
         "music_regulation_end",
         "video_regulation_start",
@@ -87,6 +89,28 @@ pub fn validate(conn: &Connection, run: &Run, input: &EventInput) -> Result<(), 
     )?;
     if run.input.kind == "effect_evaluation" {
         let has = |event: &str| previous.iter().any(|e| e.input.event == event);
+        if name.starts_with("pre_induction_scale_")
+            && (has(name)
+                || previous
+                    .iter()
+                    .any(|e| e.input.event.ends_with("video_start")))
+        {
+            return Err("Pre-induction rating is only available once before the induction.".into());
+        }
+        if name.ends_with("video_start") && !has("pre_induction_scale_submit") {
+            return Err("请先提交诱发前评分。".into());
+        }
+        let phase = match name {
+            "pre_induction_scale_submit" => Some("pre_induction"),
+            "pre_scale_submit" => Some("baseline"),
+            "post_scale_submit" => Some("post"),
+            _ => None,
+        };
+        if let Some(phase) = phase {
+            if super::records::phase_record_id(conn, &run.run_id, phase)?.is_none() {
+                return Err("该时点的作答尚未保存。".into());
+            }
+        }
         if name.ends_with("video_start")
             && (has("induction_video_end")
                 || previous
@@ -118,6 +142,7 @@ pub fn validate(conn: &Connection, run: &Run, input: &EventInput) -> Result<(), 
         }
     }
     let required = match name {
+        "pre_induction_scale_submit" => Some("pre_induction_scale_start"),
         "music_regulation_end" => Some("music_regulation_start"),
         "video_regulation_end" => Some("video_regulation_start"),
         "natural_recovery_end" => Some("natural_recovery_start"),

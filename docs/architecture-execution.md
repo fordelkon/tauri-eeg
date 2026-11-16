@@ -28,7 +28,7 @@
 
 ## 效果报告
 
-`src/pages/home/effectResultReports.ts` 为一组固定的测量信息管理两类请求：单次效果汇总和跨条件对比。每份报告独立维护空闲、加载中、就绪或失败状态。重置、释放或重试都会使先前的请求失效。迟到的成功或失败结果既不能覆盖当前结果，也不能提前结束新请求的加载状态。
+`src/pages/home/effectResultReports.ts` 读取同一运行的三时点 DEQ 结果。每次请求维护空闲、加载中、就绪或失败状态。重置、释放或重试都会使先前的请求失效。迟到的成功或失败结果既不能覆盖当前结果，也不能提前结束新请求的加载状态。
 
 `useEffectResultReports.ts` 订阅报告模块，将状态映射为界面显示值。运行、用户、被试、情绪或测量记录的标识发生变化时，它会创建新的报告上下文。只有进入结果步骤才开始加载，离开时即释放上下文。清理后再次初始化会发起全新的请求，React 开发模式的生命周期检查也是如此。
 
@@ -45,10 +45,10 @@ Tauri 适配层通过既有的工作线程队列转发记录操作。数据库�
 - `tests/effect/effectEvaluationExecution.test.ts`：检查正常标记顺序、发送尚未完成时的重复回调、条件时长达到后才允许结束、量表写入、中断与恢复，以及旧播放器回调。
 - `tests/paradigm/paradigmExecution.test.ts`：检查试次顺序和标识、SAM 质量、试次块、过期回调、结束与跳过操作的竞争、操作尚未完成时的中止，以及结束失败。
 - `tests/paradigm/materialLibraryLoader.test.ts`：检查目录替换、过期结果、无效扫描、加载失败、请求取消，以及已加载素材的保留。
-- `tests/effect/effectResultReports.test.ts`：检查测量记录缺失、重置、重试结果乱序返回、报告独立失败、上下文释放，以及清理后重新初始化。
+- `tests/effect/effectResultReports.test.ts`：检查三时点读数、缺失记录、重试及清理后迟到的结果。
 - `src-tauri/src/experiment/records_tests.rs`：检查试次归属、关闭运行后拒绝写入、量表元数据和关联幂等性、BDF 关联，以及记录读取接口的约定。
 - `tests/biosemi-ui-smoke.cjs`：在实际浏览器界面中检查窄屏和宽屏下的实验准备、运行模式的前置条件、保存位置选择、效果评价设置、素材池为空时阻止继续，以及重置流程。
 
 运行测试套件使用 `npm test`，生产构建使用 `npm run build`。浏览器冒烟检查需要 Playwright 和已启动的预览服务。将 `BIOSEMI_SMOKE_URL` 设为预览服务地址，再运行 `node tests/biosemi-ui-smoke.cjs`。
 
-**历史验证记录（2026-10-09）**：65 个前端测试文件中的 455 项测试、118 项 Rust 库测试、生产构建及浏览器冒烟检查均通过。浏览器检查模拟 IPC，从不发送硬件脉冲。这些检查无法验证刺激实际呈现的时序，也无法证明触发标记已写入 BDF 文件。
+浏览器检查使用模拟设备接口。核对标记是否写入采集文件时，应回读实际运行的 BDF Status。

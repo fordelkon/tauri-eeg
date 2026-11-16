@@ -6,7 +6,6 @@ import {
   DEFAULT_REST_MINUTES,
   DEFAULT_REGULATION_MINUTES,
 } from './effectEvaluationFlow';
-import { labelForEmotion } from './effectHistoryView';
 import type { EffectPreparationDraft } from './effectPreparationHandoff';
 import form from './EffectEvaluation.module.css';
 import styles from './EffectSetupDisclosure.module.css';
@@ -61,24 +60,15 @@ export function EffectResearchControls({ state, onChange, disabled }: Props) {
         <summary>
           研究者配置
           <span>
-            {state.protocol === 'brief' ? '简版' : '完整量表'} · {labelForEmotion(state.emotion)} ·{' '}
+            {EFFECT_EMOTION_OPTIONS.find((option) => option.value === state.emotion)?.label} ·{' '}
             {conditionLabel} · {state.durationMinutes} 分钟
           </span>
         </summary>
         <div className={styles.content}>
-          <p className={form.noteCallout}>开始播放后，本次评价的方案和时长锁定。</p>
-          <OptionGroup
-            label="测量方案"
-            options={[
-              { value: 'brief', label: '简版 · 前后各 3 题' },
-              { value: 'full', label: '完整量表' },
-            ]}
-            selectedValue={state.protocol}
-            onSelect={(protocol) => onChange({ protocol })}
-          />
-          {state.protocol === 'full' && (
-            <p className={form.noteCallout}>前测 43 题，后测 40 题（音乐调控为 49 题）。</p>
-          )}
+          <p className={form.noteCallout}>
+            诱发前、诱发后和条件结束时填写相同的 12 个情绪词，分别记录焦虑、悲伤和恐惧。题目采用 DEQ
+            三个分量表的中文研究译稿。
+          </p>
           <label className={form.fieldLabel}>
             <span className={form.fieldLabelText}>条件时长（分钟）</span>
             <select
@@ -126,11 +116,6 @@ export function EffectResearchControls({ state, onChange, disabled }: Props) {
                 自然恢复条件下，参与者在规定时间内静息。
               </p>
             )}
-            <p className={form.noteCallout} role="note">
-              {state.protocol === 'brief'
-                ? '简版分别记录愉悦度、唤醒度和控制感的前后变化，每项 1–9 分。'
-                : '完整方案保留原量表计分。跨条件比较需要同一被试、同一目标情绪的完整配对记录。'}
-            </p>
           </div>
         </div>
       </details>

@@ -1,8 +1,3 @@
-/* Dialog shell chrome shared by the PHQ-4 gate dialog and the pre/post
-   battery dialog (one visual language, one token set). The scroll container
-   is the dialog itself; the total-progress bar and the footer are sticky
-   inside it, and the per-section headers stick just below the bar. */
-
 .scaleOverlay {
   animation: scaleOverlayEnter 180ms var(--ease-out) backwards;
   background: var(--scrim-form);
@@ -308,4 +303,15 @@
   .scalePrimaryButton:active:not(:disabled) {
     transform: none;
   }
+}
+
+.scaleBody {
+  display: grid;
+  gap: 12px;
+  padding: 8px var(--scale-inset) 24px;
+}
+
+.itemList {
+  display: grid;
+  gap: 20px;
 }

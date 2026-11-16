@@ -7,44 +7,26 @@ import {
 } from './mentalScaleStatus';
 import { readStoredSubjectId } from '../storage/currentSubject';
 
-/**
- * Persistence leg of the emotion-regulation evaluation loop: completed scale
- * submissions are mirrored into the backend `scale_records` table so baseline
- * and post measurements survive a restart (the in-memory status cache stays
- * the source for UI state).
- */
-
-export type ScalePhase = 'baseline' | 'post';
+export type ScalePhase = 'pre_induction' | 'baseline' | 'post';
 
 export type ScaleRecordInput = {
+  experimentRunId?: string;
   userId: string | null;
   subjectId: string | null;
   scaleId: string;
   phase: ScalePhase;
-  /** Instrument-computed dimension scores, already polarity-normalized. */
+  /** Scores for the dimensions reported by this instrument. */
   dimensionScores: Record<string, number>;
-  /** Stored verbatim as JSON (the backend accepts any shape). */
+  /** Item responses and the measurement timeframe. */
   rawAnswers: Record<string, unknown>;
   /** Target emotion bound by the evaluation wizard; absent on gate saves. */
   emotion?: string | null;
-  /**
-   * Wizard condition of the run (R6, 大纲 6.2): `natural_recovery` (基线
-   * 条件：诱发后不调控) or `regulation` (调控条件); absent on gate saves and
-   * pre-R6 legacy rows (consumers treat legacy NULL as the regulation
-   * condition of the old flow).
-   */
   condition?: string | null;
   /** Configured regulation window in minutes; absent outside the wizard. */
   durationMinutes?: number | null;
   /** True when part of the regulation window was explicitly skipped. */
   regulationSkipped?: boolean;
-  /**
-   * Dimension keys actually measured by this submission (R4/F1): the effect
-   * computation only compares keys marked on both sides so placeholder-filled
-   * dimensions cannot dilute the mean.
-   */
   measuredDimensions?: string[];
-  /** EEG recording session linked to this run leg (the wizard's post leg). */
 };
 
 /** camelCase mirror of the backend ScaleRecord. */
@@ -58,79 +40,24 @@ export type ScaleRecordView = {
   rawAnswers: Record<string, unknown>;
   createdAt: string;
   emotion: string | null;
-  /** Wizard condition of the run; null on pre-R6 legacy rows. */
   condition: string | null;
   durationMinutes: number | null;
   regulationSkipped: boolean;
   measuredDimensions: string[] | null;
 };
 
-export type StateRatingChange = {
-  dimension: 'valence' | 'arousal' | 'dominance';
+export type EmotionChange = {
+  dimension: 'anxiety' | 'sadness' | 'fear';
+  preInduction: number;
   baseline: number;
   post: number;
-  change: number;
+  inductionChange: number;
+  conditionChange: number;
 };
 
-export type RegulationDimensionImprovementView = {
-  dimension: string;
-  baseline: number;
-  post: number;
-  improvementRate: number;
-};
-
-/** Backend summary plus the meets-threshold verdict (compute_regulation_effect). */
 export type RegulationEffectSummaryView = {
-  ratingChanges?: StateRatingChange[];
   subjectId: string | null;
-  dimensions: RegulationDimensionImprovementView[];
-  meanImprovementRate: number | null;
-  meetsThreshold: boolean | null;
-  /** True when the mean covered only dimensions marked as measured on both sides (R4/F1). */
-  measuredOnly: boolean;
-};
-
-/** camelCase mirror of the backend ConditionEffectComparison (R6, 大纲 6.2). */
-export type ConditionDimensionComparisonView = {
-  dimension: string;
-  /** B_post: post score of the natural-recovery (baseline) condition run. */
-  naturalRecoveryPost: number;
-  /** T_post: post score of the regulation condition run. */
-  regulationPost: number;
-  improvementRate: number;
-};
-
-/** One condition's run feeding the comparison (camelCase mirror of the backend ConditionComparisonLeg). */
-export type ConditionComparisonLegView = {
-  /** Absent in older cached reports; null for legacy records. */
-  experimentRunId?: string | null;
-  /** Wizard condition of the leg's run; never null in a comparison pair
-   * (legacy NULL runs are rejected on the backend, 大纲 6.2 诱发后口径). */
-  condition: string;
-  emotion: string | null;
-  baselineRecordId: string;
-  postRecordId: string;
-  baselineCreatedAt: string;
-  postCreatedAt: string;
-  scaleId: string;
-  durationMinutes: number | null;
-  regulationSkipped: boolean;
-  /** False when this leg's in-run mean covered unmarked legacy records. */
-  measuredOnly: boolean;
-};
-
-export type ConditionEffectComparisonView = {
-  subjectId: string;
-  emotion: string | null;
-  /** Trace of the natural-recovery run feeding B_post. */
-  naturalRecoveryLeg: ConditionComparisonLegView;
-  /** Trace of the regulation run feeding T_post. */
-  regulationLeg: ConditionComparisonLegView;
-  dimensions: ConditionDimensionComparisonView[];
-  meanImprovementRate: number | null;
-  meetsThreshold: boolean;
-  /** False when either side is an unmarked legacy run (all stored keys). */
-  measuredOnly: boolean;
+  emotionChanges: EmotionChange[];
 };
 
 function normalizeSubjectId(subjectId: string | null | undefined): string | null {
@@ -189,8 +116,6 @@ export function persistMentalScaleSubmission(
     phase: options.phase ?? 'baseline',
     dimensionScores: buildScaleDimensionScores(scale, answers),
     rawAnswers: { ...answers, timeframe: 'now' },
-    // Gate submissions carry the same measured markers so a gate baseline
-    // paired with a wizard post keeps the marker-based comparison (R4/F1).
     measuredDimensions: measuredDimensionKeys(scale, answers),
   }).catch((error: unknown) => {
     console.warn('[mentalScale] 量表记录落库失败:', error);
@@ -198,16 +123,15 @@ export function persistMentalScaleSubmission(
 }
 
 export type PhaseInstrumentRecordInput = {
+  experimentRunId: string;
   userId: string | null;
   subjectId: string | null;
-  /** scale_id of the instrument (e.g. the battery's 'stai_panas_battery_v1'). */
   scaleId: string;
   phase: ScalePhase;
-  /** Instrument-computed dimension scores (doc scale-instruments.md §3.3). */
   dimensionScores: Record<string, number>;
   /** Instrument raw-answers payload, stored verbatim as JSON. */
   rawAnswers: Record<string, unknown>;
-  /** Dimension keys actually measured by this submission (R4/F1). */
+  /** Subscales measured by this submission. */
   measuredDimensions: string[];
   emotion?: string | null;
   condition?: string | null;
@@ -215,20 +139,12 @@ export type PhaseInstrumentRecordInput = {
   regulationSkipped?: boolean;
 };
 
-/**
- * Awaited save used by the effect-evaluation wizard for one phase (②/④) of
- * the standardized battery: the caller needs the persisted record id to pair
- * baseline/post and compute the improvement. Scores and raw answers arrive
- * already computed by the instrument module so the wizard stays
- * instrument-agnostic. The wizard's target emotion, run condition, planned
- * duration, and (on the post leg) the skip marker plus the associated EEG
- * session id ride along for the history view, cross-condition comparison,
- * and report exports.
- */
+/** Saves the DEQ answers and their run association in one operation. */
 export function savePhaseInstrumentRecord(
   input: PhaseInstrumentRecordInput,
 ): Promise<ScaleRecordView> {
   return saveScaleRecord({
+    experimentRunId: input.experimentRunId,
     userId: input.userId,
     subjectId: normalizeSubjectId(input.subjectId),
     scaleId: input.scaleId,
@@ -259,27 +175,11 @@ export function computeRegulationEffect(
   });
 }
 
-/**
- * Cross-condition comparison (R6, 大纲 6.2, 公式来源：大纲 B-1 冻结项，默认口
- * 径，测试前可换): pairs the latest complete run of each condition for one
- * subject+emotion and computes the regulation condition's improvement
- * relative to the natural-recovery baseline condition, per dimension
- * `(B_post - T_post) / B_post`. Errors when either condition lacks a
- * complete run.
- */
-export function computeConditionEffect(
-  subjectId: string,
-  emotion: string,
-): Promise<ConditionEffectComparisonView> {
-  return invoke<ConditionEffectComparisonView>('compute_condition_effect', {
-    input: { subjectId, emotion },
-  });
-}
-
 /** One completed evaluation run in the history review (list_effect_history). */
 export type EffectHistoryEntryView = {
-  ratingChanges?: StateRatingChange[];
-  experimentRunId?: string | null;
+  emotionChanges: EmotionChange[];
+  preInductionRecordId: string;
+  experimentRunId: string;
   subjectId: string;
   baselineRecordId: string;
   postRecordId: string;
@@ -287,15 +187,9 @@ export type EffectHistoryEntryView = {
   postCreatedAt: string;
   scaleId: string;
   emotion: string | null;
-  /** Wizard condition of the run; null on pre-R6 legacy rows (= regulation). */
   condition: string | null;
   durationMinutes: number | null;
   regulationSkipped: boolean;
-  /** False when the mean was computed over unmarked legacy records. */
-  measuredOnly: boolean;
-  meanImprovementRate: number | null;
-  meetsThreshold: boolean | null;
-  dimensions: RegulationDimensionImprovementView[];
 };
 
 /** camelCase mirror of the backend ExportEffectReportInput. */
@@ -307,26 +201,13 @@ export type ExportEffectReportInput =
       baselineRecordId: string;
       postRecordId: string;
     }
-  | { kind: 'batch'; path: string }
-  | {
-      /** R7, 大纲 6.3 步骤 5: cross-condition comparison export with both
-       * legs' trace, the per-dimension inputs, and the frozen formula note. */
-      kind: 'comparison';
-      path: string;
-      format?: 'json' | 'csv';
-      subjectId: string;
-      emotion: string;
-    };
+  | { kind: 'batch'; path: string };
 
 export type ExportEffectReportResultView = {
   path: string;
   bytes: number;
 };
 
-/**
- * Loads every completed baseline/post run, paired chronologically per
- * subject on the backend (the history review tab's data source).
- */
 export function listEffectHistory(): Promise<EffectHistoryEntryView[]> {
   return invoke<EffectHistoryEntryView[]>('list_effect_history');
 }
@@ -335,11 +216,6 @@ export function deleteScaleRecord(id: string): Promise<ScaleRecordView> {
   return invoke<ScaleRecordView>('delete_scale_record', { input: { id } });
 }
 
-/**
- * Writes one run's JSON/CSV report, the all-subjects batch CSV, or the
- * cross-condition comparison document of one subject+emotion to a
- * user-chosen path (picked through the save dialog before this call).
- */
 export function exportEffectReport(
   input: ExportEffectReportInput,
 ): Promise<ExportEffectReportResultView> {

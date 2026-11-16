@@ -7,15 +7,10 @@ describe('GlobalMentalScalePanel copy', () => {
     const source = readFileSync(new URL('./GlobalMentalScalePanel.tsx', import.meta.url), 'utf8');
 
     expect(source).toContain('全局心理量表状态');
-    expect(source).toContain('心理状态雷达图');
-    expect(source).toContain('心理状态');
     expect(source).toContain('暂无本次记录');
-    expect(source).toContain('焦虑');
-    expect(source).toContain('担忧');
-    expect(source).toContain('情绪');
-    expect(source).toContain('精力');
+    expect(source).toContain('紧绷');
+    expect(source).toContain('不愉快');
     expect(source).not.toContain('Global mental scale status');
-    expect(source).not.toContain('Six dimension mental state radar chart');
     expect(source).not.toContain('Mental state');
   });
 });

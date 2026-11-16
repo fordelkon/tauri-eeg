@@ -26,7 +26,7 @@ use python_client::{
     AgentPlannerRequest, AgentPlannerResponse, GenerateRequest, HealthResponse, PythonClient,
 };
 use python_service::PythonServiceManager;
-use scale_records::{RegulationEffectSummary, SaveScaleRecordInput, ScaleRecord};
+use scale_records::{SaveScaleRecordInput, ScaleRecord};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use uuid::Uuid;
@@ -140,14 +140,11 @@ struct ComputeRegulationEffectInput {
     post_record_id: String,
 }
 
-/// Read-side envelope for the regulation-effect loop: the computed summary
-/// plus the threshold verdict so the frontend never re-implements the rule.
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RegulationEffectResult {
-    #[serde(flatten)]
-    summary: RegulationEffectSummary,
-    meets_threshold: Option<bool>,
+    subject_id: Option<String>,
+    emotion_changes: Vec<scale_records::EmotionChange>,
 }
 
 #[tauri::command]
@@ -158,7 +155,7 @@ async fn save_scale_record(
     let db = db.inner().clone();
 
     tauri::async_runtime::spawn_blocking(move || {
-        db.with_conn(|conn| scale_records::save_scale_record(conn, &input))
+        db.with_conn(|conn| experiment::records::save_measurement(conn, &input))
     })
     .await
     .map_err(|_| "Failed to save scale record.".to_string())?
@@ -209,56 +206,15 @@ async fn compute_regulation_effect(
         db.with_conn(|conn| {
             let baseline = scale_records::get_scale_record(conn, input.baseline_record_id.trim())?;
             let post = scale_records::get_scale_record(conn, input.post_record_id.trim())?;
-            experiment::report::require_same_run(conn, &baseline.id, &post.id)?;
-            let summary = scale_records::compute_regulation_effect_summary(&baseline, &post)?;
-            let meets_threshold = summary.rating_changes.is_empty().then(|| summary.meets_threshold());
-
+            let first = experiment::report::pre_induction_for_pair(conn, &baseline, &post)?;
             Ok(RegulationEffectResult {
-                summary,
-                meets_threshold,
+                emotion_changes: scale_records::emotion_changes(&first, &baseline, &post)?,
+                subject_id: post.subject_id,
             })
         })
     })
     .await
     .map_err(|_| "Failed to compute regulation effect.".to_string())?
-    .map_err(AppError)
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ComputeConditionEffectInput {
-    subject_id: String,
-    emotion: String,
-}
-
-#[tauri::command]
-async fn compute_condition_effect(
-    db: State<'_, AppDb>,
-    input: ComputeConditionEffectInput,
-) -> Result<scale_records::ConditionEffectComparison, AppError> {
-    let db = db.inner().clone();
-
-    tauri::async_runtime::spawn_blocking(move || {
-        db.with_conn(|conn| {
-            // Subject pushdown: compute_condition_effect_comparison rejects
-            // every entry whose subject differs from the target (NULL-subject
-            // rows group under ""), so unbound rows can never contribute and
-            // filtering them in SQL keeps the result identical while the
-            // planner uses the subject+created_at index.
-            let records =
-                scale_records::list_scale_records(conn, Some(input.subject_id.trim()), None)?;
-            let records = experiment::report::eligible_records(conn, records)?;
-            // 大纲 6.2: 调控条件相对基线条件（自然恢复）的改善，按 subject+emotion
-            // 取两条件各自最新完整 run 配对计算。
-            scale_records::compute_condition_effect_comparison(
-                &records,
-                input.subject_id.trim(),
-                input.emotion.trim(),
-            )
-        })
-    })
-    .await
-    .map_err(|_| "Failed to compute condition effect.".to_string())?
     .map_err(AppError)
 }
 
@@ -270,8 +226,7 @@ async fn list_effect_history(
 
     tauri::async_runtime::spawn_blocking(move || {
         db.with_conn(|conn| {
-            let records = scale_records::list_scale_records(conn, None, None)?;
-            let records = experiment::report::eligible_records(conn, records)?;
+            let records = scale_records::completed_effect_records(conn)?;
             Ok(scale_records::build_effect_history(&records))
         })
     })
@@ -634,13 +589,11 @@ pub fn run() {
             experiment::experiment_delete,
             experiment::experiment_associate_bdf,
             experiment::experiment_save_trial,
-            experiment::experiment_link_scale,
             experiment::experiment_export,
             save_scale_record,
             list_scale_records,
             delete_scale_record,
             compute_regulation_effect,
-            compute_condition_effect,
             list_effect_history,
             export_effect_report,
             generate_music,

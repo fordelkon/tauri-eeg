@@ -52,8 +52,8 @@ export type ExperimentEvent = {
   runId: string;
   event: string;
   sequence: number;
-  code: number;
-  result: 'written' | 'rehearsal' | 'failed' | 'unknown';
+  code: number | null;
+  result: 'written' | 'rehearsal' | 'logged' | 'failed' | 'unknown';
   error: string | null;
 };
 export type EmitEventInput = {
@@ -107,7 +107,5 @@ export const associateBdf = (runId: string, userId: string, bdfFiles: string[]) 
   invoke<ExperimentRun>('experiment_associate_bdf', { runId, userId, bdfFiles });
 export const exportRun = (runId: string, path: string) =>
   invoke<{ path: string }>('experiment_export', { runId, path });
-export const linkScale = (runId: string, recordId: string, phase: 'baseline' | 'post') =>
-  invoke<void>('experiment_link_scale', { runId, recordId, measurementTime: phase });
 export const saveTrial = <T extends { trialId: string }>(runId: string, trial: T) =>
   invoke<T>('experiment_save_trial', { runId, trial });

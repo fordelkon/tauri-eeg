@@ -47,21 +47,6 @@
   text-wrap: pretty;
 }
 
-.chartWrap {
-  background: rgba(255, 255, 255, 0.34);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  flex: 0 0 min(32dvh, 260px);
-  min-height: 180px;
-  padding: 10px;
-}
-
-.radar {
-  height: 100%;
-  min-height: 170px;
-  width: 100%;
-}
-
 .assistantSlot {
   flex: 1 1 auto;
   display: flex;
@@ -155,12 +140,5 @@
   .panel {
     overflow-y: auto;
     overscroll-behavior: contain;
-  }
-  .chartWrap {
-    flex-basis: 120px;
-    min-height: 120px;
-  }
-  .radar {
-    min-height: 0;
   }
 }

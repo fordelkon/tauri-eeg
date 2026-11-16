@@ -1,8 +1,7 @@
 import type { CreateRunInput, EmitEventInput } from '../../experiment/api';
 import type { ExperimentPreferences } from '../../experiment/settings';
 import { requirePreparedRecording } from '../../experiment/recordingPath';
-import type { BatteryAnswers } from '../../mentalScale/instruments/battery';
-import type { SamScore } from '../../mentalScale/instruments/sam';
+import type { DeqAnswers } from '../../mentalScale/instruments/deq';
 import type { ScalePhase } from '../../mentalScale/scaleRecordsApi';
 import { describeFriendlyError } from '../../ui/friendlyError';
 import { videoOnsetEventSource, type VideoOnsetInfo } from '../../ui/videoFrameOnset';
@@ -18,7 +17,7 @@ import type { InductionPoolStatus } from './effectInductionPool';
 
 type Draft = Pick<
   EffectEvaluationFlowState,
-  'subjectId' | 'emotion' | 'method' | 'condition' | 'durationMinutes' | 'protocol'
+  'subjectId' | 'emotion' | 'method' | 'condition' | 'durationMinutes'
 >;
 
 /**
@@ -42,13 +41,12 @@ export type EffectExecutionDependencies = {
   createRun(input: CreateRunInput): Promise<{ runId: string }>;
   emitEvent(input: EmitEventInput): Promise<unknown>;
   finishRun(runId: string, status: 'completed' | 'aborted'): Promise<unknown>;
-  linkScale(runId: string, recordId: string, phase: ScalePhase): Promise<unknown>;
   saveScale(
     state: EffectEvaluationFlowState,
     phase: ScalePhase,
-    answers: BatteryAnswers | SamScore,
+    answers: DeqAnswers,
   ): Promise<{ id: string }>;
-  scaleSaved(state: EffectEvaluationFlowState, answers: BatteryAnswers | SamScore): void;
+  scaleSaved(state: EffectEvaluationFlowState): void;
   preferences(): ExperimentPreferences;
   consumeRecordingConfirmation(): void;
   userId(): string | null;
@@ -265,6 +263,7 @@ export class EffectEvaluationExecution {
           subjectId: current.subjectId.trim(),
           userId: this.dependencies.userId(),
           flowKind: 'effect_evaluation',
+
           emotion: current.emotion,
           condition: current.condition,
           method: current.method,
@@ -280,6 +279,7 @@ export class EffectEvaluationExecution {
           await this.abort().catch(() => {});
           return false;
         }
+        await this.event('pre_induction_scale_start', 'pre_induction_scale');
         return true;
       } catch (error) {
         this.publish({ actionError: describeFriendlyError(error, '开始实验') });
@@ -290,8 +290,13 @@ export class EffectEvaluationExecution {
     });
   };
 
+  private canPlayInduction() {
+    const { runId, preInductionRecordId } = this.snapshot.state;
+    return this.allowed(1) && !!runId && !!preInductionRecordId;
+  }
+
   inductionOnset = (mediaId: string, onset?: VideoOnsetInfo): Promise<void> => {
-    if (!this.allowed(1) || !this.snapshot.state.runId) return Promise.resolve();
+    if (!this.canPlayInduction()) return Promise.resolve();
     return this.event(
       `${this.snapshot.state.emotion}_video_start`,
       'induction',
@@ -310,7 +315,7 @@ export class EffectEvaluationExecution {
   };
 
   private leaveInduction(skipped: boolean): Promise<boolean> {
-    if (!this.allowed(1) || !this.snapshot.state.runId) return Promise.resolve(false);
+    if (!this.canPlayInduction()) return Promise.resolve(false);
     return this.perform('complete-induction', async () => {
       try {
         if (skipped)
@@ -335,11 +340,11 @@ export class EffectEvaluationExecution {
       .catch(() => {});
   };
 
-  completeScaleMeasurement = (
-    phase: ScalePhase,
-    answers: BatteryAnswers | SamScore,
-  ): Promise<boolean> => {
-    if (!this.allowed(phase === 'baseline' ? 2 : 4) || !this.snapshot.state.runId)
+  completeScaleMeasurement = (phase: ScalePhase, answers: DeqAnswers): Promise<boolean> => {
+    const { runId, preInductionRecordId } = this.snapshot.state;
+    const beforeInduction = phase === 'pre_induction';
+    const step = beforeInduction ? 1 : phase === 'baseline' ? 2 : 4;
+    if (!this.allowed(step) || !runId || (beforeInduction && preInductionRecordId))
       return Promise.resolve(false);
     return this.perform(`scale-${phase}`, async () => {
       this.publish({ isSavingScale: true, actionError: null });
@@ -348,7 +353,13 @@ export class EffectEvaluationExecution {
         if (!current.runId) return false;
         const record = await this.dependencies.saveScale(current, phase, answers);
         if (this.snapshot.state.interrupted) return false;
-        await this.dependencies.linkScale(current.runId, record.id, phase);
+        // DEQ records are saved and linked atomically by saveScale.
+        if (beforeInduction) {
+          await this.event('pre_induction_scale_submit', 'pre_induction_scale');
+          if (this.snapshot.state.interrupted) return false;
+          this.changeState({ preInductionRecordId: record.id });
+          return true;
+        }
         await this.event(
           phase === 'baseline' ? 'pre_scale_submit' : 'post_scale_submit',
           phase === 'baseline' ? 'pre_scale' : 'post_scale',
@@ -359,7 +370,7 @@ export class EffectEvaluationExecution {
             current.regulationSkipped ? 'aborted' : 'completed',
           );
         if (this.snapshot.state.interrupted) return false;
-        this.dependencies.scaleSaved(current, answers);
+        this.dependencies.scaleSaved(current);
         this.changeState(
           phase === 'baseline'
             ? { baselineRecordId: record.id, step: 3 }

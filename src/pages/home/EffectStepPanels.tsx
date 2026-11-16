@@ -2,8 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
-import InstrumentScaleDialog from '../../mentalScale/InstrumentScaleDialog';
-import BriefRatingDialog from '../../mentalScale/BriefRatingDialog';
+import DeqRatingDialog from '../../mentalScale/DeqRatingDialog';
 import EffectRegulationPlayer from './EffectRegulationPlayer';
 import { EffectFullscreenInduction } from './EffectFullscreenInduction';
 import { EffectFullscreenVideoRegulation } from './EffectFullscreenVideoRegulation';
@@ -108,6 +107,21 @@ export function InductionStepPanel({
             </button>
           </div>
         </>
+      ) : status.kind === 'ready' && !state.preInductionRecordId ? (
+        <div className={styles.stagePrimaryRow}>
+          <Button
+            variant="contained"
+            disabled={flow.isStartingRun || state.interrupted}
+            onClick={() => void flow.beginInduction()}
+          >
+            {flow.isStartingRun ? '正在开始实验…' : '填写观看前感受'}
+          </Button>
+          {!state.runId && (
+            <Button disabled={flow.isStartingRun} onClick={() => navigate('/experiment-settings')}>
+              返回实验设置
+            </Button>
+          )}
+        </div>
       ) : status.kind === 'ready' ? (
         <EffectFullscreenInduction
           onReturnToSettings={state.runId ? undefined : () => navigate('/experiment-settings')}
@@ -132,7 +146,7 @@ export function InductionStepPanel({
 }
 export type ScaleStepPanelProps = {
   flow: EffectEvaluationFlow;
-  phase: 'baseline' | 'post';
+  phase: 'pre_induction' | 'baseline' | 'post';
   skippedCopy: string | null;
   isDialogOpen: boolean;
   onOpenDialog: () => void;
@@ -150,8 +164,13 @@ export function ScaleStepPanel({
   const isBaseline = phase === 'baseline';
   const { state } = flow;
   return (
-    <section className={styles.stageBody} aria-label={isBaseline ? '诱发后量表' : '条件后量表'}>
-      {!isBaseline && skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
+    <section
+      className={styles.stageBody}
+      aria-label={
+        phase === 'pre_induction' ? '诱发前量表' : isBaseline ? '诱发后量表' : '条件后量表'
+      }
+    >
+      {phase === 'post' && skippedCopy ? <Alert severity="warning">{skippedCopy}</Alert> : null}
 
       {flow.actionError ? (
         <div className={styles.errorBanner} role="alert">
@@ -170,8 +189,8 @@ export function ScaleStepPanel({
         </Button>
       </div>
 
-      {isDialogOpen && state.protocol === 'brief' && state.runId ? (
-        <BriefRatingDialog
+      {isDialogOpen && state.runId ? (
+        <DeqRatingDialog
           key={`${state.runId}-${phase}`}
           runId={state.runId}
           phase={phase}
@@ -179,17 +198,6 @@ export function ScaleStepPanel({
           submitError={flow.actionError}
           onClose={onCloseDialog}
           onComplete={(answers) => flow.completeScaleMeasurement(phase, answers)}
-        />
-      ) : isDialogOpen && state.protocol === 'full' ? (
-        <InstrumentScaleDialog
-          key={`scale-${phase}`}
-          definition={flow.scaleDefinitionFor(phase)}
-          isSubmitting={flow.isSavingScale}
-          submitError={flow.actionError}
-          onComplete={(answers) => {
-            void flow.completeScaleMeasurement(phase, answers);
-          }}
-          onClose={onCloseDialog}
         />
       ) : null}
     </section>

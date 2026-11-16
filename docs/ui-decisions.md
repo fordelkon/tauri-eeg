@@ -6,7 +6,7 @@
 
 ## 已完成的调整
 
-001–015 的审计日期为 **2026-09-23**，基线 `4f567de`，实现提交 `a53d93f`。016–020 的基线为 `a09c7bf`，实现提交 `2f9fe40`（**2026-10-08**）。以下文件均曾记录为 DONE。查阅任一计划原文，可用 `git show 0aea445:plans/<原文件名>`；同一提交的 `plans/README.md` 是当时的完整索引。
+001–015 的基线为 `4f567de`，实现提交 `a53d93f`。016–020 的基线为 `a09c7bf`，实现提交 `2f9fe40`。以下文件均曾记录为 DONE。查阅任一计划原文，可用 `git show 0aea445:plans/<原文件名>`；同一提交的 `plans/README.md` 是当时的完整索引。
 
 | 原文件名 | 设计决定及验收要点 |
 |---|---|
@@ -23,7 +23,6 @@
 | `011-home-logo-rest.md` | 主页装饰播放一轮后静止，切换窗口回来也不重新播放；首次进入时的介绍层允许循环。 |
 | `012-feedback-bar-scalex.md` | 试次反馈条从左端按 scaleX 显示进度，数值与轨道稳定，减少动态效果时直接显示终值。 |
 | `013-matter-resize-coalesce.md` | 连续调整窗口大小，每帧最多重建一次物理场景；组件退出时取消尚未执行的帧。 |
-| `014-radar-reduced-motion.md` | 雷达图和结果图表共享 chartAnimationDuration；开启减少动态效果时返回 0。 |
 | `015-curve-consolidation-press-feedback.md` | 共用的进入、按压曲线从全局 token 取值；登录错误反馈及首次动画的局部例外保留设计理由。 |
 | `016-experiment-settings-button-tiers.md` | 连接等主要操作与刷新端口、选择文件夹、返回等次要操作分层；只在正在执行的按钮上标示忙碌状态。 |
 | `017-experiment-settings-status-banners.md` | 错误、成功和提示在原位置显示，保留告警语义；提示条随内容排布，避免遮挡操作。 |
@@ -53,7 +52,7 @@
 > Do NOT change persistence behavior (`savePreferences` writing on each
 >   change is intentional — operator state must survive a crash).
 
-**001 执行记录（2026-09-23）**
+**001 执行记录**
 
 > Executed as written. One anticipated deviation: the contract test
 > `EffectProgressDisclosure.contract.test.ts` asserted the old conditional
@@ -61,7 +60,7 @@
 > updated per this plan's Mechanical section to pin the new invariant
 > (`<Collapse in={isOpen}` + `unmountOnExit`). 485/485 tests green.
 
-**003 执行记录（2026-09-23）**
+**003 执行记录**
 
 > Executed with one API adaptation: MUI v9 removed `TransitionComponent`/
 > `transitionDuration` from Dialog/Popover props (tsc rejected the plan's
@@ -71,7 +70,7 @@
 > `cubic-bezier(0.16, 1, 0.3, 1)`, exit `cubic-bezier(0.7, 0, 0.84, 0)`.
 > `tsc` clean, 485/485 tests green.
 
-**004 执行记录（2026-09-23）**
+**004 执行记录**
 
 > Executed as written. One VideoRegulation nuance vs. the audit excerpt: its
 > `from` keyframe already carried `scale(0.99)` (only the `to` transform lacked

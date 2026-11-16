@@ -1,24 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { ParadigmVideoEntry } from '../../paradigm/types';
 import {
-  buildConditionComparisonVerdictCopy,
-  buildEffectVerdictCopy,
   clearFlowStateFromStorage,
-  CONDITION_COMPARISON_FORMULA_NOTE,
   createEffectEvaluationFlowState,
   describeInductionPoolStatus,
-  describeMeasuredBasis,
-  describeMissingMeasurements,
   describeRegulationSkipped,
   EFFECT_CONDITION_OPTIONS,
   EFFECT_FLOW_STEP_COUNT,
   EFFECT_FLOW_STEPS,
   formatCountdown,
-  formatImprovementRate,
   isRegulationWindowOpen,
   isRegulationWindowOpenInStorage,
   labelForCondition,
-  labelForDimension,
   paradigmPoolKeyForEmotion,
   parseFlowState,
   readFlowStateFromStorage,
@@ -140,11 +133,7 @@ describe('strong duration constraint (R3)', () => {
     expect(describeRegulationSkipped(skippedNotStarted)).toBeNull();
 
     const skippedStarted = { ...skippedNotStarted, regulationStartedAtMs: 1_000 };
-    for (const protocol of ['brief', 'full'] as const) {
-      expect(describeRegulationSkipped({ ...skippedStarted, protocol })).toBe(
-        '本次体验提前结束，已记录跳过剩余时长。',
-      );
-    }
+    expect(describeRegulationSkipped(skippedStarted)).toBe('本次体验提前结束，已记录跳过剩余时长。');
   });
 
   it('round-trips the skip marker and rejects corrupt stored values', () => {
@@ -232,83 +221,6 @@ describe('flow state persistence across the regulation-page jump', () => {
     expect(restoredLow?.durationMinutes).toBe(1);
   });
 });
-
-describe('missing-measurement guard (异常分支)', () => {
-  it('names every missing phase when neither record exists', () => {
-    const copy = describeMissingMeasurements(createEffectEvaluationFlowState());
-    expect(copy).toContain('基线与调控后');
-    expect(copy).toContain('无法计算改善率');
-  });
-
-  it('names only the missing phase when one record was saved', () => {
-    const onlyBaseline = {
-      ...createEffectEvaluationFlowState(),
-      baselineRecordId: 'rec-baseline',
-    };
-    const postMissing = describeMissingMeasurements(onlyBaseline);
-    expect(postMissing).toContain('缺少调控后');
-    expect(postMissing).not.toContain('缺少基线');
-
-    const onlyPost = {
-      ...createEffectEvaluationFlowState(),
-      postRecordId: 'rec-post',
-    };
-    const baselineMissing = describeMissingMeasurements(onlyPost);
-    expect(baselineMissing).toContain('缺少基线');
-    expect(baselineMissing).not.toContain('缺少调控后');
-  });
-
-  it('returns null once both records are paired so the summary may load', () => {
-    const complete = {
-      ...createEffectEvaluationFlowState(),
-      baselineRecordId: 'rec-baseline',
-      postRecordId: 'rec-post',
-    };
-    expect(describeMissingMeasurements(complete)).toBeNull();
-  });
-});
-
-describe('improvement display logic', () => {
-  it('formats signed percents with one decimal', () => {
-    expect(formatImprovementRate(0.4)).toBe('+40%');
-    expect(formatImprovementRate(0.4567)).toBe('+45.7%');
-    expect(formatImprovementRate(-0.125)).toBe('-12.5%');
-    expect(formatImprovementRate(0)).toBe('0%');
-  });
-
-  it('labels known dimensions in Chinese and keeps unknown keys readable', () => {
-    expect(labelForDimension('anxiety')).toBe('焦虑');
-    expect(labelForDimension('mood')).toBe('情绪');
-    expect(labelForDimension('energy')).toBe('精力');
-    expect(labelForDimension('worry')).toBe('担忧');
-    expect(labelForDimension('custom-scale-key')).toBe('custom-scale-key');
-  });
-
-  it('reports an undecidable verdict when no dimension is comparable', () => {
-    const copy = buildEffectVerdictCopy({ meanImprovementRate: null, meetsThreshold: false });
-    expect(copy.severity).toBe('warning');
-    expect(copy.title).toBe('无法判定调控效果');
-  });
-
-  it('announces success at or above the 10% threshold', () => {
-    const copy = buildEffectVerdictCopy({ meanImprovementRate: 0.32, meetsThreshold: true });
-    expect(copy.severity).toBe('success');
-    expect(copy.title).toBe('达到改善阈值');
-    expect(copy.detail).toContain('+32%');
-    expect(copy.detail).toContain('10%');
-  });
-
-  it('warns below the threshold and explains negative rates', () => {
-    const copy = buildEffectVerdictCopy({ meanImprovementRate: -0.05, meetsThreshold: false });
-    expect(copy.severity).toBe('warning');
-    expect(copy.title).toBe('未达到改善阈值');
-    expect(copy.detail).toContain('-5%');
-  });
-});
-
-/* ------------------------------------------------------------------ */
-/* R4/F4: regulation-page session context                              */
-/* ------------------------------------------------------------------ */
 
 /** In-memory sessionStorage stand-in for the node vitest environment. */
 function fakeStorage(initial: Record<string, string> = {}) {
@@ -439,22 +351,6 @@ describe('regulation page context (R4/F4 调控页消费会话上下文)', () =>
 /* R4/F1: measured-basis note                                          */
 /* ------------------------------------------------------------------ */
 
-describe('measured basis note (R4/F1 幻影维度口径)', () => {
-  it('adds no copy when the mean covered only dimensions marked measured', () => {
-    expect(describeMeasuredBasis({ measuredOnly: true })).toBeNull();
-  });
-
-  it('flags legacy pairs whose mean covers every stored key', () => {
-    const note = describeMeasuredBasis({ measuredOnly: false });
-    expect(note).toContain('未标注实测维度');
-    expect(note).toContain('占位维度');
-  });
-});
-
-/* ------------------------------------------------------------------ */
-/* R6, 大纲 6.2: condition split, induction pool, cross-condition copy   */
-/* ------------------------------------------------------------------ */
-
 describe('wizard condition selection (R6 实验条件)', () => {
   it('defaults a fresh run to the natural-recovery baseline condition', () => {
     expect(createEffectEvaluationFlowState().condition).toBe('natural_recovery');
@@ -471,12 +367,8 @@ describe('wizard condition selection (R6 实验条件)', () => {
     }
   });
 
-  it('labels legacy null rows as the old regulation flow instead of hiding them', () => {
-    const legacy = labelForCondition(null);
-    expect(legacy).toContain('调控条件');
-    expect(legacy).toContain('legacy');
-    // Unknown values stay readable rather than being coerced.
-    expect(labelForCondition('sleep')).toBe('sleep');
+  it('labels missing conditions without assigning a condition', () => {
+    expect(labelForCondition(null)).toBe('—');
   });
 
   it('round-trips the condition and rejects stored values outside the two options', () => {
@@ -602,46 +494,6 @@ describe('emotion induction pool gating (R6 素材池硬前置)', () => {
       expect(empty.copy).toContain('素材池为空');
       expect(empty.copy).toContain('不提供跳过');
     }
-  });
-});
-
-describe('cross-condition comparison copy (R6 跨条件对比)', () => {
-  it('reports an undecidable verdict when no dimension is comparable', () => {
-    const copy = buildConditionComparisonVerdictCopy({
-      meanImprovementRate: null,
-      meetsThreshold: false,
-    });
-    expect(copy.severity).toBe('warning');
-    expect(copy.title).toBe('无法判定跨条件改善');
-  });
-
-  it('announces success when the regulation condition beats the threshold', () => {
-    const copy = buildConditionComparisonVerdictCopy({
-      meanImprovementRate: 0.32,
-      meetsThreshold: true,
-    });
-    expect(copy.severity).toBe('success');
-    expect(copy.title).toBe('调控条件优于基线条件（达标）');
-    expect(copy.detail).toContain('+32%');
-    expect(copy.detail).toContain('10%');
-    expect(copy.detail).toContain('自然恢复');
-  });
-
-  it('warns below the threshold and explains negative rates', () => {
-    const copy = buildConditionComparisonVerdictCopy({
-      meanImprovementRate: -0.05,
-      meetsThreshold: false,
-    });
-    expect(copy.severity).toBe('warning');
-    expect(copy.title).toBe('调控条件未优于基线条件');
-    expect(copy.detail).toContain('-5%');
-    expect(copy.detail).toContain('不如自然恢复');
-  });
-
-  it('states the frozen formula note with its outline source', () => {
-    expect(CONDITION_COMPARISON_FORMULA_NOTE).toContain('B_post');
-    expect(CONDITION_COMPARISON_FORMULA_NOTE).toContain('T_post');
-    expect(CONDITION_COMPARISON_FORMULA_NOTE).toContain('B-1');
   });
 });
 

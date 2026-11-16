@@ -1,9 +1,5 @@
 import type { EffectHistoryEntryView } from '../../mentalScale/scaleRecordsApi';
-import {
-  EFFECT_EMOTION_OPTIONS,
-  formatImprovementRate,
-  labelForCondition,
-} from './effectEvaluationFlow';
+import { EFFECT_EMOTION_OPTIONS, labelForCondition } from './effectEvaluationFlow';
 
 /**
  * Pure view-model for the history review tab: subject grouping, filtering,
@@ -94,33 +90,13 @@ export function labelForEmotion(emotion: string | null): string {
     return '—';
   }
 
+  // Metadata identifies the stimulus library category.
+  if (emotion === 'depression') return '抑郁';
   return EFFECT_EMOTION_OPTIONS.find((option) => option.value === emotion)?.label ?? emotion;
 }
 
-/**
- * Condition label for the history rows (R7, feedback-003 P2-1): operators
- * must be able to tell natural-recovery, regulation, and pre-R6 legacy runs
- * apart when checking "两条件各完成一次"; legacy null rows keep their explicit
- * legacy annotation instead of blending into the regulation condition.
- */
 export function labelForHistoryCondition(condition: string | null): string {
   return labelForCondition(condition);
-}
-
-export function formatMeanImprovementRate(rate: number | null): string {
-  return rate === null ? '—' : formatImprovementRate(rate);
-}
-
-export type HistoryOutcome = '达标' | '未达标' | '无法判定';
-
-export function outcomeForEntry(
-  entry: Pick<EffectHistoryEntryView, 'meanImprovementRate' | 'meetsThreshold'>,
-): HistoryOutcome {
-  if (entry.meanImprovementRate === null) {
-    return '无法判定';
-  }
-
-  return entry.meetsThreshold ? '达标' : '未达标';
 }
 
 /** Local-time `YYYY-MM-DD HH:mm`; unparsable input echoes back unchanged. */

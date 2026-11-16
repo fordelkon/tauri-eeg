@@ -116,20 +116,6 @@ impl Worker {
             trial,
         )
     }
-    pub fn link_scale(
-        &self,
-        run_id: String,
-        record_id: String,
-        measurement_time: String,
-    ) -> Result<Value, String> {
-        records::link_scale(
-            &*self.db.lock().map_err(|_| "Database unavailable")?,
-            &run_id,
-            &record_id,
-            &measurement_time,
-        )?;
-        Ok(Value::Null)
-    }
     #[cfg(test)]
     pub fn set_active_mode_for_test(&mut self) {
         self.active.as_mut().unwrap().0.input.mode = "formal".into();
@@ -314,7 +300,11 @@ impl Worker {
         {
             return Err("Invalid software timestamp.".into());
         }
-        let mapped = code(&input.event)?;
+        let mapped = if SOFTWARE_EVENTS.contains(&input.event.as_str()) {
+            None
+        } else {
+            Some(code(&input.event)?)
+        };
         let rehearsal = run.input.mode == "rehearsal";
         super::validation::validate(
             &*self.db.lock().map_err(|_| "Database unavailable")?,
@@ -340,7 +330,14 @@ impl Worker {
             write_started_at: None,
             write_finished_at: None,
             queue_wait_ms: None,
-            result: if rehearsal { "rehearsal" } else { "pending" }.into(),
+            result: if mapped.is_none() {
+                "logged"
+            } else if rehearsal {
+                "rehearsal"
+            } else {
+                "pending"
+            }
+            .into(),
             error: None,
         };
         // Persist the unique intention before any hardware side effect.
@@ -348,7 +345,7 @@ impl Worker {
             &*self.db.lock().map_err(|_| "Database unavailable")?,
             &event,
         )?;
-        if !rehearsal {
+        if let Some(pulse_code) = mapped.filter(|_| !rehearsal) {
             if let Some(last) = self.last_write {
                 let elapsed = last.elapsed();
                 if elapsed < Duration::from_millis(12) {
@@ -357,7 +354,7 @@ impl Worker {
             }
             event.write_started_at = Some(now());
             event.queue_wait_ms = Some(received.elapsed().as_secs_f64() * 1000.0);
-            match self.pulse(mapped) {
+            match self.pulse(pulse_code) {
                 Ok(()) => event.result = "written".into(),
                 Err(error) => {
                     event.result = "failed".into();

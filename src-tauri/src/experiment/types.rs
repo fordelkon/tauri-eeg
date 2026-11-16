@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+pub const SOFTWARE_EVENTS: [&str; 2] = ["pre_induction_scale_start", "pre_induction_scale_submit"];
+
 pub const EVENT_CODES: &[(&str, u8)] = &[
     ("depression_video_start", 1),
     ("anxiety_video_start", 2),
@@ -93,7 +95,7 @@ pub struct Event {
     #[serde(flatten)]
     pub input: EventInput,
     pub sequence: u64,
-    pub code: u8,
+    pub code: Option<u8>,
     pub received_at: String,
     pub backend_elapsed_ms: f64,
     pub write_started_at: Option<String>,

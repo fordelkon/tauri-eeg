@@ -41,7 +41,7 @@ export default function PreparationPlan({
           onClick={() => onDestination('effect')}
         >
           <strong>效果评价</strong>
-          <span>诱发 → 前测 → 音乐、视频调控或自然恢复 → 后测</span>
+          <span>诱发前评分 → 观看视频 → 诱发后评分 → 调控或自然恢复 → 再次评分</span>
         </button>
         <button
           type="button"

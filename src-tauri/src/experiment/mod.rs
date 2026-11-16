@@ -1,5 +1,5 @@
 mod bdf_verify;
-mod records;
+pub(crate) mod records;
 #[cfg(test)]
 mod records_tests;
 pub mod report;
@@ -159,19 +159,6 @@ pub async fn experiment_save_trial(
     trial: Value,
 ) -> Result<Value, String> {
     call(service, Box::new(move |w| w.save_trial(run_id, trial))).await
-}
-#[tauri::command]
-pub async fn experiment_link_scale(
-    service: State<'_, Service>,
-    run_id: String,
-    record_id: String,
-    measurement_time: String,
-) -> Result<(), String> {
-    call(
-        service,
-        Box::new(move |w| w.link_scale(run_id, record_id, measurement_time)),
-    )
-    .await
 }
 #[tauri::command]
 pub async fn experiment_export(

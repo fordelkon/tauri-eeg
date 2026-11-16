@@ -15,7 +15,7 @@ fn setup() -> (Arc<Mutex<Connection>>, Service, Run) {
     let db = Arc::new(Mutex::new(conn));
     let service = Service::new(db.clone());
     let run: Run = service
-        .call(Box::new(|w| {
+        .call(Box::new(move |w| {
             w.start(StartInput {
                 user_id: "operator".into(),
                 subject_id: "subject".into(),
@@ -46,33 +46,33 @@ fn trial(service: &Service, run_id: &str, payload: Value) -> Result<Value, Strin
     service.call(Box::new(move |w| w.save_trial(run_id, payload)))
 }
 
-fn scale_input() -> SaveScaleRecordInput {
+fn rating_input(run: &Run, phase: &str, intensity: u64) -> SaveScaleRecordInput {
+    let mut items = BTreeMap::new();
+    let mut dimension_scores = BTreeMap::new();
+    for (dimension, keys) in scale_records::DEQ_ITEMS {
+        dimension_scores.insert(dimension.into(), intensity as f64);
+        for key in keys {
+            items.insert(key, intensity);
+        }
+    }
     SaveScaleRecordInput {
         user_id: "operator".into(),
         subject_id: Some("subject".into()),
-        scale_id: "test".into(),
-        phase: "baseline".into(),
-        dimension_scores: BTreeMap::from([("anxiety".into(), 50.0)]),
-        raw_answers: json!({"answer": 2}),
+        scale_id: scale_records::DEQ_SCALE_ID.into(),
+        phase: phase.into(),
+        dimension_scores,
+        raw_answers: json!({"deq":items, "timeframe":"now"}),
         emotion: Some("anxiety".into()),
         condition: Some("regulation".into()),
         duration_minutes: Some(5),
         regulation_skipped: false,
         measured_dimensions: None,
-        experiment_run_id: None,
+        experiment_run_id: Some(run.run_id.clone()),
     }
 }
 
-fn save_scale(db: &Arc<Mutex<Connection>>, input: &SaveScaleRecordInput) -> String {
-    scale_records::save_scale_record(&db.lock().unwrap(), input)
-        .unwrap()
-        .id
-}
-
-fn link(service: &Service, run_id: &str, record_id: &str, phase: &str) -> Result<(), String> {
-    let (run_id, record_id, phase) = (run_id.to_owned(), record_id.to_owned(), phase.to_owned());
-    service.call(Box::new(move |w| w.link_scale(run_id, record_id, phase)))
-}
+#[path = "deq_tests.rs"]
+mod deq_tests;
 
 fn associate(service: &Service, run_id: &str, files: Vec<&str>) -> Result<Run, String> {
     let run_id = run_id.to_owned();
@@ -143,99 +143,61 @@ fn trial_missing_id_and_queued_close_reject_without_writing() {
     assert_eq!(detail(&service, &run.run_id)["trials"], json!([]));
 }
 
-#[test]
-fn matching_scale_is_idempotent_and_owned_by_one_run() {
-    let (db, service, run) = setup();
-    let other = other_run(&db, &run);
-    let record_id = save_scale(&db, &scale_input());
-    link(&service, &run.run_id, &record_id, "baseline").unwrap();
-    link(&service, &run.run_id, &record_id, "baseline").unwrap();
-    assert_eq!(
-        link(&service, &other.run_id, &record_id, "baseline").unwrap_err(),
-        "Scale is already linked to a different run or phase."
-    );
-    let manifest = detail(&service, &run.run_id);
-    assert_eq!(manifest["scales"].as_array().unwrap().len(), 1);
-    assert_eq!(manifest["scales"][0]["recordId"], record_id);
-    assert_eq!(manifest["scales"][0]["measurementTime"], "baseline");
-    assert_eq!(
-        manifest["scales"][0]["record"]["experimentRunId"],
-        run.run_id
-    );
-    assert_eq!(
-        manifest["scales"][0]["record"]["dimensionScores"],
-        json!({"anxiety": 50.0})
-    );
-    assert_eq!(
-        manifest["scales"][0]["record"]["rawAnswers"],
-        json!({"answer": 2})
-    );
-    assert_eq!(detail(&service, &other.run_id)["scales"], json!([]));
+fn start_rating(service: &Service, run: &Run) {
+    let event = EventInput {
+        run_id: run.run_id.clone(),
+        event_id: "t0-start".into(),
+        event: "pre_induction_scale_start".into(),
+        phase_instance_id: "t0".into(),
+        trial_id: None,
+        media_id: None,
+        software_time_ms: None,
+        source: None,
+        details: None,
+    };
+    service
+        .call::<Event>(Box::new(move |w| w.emit(event)))
+        .unwrap();
+}
+
+fn save_initial(db: &Arc<Mutex<Connection>>, service: &Service, run: &Run) -> String {
+    start_rating(service, run);
+    let input = rating_input(run, "pre_induction", 2);
+    super::records::save_measurement(&db.lock().unwrap(), &input)
+        .unwrap()
+        .id
 }
 
 #[test]
-fn scale_rejects_each_frozen_metadata_mismatch_and_invalid_phase_without_links() {
+fn rejects_mismatched_metadata_and_closed_runs_without_leaving_scale_records() {
     let (db, service, run) = setup();
-    let baseline = scale_input();
-    let mut variants = Vec::new();
-    let mut different = baseline.clone();
-    different.subject_id = Some("other-subject".into());
-    variants.push(different);
-    let mut different = baseline.clone();
-    different.user_id = "other".into();
-    variants.push(different);
-    let mut different = baseline.clone();
-    different.phase = "post".into();
-    variants.push(different);
-    let mut different = baseline.clone();
-    different.emotion = Some("fear".into());
-    variants.push(different);
-    let mut different = baseline.clone();
-    different.condition = Some("natural_recovery".into());
-    variants.push(different);
-    for input in variants {
-        let id = save_scale(&db, &input);
-        assert_eq!(
-            link(&service, &run.run_id, &id, "baseline").unwrap_err(),
-            "Scale metadata does not match the frozen experiment run."
-        );
+    start_rating(&service, &run);
+    let conn = db.lock().unwrap();
+    let original = rating_input(&run, "pre_induction", 2);
+    for field in ["user", "subject", "emotion", "condition"] {
+        let mut input = original.clone();
+        match field {
+            "user" => input.user_id = "other".into(),
+            "subject" => input.subject_id = Some("other".into()),
+            "emotion" => input.emotion = Some("fear".into()),
+            _ => input.condition = Some("natural_recovery".into()),
+        }
+        assert!(super::records::save_measurement(&conn, &input).is_err());
     }
-    let id = save_scale(&db, &baseline);
-    assert_eq!(
-        link(&service, &run.run_id, &id, "invalid").unwrap_err(),
-        "Invalid measurement time."
-    );
-    assert_eq!(detail(&service, &run.run_id)["scales"], json!([]));
-}
-
-#[test]
-fn scale_rejects_closed_and_non_effect_runs_and_supports_interrupted_post_measure() {
-    let (db, service, run) = setup();
-    let id = save_scale(&db, &scale_input());
+    let mut different = run.clone();
     for (kind, status) in [
-        ("personal_calibration", "interrupted"),
+        ("personal_calibration", "running"),
+        ("effect_evaluation", "interrupted"),
         ("effect_evaluation", "completed"),
-        ("effect_evaluation", "aborted"),
     ] {
-        let mut other = other_run(&db, &run);
-        other.input.kind = kind.into();
-        other.status = status.into();
-        store::save_run(&db.lock().unwrap(), &other).unwrap();
-        assert_eq!(
-            link(&service, &other.run_id, &id, "baseline").unwrap_err(),
-            "Scale run is closed or does not support this measure."
-        );
-        assert_eq!(detail(&service, &other.run_id)["scales"], json!([]));
+        different.input.kind = kind.into();
+        different.status = status.into();
+        store::save_run(&conn, &different).unwrap();
+        assert!(super::records::save_measurement(&conn, &original).is_err());
     }
-    let other = other_run(&db, &run);
-    let mut input = scale_input();
-    input.phase = "post".into();
-    let id = save_scale(&db, &input);
-    link(&service, &other.run_id, &id, "post").unwrap();
-    assert_eq!(
-        detail(&service, &other.run_id)["scales"][0]["measurementTime"],
-        "post"
-    );
+    assert!(scale_records::list_scale_records(&conn, None, None)
+        .unwrap()
+        .is_empty());
 }
 
 #[test]
@@ -344,8 +306,7 @@ fn list_filters_user_and_detail_retains_manifest_contract_and_event_order() {
 #[test]
 fn deleting_scale_record_cascades_from_experiment_scales_so_detail_succeeds() {
     let (db, service, run) = setup();
-    let id = save_scale(&db, &scale_input());
-    link(&service, &run.run_id, &id, "baseline").unwrap();
+    let id = save_initial(&db, &service, &run);
     assert_eq!(
         detail(&service, &run.run_id)["scales"]
             .as_array()
@@ -362,8 +323,7 @@ fn deleting_scale_record_cascades_from_experiment_scales_so_detail_succeeds() {
 #[test]
 fn delete_experiment_run_cascades_and_removes_all_associated_data() {
     let (db, service, run) = setup();
-    let id = save_scale(&db, &scale_input());
-    link(&service, &run.run_id, &id, "baseline").unwrap();
+    save_initial(&db, &service, &run);
     trial(
         &service,
         &run.run_id,

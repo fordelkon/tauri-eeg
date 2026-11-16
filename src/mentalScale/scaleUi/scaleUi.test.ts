@@ -117,7 +117,7 @@ describe('ScaleAnchorGroup', () => {
       { value: 2, label: '一半以上的天数' },
       { value: 3, label: '几乎每天' },
     ]);
-    // Discrete 1-5 (PANAS/GEMS).
+    // Discrete scale starting at 1.
     expect(
       buildAnchorOptions({
         layout: 'discrete',

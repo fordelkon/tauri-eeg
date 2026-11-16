@@ -45,8 +45,7 @@ const mountedWizardTreeFiles = [
   './EffectTimeline.tsx',
   './EffectProgressDisclosure.tsx',
   './EffectReviewPopover.tsx',
-  './EffectResultCards.tsx',
-  './EffectResultChartView.tsx',
+  './EmotionChangeTable.tsx',
   './EffectDeviceQuickStart.tsx',
 ] as const;
 

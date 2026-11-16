@@ -1,20 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useAuth } from '../../auth/AuthContext';
-import { createRun, emitEvent, finishRun, linkScale } from '../../experiment/api';
+import { createRun, emitEvent, finishRun } from '../../experiment/api';
 import { consumeRecordingConfirmation, readExperimentPreferences } from '../../experiment/settings';
 import { getParadigmSessionStatus } from '../../paradigm/paradigmSessionStatus';
-import {
-  buildBatteryMentalScaleStatus,
-  updateMentalScaleStatus,
-} from '../../mentalScale/mentalScaleStatus';
-import {
-  buildBatteryDefinition,
-  computeBatteryDimensions,
-} from '../../mentalScale/instruments/battery';
 import { recordScaleCompletion } from '../../mentalScale/scaleCompletion';
-import { buildPhaseMeasurement } from '../../mentalScale/instruments/phaseMeasurement';
+import { buildDeqMeasurement } from '../../mentalScale/instruments/deq';
 import { readStoredSubjectId, writeStoredSubjectId } from '../../storage/currentSubject';
-import { savePhaseInstrumentRecord, type ScalePhase } from '../../mentalScale/scaleRecordsApi';
+import { savePhaseInstrumentRecord } from '../../mentalScale/scaleRecordsApi';
 import {
   clearFlowStateFromStorage,
   createEffectEvaluationFlowState,
@@ -26,8 +18,6 @@ import { EffectEvaluationExecution } from './effectEvaluationExecution';
 import { useEffectInductionPool } from './useEffectInductionPool';
 import { useEffectRegulationPool } from './useEffectRegulationPool';
 import { useEffectResultReports } from './useEffectResultReports';
-
-const BASELINE_SCALE_DEFINITION = buildBatteryDefinition({ includeSam: true });
 
 export function useEffectEvaluationFlow() {
   const { currentUser } = useAuth();
@@ -53,7 +43,6 @@ export function useEffectEvaluationFlow() {
           createRun,
           emitEvent,
           finishRun,
-          linkScale,
           preferences: readExperimentPreferences,
           consumeRecordingConfirmation,
           userId: () => userIdRef.current,
@@ -62,25 +51,20 @@ export function useEffectEvaluationFlow() {
           wallNow: Date.now,
           monotonicNow: () => performance.now(),
           saveScale: async (current, phase, answers) => {
-            return await savePhaseInstrumentRecord({
+            if (!current.runId) throw new Error('缺少本次实验编号，无法保存评分。');
+            return savePhaseInstrumentRecord({
               userId: userIdRef.current,
+              experimentRunId: current.runId,
               subjectId: current.subjectId.trim(),
               phase,
-              ...buildPhaseMeasurement(current.protocol, answers),
+              ...buildDeqMeasurement(answers),
               emotion: current.emotion,
               condition: current.condition,
               durationMinutes: current.durationMinutes,
               regulationSkipped: phase === 'post' ? current.regulationSkipped : false,
             });
           },
-          scaleSaved: (current, answers) => {
-            if (current.protocol === 'full' && 'stai' in answers) {
-              updateMentalScaleStatus(
-                buildBatteryMentalScaleStatus(
-                  computeBatteryDimensions(answers.stai, answers.panas),
-                ),
-              );
-            }
+          scaleSaved: (current) => {
             recordScaleCompletion(regulationPathForMethod(current.method));
           },
         },
@@ -112,20 +96,6 @@ export function useEffectEvaluationFlow() {
     return execution.dispose;
   }, [execution]);
 
-  const postScaleDefinition = useMemo(
-    () =>
-      buildBatteryDefinition({
-        includeGems: state.method === 'music' && state.condition === 'regulation',
-      }),
-    [state.method, state.condition],
-  );
-  const scaleDefinitionFor = useCallback(
-    (phase: ScalePhase) => {
-      const definition = phase === 'baseline' ? BASELINE_SCALE_DEFINITION : postScaleDefinition;
-      return { ...definition, id: `${definition.scaleId}:${state.runId}:${phase}` };
-    },
-    [postScaleDefinition, state.runId],
-  );
   const beginInduction = useCallback(
     () => execution.beginInduction(inductionStatus),
     [execution, inductionStatus],
@@ -144,7 +114,6 @@ export function useEffectEvaluationFlow() {
     ...snapshot,
     beginInduction,
     resetFlow,
-    scaleDefinitionFor,
     inductionStatus,
     isInductionPoolLoading,
     isRegulationPoolLoading,

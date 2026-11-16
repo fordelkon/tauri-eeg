@@ -1,20 +1,16 @@
-use super::effect::*;
-use super::model::*;
+use super::{
+    emotion_changes, EmotionChange, ScaleRecord, DEQ_SCALE_ID, PHASE_BASELINE, PHASE_POST,
+    PHASE_PRE_INDUCTION,
+};
 use serde::Serialize;
 use std::collections::BTreeMap;
 
-/* ------------------------------------------------------------------ */
-/* History review (R3): chronological baseline/post pairing            */
-/* ------------------------------------------------------------------ */
-
-/// One completed baseline→post evaluation run, ready for the history view
-/// and the batch export (records without both phases are not runs).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EffectHistoryEntry {
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub rating_changes: Vec<StateRatingChange>,
-    pub experiment_run_id: Option<String>,
+    pub emotion_changes: Vec<EmotionChange>,
+    pub pre_induction_record_id: String,
+    pub experiment_run_id: String,
     pub subject_id: String,
     pub baseline_record_id: String,
     pub post_record_id: String,
@@ -22,123 +18,56 @@ pub struct EffectHistoryEntry {
     pub post_created_at: String,
     pub scale_id: String,
     pub emotion: Option<String>,
-    /// Wizard condition of the run (R6); `None` on legacy pre-R6 rows, which
-    /// consumers treat as the regulation condition of the old flow.
     pub condition: Option<String>,
     pub duration_minutes: Option<i64>,
     pub regulation_skipped: bool,
-    /// EEG recording session of the run (post leg first, baseline fallback).
-    /// False when the mean was computed over unmarked legacy records.
-    pub measured_only: bool,
-    pub mean_improvement_rate: Option<f64>,
-    pub meets_threshold: Option<bool>,
-    pub dimensions: Vec<RegulationDimensionImprovement>,
 }
 
-/// Pairs records into evaluation runs by walking them chronologically per
-/// subject: each post record pairs with the most recent unmatched baseline
-/// of the same subject and the same wizard condition, and a fresh baseline
-/// supersedes a dangling one. Records are expected in `list_scale_records`
-/// order (created_at ASC); subjects are keyed by their id, with unbound
-/// records grouped under "". Conditions are keyed by their raw stored value
-/// (`""` for legacy NULL rows), so a post never consumes a baseline saved
-/// under another condition and legacy rows only pair among themselves.
+/// Keep the three saved measurements together using their experiment run ID.
 pub fn build_effect_history(records: &[ScaleRecord]) -> Vec<EffectHistoryEntry> {
-    let mut pending_baselines: BTreeMap<_, ScaleRecord> = BTreeMap::new();
-    let mut entries = Vec::new();
-
-    for record in records {
-        let subject_key = record.subject_id.clone().unwrap_or_default();
-        let condition_key = record.condition.clone().unwrap_or_default();
-        let pair_key = (
-            subject_key.clone(),
-            condition_key,
-            record.scale_id.clone(),
-            record.experiment_run_id.clone(),
-        );
-
-        match record.phase.as_str() {
-            PHASE_BASELINE => {
-                pending_baselines.insert(pair_key, record.clone());
-            }
-            PHASE_POST => {
-                let Some(baseline) = pending_baselines.remove(&pair_key) else {
-                    continue;
-                };
-
-                // A corrupt dimension payload fails loudly elsewhere; here it
-                // only drops one run from the review instead of the whole list.
-                if let Ok(summary) = compute_regulation_effect_summary(&baseline, record) {
-                    entries.push(EffectHistoryEntry {
-                        experiment_run_id: record.experiment_run_id.clone(),
-                        subject_id: subject_key.clone(),
-                        baseline_record_id: baseline.id,
-                        post_record_id: record.id.clone(),
-                        baseline_created_at: baseline.created_at,
-                        post_created_at: record.created_at.clone(),
-                        scale_id: record.scale_id.clone(),
-                        emotion: record.emotion.clone().or_else(|| baseline.emotion.clone()),
-                        condition: record
-                            .condition
-                            .clone()
-                            .or_else(|| baseline.condition.clone()),
-                        duration_minutes: record.duration_minutes.or(baseline.duration_minutes),
-                        regulation_skipped: record.regulation_skipped
-                            || baseline.regulation_skipped,
-                        measured_only: summary.measured_only,
-                        mean_improvement_rate: summary.mean_improvement_rate,
-                        meets_threshold: summary.rating_changes.is_empty().then(|| summary.meets_threshold()),
-                        rating_changes: summary.rating_changes,
-                        dimensions: summary.dimensions,
-                    });
-                }
-            }
-            _ => {}
+    let mut runs: BTreeMap<&str, BTreeMap<&str, &ScaleRecord>> = BTreeMap::new();
+    for record in records.iter().filter(|r| r.scale_id == DEQ_SCALE_ID) {
+        if let Some(run) = record.experiment_run_id.as_deref() {
+            runs.entry(run).or_default().insert(&record.phase, record);
         }
     }
-
+    let mut entries: Vec<_> = runs
+        .into_iter()
+        .filter_map(|(run, phases)| {
+            let first = phases.get(PHASE_PRE_INDUCTION)?;
+            let baseline = phases.get(PHASE_BASELINE)?;
+            let post = phases.get(PHASE_POST)?;
+            Some(EffectHistoryEntry {
+                emotion_changes: emotion_changes(first, baseline, post).ok()?,
+                experiment_run_id: run.to_owned(),
+                subject_id: post.subject_id.clone()?,
+                pre_induction_record_id: first.id.clone(),
+                baseline_record_id: baseline.id.clone(),
+                post_record_id: post.id.clone(),
+                baseline_created_at: baseline.created_at.clone(),
+                post_created_at: post.created_at.clone(),
+                scale_id: post.scale_id.clone(),
+                emotion: post.emotion.clone(),
+                condition: post.condition.clone(),
+                duration_minutes: post.duration_minutes,
+                regulation_skipped: post.regulation_skipped,
+            })
+        })
+        .collect();
+    entries.sort_by(|a, b| a.post_created_at.cmp(&b.post_created_at));
     entries
 }
 
-/// The condition a run belongs to for grouping purposes: an explicit
-/// `natural_recovery` marks the baseline condition, everything else (explicit
-/// `regulation` and legacy `NULL` rows alike) is the regulation condition of
-/// the same flow.
-pub fn effective_condition(condition: Option<&str>) -> &'static str {
-    match condition {
-        Some(CONDITION_NATURAL_RECOVERY) => CONDITION_NATURAL_RECOVERY,
-        _ => CONDITION_REGULATION,
-    }
-}
-
-/// Collapses the full history to each subject-emotion-condition triple's most
-/// recent run for the batch export: the acceptance outline judges the
-/// regulation condition against the natural-recovery baseline condition per
-/// subject and emotion, so one row survives per (subject, emotion, condition)
-/// combination (legacy NULL rows group with explicit `regulation` runs). The
-/// result is ordered by subject id, emotion, and condition for stable output.
+/// Input history is ordered by completion time.
 pub fn latest_entry_per_subject_emotion_condition(
     entries: &[EffectHistoryEntry],
 ) -> Vec<EffectHistoryEntry> {
-    let mut latest: BTreeMap<_, EffectHistoryEntry> = BTreeMap::new();
-
+    let mut latest = BTreeMap::new();
     for entry in entries {
-        // Entries arrive chronologically, so later ones overwrite earlier
-        // ones within the same (subject, emotion, condition) triple.
         latest.insert(
-            (
-                entry.subject_id.clone(),
-                entry.emotion.clone(),
-                entry.scale_id.clone(),
-                effective_condition(entry.condition.as_deref()).to_string(),
-            ),
+            (&entry.subject_id, &entry.emotion, &entry.condition),
             entry.clone(),
         );
     }
-
     latest.into_values().collect()
 }
-
-/* ------------------------------------------------------------------ */
-/* Cross-condition comparison (R6, 大纲 6.2)                            */
-/* ------------------------------------------------------------------ */

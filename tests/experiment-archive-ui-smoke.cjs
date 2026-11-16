@@ -16,7 +16,7 @@ const run = {
   durationMinutes: 1,
   startedAt: '2026-11-13T14:25:15Z',
   endedAt: '2026-11-13T14:28:34Z',
-  protocolVersion: 'brief',
+  protocolVersion: 'deq_zh_state_12_v1',
   eventMappingVersion: '1',
   externalRecordingConfirmedAt: null,
   expectedRecordingName: 'C:/preview/sub-001/eeg_recordings/sub-001_task-effect_run-01_eeg.bdf',

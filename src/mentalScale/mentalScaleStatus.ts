@@ -1,5 +1,3 @@
-import type { BatteryDimensionScores } from './instruments/battery';
-import { staiPanasBatteryDefinition } from './instruments/battery';
 import type {
   MentalScaleAnswers,
   MentalScaleDefinition,
@@ -140,41 +138,4 @@ export function buildMentalScaleStatus(
 
 function getQuestionDimensionKey(question: MentalScaleQuestion): MentalScaleDimensionKey | null {
   return questionDimensionMap[question.id] ?? null;
-}
-
-/** Maps a score onto the 0-100 severity percent the radar displays. */
-function rangePercent(value: number, min: number, max: number): number {
-  return ((value - min) / (max - min)) * 100;
-}
-
-/**
- * Radar/status mirror for the STAI-S + PANAS battery (the evaluation wizard's
- * ②/④ instrument, doc scale-instruments.md §3.1). Battery engine scores are
- * lower=better (anxiety 20-80, mood/energy 1-5); the radar displays 0-100
- * severity percent (higher = more negative state), matching the gate's
- * answer/max scaling. `worry` is not measured by the battery and keeps the
- * neutral placeholder, exactly like unmeasured gate dimensions.
- */
-export function buildBatteryMentalScaleStatus(
-  scores: BatteryDimensionScores,
-  updatedAt = Date.now(),
-): MentalScaleStatus {
-  const severity: Partial<Record<MentalScaleDimensionKey, number>> = {
-    anxiety: rangePercent(scores.anxiety, 20, 80),
-    mood: rangePercent(scores.mood, 1, 5),
-    energy: rangePercent(scores.energy, 1, 5),
-  };
-
-  return {
-    dimensions: mentalScaleDimensions.map((dimension) => {
-      const value = severity[dimension.key];
-
-      return {
-        ...dimension,
-        value: value === undefined ? 50 : Math.round(value),
-      };
-    }),
-    lastScaleTitle: staiPanasBatteryDefinition.title,
-    updatedAt,
-  };
 }

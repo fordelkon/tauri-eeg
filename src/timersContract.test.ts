@@ -130,8 +130,6 @@ describe('rAF loop contract', () => {
   test('one-shot rAF uses cancel their frames on unmount', () => {
     const oneShotRafFiles = [
       'src/agent/ExperimentAgentPanel.tsx',
-      'src/mentalScale/GlobalMentalScalePanel.tsx',
-      'src/pages/home/EffectResultChartView.tsx',
     ] as const;
 
     for (const path of oneShotRafFiles) {
